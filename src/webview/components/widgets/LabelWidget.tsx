@@ -17,7 +17,6 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   }
   
   const text = displayText;
-  const [fontMetrics, setFontMetrics] = React.useState<{ scaleFactor: number } | null>(null);
   
   // 滚动动画状态
   const [scrollOffset, setScrollOffset] = React.useState(0);
@@ -29,29 +28,6 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   
   // 只有在选择了自定义字体且检测完成时才显示警告
   const showWarning = fontPath && !fontLoading && !isChecking && !supported && missingChars.length > 0;
-
-  // 监听字体度量信息
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.command === 'fontMetricsLoaded' && event.data.fontPath === fontPath) {
-        setFontMetrics({ scaleFactor: event.data.metrics.scaleFactor });
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [fontPath]);
-
-  // 当字体文件改变时，请求字体度量信息
-  React.useEffect(() => {
-    if (fontPath) {
-      window.vscodeAPI?.postMessage({
-        command: 'getFontMetrics',
-        fontPath: fontPath
-      });
-    } else {
-      setFontMetrics(null);
-    }
-  }, [fontPath]);
 
   // 合并字体样式
   const hAlign = component.style?.hAlign || 'LEFT';
@@ -80,17 +56,7 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   const wordBreak = component.style?.wordBreak || false;
   
   // 获取配置的字号（确保是数字类型）
-  const configuredFontSize = Number(component.data?.fontSize) || 16;
-  
-  // 是否使用精确预览模式（默认开启）
-  const useAccuratePreview = component.data?.useAccuratePreview ?? true;
-  
-  // 计算实际渲染字号
-  let actualFontSize = configuredFontSize;
-  if (useAccuratePreview && fontMetrics && fontMetrics.scaleFactor !== 1.0) {
-    // 精确预览模式：模拟转换器的缩放效果
-    actualFontSize = configuredFontSize * fontMetrics.scaleFactor;
-  }
+  const actualFontSize = Number(component.data?.fontSize) || 16;
   
   // 计算垂直对齐的 padding
   // 关键：lineHeight 等于 fontSize 时，文本占用空间 = EM 矩形大小

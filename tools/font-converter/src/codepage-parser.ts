@@ -21,9 +21,9 @@ import { BINARY_FORMAT } from './constants';
  * File type detection for .cp files
  */
 enum CpFileType {
-  HEX_FORMAT,    // 0xABCD format
+  HEX_FORMAT, // 0xABCD format
   STRING_FORMAT, // Plain text string
-  UNKNOWN
+  UNKNOWN,
 }
 
 /**
@@ -208,9 +208,7 @@ export class CodePageParser {
   static resolveCodePagePath(codePage: string, basePath: string): string | null {
     // If codePage contains path separator, treat as direct path
     if (codePage.includes('/') || codePage.includes('\\')) {
-      const directPath = path.isAbsolute(codePage)
-        ? codePage
-        : path.resolve(basePath, codePage);
+      const directPath = path.isAbsolute(codePage) ? codePage : path.resolve(basePath, codePage);
       if (fs.existsSync(directPath)) {
         return directPath;
       }

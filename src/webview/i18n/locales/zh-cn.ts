@@ -383,8 +383,6 @@ const zhCN = {
   'Bitmap font hint': '预渲染字形，固定字号，渲染速度快',
   'Vector font hint': '可任意缩放大小，支持字体变换，渲染速度一般',
   'grayscale': '灰度',
-  'Accurate Preview': '精确预览',
-  'Design Preview': '设计预览',
   'List size is auto-calculated': '列表尺寸由项数量、项长度和间距自动计算',
 
   // Context Menu
@@ -416,7 +414,6 @@ const zhCN = {
 
   // DefaultProperties - Font section
   'Font': '字体',
-  'Preview mode (does not change actual rendering)': '预览模式（不改变实际渲染效果）',
 
   // DefaultProperties - Timer section
   'Timer Settings': '计时器设置',

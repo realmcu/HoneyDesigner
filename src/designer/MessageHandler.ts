@@ -289,13 +289,6 @@ export class MessageHandler {
                 this._assetManager.handleGetMapFiles(this._fileManager.currentFilePath);
                 break;
 
-            case 'getFontMetrics':
-                await this._assetManager.handleGetFontMetrics(
-                    message.fontPath,
-                    this._fileManager.currentFilePath
-                );
-                break;
-
             case 'checkFontGlyphs':
                 this._assetManager.handleCheckFontGlyphs(
                     message.fontPath,

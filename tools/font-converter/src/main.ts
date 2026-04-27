@@ -1,9 +1,9 @@
 /**
  * Main entry point for CLI
- * 
+ *
  * Handles loading configuration, applying CLI overrides, creating font generators,
  * and managing error handling and exit codes.
- * 
+ *
  * Requirements: 7.2, 7.6, 7.7
  */
 
@@ -21,7 +21,7 @@ import { FontConverterError, ErrorCode } from './errors';
 export class FontGeneratorFactory {
   /**
    * Creates a font generator based on configuration
-   * 
+   *
    * @param config - Font configuration
    * @returns Font generator instance
    */
@@ -36,7 +36,7 @@ export class FontGeneratorFactory {
 
 /**
  * Main CLI execution function
- * 
+ *
  * @param argv - Command-line arguments (defaults to process.argv)
  * @returns Exit code (0 for success, non-zero for error)
  */
@@ -71,18 +71,20 @@ export async function main(argv?: string[]): Promise<number> {
 
       // Create and run generator
       const generator = FontGeneratorFactory.create(fontConfig);
-      
+
       try {
         await generator.generate();
-        
+
         // Report results
         const processed = generator.getProcessedCharacters();
         const failed = generator.getFailedCharacters();
-        
+
         console.log(`  ✓ Successfully generated ${processed.length} characters`);
-        
+
         if (failed.length > 0) {
-          console.log(`  ⚠ ${failed.length} characters failed to render (see NotSupportedChars.txt)`);
+          console.log(
+            `  ⚠ ${failed.length} characters failed to render (see NotSupportedChars.txt)`
+          );
         }
       } finally {
         // Clean up resources
@@ -92,12 +94,11 @@ export async function main(argv?: string[]): Promise<number> {
 
     console.log('\n✓ Font conversion completed successfully');
     return 0;
-
   } catch (error) {
     // Handle errors and return appropriate exit code
     if (error instanceof FontConverterError) {
       console.error(`\n✗ Error: ${error.message}`);
-      
+
       if (error.context) {
         console.error('Details:', error.context);
       }
@@ -159,4 +160,3 @@ export async function cli(): Promise<void> {
   const exitCode = await main();
   process.exit(exitCode);
 }
-

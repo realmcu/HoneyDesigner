@@ -6,7 +6,6 @@ import * as MP4Box from 'mp4box';
 import { EventEmitter } from 'events';
 import { logger } from '../utils/Logger';
 import { ProjectUtils } from '../utils/ProjectUtils';
-import { FontMetricsAnalyzer } from './FontMetricsAnalyzer';
 import { ConversionConfigService } from '../services/ConversionConfigService';
 
 /**
@@ -336,48 +335,6 @@ export class AssetManager extends EventEmitter {
             });
         } catch (error) {
             logger.error(`获取地图文件列表失败: ${error}`);
-        }
-    }
-
-    /**
-     * 获取字体度量信息
-     */
-    public async handleGetFontMetrics(fontPath: string, currentFilePath: string | undefined): Promise<void> {
-        try {
-            if (!currentFilePath || !fontPath) {
-                return;
-            }
-
-            const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
-            if (!projectRoot) {
-                return;
-            }
-
-            const assetsDir = ProjectUtils.getAssetsDir(projectRoot);
-            // 移除开头的斜杠，构建完整路径
-            const cleanPath = fontPath.startsWith('/') ? fontPath.substring(1) : fontPath;
-            const fullFontPath = path.join(assetsDir, cleanPath);
-
-            // 分析字体度量
-            const metrics = await FontMetricsAnalyzer.analyzeFontMetrics(fullFontPath);
-            
-            if (metrics) {
-                const warningInfo = FontMetricsAnalyzer.getWarningInfo(metrics);
-                
-                this._panel.webview.postMessage({
-                    command: 'fontMetricsLoaded',
-                    fontPath,
-                    metrics: {
-                        needsWarning: warningInfo.needsWarning,
-                        message: warningInfo.message,
-                        example: warningInfo.example,
-                        scaleFactor: metrics.scaleFactor,
-                        suggestedMultiplier: metrics.suggestedMultiplier
-                    }
-                });
-            }
-        } catch (error) {
-            logger.error(`获取字体度量信息失败: ${error}`);
         }
     }
 

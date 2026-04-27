@@ -1,37 +1,23 @@
 /**
  * Configuration management for TypeScript Font Converter
- * 
+ *
  * This module handles loading, parsing, validating, and merging configuration
  * from JSON files, INI files, and CLI overrides.
  */
 
 import * as fs from 'fs';
 import * as ini from 'ini';
-import {
-  FontConfig,
-  RootConfig,
-  CharacterSetSource,
-  INISettings
-} from './types';
-import {
-  RenderMode,
-  Rotation,
-  IndexMethod
-} from './types';
-import {
-  DEFAULTS,
-  VALIDATION_LIMITS
-} from './constants';
+import { FontConfig, RootConfig, CharacterSetSource, INISettings } from './types';
+import { RenderMode, Rotation, IndexMethod } from './types';
+import { DEFAULTS, VALIDATION_LIMITS } from './constants';
 import {
   FontConverterError,
-  ErrorCode,
   createConfigFileNotFoundError,
   createConfigParseError,
   createConfigValidationError,
-  createIndexMethodConflictError,
   createFontFileNotFoundError,
   createCharsetFileNotFoundError,
-  createCodePageNotFoundError
+  createCodePageNotFoundError,
 } from './errors';
 import { PathUtils } from './path-utils';
 
@@ -107,7 +93,7 @@ interface RawJSONConfig {
 export class ConfigManager {
   /**
    * Loads configuration from a JSON file
-   * 
+   *
    * @param configPath - Path to the JSON configuration file
    * @returns Root configuration with all font configs
    * @throws FontConverterError if file not found or parsing fails
@@ -135,20 +121,17 @@ export class ConfigManager {
 
   /**
    * Parses raw JSON configuration into FontConfig array
-   * 
+   *
    * @param rawConfig - Raw JSON configuration object
    * @param configPath - Path to config file (for relative path resolution)
    * @returns Array of FontConfig objects
    */
-  private static parseRawConfig(
-    rawConfig: RawJSONConfig,
-    configPath: string
-  ): FontConfig[] {
+  private static parseRawConfig(rawConfig: RawJSONConfig, configPath: string): FontConfig[] {
     const configDir = PathUtils.dirname(configPath);
 
     // Check if this is a multi-font configuration
     if (rawConfig.fonts && Array.isArray(rawConfig.fonts)) {
-      return rawConfig.fonts.map(fontConfig =>
+      return rawConfig.fonts.map((fontConfig) =>
         this.parseSingleFontConfig(fontConfig, rawConfig, configDir)
       );
     }
@@ -165,10 +148,7 @@ export class ConfigManager {
   /**
    * Parses a fontSet configuration (C++ format)
    */
-  private static parseFontSetConfig(
-    rawConfig: RawJSONConfig,
-    configDir: string
-  ): FontConfig {
+  private static parseFontSetConfig(rawConfig: RawJSONConfig, configDir: string): FontConfig {
     const fontSet = rawConfig.fontSet!;
     const outputFolder = rawConfig.OutputFolder || rawConfig.outputFolder || './output';
 
@@ -184,7 +164,7 @@ export class ConfigManager {
       indexMethod: this.parseIndexMethod(fontSet.indexMethod),
       crop: this.parseCrop(fontSet.crop),
       characterSets: this.parseCharacterSets(rawConfig),
-      outputFormat: this.parseOutputFormat(fontSet.outputFormat)
+      outputFormat: this.parseOutputFormat(fontSet.outputFormat),
     };
   }
 
@@ -197,8 +177,12 @@ export class ConfigManager {
     configDir: string
   ): FontConfig {
     const fontPath = fontConfig.fontPath || fontConfig.font || '';
-    const outputPath = fontConfig.outputPath || fontConfig.outputFolder ||
-                      rootConfig.OutputFolder || rootConfig.outputFolder || './output';
+    const outputPath =
+      fontConfig.outputPath ||
+      fontConfig.outputFolder ||
+      rootConfig.OutputFolder ||
+      rootConfig.outputFolder ||
+      './output';
 
     return {
       fontPath: this.resolvePath(fontPath, configDir),
@@ -212,7 +196,7 @@ export class ConfigManager {
       indexMethod: this.parseIndexMethod(fontConfig.indexMethod),
       crop: this.parseCrop(fontConfig.crop),
       characterSets: this.parseCharacterSets(fontConfig, rootConfig),
-      outputFormat: this.parseOutputFormat(fontConfig.outputFormat)
+      outputFormat: this.parseOutputFormat(fontConfig.outputFormat),
     };
   }
 
@@ -369,7 +353,7 @@ export class ConfigManager {
 
   /**
    * Loads INI settings from a file
-   * 
+   *
    * @param iniPath - Path to the INI settings file
    * @returns INI settings object
    * @throws FontConverterError if file not found or parsing fails
@@ -412,25 +396,22 @@ export class ConfigManager {
   /**
    * Merges INI settings into font configuration
    * INI settings override JSON configuration values
-   * 
+   *
    * @param config - Font configuration
    * @param iniSettings - INI settings to merge
    * @returns Updated font configuration
    */
-  public static mergeINISettings(
-    config: FontConfig,
-    iniSettings: INISettings
-  ): FontConfig {
+  public static mergeINISettings(config: FontConfig, iniSettings: INISettings): FontConfig {
     return {
       ...config,
       gamma: iniSettings.gamma ?? config.gamma,
-      rotation: iniSettings.rotation ?? config.rotation
+      rotation: iniSettings.rotation ?? config.rotation,
     };
   }
 
   /**
    * Validates that required file paths exist
-   * 
+   *
    * @param config - Font configuration to validate
    * @throws FontConverterError if files don't exist
    */
@@ -447,7 +428,7 @@ export class ConfigManager {
         const charSetPath = PathUtils.isAbsolute(charSet.value)
           ? charSet.value
           : PathUtils.resolveRelative(PathUtils.dirname(config.fontPath), charSet.value);
-        
+
         if (!fs.existsSync(charSetPath)) {
           throw createCharsetFileNotFoundError(charSetPath);
         }
@@ -455,7 +436,7 @@ export class ConfigManager {
         // Check if CodePage file exists
         // CodePage files are typically in a CodePage directory relative to the font
         const codePagePath = this.resolveCodePagePath(charSet.value, config.fontPath);
-        
+
         if (!fs.existsSync(codePagePath)) {
           throw createCodePageNotFoundError(charSet.value);
         }
@@ -469,28 +450,28 @@ export class ConfigManager {
    */
   private static resolveCodePagePath(codePage: string, fontPath: string): string {
     const fontDir = PathUtils.dirname(fontPath);
-    
+
     // Try common locations
     const possiblePaths = [
       PathUtils.join(fontDir, 'CodePage', codePage),
       PathUtils.join(fontDir, '..', 'CodePage', codePage),
       PathUtils.join(fontDir, '..', '..', 'CodePage', codePage),
-      PathUtils.join(process.cwd(), 'CodePage', codePage)
+      PathUtils.join(process.cwd(), 'CodePage', codePage),
     ];
-    
+
     for (const possiblePath of possiblePaths) {
       if (fs.existsSync(possiblePath)) {
         return possiblePath;
       }
     }
-    
+
     // Return first path as default (will fail validation)
     return possiblePaths[0];
   }
 
   /**
    * Validates a font configuration
-   * 
+   *
    * @param config - Font configuration to validate
    * @param skipFileChecks - Skip file existence checks (useful for testing)
    * @throws FontConverterError if validation fails
@@ -498,19 +479,11 @@ export class ConfigManager {
   public static validateConfig(config: FontConfig, skipFileChecks: boolean = false): void {
     // Validate required fields
     if (!config.fontPath) {
-      throw createConfigValidationError(
-        'fontPath',
-        'non-empty string',
-        'empty or undefined'
-      );
+      throw createConfigValidationError('fontPath', 'non-empty string', 'empty or undefined');
     }
 
     if (!config.outputPath) {
-      throw createConfigValidationError(
-        'outputPath',
-        'non-empty string',
-        'empty or undefined'
-      );
+      throw createConfigValidationError('outputPath', 'non-empty string', 'empty or undefined');
     }
 
     // Validate file paths exist (unless skipped for testing)
@@ -519,8 +492,10 @@ export class ConfigManager {
     }
 
     // Validate fontSize range
-    if (config.fontSize < VALIDATION_LIMITS.MIN_FONT_SIZE ||
-        config.fontSize > VALIDATION_LIMITS.MAX_FONT_SIZE) {
+    if (
+      config.fontSize < VALIDATION_LIMITS.MIN_FONT_SIZE ||
+      config.fontSize > VALIDATION_LIMITS.MAX_FONT_SIZE
+    ) {
       throw createConfigValidationError(
         'fontSize',
         `${VALIDATION_LIMITS.MIN_FONT_SIZE}-${VALIDATION_LIMITS.MAX_FONT_SIZE}`,
@@ -529,8 +504,7 @@ export class ConfigManager {
     }
 
     // Validate gamma range
-    if (config.gamma < VALIDATION_LIMITS.MIN_GAMMA ||
-        config.gamma > VALIDATION_LIMITS.MAX_GAMMA) {
+    if (config.gamma < VALIDATION_LIMITS.MIN_GAMMA || config.gamma > VALIDATION_LIMITS.MAX_GAMMA) {
       throw createConfigValidationError(
         'gamma',
         `${VALIDATION_LIMITS.MIN_GAMMA}-${VALIDATION_LIMITS.MAX_GAMMA}`,
@@ -540,12 +514,7 @@ export class ConfigManager {
 
     // Validate renderMode for bitmap fonts
     if (config.outputFormat === 'bitmap') {
-      const validModes = [
-        RenderMode.BIT_1,
-        RenderMode.BIT_2,
-        RenderMode.BIT_4,
-        RenderMode.BIT_8
-      ];
+      const validModes = [RenderMode.BIT_1, RenderMode.BIT_2, RenderMode.BIT_4, RenderMode.BIT_8];
       if (!validModes.includes(config.renderMode)) {
         throw createConfigValidationError(
           'renderMode',
@@ -560,24 +529,16 @@ export class ConfigManager {
       Rotation.ROTATE_0,
       Rotation.ROTATE_90,
       Rotation.ROTATE_180,
-      Rotation.ROTATE_270
+      Rotation.ROTATE_270,
     ];
     if (!validRotations.includes(config.rotation)) {
-      throw createConfigValidationError(
-        'rotation',
-        '0, 1, 2, or 3',
-        config.rotation.toString()
-      );
+      throw createConfigValidationError('rotation', '0, 1, 2, or 3', config.rotation.toString());
     }
 
     // Validate indexMethod
     const validIndexMethods = [IndexMethod.ADDRESS, IndexMethod.OFFSET];
     if (!validIndexMethods.includes(config.indexMethod)) {
-      throw createConfigValidationError(
-        'indexMethod',
-        '0 or 1',
-        config.indexMethod.toString()
-      );
+      throw createConfigValidationError('indexMethod', '0 or 1', config.indexMethod.toString());
     }
 
     // Note: indexMethod=1 + crop=true is now supported
@@ -596,18 +557,14 @@ export class ConfigManager {
 
   /**
    * Validates all configurations in a root config
-   * 
+   *
    * @param rootConfig - Root configuration with multiple fonts
    * @param skipFileChecks - Skip file existence checks (useful for testing)
    * @throws FontConverterError if any validation fails
    */
   public static validateRootConfig(rootConfig: RootConfig, skipFileChecks: boolean = false): void {
     if (!rootConfig.fonts || rootConfig.fonts.length === 0) {
-      throw createConfigValidationError(
-        'fonts',
-        'at least one font configuration',
-        'empty array'
-      );
+      throw createConfigValidationError('fonts', 'at least one font configuration', 'empty array');
     }
 
     for (let i = 0; i < rootConfig.fonts.length; i++) {
@@ -616,11 +573,10 @@ export class ConfigManager {
       } catch (error) {
         if (error instanceof FontConverterError) {
           // Add context about which font config failed
-          throw new FontConverterError(
-            error.code,
-            `Font configuration ${i}: ${error.message}`,
-            { ...error.context, details: `Font index: ${i}` }
-          );
+          throw new FontConverterError(error.code, `Font configuration ${i}: ${error.message}`, {
+            ...error.context,
+            details: `Font index: ${i}`,
+          });
         }
         throw error;
       }

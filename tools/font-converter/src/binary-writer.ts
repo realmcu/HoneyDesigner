@@ -1,9 +1,9 @@
 /**
  * Binary Writer for TypeScript Font Converter
- * 
+ *
  * This module provides utilities for writing packed binary data structures
  * with little-endian byte order, matching the C++ implementation.
- * 
+ *
  * Requirements: 5.8 - Little-endian format for all multi-byte integers
  */
 
@@ -19,7 +19,7 @@ export class BinaryWriter {
 
   /**
    * Creates a new BinaryWriter with the specified initial capacity
-   * 
+   *
    * @param initialCapacity - Initial buffer size in bytes (default: 1024)
    */
   constructor(initialCapacity: number = 1024) {
@@ -32,7 +32,7 @@ export class BinaryWriter {
   /**
    * Ensures the buffer has enough capacity for additional bytes
    * Doubles the buffer size if needed
-   * 
+   *
    * @param additionalBytes - Number of additional bytes needed
    */
   private ensureCapacity(additionalBytes: number): void {
@@ -43,13 +43,13 @@ export class BinaryWriter {
       while (newCapacity < requiredCapacity) {
         newCapacity *= 2;
       }
-      
+
       // Create new buffer and copy existing data
       const newBuffer = new ArrayBuffer(newCapacity);
       const newView = new Uint8Array(newBuffer);
       const oldView = new Uint8Array(this.buffer);
       newView.set(oldView.subarray(0, this.offset));
-      
+
       this.buffer = newBuffer;
       this.view = new DataView(this.buffer);
       this.capacity = newCapacity;
@@ -58,7 +58,7 @@ export class BinaryWriter {
 
   /**
    * Writes a signed 8-bit integer
-   * 
+   *
    * @param value - Value to write (-128 to 127)
    */
   writeInt8(value: number): void {
@@ -69,7 +69,7 @@ export class BinaryWriter {
 
   /**
    * Writes an unsigned 8-bit integer
-   * 
+   *
    * @param value - Value to write (0 to 255)
    */
   writeUint8(value: number): void {
@@ -80,7 +80,7 @@ export class BinaryWriter {
 
   /**
    * Writes a signed 16-bit integer in little-endian format
-   * 
+   *
    * @param value - Value to write (-32768 to 32767)
    */
   writeInt16LE(value: number): void {
@@ -91,7 +91,7 @@ export class BinaryWriter {
 
   /**
    * Writes an unsigned 16-bit integer in little-endian format
-   * 
+   *
    * @param value - Value to write (0 to 65535)
    */
   writeUint16LE(value: number): void {
@@ -102,7 +102,7 @@ export class BinaryWriter {
 
   /**
    * Writes a signed 32-bit integer in little-endian format
-   * 
+   *
    * @param value - Value to write (-2147483648 to 2147483647)
    */
   writeInt32LE(value: number): void {
@@ -113,7 +113,7 @@ export class BinaryWriter {
 
   /**
    * Writes an unsigned 32-bit integer in little-endian format
-   * 
+   *
    * @param value - Value to write (0 to 4294967295)
    */
   writeUint32LE(value: number): void {
@@ -124,7 +124,7 @@ export class BinaryWriter {
 
   /**
    * Writes raw bytes from a Uint8Array
-   * 
+   *
    * @param bytes - Bytes to write
    */
   writeBytes(bytes: Uint8Array): void {
@@ -135,7 +135,7 @@ export class BinaryWriter {
 
   /**
    * Writes a string as UTF-8 encoded bytes
-   * 
+   *
    * @param str - String to write
    */
   writeString(str: string): void {
@@ -146,7 +146,7 @@ export class BinaryWriter {
 
   /**
    * Writes a null-terminated string as UTF-8 encoded bytes
-   * 
+   *
    * @param str - String to write (null terminator added automatically)
    */
   writeNullTerminatedString(str: string): void {
@@ -157,14 +157,14 @@ export class BinaryWriter {
   /**
    * Writes a bitfield from an array of boolean values
    * Bits are packed from LSB to MSB (bit 0 is the least significant)
-   * 
+   *
    * @param bits - Array of boolean values (max 8 bits)
    */
   writeBitfield(bits: boolean[]): void {
     let byte = 0;
     for (let i = 0; i < bits.length && i < 8; i++) {
       if (bits[i]) {
-        byte |= (1 << i);
+        byte |= 1 << i;
       }
     }
     this.writeUint8(byte);
@@ -179,7 +179,7 @@ export class BinaryWriter {
    * - bit 3: indexMethod
    * - bit 4: crop
    * - bits 5-7: reserved (0)
-   * 
+   *
    * @param bold - Bold flag (bit 0)
    * @param italic - Italic flag (bit 1)
    * @param rvd - Reserved flag (bit 2)
@@ -194,11 +194,11 @@ export class BinaryWriter {
     crop: boolean
   ): void {
     let byte = 0;
-    if (bold) byte |= (1 << 0);
-    if (italic) byte |= (1 << 1);
-    if (rvd) byte |= (1 << 2);
-    if (indexMethod) byte |= (1 << 3);
-    if (crop) byte |= (1 << 4);
+    if (bold) byte |= 1 << 0;
+    if (italic) byte |= 1 << 1;
+    if (rvd) byte |= 1 << 2;
+    if (indexMethod) byte |= 1 << 3;
+    if (crop) byte |= 1 << 4;
     // bits 5-7 are reserved and must be 0
     this.writeUint8(byte);
   }
@@ -211,23 +211,18 @@ export class BinaryWriter {
    * - bit 2: rvd (reserved)
    * - bit 3: indexMethod
    * - bits 4-7: reserved (0)
-   * 
+   *
    * @param bold - Bold flag (bit 0)
    * @param italic - Italic flag (bit 1)
    * @param rvd - Reserved flag (bit 2)
    * @param indexMethod - Index method (bit 3, 0 or 1)
    */
-  writeVectorFontBitfield(
-    bold: boolean,
-    italic: boolean,
-    rvd: boolean,
-    indexMethod: number
-  ): void {
+  writeVectorFontBitfield(bold: boolean, italic: boolean, rvd: boolean, indexMethod: number): void {
     let byte = 0;
-    if (bold) byte |= (1 << 0);
-    if (italic) byte |= (1 << 1);
-    if (rvd) byte |= (1 << 2);
-    if (indexMethod) byte |= (1 << 3);
+    if (bold) byte |= 1 << 0;
+    if (italic) byte |= 1 << 1;
+    if (rvd) byte |= 1 << 2;
+    if (indexMethod) byte |= 1 << 3;
     // bits 4-7 are reserved and must be 0
     this.writeUint8(byte);
   }
@@ -235,7 +230,7 @@ export class BinaryWriter {
   /**
    * Gets the current buffer as a Buffer (Node.js)
    * Only includes data up to the current offset
-   * 
+   *
    * @returns Buffer containing written data
    */
   getBuffer(): Buffer {
@@ -245,7 +240,7 @@ export class BinaryWriter {
   /**
    * Gets the current buffer as a Uint8Array
    * Only includes data up to the current offset
-   * 
+   *
    * @returns Uint8Array containing written data
    */
   getUint8Array(): Uint8Array {
@@ -254,7 +249,7 @@ export class BinaryWriter {
 
   /**
    * Gets the current write offset (number of bytes written)
-   * 
+   *
    * @returns Current offset in bytes
    */
   getOffset(): number {
@@ -264,7 +259,7 @@ export class BinaryWriter {
   /**
    * Sets the write offset to a specific position
    * Useful for updating header fields after writing data
-   * 
+   *
    * @param offset - New offset position
    */
   setOffset(offset: number): void {
@@ -276,7 +271,7 @@ export class BinaryWriter {
 
   /**
    * Gets the current buffer capacity
-   * 
+   *
    * @returns Buffer capacity in bytes
    */
   getCapacity(): number {
@@ -294,7 +289,7 @@ export class BinaryWriter {
   /**
    * Writes a value at a specific offset without changing the current position
    * Useful for updating header fields after writing data
-   * 
+   *
    * @param offset - Position to write at
    * @param value - Value to write
    */
@@ -307,7 +302,7 @@ export class BinaryWriter {
 
   /**
    * Writes a value at a specific offset without changing the current position
-   * 
+   *
    * @param offset - Position to write at
    * @param value - Value to write
    */
@@ -320,7 +315,7 @@ export class BinaryWriter {
 
   /**
    * Writes a value at a specific offset without changing the current position
-   * 
+   *
    * @param offset - Position to write at
    * @param value - Value to write
    */
@@ -329,5 +324,29 @@ export class BinaryWriter {
       throw new RangeError(`Offset ${offset} is out of bounds for uint8 write`);
     }
     this.view.setUint8(offset, value);
+  }
+
+  /**
+   * Writes a V2 glyph header (6 bytes): bearing-based per-glyph header
+   * Layout: [bearingX(int8), bearingY(int8), width(uint8), height(uint8), advance(uint8), reserved(uint8)]
+   *
+   * Requirements: 3.1
+   */
+  writeGlyphHeaderV2(header: {
+    bearingX: number;
+    bearingY: number;
+    width: number;
+    height: number;
+    advance: number;
+    reserved: number;
+  }): void {
+    this.ensureCapacity(6);
+    this.view.setInt8(this.offset, header.bearingX);
+    this.view.setInt8(this.offset + 1, header.bearingY);
+    this.view.setUint8(this.offset + 2, header.width);
+    this.view.setUint8(this.offset + 3, header.height);
+    this.view.setUint8(this.offset + 4, header.advance);
+    this.view.setUint8(this.offset + 5, header.reserved);
+    this.offset += 6;
   }
 }

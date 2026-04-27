@@ -1,9 +1,9 @@
 /**
  * Cross-platform path utilities
- * 
+ *
  * This module provides utilities for handling file paths consistently
  * across Windows, macOS, and Linux platforms.
- * 
+ *
  * Requirements: 1.5, 10.2
  */
 
@@ -17,17 +17,19 @@ import * as os from 'os';
 export class PathUtils {
   /**
    * Normalizes a file path to use the platform-specific separator
-   * 
+   *
    * @param filePath - Path to normalize
    * @returns Normalized path
    */
   public static normalize(filePath: string): string {
-    return path.normalize(filePath);
+    // Normalize backslashes to forward slashes first for cross-platform consistency,
+    // then let path.normalize handle . and .. resolution
+    return path.normalize(filePath.replace(/\\/g, '/'));
   }
 
   /**
    * Joins path segments using the platform-specific separator
-   * 
+   *
    * @param segments - Path segments to join
    * @returns Joined path
    */
@@ -38,7 +40,7 @@ export class PathUtils {
   /**
    * Resolves a path to an absolute path
    * Relative paths are resolved relative to the current working directory
-   * 
+   *
    * @param filePath - Path to resolve
    * @returns Absolute path
    */
@@ -48,7 +50,7 @@ export class PathUtils {
 
   /**
    * Resolves a path relative to a base directory
-   * 
+   *
    * @param basePath - Base directory path
    * @param relativePath - Relative path to resolve
    * @returns Absolute path
@@ -62,7 +64,7 @@ export class PathUtils {
 
   /**
    * Checks if a path is absolute
-   * 
+   *
    * @param filePath - Path to check
    * @returns True if path is absolute
    */
@@ -72,7 +74,7 @@ export class PathUtils {
 
   /**
    * Gets the directory name from a path
-   * 
+   *
    * @param filePath - File path
    * @returns Directory name
    */
@@ -82,7 +84,7 @@ export class PathUtils {
 
   /**
    * Gets the base name (filename) from a path
-   * 
+   *
    * @param filePath - File path
    * @param ext - Optional extension to remove
    * @returns Base name
@@ -93,7 +95,7 @@ export class PathUtils {
 
   /**
    * Gets the file extension from a path
-   * 
+   *
    * @param filePath - File path
    * @returns File extension (including the dot)
    */
@@ -104,17 +106,17 @@ export class PathUtils {
   /**
    * Converts a path to use forward slashes (Unix-style)
    * Useful for consistent path representation in logs or comparisons
-   * 
+   *
    * @param filePath - Path to convert
    * @returns Path with forward slashes
    */
   public static toUnixStyle(filePath: string): string {
-    return filePath.split(path.sep).join('/');
+    return filePath.replace(/\\/g, '/');
   }
 
   /**
    * Converts a path to use the platform-specific separator
-   * 
+   *
    * @param filePath - Path to convert
    * @returns Path with platform-specific separators
    */
@@ -124,7 +126,7 @@ export class PathUtils {
 
   /**
    * Checks if a file or directory exists
-   * 
+   *
    * @param filePath - Path to check
    * @returns True if path exists
    */
@@ -134,7 +136,7 @@ export class PathUtils {
 
   /**
    * Checks if a path points to a directory
-   * 
+   *
    * @param filePath - Path to check
    * @returns True if path is a directory
    */
@@ -148,7 +150,7 @@ export class PathUtils {
 
   /**
    * Checks if a path points to a file
-   * 
+   *
    * @param filePath - Path to check
    * @returns True if path is a file
    */
@@ -162,7 +164,7 @@ export class PathUtils {
 
   /**
    * Creates a directory recursively (like mkdir -p)
-   * 
+   *
    * @param dirPath - Directory path to create
    */
   public static mkdirRecursive(dirPath: string): void {
@@ -171,7 +173,7 @@ export class PathUtils {
 
   /**
    * Gets the relative path from one path to another
-   * 
+   *
    * @param from - Source path
    * @param to - Target path
    * @returns Relative path
@@ -182,7 +184,7 @@ export class PathUtils {
 
   /**
    * Parses a path into its components
-   * 
+   *
    * @param filePath - Path to parse
    * @returns Path components (root, dir, base, ext, name)
    */
@@ -192,7 +194,7 @@ export class PathUtils {
 
   /**
    * Formats a path from components
-   * 
+   *
    * @param pathObject - Path components
    * @returns Formatted path
    */
@@ -202,7 +204,7 @@ export class PathUtils {
 
   /**
    * Gets the platform-specific path separator
-   * 
+   *
    * @returns Path separator ('/' on Unix, '\' on Windows)
    */
   public static get separator(): string {
@@ -211,7 +213,7 @@ export class PathUtils {
 
   /**
    * Gets the platform-specific path delimiter
-   * 
+   *
    * @returns Path delimiter (':' on Unix, ';' on Windows)
    */
   public static get delimiter(): string {
@@ -220,7 +222,7 @@ export class PathUtils {
 
   /**
    * Gets the platform-specific line ending
-   * 
+   *
    * @returns Line ending ('\n' on Unix, '\r\n' on Windows)
    */
   public static get lineEnding(): string {
@@ -229,7 +231,7 @@ export class PathUtils {
 
   /**
    * Normalizes line endings in text to platform-specific format
-   * 
+   *
    * @param text - Text to normalize
    * @returns Text with platform-specific line endings
    */
@@ -240,7 +242,7 @@ export class PathUtils {
 
   /**
    * Converts line endings to Unix format (\n)
-   * 
+   *
    * @param text - Text to convert
    * @returns Text with Unix line endings
    */
@@ -250,7 +252,7 @@ export class PathUtils {
 
   /**
    * Converts line endings to Windows format (\r\n)
-   * 
+   *
    * @param text - Text to convert
    * @returns Text with Windows line endings
    */
@@ -261,7 +263,7 @@ export class PathUtils {
 
   /**
    * Splits text by lines, handling different line ending formats
-   * 
+   *
    * @param text - Text to split
    * @returns Array of lines
    */
@@ -271,7 +273,7 @@ export class PathUtils {
 
   /**
    * Joins lines with platform-specific line endings
-   * 
+   *
    * @param lines - Lines to join
    * @returns Joined text with platform-specific line endings
    */

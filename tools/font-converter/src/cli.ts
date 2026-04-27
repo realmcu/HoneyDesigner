@@ -1,6 +1,6 @@
 /**
  * Command-Line Interface for TypeScript Font Converter
- * 
+ *
  * This module provides CLI argument parsing and configuration override functionality.
  */
 
@@ -62,7 +62,7 @@ export class CLIManager {
 
   /**
    * Parses command-line arguments
-   * 
+   *
    * @param argv - Command-line arguments (defaults to process.argv)
    * @returns Parsed CLI arguments with config path and overrides
    */
@@ -104,7 +104,7 @@ export class CLIManager {
 
     return {
       configPath,
-      overrides
+      overrides,
     };
   }
 
@@ -147,15 +147,12 @@ export class CLIManager {
   /**
    * Applies CLI overrides to a font configuration
    * CLI overrides take precedence over configuration file values
-   * 
+   *
    * @param config - Original font configuration
    * @param overrides - CLI overrides to apply
    * @returns Updated font configuration
    */
-  public static applyOverrides(
-    config: FontConfig,
-    overrides: CLIOverrides
-  ): FontConfig {
+  public static applyOverrides(config: FontConfig, overrides: CLIOverrides): FontConfig {
     return {
       ...config,
       fontSize: overrides.size ?? config.fontSize,
@@ -163,7 +160,7 @@ export class CLIManager {
       italic: overrides.italic ?? config.italic,
       renderMode: overrides.renderMode ?? config.renderMode,
       outputPath: overrides.outputPath ?? config.outputPath,
-      rotation: overrides.rotation ?? config.rotation
+      rotation: overrides.rotation ?? config.rotation,
     };
   }
 
@@ -181,4 +178,3 @@ export class CLIManager {
     console.log(VERSION.STRING);
   }
 }
-

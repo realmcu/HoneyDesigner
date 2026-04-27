@@ -383,8 +383,6 @@ const en = {
   'Bitmap font hint': 'Pre-rendered glyphs, fixed size, fast rendering',
   'Vector font hint': 'Scalable to any size, supports font transforms, moderate rendering speed',
   'grayscale': 'grayscale',
-  'Accurate Preview': 'Accurate Preview',
-  'Design Preview': 'Design Preview',
   'List size is auto-calculated': 'List size is auto-calculated by item count, item size and spacing',
 
   // Context Menu
@@ -416,7 +414,6 @@ const en = {
 
   // DefaultProperties - Font section
   'Font': 'Font',
-  'Preview mode (does not change actual rendering)': 'Preview mode (does not change actual rendering)',
 
   // DefaultProperties - Timer section
   'Timer Settings': 'Timer Settings',

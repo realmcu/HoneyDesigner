@@ -33,14 +33,8 @@ export interface FontConfig {
   characterSets: CharacterSetSource[];
   outputFormat: 'bitmap' | 'vector';
   /**
-   * Render Vector Data mode (--rvd flag)
-   * 
-   * When true: Render at original fontSize, backSize is calculated
-   *   backSize = fontSize * (ascender - descender) / unitsPerEM
-   * 
-   * When false (default): Shrink fontSize to fit in backSize
-   *   backSize = fontSize (config value)
-   *   scaledFontSize = fontSize * unitsPerEM / (ascender - descender)
+   * RVD (Render Vector Data) mode flag
+   * Legacy option, retained for configuration compatibility.
    */
   rvd?: boolean;
 }

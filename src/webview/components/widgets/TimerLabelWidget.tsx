@@ -11,7 +11,6 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
   const fontPath = component.data?.fontFile;
   const { fontFamily } = useFontLoader(fontPath);
   
-  const [fontMetrics, setFontMetrics] = React.useState<{ scaleFactor: number } | null>(null);
   const [displayText, setDisplayText] = React.useState<string>('00:00:00');
   const [timeCount, setTimeCount] = React.useState<number>(0);
 
@@ -79,45 +78,13 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
     return () => clearInterval(interval);
   }, [autoStart, timerType, formatTime]);
 
-  // 监听字体度量信息
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.command === 'fontMetricsLoaded' && event.data.fontPath === fontPath) {
-        setFontMetrics({ scaleFactor: event.data.metrics.scaleFactor });
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [fontPath]);
-
-  // 当字体文件改变时，请求字体度量信息
-  React.useEffect(() => {
-    if (fontPath) {
-      window.vscodeAPI?.postMessage({
-        command: 'getFontMetrics',
-        fontPath: fontPath
-      });
-    } else {
-      setFontMetrics(null);
-    }
-  }, [fontPath]);
-
   // 合并字体样式
   const hAlign = component.style?.hAlign || 'LEFT';
   const vAlign = component.style?.vAlign || 'TOP';
   const wordWrap = component.style?.wordWrap || false;
   
   // 获取配置的字号
-  const configuredFontSize = Number(component.data?.fontSize) || 16;
-  
-  // 是否使用精确预览模式（默认开启）
-  const useAccuratePreview = component.data?.useAccuratePreview ?? true;
-  
-  // 计算实际渲染字号
-  let actualFontSize = configuredFontSize;
-  if (useAccuratePreview && fontMetrics && fontMetrics.scaleFactor !== 1.0) {
-    actualFontSize = configuredFontSize * fontMetrics.scaleFactor;
-  }
+  const actualFontSize = Number(component.data?.fontSize) || 16;
   
   // 计算垂直对齐的 padding
   const lineSpacingNum = Number(component.style?.lineSpacing) || 0;
