@@ -3,8 +3,9 @@ import { FileFlag, RenderMode, IndexMethod } from './enums';
 /**
  * Bitmap font header structure (packed binary format)
  * Matches C++ BitmapFontHeader with #pragma pack(push,1)
+ * Note: Named with "Raw" suffix to avoid conflict with the BitmapFontHeader class
  */
-export interface BitmapFontHeader {
+export interface RawBitmapFontHeader {
   length: number; // 1 byte - header length
   fileFlag: FileFlag; // 1 byte - BITMAP = 1
   versionMajor: number; // 1 byte - version 1
@@ -27,8 +28,9 @@ export interface BitmapFontHeader {
 /**
  * Vector font header structure (packed binary format)
  * Matches C++ VectorFontHeader with #pragma pack(push,1)
+ * Note: Named with "Raw" suffix to avoid conflict with the VectorFontHeader class
  */
-export interface VectorFontHeader {
+export interface RawVectorFontHeader {
   length: number; // 1 byte - header length
   fileFlag: FileFlag; // 1 byte - VECTOR = 2
   versionMajor: number; // 1 byte - version 1
