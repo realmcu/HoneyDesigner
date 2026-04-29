@@ -6,6 +6,16 @@ const loadedFonts = new Map<string, { fontFamily: string; fontFace: FontFace }>(
 // URI 缓存
 const uriCache = new Map<string, string>();
 
+/**
+ * 获取已缓存的字体 webview URI
+ * @param fontPath 字体路径（如 /NotoSansSC_Regular.ttf）
+ * @returns webview URI 或 undefined
+ */
+export function getFontUri(fontPath: string): string | undefined {
+  const assetsPath = `assets${fontPath}`;
+  return uriCache.get(assetsPath);
+}
+
 // 待处理的 URI 请求
 const pendingUriRequests = new Map<string, ((uri: string) => void)[]>();
 

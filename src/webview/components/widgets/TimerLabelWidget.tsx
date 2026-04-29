@@ -1,24 +1,25 @@
 import React from 'react';
 import { WidgetProps } from './types';
 import { useFontLoader } from '../../hooks/useFontLoader';
+import { useTextLayout, getTextLayoutParams } from '../../hooks/useTextLayout';
 
 /**
  * 计时器标签控件
  * 显示计时器，支持正计时和倒计时
  * 在设计器中模拟计时器更新
  */
-export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, handlers }) => {
+export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
   const fontPath = component.data?.fontFile;
   const { fontFamily } = useFontLoader(fontPath);
   
   const [displayText, setDisplayText] = React.useState<string>('00:00:00');
   const [timeCount, setTimeCount] = React.useState<number>(0);
 
-  // 获取计时器配置（兼容 timerFormat 和 timerDisplayFormat）
-  const timerType = component.data?.timerType || 'stopwatch'; // stopwatch 或 countdown
+  // 获取计时器配置
+  const timerType = component.data?.timerType || 'stopwatch';
   const displayFormat = component.data?.timerFormat || component.data?.timerDisplayFormat || 'HH:MM:SS';
-  const initialValue = component.data?.timerInitialValue || 0; // 毫秒
-  const autoStart = component.data?.timerAutoStart !== false; // 默认自动启动
+  const initialValue = component.data?.timerInitialValue || 0;
+  const autoStart = component.data?.timerAutoStart !== false;
 
   // 格式化时间显示
   const formatTime = React.useCallback((ms: number): string => {
@@ -47,7 +48,7 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
     setDisplayText(formatTime(initialValue));
   }, [initialValue, formatTime]);
 
-  // 模拟计时器更新（每 100ms 更新一次，模拟 10 次 10ms 的更新）
+  // 模拟计时器更新
   React.useEffect(() => {
     if (!autoStart) {
       return;
@@ -58,66 +59,34 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
         let newCount: number;
         
         if (timerType === 'countdown') {
-          // 倒计时模式
           if (prevCount >= 100) {
             newCount = prevCount - 100;
           } else {
             newCount = 0;
-            clearInterval(interval); // 倒计时结束，停止定时器
+            clearInterval(interval);
           }
         } else {
-          // 正计时模式
           newCount = prevCount + 100;
         }
         
         setDisplayText(formatTime(newCount));
         return newCount;
       });
-    }, 100); // 每 100ms 更新一次
+    }, 100);
 
     return () => clearInterval(interval);
   }, [autoStart, timerType, formatTime]);
 
-  // 合并字体样式
-  const hAlign = component.style?.hAlign || 'LEFT';
-  const vAlign = component.style?.vAlign || 'TOP';
-  const wordWrap = component.style?.wordWrap || false;
-  
-  // 获取配置的字号
-  const actualFontSize = Number(component.data?.fontSize) || 16;
-  
-  // 计算垂直对齐的 padding
-  const lineSpacingNum = Number(component.style?.lineSpacing) || 0;
-  const lineHeight = lineSpacingNum 
-    ? actualFontSize + lineSpacingNum
-    : actualFontSize;
-  
-  const containerHeight = typeof style?.height === 'number' ? style.height : 0;
-  const verticalPadding = vAlign === 'MID' && containerHeight > 0 
-    ? Math.max(0, (containerHeight - lineHeight) / 2) 
-    : 0;
-
-  const labelStyle: React.CSSProperties = {
-    ...style,
-    width: style?.width,
-    height: style?.height,
-    fontFamily: fontFamily || 'inherit',
-    fontSize: actualFontSize,
-    color: component.style?.color || '#ffffff',
-    letterSpacing: Number(component.style?.letterSpacing) || 0,
-    lineHeight: `${lineHeight}px`,
-    textAlign: hAlign.toLowerCase() as any,
-    display: style?.display === 'none' ? 'none' : 'block',
-    paddingTop: `${verticalPadding}px`,
-    whiteSpace: wordWrap ? 'pre-wrap' : 'nowrap',
-    overflow: 'hidden',
-    boxSizing: 'border-box',
-    position: 'absolute',
-  };
+  // ========== 排版计算（共用逻辑） ==========
+  const layoutParams = getTextLayoutParams(component, fontFamily);
+  const { containerStyle, textBlockStyle } = useTextLayout(layoutParams, style);
 
   return (
-    <div key={component.id} style={labelStyle} {...handlers}>
-      <span>{displayText}</span>
+    <div key={component.id} style={containerStyle} {...handlers}>
+      <div style={textBlockStyle}>
+        <span>{displayText}</span>
+      </div>
+      {children}
     </div>
   );
 };
