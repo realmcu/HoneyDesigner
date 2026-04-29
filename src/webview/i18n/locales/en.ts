@@ -44,6 +44,16 @@ const en = {
   'Lottie Animation': 'Lottie Animation',
   'GIF Animation': 'GIF Animation',
   'Glass Effect': 'Glass Effect',
+  'QR/Barcode': 'QR/Barcode',
+
+  // QR/Barcode properties
+  'Code Type': 'Code Type',
+  'Encode Mode': 'Encode Mode',
+  'Display Mode': 'Display Mode',
+  'Code Content': 'Code Content',
+  'Border Size': 'Border Size',
+  'Section mode: real-time framebuffer draw': 'Section mode: real-time framebuffer draw',
+  'Image mode: pre-rendered to psRAM, better performance': 'Image mode: pre-rendered to psRAM, better performance',
 
   // Property labels
   'Text': 'Text',

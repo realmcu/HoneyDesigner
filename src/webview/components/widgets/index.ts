@@ -29,6 +29,7 @@ import { MapWidget } from './MapWidget';
 import { OpenClawWidget } from './OpenClawWidget';
 import { ClawFaceWidget } from './ClawFaceWidget';
 import { MenuCellularWidget } from './MenuCellularWidget';
+import { QbcodeWidget } from './QbcodeWidget';
 
 export { WidgetProps } from './types';
 
@@ -66,4 +67,5 @@ export const widgetRegistry: Record<string, React.FC<WidgetProps>> = {
   hg_openclaw: OpenClawWidget,
   hg_claw_face: ClawFaceWidget,
   hg_menu_cellular: MenuCellularWidget,
+  hg_qbcode: QbcodeWidget,
 };

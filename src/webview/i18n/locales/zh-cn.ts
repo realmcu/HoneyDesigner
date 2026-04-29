@@ -41,9 +41,19 @@ const zhCN = {
   'Circle': '圆形',
   'Rectangle': '矩形',
   'SVG': 'SVG',
-  'Lottie Animation': 'Lottie动画',
-  'GIF Animation': 'GIF动画',
+  'Lottie Animation': 'Lottie 动画',
+  'GIF Animation': 'GIF 动画',
   'Glass Effect': '玻璃效果',
+  'QR/Barcode': 'QR/条形码',
+
+  // QR/Barcode properties
+  'Code Type': '码类型',
+  'Encode Mode': '编码模式',
+  'Display Mode': '显示模式',
+  'Code Content': '码内容',
+  'Border Size': '边框大小',
+  'Section mode: real-time framebuffer draw': 'Section 模式：实时绘制到帧缓冲',
+  'Image mode: pre-rendered to psRAM, better performance': 'Image 模式：预渲染到 psRAM，性能更好',
 
   // Property labels
   'Text': '文本',

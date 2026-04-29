@@ -47,7 +47,8 @@ export type ComponentType =
   | 'hg_map'
   | 'hg_openclaw'
   | 'hg_claw_face'
-  | 'hg_menu_cellular';
+  | 'hg_menu_cellular'
+  | 'hg_qbcode';
 
 export type EngineSupport = 'ready' | 'planned' | 'unsupported';
 

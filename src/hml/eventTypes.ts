@@ -90,6 +90,7 @@ export const COMPONENT_SUPPORTED_EVENTS: Record<string, EventType[]> = {
   hg_video: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_3d: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_menu_cellular: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
+  hg_qbcode: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
 };
 
 // 默认支持的事件(未在映射中的组件)

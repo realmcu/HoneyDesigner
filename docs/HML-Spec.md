@@ -169,7 +169,7 @@ All components support these base attributes:
 |----------|------|
 | **Containers** | `hg_view`, `hg_window`,  `hg_list`, `hg_list_item`, `hg_menu_cellular` |
 | **Basic** |  `hg_button`, `hg_label`, `hg_time_label`, `hg_image` |
-| **Graphics** | `hg_arc`, `hg_circle`, `hg_rect`|
+| **Graphics** | `hg_arc`, `hg_circle`, `hg_rect`, `hg_qbcode` |
 | **Mini-App** | `hg_openclaw`, `hg_claw_face` |
 
 ### Nesting Rules (CRITICAL)
@@ -540,6 +540,24 @@ Image display with transform and blend mode support.
 - **C API**: `gui_rect_create`
 
 
+### 9.4 `hg_qbcode` — QR Code / Barcode
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `codeType` | enum | qrcode | `qrcode` / `barcode` |
+| `displayMode` | enum | section | `section` (real-time draw) / `image` (pre-rendered to psRAM) |
+| `encodeMode` | enum | text | `text` / `binary` (QR code only; barcode always uses text) |
+| `codeContent` | string | "" | Text/data to encode |
+| `borderSize` | number | 2 | White border padding around the code (units) |
+
+- **Default size**: 200×200 (QR code); use wider aspect ratio (e.g. 300×100) for barcodes
+- **C API**: `gui_qbcode_create` + `gui_qbcode_config` — `gui_qbcode.h`
+- **Notes**:
+  - `section` mode renders directly to framebuffer each frame; `image` mode pre-renders to psRAM once (better performance)
+  - QR code is always black-on-white; no color configuration
+  - `data_len` in `gui_qbcode_config` is automatically set to `strlen(codeContent)`
+
+
 
 
 ## 11. Mini-App Controls
@@ -782,6 +800,7 @@ The designer generates C source code from HML. Here is the component-to-API mapp
 | `hg_openclaw` | `gui_openclaw_create_from_mem` | `gui_openclaw.h` |
 | `hg_claw_face` | `gui_openclaw_emoji_create` | `gui_openclaw_emoji.h` |
 | `hg_menu_cellular` | custom generator | `gui_menu_cellular.h` |
+| `hg_qbcode` | `gui_qbcode_create` + `gui_qbcode_config` | `gui_qbcode.h` |
 
 ### Generated File Structure
 

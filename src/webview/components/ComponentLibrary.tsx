@@ -568,6 +568,20 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'offsetY',    label: 'Offset Y',    type: 'number', defaultValue: 0,   group: 'data' },
     ],
   },
+  {
+    type: 'hg_qbcode',
+    name: 'QR/Barcode',
+    icon: '▦',
+    engineSupport: { lvgl: 'planned' },
+    defaultSize: { width: 200, height: 200 },
+    properties: [
+      { name: 'codeType',    label: 'Code Type',    type: 'select', defaultValue: 'qrcode',  options: ['qrcode', 'barcode'], group: 'data' },
+      { name: 'displayMode', label: 'Display Mode', type: 'select', defaultValue: 'section', options: ['section', 'image'],   group: 'data' },
+      { name: 'encodeMode',  label: 'Encode Mode',  type: 'select', defaultValue: 'text',    options: ['text', 'binary'],    group: 'data' },
+      { name: 'codeContent', label: 'Code Content', type: 'string', defaultValue: 'Hello, World!', group: 'data' },
+      { name: 'borderSize',  label: 'Border Size',  type: 'number', defaultValue: 2, min: 0, max: 32, group: 'data' },
+    ],
+  },
 ];
 
 // Component categories - hg_time_label 不在组件库中直接显示，只能通过右键标签控件创建
@@ -575,7 +589,7 @@ const componentCategories = [
   { name: 'Containers', types: ['hg_view', 'hg_window', 'hg_canvas', 'hg_list', 'hg_menu_cellular'] },
   { name: 'Basic Controls', types: ['hg_button', 'hg_label', 'hg_image'] },
   { name: 'Input Controls', types: ['hg_input', 'hg_checkbox', 'hg_radio', 'hg_switch', 'hg_slider', 'hg_progressbar'] },
-  { name: 'Graphics', types: ['hg_arc', 'hg_circle', 'hg_rect', 'hg_svg', 'hg_glass', 'hg_particle'] },
+  { name: 'Graphics', types: ['hg_arc', 'hg_circle', 'hg_rect', 'hg_svg', 'hg_glass', 'hg_particle', 'hg_qbcode'] },
   { name: 'Multimedia', types: ['hg_video', 'hg_gif', 'hg_3d', 'hg_lottie'] },
   { name: 'Mini App', types: ['hg_map', 'hg_openclaw', 'hg_claw_face'] },
 ];

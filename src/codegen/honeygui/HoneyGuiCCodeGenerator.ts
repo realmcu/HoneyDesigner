@@ -237,6 +237,11 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     if (componentTypes.includes('hg_menu_cellular')) {
       code += `#include "gui_menu_cellular.h"\n`;
     }
+
+    // QR code / barcode component headers
+    if (componentTypes.includes('hg_qbcode')) {
+      code += `#include "gui_qbcode.h"\n`;
+    }
     
     // If arc groups exist, add headers
     if (hasArcGroup) {
@@ -1036,6 +1041,8 @@ static void ${component.id}_breath_anim_cb(void *p)
         return 'gui_openclaw_emoji_widget_t';
       case 'hg_menu_cellular':
         return 'gui_menu_cellular_t';
+      case 'hg_qbcode':
+        return 'gui_qbcode_t';
       default:
         // Other unimplemented components use gui_obj_t
         return 'gui_obj_t';
