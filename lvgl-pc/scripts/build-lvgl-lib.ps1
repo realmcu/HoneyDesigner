@@ -17,7 +17,7 @@ if([string]::IsNullOrWhiteSpace($LvglSrcPath)) {
     $LvglSrcPath = $env:LVGL_SRC
 }
 if([string]::IsNullOrWhiteSpace($LvglSrcPath)) {
-    $LvglSrcPath = Join-Path $LvglPcRoot "..\..\lvgl"
+    $LvglSrcPath = Join-Path $LvglPcRoot "..\LVGL"
 }
 $LvglSrc = Resolve-Path $LvglSrcPath -ErrorAction SilentlyContinue
 if(-not $LvglSrc) {
