@@ -375,7 +375,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_gif',
     name: 'GIF Animation',
     icon: '🎞️',
-    engineSupport: { lvgl: 'planned' },
+    engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 150, height: 150 },
     properties: [
       { name: 'src', label: 'GIF Path', type: 'string', group: 'data' },

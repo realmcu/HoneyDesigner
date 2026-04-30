@@ -26,6 +26,7 @@ import { LvglProgressBarGenerator } from './LvglProgressBarGenerator';
 import { LvglDefaultGenerator } from './LvglDefaultGenerator';
 import { LvglQbcodeGenerator } from './LvglQbcodeGenerator';
 import { LvglSvgGenerator } from './LvglSvgGenerator';
+import { LvglGifGenerator } from './LvglGifGenerator';
 
 export class LvglComponentGeneratorFactory {
   private static generators: Map<string, LvglComponentCodeGenerator> = new Map();
@@ -66,6 +67,9 @@ export class LvglComponentGeneratorFactory {
 
     // QR/Barcode controls
     this.generators.set('hg_qbcode', new LvglQbcodeGenerator());
+
+    // GIF animation
+    this.generators.set('hg_gif', new LvglGifGenerator());
   }
 
   static getGenerator(componentType: string): LvglComponentCodeGenerator {

@@ -110,7 +110,8 @@ export class LvglImageConverter {
    * Collect all image sources used by components
    */
   private collectImageSources(components: Component[]): string[] {
-    const imageExts = new Set(['.png', '.jpg', '.jpeg', '.bmp', '.webp', '.gif']);
+    const imageExts = new Set(['.png', '.jpg', '.jpeg', '.bmp', '.webp']);
+    // GIF files are excluded: they require runtime decoding (lv_gif) and should not be converted to C arrays
     const seen = new Set<string>();
     const result: string[] = [];
 
