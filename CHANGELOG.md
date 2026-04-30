@@ -2,6 +2,12 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.1] - 2026-04-30
+
+### Added
+- 新增 QR 码/条形码（hg_qbcode）LVGL 代码生成器，支持 lv_qrcode 和 lv_barcode
+- 设计器 QR 码/条形码预览支持根据内容实时生成真实图案
+
 ## [1.7.0] - 2026-04-28
 
 ### ⚠️ Breaking Changes

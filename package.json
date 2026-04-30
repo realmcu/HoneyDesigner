@@ -2,7 +2,7 @@
   "name": "honeygui-visual-designer",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "license": "MIT",
   "l10n": "./l10n",
   "repository": {
@@ -359,6 +359,7 @@
     "mp4box": "^0.5.2",
     "opentype.js": "^1.3.4",
     "pngjs": "^7.0.0",
+    "qrcode-generator": "1.4.4",
     "three": "^0.181.2",
     "ws": "^8.18.3",
     "xml-js": "^1.6.11",
