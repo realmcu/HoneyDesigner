@@ -294,6 +294,9 @@ export class ListGenerator implements ComponentCodeGenerator {
             code += eventCode;
           }
         }
+
+        // Generate timer bindings for list_item (note) itself
+        code += this.generateNoteTimerBindings(listItem, 2);
         
         code += `        break;\n`;
         code += `    }\n`;
@@ -350,6 +353,49 @@ export class ListGenerator implements ComponentCodeGenerator {
     });
 
     return listItems;
+  }
+
+  /**
+   * Generate timer binding code for list_item (note), bound to the note (obj) variable
+   */
+  private generateNoteTimerBindings(listItem: Component, indent: number): string {
+    const indentStr = '    '.repeat(indent);
+    let code = '';
+
+    if (listItem.data?.timers && Array.isArray(listItem.data.timers)) {
+      const enabledTimers = listItem.data.timers.filter((timer: any) => timer.enabled === true);
+      enabledTimers.forEach((timer: any) => {
+        let callback: string;
+        if (timer.mode === 'preset' && ((timer.segments && timer.segments.length > 0) || (timer.actions && timer.actions.length > 0))) {
+          callback = `${listItem.id}_${timer.id}_cb`;
+        } else if (timer.mode === 'custom' && timer.callback) {
+          callback = timer.callback;
+        } else {
+          return;
+        }
+        const timerName = timer.name || timer.id;
+        code += `${indentStr}// Bind timer: ${timerName}\n`;
+        code += `${indentStr}gui_obj_create_timer((gui_obj_t *)note, ${timer.interval}, ${timer.reload !== false ? 'true' : 'false'}, ${callback});\n`;
+        if (!timer.runImmediately) {
+          code += `${indentStr}gui_obj_start_timer((gui_obj_t *)note);\n`;
+        }
+      });
+    } else if (listItem.data?.timerEnabled === true) {
+      let callback: string;
+      const timerMode = listItem.data.timerMode || 'custom';
+      if (timerMode === 'preset' && listItem.data.timerActions && listItem.data.timerActions.length > 0) {
+        callback = `${listItem.id}_preset_timer_cb`;
+      } else if (timerMode === 'custom' && listItem.data.timerCallback) {
+        callback = listItem.data.timerCallback;
+      } else {
+        return code;
+      }
+      code += `${indentStr}// Bind timer\n`;
+      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)note, ${listItem.data.timerInterval || 1000}, ${listItem.data.timerReload !== false ? 'true' : 'false'}, ${callback});\n`;
+      code += `${indentStr}gui_obj_start_timer((gui_obj_t *)note);\n`;
+    }
+
+    return code;
   }
 
   /**
@@ -498,6 +544,14 @@ export class ListGenerator implements ComponentCodeGenerator {
         const eventGenerator = EventGeneratorFactory.getGenerator(component.type);
         if (eventGenerator && component.eventConfigs && component.eventConfigs.length > 0) {
           code += eventGenerator.generateEventBindings(component, indent, context.componentMap);
+        }
+
+        // Generate timer binding code
+        if (effectiveContext.generateTimerBindings) {
+          const timerCode = effectiveContext.generateTimerBindings(component, indent);
+          if (timerCode.trim()) {
+            code += '\n' + timerCode;
+          }
         }
 
         // Add focus setting if component has key events
