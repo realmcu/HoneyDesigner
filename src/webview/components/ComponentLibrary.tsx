@@ -481,7 +481,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_lottie',
     name: 'Lottie Animation',
     icon: '🎬',
-    engineSupport: { lvgl: 'planned' },
+    engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 150, height: 150 },
     properties: [
       { name: 'src', label: 'Animation Path', type: 'string', group: 'data' },
