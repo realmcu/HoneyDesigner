@@ -24,6 +24,7 @@ import { LvglSwitchGenerator } from './LvglSwitchGenerator';
 import { LvglSliderGenerator } from './LvglSliderGenerator';
 import { LvglProgressBarGenerator } from './LvglProgressBarGenerator';
 import { LvglDefaultGenerator } from './LvglDefaultGenerator';
+import { LvglQbcodeGenerator } from './LvglQbcodeGenerator';
 
 export class LvglComponentGeneratorFactory {
   private static generators: Map<string, LvglComponentCodeGenerator> = new Map();
@@ -60,6 +61,9 @@ export class LvglComponentGeneratorFactory {
     // List controls
     this.generators.set('hg_list', new LvglListGenerator());
     this.generators.set('hg_list_item', new LvglListItemGenerator());
+
+    // QR/Barcode controls
+    this.generators.set('hg_qbcode', new LvglQbcodeGenerator());
   }
 
   static getGenerator(componentType: string): LvglComponentCodeGenerator {

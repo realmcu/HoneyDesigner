@@ -572,7 +572,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_qbcode',
     name: 'QR/Barcode',
     icon: '▦',
-    engineSupport: { lvgl: 'planned' },
+    engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 200, height: 200 },
     properties: [
       { name: 'codeType',    label: 'Code Type',    type: 'select', defaultValue: 'qrcode',  options: ['qrcode', 'barcode'], group: 'data' },
