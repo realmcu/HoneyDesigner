@@ -1,6 +1,6 @@
 # AGENTS.md - AI 助手指南
 
-**Generated:** 2026-04-14 08:28 UTC | **Commit:** d0fca06 | **Branch:** master
+**Generated:** 2026-04-30 | **Commit:** a6a3fe3 | **Branch:** master
 
 本文件为 AI 编程助手提供项目上下文和协作指南。
 
@@ -20,7 +20,10 @@ src/
 ├── extension.ts              # 入口
 ├── core/                     # 核心管理
 ├── hml/                      # HML 解析/序列化
-├── codegen/honeygui/         # C 代码生成
+├── codegen/                  # C 代码生成（双引擎）
+│   ├── CodeGeneratorFactory.ts  # 工厂: 'honeygui' | 'lvgl'
+│   ├── honeygui/             # HoneyGUI 引擎代码生成
+│   └── lvgl/                 # LVGL 引擎代码生成
 ├── simulation/               # 编译仿真
 └── designer/                 # Webview 管理
 ```
@@ -62,19 +65,15 @@ HmlEditorProvider.resolveCustomTextEditor()
 </hg_view>
 ```
 
-### 组件类型
-- **容器**: `hg_view`, `hg_window` (可包含子组件)
-- **基础控件**: `hg_button`, `hg_label`, `hg_image` (必须在容器内)
-- **输入控件**: `hg_input`, `hg_checkbox`, `hg_radio` (必须在容器内)
-- **图形控件**: `hg_canvas`, `hg_progressbar`, `hg_slider` (必须在容器内)
-- **多媒体控件**: `hg_video`, `hg_audio` (必须在容器内)
-
-**组件层级规则**：
-- 只有容器控件（`hg_view`, `hg_window`）下面才可以添加其他控件
-- 基础控件、输入控件、图形控件、多媒体控件必须作为容器的子组件
-- 非容器控件不能包含子组件
+### 组件类型与层级规则
+- 完整组件类型列表见 `src/webview/types.ts` 的 `ComponentType`
+- **容器控件**（`hg_view`, `hg_window`）：可包含子组件
+- **非容器控件**：必须作为容器的子组件，不能包含子组件
 
 ### 代码生成策略
+- **双引擎支持**：通过 `CodeGeneratorFactory` 选择目标引擎（`'honeygui'` 或 `'lvgl'`），由 `project.json` 中的 `targetEngine` 字段决定
+- **HoneyGUI 引擎**（`src/codegen/honeygui/`）：`HoneyGuiCCodeGenerator`，含组件生成器和事件生成器
+- **LVGL 引擎**（`src/codegen/lvgl/`）：`LvglCCodeGenerator`，含组件生成、样式生成、资源管理等
 - **UI 代码** (`*_ui.c/h`): 每次覆盖
 - **回调代码** (`*_callbacks.c`): 保护区机制，保留用户代码
 - **用户代码** (`user/*.c`): 只生成一次，永不覆盖
@@ -104,7 +103,6 @@ HmlEditorProvider.resolveCustomTextEditor()
 - **项目配置读取**：使用 `ProjectUtils.loadProjectConfig(projectRoot)`
 - **路径获取**：使用 `ProjectUtils.getAssetsDir()` / `getUiDir()` / `getSrcDir()`
 - **添加新功能前**：先搜索是否已有类似工具函数，避免重复造轮
-
 
 ## 常见任务
 
@@ -148,7 +146,6 @@ HmlEditorProvider.resolveCustomTextEditor()
 - 面板样式: `src/webview/components/*.css`
 - 全局样式: `src/webview/global.css`
 
-
 ## 重要约束
 
 ### 项目规则（必须遵守）
@@ -166,26 +163,26 @@ HmlEditorProvider.resolveCustomTextEditor()
 6. **HML 规范文档同步**：
    - 当 HML spec 发生变动（新增组件、新增/修改属性、新增事件类型、修改嵌套规则等）时，必须同步更新 `docs/HML-Spec.md`
    - 该文档是 AI agent 生成 HML 的唯一参考，保持其准确性至关重要
-6. **执行环境**：只在 CMD 环境下执行命令，不要在 PowerShell 环境下执行
-7. **代码提交**：
+7. **执行环境**：只在 CMD 环境下执行命令，不要在 PowerShell 环境下执行
+8. **代码提交**：
    - 默认情况下，只修改代码，不执行 git 操作
    - 只有当用户明确说"提交"、"commit"、"push"、"提交到 gitee"等关键词时，才执行 git 操作
    - 如果不确定是否需要提交，先询问用户
    - 拉取代码后必须执行 `git submodule update --init --recursive`，提交前确保 submodule 指向正确版本
-8. **打包安装包**：
+9. **打包安装包**：
    - 当用户说"打包"、"生成安装包"或"package"时，执行以下流程：
      1. 执行 `npm install` 安装依赖（干净仓库必需）
      2. 执行 `npm run compile` 编译代码
      3. 执行 `npm run build:webview` 构建前端
      4. 执行 `vsce package` 生成 `.vsix` 文件
-9. **版本号规则**：
+10. **版本号规则**：
    - **格式**：`major.minor.patch`（如 1.6.30）
    - **patch 版本规则**：
      - **偶数**：正式版本（如 1.6.30, 1.6.32）
      - **奇数**：测试版本（如 1.6.31, 1.6.33）
    - **版本递增**：每次发布都递增 patch 版本，不管是正式版还是测试版
    - **Git Tag**：每次发布都创建 git tag（如 `v1.6.30`）
-10. **发布正式版本**：
+11. **发布正式版本**：
    - 当用户说"发布版本"、"发布正式版"或"publish"时，执行以下流程：
      1. 更新版本号到下一个偶数版本（如 1.6.30 → 1.6.32）
      2. 执行 `npm install` 确保依赖最新
@@ -195,7 +192,7 @@ HmlEditorProvider.resolveCustomTextEditor()
      6. 创建 Git Tag: `git tag vx.x.x`
      7. Push to Gitee: `git push origin master --tags`
      8. 执行 `vsce publish` 发布到 VSCode 插件市场
-11. **发布测试版本**：
+12. **发布测试版本**：
    - 当用户说"发布测试版"、"发布预览版"或"publish preview"时，执行以下流程：
      1. 更新版本号到下一个奇数版本（如 1.6.30 → 1.6.31）
      2. 执行 `npm install` 确保依赖最新
@@ -209,15 +206,15 @@ HmlEditorProvider.resolveCustomTextEditor()
      - 测试版用户不会自动更新到正式版
      - 测试版之间可以自动更新（如 1.6.31 → 1.6.33）
      - 适合内部测试和公测，不影响正式版用户
-12. **实验工程**：测试用的实验工程, 也是模板工程位于 `./template-projects/smartwatch` 目录
-13. **国际化 (i18n)**：所有用户可见的文本必须支持多语言
+13. **实验工程**：测试用的实验工程, 也是模板工程位于 `./template-projects/smartwatch` 目录
+14. **国际化 (i18n)**：所有用户可见的文本必须支持多语言
     - **Extension 端**：使用 `vscode.l10n.t('key')` 进行翻译
       - 翻译文件：`l10n/bundle.l10n.json`（英文）、`l10n/bundle.l10n.zh-cn.json`（中文）
     - **Webview 端**：使用 `t('key')` 函数（从 `../i18n` 导入）
       - 翻译文件：`src/webview/i18n/locales/en.ts`（英文）、`src/webview/i18n/locales/zh-cn.ts`（中文）
     - **package.json**：命令标题使用 `%key%` 语法，配合 `package.nls.json` 和 `package.nls.zh-cn.json`
     - **注意**：`viewsWelcome` 不支持 NLS 语法，需使用纯文本
-14. **Bug 日志路径**：Windows 下的插件错误日志位于 `/mnt/c/Users/howie_wang.RSDOMAIN/Desktop/plugin-bug-log`
+15. **Bug 日志路径**：Windows 下的插件错误日志位于 `/mnt/c/Users/howie_wang.RSDOMAIN/Desktop/plugin-bug-log`
 
 ### 不要做的事
 - ❌ 不要修改单元测试（除非用户明确要求）
@@ -228,10 +225,6 @@ HmlEditorProvider.resolveCustomTextEditor()
 - ❌ 不要添加网络依赖功能
 - ❌ 不要随意创建文档
 - ❌ **不要发布到插件市场**（必须用户明确允许才可以执行 `vsce publish`）
-
-
-
-
 
 ## AI 助手协作建议
 
@@ -254,16 +247,6 @@ HmlEditorProvider.resolveCustomTextEditor()
 - 直接回答问题，不过度客套
 - 提供具体可执行的方案
 - 遇到不确定的情况，明确说明并询问
-
-## 项目状态
-
-- **当前版本**: v1.3.2
-- **最近更新**: 项目模板系统（2025-12-10）
-- **活跃开发**: 是
-- **主要贡献者**: howie_wang
-
-
-
 
 ## VSCode 插件市场发布
 
