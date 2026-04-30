@@ -453,9 +453,9 @@
 #define LV_USE_LZ4_INTERNAL  0
 #define LV_USE_LZ4_EXTERNAL  0
 
-#define LV_USE_SVG 0
-#define LV_USE_SVG_ANIMATION 0
-#define LV_USE_SVG_DEBUG 0
+#define LV_USE_SVG 1
+#define LV_USE_SVG_ANIMATION 1
+#define LV_USE_SVG_DEBUG 1
 
 #define LV_USE_FFMPEG 0
 
