@@ -526,10 +526,76 @@ export class SimulationRunner {
 
             if (entry.isDirectory()) {
                 this.copyDirectoryRecursive(sourcePath, targetPath);
+            } else if (entry.name.toLowerCase().endsWith('.svg')) {
+                // SVG 预处理：将 style 属性展开为独立的 presentation attributes
+                // LVGL SVG 解析器 (SVG Tiny 1.2) 不支持 CSS style 属性
+                const content = fs.readFileSync(sourcePath, 'utf-8');
+                const processed = this.preprocessSvgForLvgl(content);
+                fs.writeFileSync(targetPath, processed, 'utf-8');
             } else {
                 fs.copyFileSync(sourcePath, targetPath);
             }
         }
+    }
+
+    /**
+     * 预处理 SVG 文件以兼容 LVGL SVG Tiny 1.2 解析器
+     * - 将 style="fill:#fff;stroke:none;..." 展开为 fill="#fff" stroke="none" ...
+     * - 移除 LVGL 不支持的命名空间属性 (inkscape:, sodipodi:)
+     * - 移除 sodipodi:namedview 等非标准元素
+     * - 当 stroke=none 时移除所有 stroke 相关属性
+     */
+    private preprocessSvgForLvgl(svgContent: string): string {
+        let result = svgContent;
+
+        // 移除 sodipodi:namedview 整个元素（Inkscape 特有）
+        result = result.replace(/<sodipodi:namedview[\s\S]*?\/>/g, '');
+        result = result.replace(/<sodipodi:namedview[\s\S]*?<\/sodipodi:namedview>/g, '');
+
+        // 移除 inkscape/sodipodi 命名空间属性
+        result = result.replace(/\s+(inkscape|sodipodi):[a-zA-Z-]+="[^"]*"/g, '');
+
+        // 移除命名空间声明
+        result = result.replace(/\s+xmlns:(inkscape|sodipodi)="[^"]*"/g, '');
+
+        // 展开 style 属性为独立的 presentation attributes
+        result = result.replace(/\sstyle="([^"]*)"/g, (_match, styleStr: string) => {
+            const props = new Map<string, string>();
+            styleStr.split(';')
+                .map(s => s.trim())
+                .filter(s => s.length > 0)
+                .forEach(s => {
+                    const colonIdx = s.indexOf(':');
+                    if (colonIdx >= 0) {
+                        props.set(s.substring(0, colonIdx).trim(), s.substring(colonIdx + 1).trim());
+                    }
+                });
+
+            // 如果 stroke 为 none，移除所有 stroke 相关属性
+            // (LVGL bug: stroke-opacity 会覆盖 stroke="none" 设置的 opa=0)
+            if (props.get('stroke') === 'none') {
+                props.delete('stroke');
+                props.delete('stroke-width');
+                props.delete('stroke-linecap');
+                props.delete('stroke-linejoin');
+                props.delete('stroke-miterlimit');
+                props.delete('stroke-dasharray');
+                props.delete('stroke-dashoffset');
+                props.delete('stroke-opacity');
+            }
+
+            // 同理，fill="none" 时移除 fill-opacity 避免覆盖
+            if (props.get('fill') === 'none') {
+                props.delete('fill-opacity');
+            }
+
+            const attrs = Array.from(props.entries())
+                .map(([prop, val]) => `${prop}="${val}"`)
+                .join(' ');
+            return attrs ? ' ' + attrs : '';
+        });
+
+        return result;
     }
 
     /**

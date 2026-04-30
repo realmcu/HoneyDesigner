@@ -471,7 +471,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_svg',
     name: 'SVG',
     icon: '🎨',
-    engineSupport: { lvgl: 'planned' },
+    engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 100, height: 100 },
     properties: [
       { name: 'src', label: 'SVG Path', type: 'string', group: 'data' },

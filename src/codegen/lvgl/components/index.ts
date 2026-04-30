@@ -25,6 +25,7 @@ import { LvglSliderGenerator } from './LvglSliderGenerator';
 import { LvglProgressBarGenerator } from './LvglProgressBarGenerator';
 import { LvglDefaultGenerator } from './LvglDefaultGenerator';
 import { LvglQbcodeGenerator } from './LvglQbcodeGenerator';
+import { LvglSvgGenerator } from './LvglSvgGenerator';
 
 export class LvglComponentGeneratorFactory {
   private static generators: Map<string, LvglComponentCodeGenerator> = new Map();
@@ -57,6 +58,7 @@ export class LvglComponentGeneratorFactory {
     this.generators.set('hg_video', new LvglVideoGenerator());
     this.generators.set('hg_lottie', new LvglLottieGenerator());
     this.generators.set('hg_3d', new Lvgl3DGenerator());
+    this.generators.set('hg_svg', new LvglSvgGenerator());
 
     // List controls
     this.generators.set('hg_list', new LvglListGenerator());
