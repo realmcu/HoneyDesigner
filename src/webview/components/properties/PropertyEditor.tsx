@@ -32,11 +32,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   const [localText, setLocalText] = useState<string>(value ?? '');
   const isComposingRef = useRef(false); // 处理中文输入法
 
+  // number 类型使用本地 state 缓冲：空值时不立即触发保存，失焦时才提交
+  const [localNumber, setLocalNumber] = useState<string>(
+    value !== undefined && value !== null && value !== '' ? String(value) : ''
+  );
+
   // 外部 value 变化时同步本地 state（仅在非编辑状态下同步）
   const isFocusedRef = useRef(false);
   useEffect(() => {
     if (!isFocusedRef.current) {
       setLocalText(value ?? '');
+      setLocalNumber(value !== undefined && value !== null && value !== '' ? String(value) : '');
     }
   }, [value]);
 
@@ -80,49 +86,41 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         <input
           ref={inputRef}
           type="number"
-          value={value ?? ''}
+          value={localNumber}
           min={min}
           max={max}
           step={step}
           placeholder={placeholder}
           onChange={(e) => {
             const val = e.target.value;
+            setLocalNumber(val);
+            // 空值或仅输入负号时，不触发保存，等待失焦时再提交
             if (val === '' || val === '-') {
-              onChange('');
               return;
             }
             let num = parseFloat(val);
             if (!isNaN(num)) {
-              // 在 onChange 时也应用 min/max 限制，防止输入超出范围的值
-              if (min !== undefined && num < min) {
-                num = min;
-              }
-              if (max !== undefined && num > max) {
-                num = max;
-              }
+              if (min !== undefined && num < min) num = min;
+              if (max !== undefined && num > max) num = max;
               onChange(num);
             }
           }}
           onBlur={(e) => {
+            isFocusedRef.current = false;
             let val = parseFloat(e.target.value);
-            
-            // 空值或无效值处理
+            // 空值或无效值，使用 min（如有）或 0 作为默认值
             if (isNaN(val) || e.target.value === '') {
               val = min !== undefined ? min : 0;
             }
-            
-            // 应用 min/max 限制
-            if (min !== undefined && val < min) {
-              val = min;
-            }
-            if (max !== undefined && val > max) {
-              val = max;
-            }
-            
-            // 更新值
+            if (min !== undefined && val < min) val = min;
+            if (max !== undefined && val > max) val = max;
+            setLocalNumber(String(val));
             onChange(val);
           }}
-          onFocus={(e) => e.target.select()}
+          onFocus={(e) => {
+            isFocusedRef.current = true;
+            e.target.select();
+          }}
           disabled={disabled}
           title={title}
           style={{ ...inputStyle, ...disabledStyle }}
