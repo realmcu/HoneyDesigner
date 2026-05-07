@@ -36,6 +36,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   const [localNumber, setLocalNumber] = useState<string>(
     value !== undefined && value !== null && value !== '' ? String(value) : ''
   );
+  // 在 onFocus 时捕获 onChange，防止点击其他控件时 onChange 已变为新控件的更新函数
+  const onChangeCapturedRef = useRef<((value: any) => void) | null>(null);
 
   // 外部 value 变化时同步本地 state（仅在非编辑状态下同步）
   const isFocusedRef = useRef(false);
@@ -107,18 +109,22 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
           }}
           onBlur={(e) => {
             isFocusedRef.current = false;
-            let val = parseFloat(e.target.value);
-            // 空值或无效值，使用 min（如有）或 0 作为默认值
-            if (isNaN(val) || e.target.value === '') {
-              val = min !== undefined ? min : 0;
+            const rawVal = e.target.value;
+            if (rawVal === '' || isNaN(parseFloat(rawVal))) {
+              // 仅在空值/无效值时才提交默认值，使用聚焦时捕获的 onChange（对应被编辑的控件）
+              let val = min !== undefined ? min : 0;
+              if (max !== undefined && val > max) val = max;
+              const commit = onChangeCapturedRef.current ?? onChange;
+              commit(val);
             }
-            if (min !== undefined && val < min) val = min;
-            if (max !== undefined && val > max) val = max;
-            setLocalNumber(String(val));
-            onChange(val);
+            // 有效值在 onChange（typing）时已实时提交，blur 不重复提交，防止切换控件时误更新新控件
+            onChangeCapturedRef.current = null;
+            // 同步显示为当前 value，确保切换控件后显示新控件的正确值
+            setLocalNumber(value !== undefined && value !== null && value !== '' ? String(value) : '');
           }}
           onFocus={(e) => {
             isFocusedRef.current = true;
+            onChangeCapturedRef.current = onChange; // 捕获此刻的 onChange（对应当前被编辑的控件）
             e.target.select();
           }}
           disabled={disabled}
