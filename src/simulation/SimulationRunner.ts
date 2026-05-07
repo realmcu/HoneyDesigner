@@ -503,17 +503,26 @@ export class SimulationRunner {
         const sourceAssetsDir = path.join(this.projectRoot, 'assets');
         const buildAssetsDir = path.join(lvglPcRoot, 'build', 'assets');
 
-        if (!fs.existsSync(sourceAssetsDir)) {
+        // Sync assets directory (GIF/Video need FS_STDIO access)
+        if (fs.existsSync(sourceAssetsDir)) {
+            if (fs.existsSync(buildAssetsDir)) {
+                fs.rmSync(buildAssetsDir, { recursive: true, force: true });
+            }
+            this.copyDirectoryRecursive(sourceAssetsDir, buildAssetsDir);
+            this.log(`已同步资源到 LVGL 构建目录: ${buildAssetsDir}`);
+        } else {
             this.log(`未找到项目资源目录，跳过资源同步: ${sourceAssetsDir}`);
-            return;
         }
 
-        if (fs.existsSync(buildAssetsDir)) {
-            fs.rmSync(buildAssetsDir, { recursive: true, force: true });
+        // Sync romfs.bin for external-bin deployment mode
+        const sourceRomfsBin = path.join(this.projectRoot, 'build', 'romfs.bin');
+        const targetRomfsBin = path.join(lvglPcRoot, 'build', 'romfs.bin');
+        
+        if (fs.existsSync(sourceRomfsBin)) {
+            fs.mkdirSync(path.dirname(targetRomfsBin), { recursive: true });
+            fs.copyFileSync(sourceRomfsBin, targetRomfsBin);
+            this.log(`已同步 romfs.bin 到 LVGL 构建目录: ${targetRomfsBin}`);
         }
-
-        this.copyDirectoryRecursive(sourceAssetsDir, buildAssetsDir);
-        this.log(`已同步资源到 LVGL 构建目录: ${buildAssetsDir}`);
     }
 
     private copyDirectoryRecursive(sourceDir: string, targetDir: string): void {

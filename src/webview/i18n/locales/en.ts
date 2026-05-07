@@ -701,7 +701,7 @@ const en = {
   'Opacity States': 'Opacity States',
   'Pressed': 'Pressed',
   'Released': 'Released',
-  
+
   // Timer animations
   'Run immediately': 'Run immediately',
   'Bind on component creation': 'Bind on component creation',
@@ -732,6 +732,11 @@ const en = {
   'compressionAdaptive': 'Adaptive (lossless)',
   'compressionInherit': 'Inherit',
   'adaptiveCompressionHint': 'Compares FastLZ, RLE, and no compression, selects smallest',
+  'Deployment': 'Deployment',
+  'deploymentCArray': 'C array (linked into firmware)',
+  'deploymentExternalBin': 'External binary (loaded from romfs)',
+  'deploymentInherit': 'Inherit',
+  'deploymentHint': 'LVGL only. C array is linked into firmware; external binary is packed into romfs.bin and loaded at runtime.',
   'YUV Parameters': 'YUV Parameters',
   'Sampling': 'Sampling',
   'Blur': 'Blur',

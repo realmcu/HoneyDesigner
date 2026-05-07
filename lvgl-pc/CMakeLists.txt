@@ -113,12 +113,16 @@ file(GLOB LVGL_GENERATED_IMG_SOURCES
 file(GLOB LVGL_GENERATED_FONT_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/src/generated/fonts/*.c"
     "${CMAKE_CURRENT_LIST_DIR}/src/generated/font_*.c")
+# lv_img_dsc_list.c for external-bin deployment mode
+file(GLOB LVGL_IMG_DSC_LIST_SOURCES
+    "${CMAKE_CURRENT_LIST_DIR}/src/generated/lv_img_dsc_list.c")
 
 target_sources(lvgl_pc PRIVATE
     ${LVGL_GENERATED_UI_SOURCES}
     ${LVGL_GENERATED_CB_SOURCES}
     ${LVGL_GENERATED_IMG_SOURCES}
-    ${LVGL_GENERATED_FONT_SOURCES})
+    ${LVGL_GENERATED_FONT_SOURCES}
+    ${LVGL_IMG_DSC_LIST_SOURCES})
 
 # ============================================================
 # Link libraries
@@ -153,7 +157,8 @@ endif()
 # ============================================================
 target_compile_definitions(lvgl_pc PRIVATE
     LCD_WIDTH=${LCD_WIDTH}
-    LCD_HEIGHT=${LCD_HEIGHT})
+    LCD_HEIGHT=${LCD_HEIGHT}
+    _HONEYGUI_SIMULATOR_)
 
 if(WIN32)
     target_compile_definitions(lvgl_pc PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)

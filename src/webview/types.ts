@@ -58,12 +58,12 @@ export interface ComponentDefinition {
   icon: string;
   defaultSize: { width: number; height: number };
   properties: PropertyDefinition[];
-  /** 
-   * Per-engine support status. 
+  /**
+   * Per-engine support status.
    * - 'ready': fully supported, normal display
    * - 'planned': planned but not yet implemented, greyed out with TODO badge
    * - 'unsupported': not supported, hidden from component library
-   * 
+   *
    * If omitted, defaults to 'ready' for all engines.
    */
   engineSupport?: Partial<Record<string, EngineSupport>>;
@@ -240,6 +240,14 @@ export interface JpegParams {
 }
 
 /**
+ * 资源部署方式（仅 LVGL 项目使用，HoneyGUI 项目忽略此字段）
+ * - 'c-array': 资源编译为 C 数组，链接到固件中
+ * - 'external-bin': 资源打包为外部二进制文件（romfs），运行时加载
+ * - 'inherit': 从父级配置继承（默认行为）
+ */
+export type DeploymentMode = 'c-array' | 'external-bin' | 'inherit';
+
+/**
  * 单个项目（文件夹或图片）的配置
  */
 export interface ItemSettings {
@@ -261,6 +269,8 @@ export interface ItemSettings {
   dither?: boolean;
   /** 字体：不转换格式，直接拷贝原文件 */
   fontCopyOnly?: boolean;
+  /** 资源部署方式（仅 LVGL 项目使用，HoneyGUI 项目忽略此字段） */
+  deployment?: DeploymentMode;
 }
 
 /**

@@ -10,6 +10,7 @@ import { Component } from '../../../hml/types';
 import { LvglGeneratorContext } from '../LvglComponentGenerator';
 import { LvglComponentGeneratorFactory } from '../components';
 import { LvglEventGeneratorFactory } from '../events';
+import { LvglResourceManager } from '../LvglResourceManager';
 
 /** Information about a root view and its descendant components */
 interface ViewGroup {
@@ -30,6 +31,7 @@ export class LvglSourceFileGenerator {
    * @param imageVars Built-in image resource variable name list
    * @param fontVars Built-in font resource variable name list
    * @param getParentRef Function to get parent component reference
+   * @param resourceManager Resource manager to check for external-bin images
    */
   generate(
     designName: string,
@@ -37,7 +39,8 @@ export class LvglSourceFileGenerator {
     ctx: LvglGeneratorContext,
     imageVars: string[],
     fontVars: string[],
-    getParentRef: (component: Component) => string
+    getParentRef: (component: Component) => string,
+    resourceManager?: LvglResourceManager
   ): string {
     let code = `/**\n`;
     code += ` * ${designName} LVGL UI implementation (auto-generated)\n`;
@@ -46,7 +49,14 @@ export class LvglSourceFileGenerator {
     code += `#include "${designName}_lvgl_ui.h"\n`;
     code += `#include "${designName}_lvgl_callbacks.h"\n\n`;
 
-    // Built-in image resource declarations
+    // Include lv_img_dsc_list.h if there are external-bin images
+    // Note: ui_resource.h is included by lv_img_dsc_list.c, not here
+    const hasExternalBin = resourceManager?.hasExternalBinImages() ?? false;
+    if (hasExternalBin) {
+      code += `#include "lv_img_dsc_list.h"\n\n`;
+    }
+
+    // Built-in image resource declarations (c-array only)
     if (imageVars.length > 0) {
       code += `// LVGL built-in image resource declarations\n`;
       imageVars.forEach(v => { code += `extern const lv_image_dsc_t ${v};\n`; });

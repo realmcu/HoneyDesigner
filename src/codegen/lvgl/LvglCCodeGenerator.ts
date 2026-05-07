@@ -22,6 +22,10 @@ import { LvglCallbackFileGenerator, CallbackImpl } from './files/LvglCallbackFil
 import { LvglProtectedAreaMerger } from './files/LvglProtectedAreaMerger';
 import { LvglComponentGeneratorFactory } from './components';
 import { LvglEventGeneratorFactory } from './events';
+import { LvglRomfsPackager } from './resources/LvglRomfsPackager';
+import { LvglImgDscListGenerator } from './files/LvglImgDscListGenerator';
+import { DEFAULT_ROMFS_BASE_ADDR } from '../../common/ProjectConfig';
+import { logger } from '../../utils/Logger';
 
 export class LvglCCodeGenerator implements ICodeGenerator {
   private components: Component[];
@@ -60,8 +64,11 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       }
 
       // Resource preprocessing (skip if already done externally in multi-design mode)
+      // NOTE: await is required - prepare() runs async LVGLImage.py to convert images to bin format
+      // and populates binImageInfoMap; without await, hasExternalBinImages() will return false
+      // and external-bin assets will silently fall back to c-array behavior.
       if (!this.options.skipResourcePrepare) {
-        this.resourceManager.prepare(this.components, srcDir, lvglDir);
+        await this.resourceManager.prepare(this.components, srcDir, lvglDir);
       }
 
       // Prepare shared data
@@ -75,7 +82,7 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       const sourceFile = path.join(lvglDir, `${designName}_lvgl_ui.c`);
 
       fs.writeFileSync(headerFile, this.headerFileGenerator.generate(designName, orderedComponents), 'utf-8');
-      fs.writeFileSync(sourceFile, this.sourceFileGenerator.generate(designName, orderedComponents, ctx, imageVars, fontVars, (c) => this.getParentRef(c)), 'utf-8');
+      fs.writeFileSync(sourceFile, this.sourceFileGenerator.generate(designName, orderedComponents, ctx, imageVars, fontVars, (c) => this.getParentRef(c), this.resourceManager), 'utf-8');
 
       files.push(headerFile, sourceFile);
 
@@ -85,8 +92,11 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       const entryHeaderFile = path.join(lvglDir, 'lvgl_generated_ui.h');
       const entrySourceFile = path.join(lvglDir, 'lvgl_generated_ui.c');
 
+      // Check if there are external-bin images
+      const hasExternalBin = this.resourceManager.hasExternalBinImages();
+
       fs.writeFileSync(entryHeaderFile, this.entryFileGenerator.generateHeader(), 'utf-8');
-      fs.writeFileSync(entrySourceFile, this.entryFileGenerator.generateSource(designName, allDesignNames, entryViewId), 'utf-8');
+      fs.writeFileSync(entrySourceFile, this.entryFileGenerator.generateSource(designName, allDesignNames, entryViewId, hasExternalBin), 'utf-8');
 
       files.push(entryHeaderFile, entrySourceFile);
 
@@ -119,6 +129,21 @@ export class LvglCCodeGenerator implements ICodeGenerator {
         files.push(callbackHeaderFile, callbackSourceFile);
       }
 
+      // External-bin post-processing: package romfs and generate img_dsc_list
+      if (hasExternalBin) {
+        const externalBinResult = await this.processExternalBinImages(lvglDir);
+        if (externalBinResult.files.length > 0) {
+          files.push(...externalBinResult.files);
+        }
+        if (externalBinResult.errors.length > 0) {
+          return {
+            success: false,
+            files,
+            errors: externalBinResult.errors
+          };
+        }
+      }
+
       return { success: true, files };
     } catch (error) {
       return {
@@ -127,6 +152,61 @@ export class LvglCCodeGenerator implements ICodeGenerator {
         errors: [error instanceof Error ? error.message : String(error)]
       };
     }
+  }
+
+  /**
+   * Process external-bin images: package romfs and generate img_dsc_list
+   */
+  private async processExternalBinImages(lvglDir: string): Promise<{ files: string[]; errors: string[] }> {
+    const files: string[] = [];
+    const errors: string[] = [];
+
+    const projectRoot = this.options.projectRoot;
+    if (!projectRoot) {
+      errors.push('projectRoot is required for external-bin deployment mode');
+      return { files, errors };
+    }
+
+    const binImageInfos = this.resourceManager.getBinImageInfos();
+    if (binImageInfos.length === 0) {
+      return { files, errors };
+    }
+
+    const rootDir = path.join(projectRoot, 'build', 'root');
+    const outputDir = path.join(projectRoot, 'build');
+    const baseAddr = this.options.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR;
+
+    // Package romfs.bin
+    const packager = new LvglRomfsPackager();
+    const packageResult = await packager.package(rootDir, outputDir, lvglDir, baseAddr, binImageInfos);
+
+    if (!packageResult.success) {
+      errors.push(`Failed to package romfs: ${packageResult.error}`);
+      return { files, errors };
+    }
+
+    if (packageResult.romfsBinPath) {
+      files.push(packageResult.romfsBinPath);
+      logger.info(`[LvglCCodeGenerator] Generated romfs.bin: ${packageResult.romfsBinPath}`);
+    }
+
+    if (packageResult.uiResourceHeaderPath) {
+      files.push(packageResult.uiResourceHeaderPath);
+      logger.info(`[LvglCCodeGenerator] Generated ui_resource.h: ${packageResult.uiResourceHeaderPath}`);
+    }
+
+    // Generate lv_img_dsc_list.c/h
+    const imgDscListGenerator = new LvglImgDscListGenerator();
+    const imgDscListHeader = path.join(lvglDir, 'lv_img_dsc_list.h');
+    const imgDscListSource = path.join(lvglDir, 'lv_img_dsc_list.c');
+
+    fs.writeFileSync(imgDscListHeader, imgDscListGenerator.generateHeader(binImageInfos), 'utf-8');
+    fs.writeFileSync(imgDscListSource, imgDscListGenerator.generateSource(binImageInfos), 'utf-8');
+
+    files.push(imgDscListHeader, imgDscListSource);
+    logger.info(`[LvglCCodeGenerator] Generated lv_img_dsc_list for ${binImageInfos.length} external-bin images`);
+
+    return { files, errors };
   }
 
   /**

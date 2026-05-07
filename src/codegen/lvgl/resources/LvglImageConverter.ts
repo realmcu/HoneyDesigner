@@ -31,6 +31,15 @@ export class LvglImageConverter {
    * - Removes orphaned img_*.c files that are no longer referenced.
    */
   prepare(components: Component[], srcDir: string, lvglDir: string): void {
+    const images = this.collectImageSources(components);
+    this.prepareFromList(images, srcDir, lvglDir);
+  }
+
+  /**
+   * Prepare built-in image resources from a pre-filtered list.
+   * Used by LvglResourceManager when images have been split by deployment mode.
+   */
+  prepareFromList(images: string[], srcDir: string, lvglDir: string): void {
     this.builtinImageVarMap.clear();
     this.builtinImageVars = [];
 
@@ -45,8 +54,6 @@ export class LvglImageConverter {
     if (!fs.existsSync(assetsDir)) {
       return;
     }
-
-    const images = this.collectImageSources(components);
 
     // Build the set of varNames that are currently needed
     const neededVarNames = new Set<string>();

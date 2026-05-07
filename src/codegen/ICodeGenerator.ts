@@ -19,6 +19,10 @@ export interface CodeGenOptions {
   sharedResourceManager?: unknown;
   /** Skip resource preparation (when using shared resource manager) */
   skipResourcePrepare?: boolean;
+  /** Project root directory (for LVGL external-bin resource packaging) */
+  projectRoot?: string;
+  /** ROMFS base address (hex string, e.g., "0x704D1400") */
+  romfsBaseAddr?: string;
 }
 
 export interface CodeGenResult {

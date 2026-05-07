@@ -60,7 +60,7 @@ export class CodeGenerator {
         onProgress?: (progress: GenerationProgress) => void
     ): Promise<GenerationResult> {
         const hmlFiles = await this.scanHmlFiles(projectRoot);
-        
+
         if (hmlFiles.length === 0) {
             return {
                 success: true,
@@ -110,12 +110,14 @@ export class CodeGenerator {
             }
 
             // 统一执行一次资源转换（图片 + 字体）
+            // NOTE: 必须 await，prepare() 是异步的（内部要跑 LVGLImage.py 把 png 转成 bin 并解析头），
+            // 不 await 会导致后续 generateSingle 拿到空的资源信息，external-bin 资源被当成 c-array。
             sharedResourceManager = new LvglResourceManager();
             const lvglDir = path.join(srcDir, 'lvgl');
             if (!fs.existsSync(lvglDir)) {
                 fs.mkdirSync(lvglDir, { recursive: true });
             }
-            sharedResourceManager.prepare(allComponents, srcDir, lvglDir);
+            await sharedResourceManager.prepare(allComponents, srcDir, lvglDir);
 
             // 确定入口 view：从所有 design 中查找唯一的 entry="true" view
             lvglEntryViewId = this.findLvglEntryViewId(componentsByDesign);
@@ -289,6 +291,11 @@ export class CodeGenerator {
         const hmlController = new HmlController();
         await hmlController.loadFile(hmlFile);
 
+        // 获取项目配置中的目标引擎
+        const projectRoot = ProjectUtils.findProjectRoot(path.dirname(hmlFile));
+        const config = projectRoot ? ProjectUtils.loadProjectConfig(projectRoot) : {};
+        const targetEngine: TargetEngine = config.targetEngine || 'honeygui';
+
         const generatorOptions: CodeGenOptions = {
             srcDir,
             designName,
@@ -297,12 +304,9 @@ export class CodeGenerator {
             entryViewId,
             sharedResourceManager,
             skipResourcePrepare: !!sharedResourceManager,
+            projectRoot,
+            romfsBaseAddr: config.romfsBaseAddr,
         };
-
-        // 获取项目配置中的目标引擎
-        const projectRoot = ProjectUtils.findProjectRoot(path.dirname(hmlFile));
-        const config = projectRoot ? ProjectUtils.loadProjectConfig(projectRoot) : {};
-        const targetEngine: TargetEngine = config.targetEngine || 'honeygui';
 
         // 使用工厂创建代码生成器
         const components = hmlController.currentDocument?.view.components || [];

@@ -36,6 +36,14 @@ export type CompressionMethod =
   | 'inherit';
 
 /**
+ * 资源部署方式（LVGL only）
+ * - 'c-array': 资源编译为 C 数组，链接到固件中
+ * - 'external-bin': 资源打包为外部二进制文件（romfs），运行时加载
+ * - 'inherit': 从父级配置继承（默认行为）
+ */
+export type DeploymentMode = 'c-array' | 'external-bin' | 'inherit';
+
+/**
  * YUV 采样方式
  */
 export type YuvSampling = 'YUV444' | 'YUV422' | 'YUV411';
@@ -91,7 +99,10 @@ export interface ItemSettings {
   /** JPEG 压缩参数 */
   jpegParams?: JpegParams;
   /** 字体：不转换格式，直接拷贝原文件 */
-  fontCopyOnly?: boolean;}
+  fontCopyOnly?: boolean;
+  /** 资源部署方式（LVGL only，HoneyGUI 忽略此字段） */
+  deployment?: DeploymentMode;
+}
 
 /**
  * 强制转换配置（支持精确路径和 glob 模式）
@@ -125,6 +136,8 @@ export interface ResolvedConfig {
   /** 继承解析后的原始格式（未经 adaptive 转换），用于判断是否需要自适应处理 */
   rawFormat: TargetFormat;
   compression: Exclude<CompressionMethod, 'inherit'>;
+  /** 资源部署方式（LVGL only） */
+  deployment: 'c-array' | 'external-bin';
   yuvParams?: YuvParams;
   jpegParams?: JpegParams;
   dither?: boolean;
@@ -195,6 +208,49 @@ export class ConversionConfigService {
   }
 
   /**
+   * 归一化资源 key 为 conversion.json 内部规范：
+   * - 反斜杠 → 正斜杠
+   * - 去掉首尾的 '/'
+   * - 去掉前导 'assets/'（HML 里 src="assets/foo.png"，但 conversion.json 内部存为 "foo.png"）
+   *
+   * 这样无论调用方传入 "assets/foo.png" 还是 "foo.png"，最终查到的是同一条记录。
+   */
+  private normalizeAssetKey(assetPath: string): string {
+    let normalized = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    if (normalized.toLowerCase().startsWith('assets/')) {
+      normalized = normalized.substring('assets/'.length);
+    }
+    return normalized;
+  }
+
+  /**
+   * 迁移：将 items 中带 'assets/' 前缀的旧 key 改名为不带前缀（与新规范对齐）。
+   * 冲突时合并：以"不带前缀"的现有条目为基础，"带前缀"的字段补齐缺失项。
+   * @returns 是否发生过迁移（用于决定是否需要回写文件）
+   */
+  private migrateLegacyAssetsPrefix(items: Record<string, ItemSettings>): boolean {
+    let changed = false;
+    for (const oldKey of Object.keys(items)) {
+      const lower = oldKey.toLowerCase();
+      if (!lower.startsWith('assets/')) {
+        continue;
+      }
+      const newKey = oldKey.substring('assets/'.length);
+      const oldVal = items[oldKey];
+      const existing = items[newKey];
+      if (existing) {
+        // 冲突时：现有 newKey 为基础，oldKey 仅补充缺失字段
+        items[newKey] = { ...oldVal, ...existing };
+      } else {
+        items[newKey] = oldVal;
+      }
+      delete items[oldKey];
+      changed = true;
+    }
+    return changed;
+  }
+
+  /**
    * 加载配置文件
    * @param projectRoot 项目根目录
    * @returns 配置对象，如果文件不存在则返回默认配置
@@ -202,7 +258,7 @@ export class ConversionConfigService {
   loadConfig(projectRoot: string): ConversionConfig {
     const configPath = this.getConfigPath(projectRoot);
     let config: ConversionConfig;
-    
+
     try {
       if (fs.existsSync(configPath)) {
         const content = fs.readFileSync(configPath, 'utf-8');
@@ -228,6 +284,17 @@ export class ConversionConfigService {
         } catch (e) {
           console.error('[ConversionConfigService] 保存迁移配置失败:', e);
         }
+      }
+    }
+
+    // 向后兼容：将历史上手编辑写入的 'assets/xxx' key 迁移为不带前缀的形式，
+    // 与 UI / BuildCore / ImageConverterService 的写入约定对齐。
+    if (this.migrateLegacyAssetsPrefix(config.items)) {
+      try {
+        this.saveConfig(projectRoot, config);
+        console.log('[ConversionConfigService] 已将带 assets/ 前缀的历史 key 迁移为不带前缀');
+      } catch (e) {
+        console.error('[ConversionConfigService] 保存迁移配置失败:', e);
       }
     }
 
@@ -275,11 +342,11 @@ export class ConversionConfigService {
   saveConfig(projectRoot: string, config: ConversionConfig): void {
     const configPath = this.getConfigPath(projectRoot);
     const configDir = path.dirname(configPath);
-    
+
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
     }
-    
+
     const content = JSON.stringify(config, null, 2);
     fs.writeFileSync(configPath, content, 'utf-8');
   }
@@ -304,51 +371,55 @@ export class ConversionConfigService {
    * @returns 解析后的有效配置
    */
   resolveEffectiveConfig(assetPath: string, config: ConversionConfig): ResolvedConfig {
-    const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    // 同时兼容 "assets/foo.png" 与 "foo.png" 两种调用方式
+    const normalizedPath = this.normalizeAssetKey(assetPath);
     const itemSettings = config.items[normalizedPath];
-    
-    // 判断 format 和 compression 是否需要继承
+
+    // 判断 format、compression、deployment 是否需要继承
     const formatNeedsInherit = !itemSettings || !itemSettings.format || itemSettings.format === 'inherit';
     const compressionNeedsInherit = !itemSettings || !itemSettings.compression || itemSettings.compression === 'inherit';
-    
-    // 如果两者都不需要继承，直接使用当前配置
-    if (!formatNeedsInherit && !compressionNeedsInherit) {
+    const deploymentNeedsInherit = !itemSettings || !itemSettings.deployment || itemSettings.deployment === 'inherit';
+
+    // 如果三者都不需要继承，直接使用当前配置
+    if (!formatNeedsInherit && !compressionNeedsInherit && !deploymentNeedsInherit) {
       return this.buildResolvedConfig(itemSettings!, false);
     }
-    
+
     // 需要继承：查找父级配置
     const pathParts = normalizedPath.split('/');
     let inheritedFrom: string | undefined;
     let inheritedSettings: ItemSettings | undefined;
-    
+
     for (let i = pathParts.length - 1; i >= 0; i--) {
       const parentPath = pathParts.slice(0, i).join('/');
       const parentSettings = config.items[parentPath];
-      
-      // 父级有任何有效配置（format 或 compression 不是 inherit）就匹配
+
+      // 父级有任何有效配置（format/compression/deployment 不是 inherit）就匹配
       const parentHasFormat = parentSettings?.format && parentSettings.format !== 'inherit';
       const parentHasCompression = parentSettings?.compression && parentSettings.compression !== 'inherit';
-      if (parentSettings && (parentHasFormat || parentHasCompression)) {
+      const parentHasDeployment = parentSettings?.deployment && parentSettings.deployment !== 'inherit';
+      if (parentSettings && (parentHasFormat || parentHasCompression || parentHasDeployment)) {
         inheritedSettings = parentSettings;
         inheritedFrom = parentPath || 'root';
         break;
       }
     }
-    
+
     // 如果没有找到父级配置，使用默认配置
     if (!inheritedSettings) {
       inheritedSettings = config.defaultSettings;
       inheritedFrom = 'default';
     }
-    
+
     // 合并配置：对需要继承的字段使用父级值，否则使用自身值
     const mergedSettings: ItemSettings = {
       ...inheritedSettings,
       ...itemSettings,
       format: formatNeedsInherit ? inheritedSettings.format : itemSettings!.format,
       compression: compressionNeedsInherit ? inheritedSettings.compression : itemSettings!.compression,
+      deployment: deploymentNeedsInherit ? inheritedSettings.deployment : itemSettings!.deployment,
     };
-    
+
     return this.buildResolvedConfig(mergedSettings, true, inheritedFrom);
   }
 
@@ -388,38 +459,42 @@ export class ConversionConfigService {
     // inherit 不应该出现在这里（已在 resolveEffectiveConfig 中处理），防御性处理
     const resolvedCompression = compression === 'inherit' ? 'adaptive' : compression;
     const dither = settings.dither;
-    
+
+    // deployment 继承解析：undefined / 'inherit' → fallback to 'c-array'
+    const deployment = settings.deployment === 'external-bin' ? 'external-bin' : 'c-array';
+
     let resolvedFormat: Exclude<TargetFormat, 'inherit' | 'adaptive16' | 'adaptive24'>;
     if (format === 'adaptive16' || format === 'adaptive24' || format === 'inherit') {
       resolvedFormat = 'RGB565';
     } else {
       resolvedFormat = format;
     }
-    
+
     const result: ResolvedConfig = {
       format: resolvedFormat,
       rawFormat: format,
       compression: resolvedCompression,
+      deployment,
       dither,
       isInherited
     };
-    
+
     if (inheritedFrom) {
       result.inheritedFrom = inheritedFrom;
     }
-    
+
     if (resolvedCompression === 'yuv' && settings.yuvParams) {
       result.yuvParams = { ...settings.yuvParams };
     } else if (resolvedCompression === 'yuv') {
       result.yuvParams = { ...DEFAULT_YUV_PARAMS };
     }
-    
+
     if (resolvedCompression === 'jpeg' && settings.jpegParams) {
       result.jpegParams = { ...settings.jpegParams };
     } else if (resolvedCompression === 'jpeg') {
       result.jpegParams = { ...DEFAULT_JPEG_PARAMS };
     }
-    
+
     return result;
   }
 
@@ -428,14 +503,14 @@ export class ConversionConfigService {
    */
   updateItemConfig(projectRoot: string, assetPath: string, settings: ItemSettings): void {
     const config = this.loadConfig(projectRoot);
-    const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
-    
+    const normalizedPath = this.normalizeAssetKey(assetPath);
+
     if (Object.keys(settings).length === 0) {
       delete config.items[normalizedPath];
     } else {
       config.items[normalizedPath] = settings;
     }
-    
+
     this.saveConfig(projectRoot, config);
   }
 
@@ -444,7 +519,7 @@ export class ConversionConfigService {
    */
   getItemConfig(projectRoot: string, assetPath: string): ItemSettings | undefined {
     const config = this.loadConfig(projectRoot);
-    const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const normalizedPath = this.normalizeAssetKey(assetPath);
     return config.items[normalizedPath];
   }
 }

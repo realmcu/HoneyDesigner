@@ -701,7 +701,7 @@ const zhCN = {
   'Opacity States': '透明度状态',
   'Pressed': '按下',
   'Released': '松开',
-  
+
   // Timer animations
   'Run immediately': '立即运行',
   'Bind on component creation': '创建组件时绑定',
@@ -732,6 +732,11 @@ const zhCN = {
   'compressionAdaptive': '无损自适应',
   'compressionInherit': '继承',
   'adaptiveCompressionHint': '比较 FastLZ、RLE 和不压缩，选择最小的结果',
+  'Deployment': '部署方式',
+  'deploymentCArray': 'C 数组（链接进固件）',
+  'deploymentExternalBin': '外部二进制（从 romfs 加载）',
+  'deploymentInherit': '继承',
+  'deploymentHint': '仅 LVGL 项目使用。C 数组会链接进固件；外部二进制打包到 romfs.bin 并在运行时加载。',
   'YUV Parameters': 'YUV 参数',
   'Sampling': '采样方式',
   'Blur': '模糊程度',

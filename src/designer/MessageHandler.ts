@@ -113,7 +113,7 @@ export class MessageHandler {
                         });
                         logger.info('[MessageHandler] 已发送项目配置到前端');
                     }
-                    
+
                     await this._fileManager.reloadCurrentDocument();
                 } catch (error) {
                     logger.error(`[MessageHandler] reloadCurrentDocument失败: ${error}`);
@@ -136,30 +136,30 @@ export class MessageHandler {
 
             case 'save':
                 logger.debug(`[MessageHandler] 收到保存请求，组件数量: ${message?.content?.components?.length || 0}`);
-                
+
                 // Collaboration: Guest sends update to Host instead of saving locally
                 if (this._collaborationService.isGuest) {
                     if (message?.content?.components && Array.isArray(message.content.components)) {
                         this._hmlController.updateFromFrontendComponents(message.content.components);
                     }
-                    
+
                     // 注意：这里不再发送 REMOTE_UPDATE 消息
                     // 之前的实现中发送了 REMOTE_UPDATE，导致 Host 收到后触发全量刷新 (onUpdate)，
                     // 进而导致 Host Webview 闪烁。
                     // 现在改为依赖 OP_DELTA (save) 消息（已在 handleMessage 入口处广播），
                     // Host 收到 OP_DELTA (save) 后会同步内存并保存文件，但不会刷新 Webview。
                     // 这样既实现了保存，又避免了 Host 端闪烁。
-                    
-                    /* 
+
+                    /*
                     const serializedContent = this._hmlController.serializeDocument();
                     this._collaborationService.broadcast({
                         type: 'REMOTE_UPDATE',
                         content: serializedContent
                     });
                     */
-                   
+
                     // Guest 不执行本地保存，直接返回
-                    break; 
+                    break;
                 }
 
                 try {
@@ -173,7 +173,7 @@ export class MessageHandler {
                             logger.warn(`[MessageHandler] 记录撤销状态失败: ${e}`);
                         }
                     }
-                    
+
                     if (message?.content?.components && Array.isArray(message.content.components)) {
                         logger.debug('[MessageHandler] 更新组件到HmlController...');
                         this._hmlController.updateFromFrontendComponents(message.content.components);
@@ -185,13 +185,13 @@ export class MessageHandler {
                 const serializedContent = this._hmlController.serializeDocument();
                 logger.debug(`[MessageHandler] 序列化完成，内容长度: ${serializedContent.length}`);
                 await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
-                
+
                 // 保存后通知前端更新撤销/重做状态
                 this._fileManager.sendUndoRedoState();
-                
+
                 // 保存后重新扫描所有视图并更新前端
                 await this._fileManager.updateAllViewsToFrontend();
-                
+
                 // 触发自动代码生成（带防抖）
                 this._scheduleAutoCodeGeneration();
                 break;
@@ -307,13 +307,13 @@ export class MessageHandler {
                         : vscode.l10n.t('Confirm delete "{0}"?', assetName);
                     const deleteBtn = vscode.l10n.t('Delete');
                     const cancelBtn = vscode.l10n.t('Cancel');
-                    
+
                     const result = await vscode.window.showWarningMessage(
                         confirmMsg,
                         { modal: true },
                         deleteBtn
                     );
-                    
+
                     if (result === deleteBtn) {
                         this._assetManager.handleDeleteAsset(message.fileName, this._fileManager.currentFilePath);
                     }
@@ -521,7 +521,7 @@ export class MessageHandler {
             case 'getUserFunctions':
                 this._handleGetUserFunctions();
                 break;
-                
+
             default:
                 logger.warn(`[MessageHandler] 未知消息命令: ${message.command}`);
         }
@@ -532,10 +532,10 @@ export class MessageHandler {
      */
     private async _handleBrowseFile(componentId: string, propertyName: string, filters: any): Promise<void> {
         try {
-            const projectRoot = this._fileManager.currentFilePath 
+            const projectRoot = this._fileManager.currentFilePath
                 ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
                 : undefined;
-            
+
             if (!projectRoot) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
                 return;
@@ -619,10 +619,10 @@ export class MessageHandler {
      */
     private async _handleBrowseCharsetFile(componentId: string, charsetIndex: number, fileType: string, filters: any): Promise<void> {
         try {
-            const projectRoot = this._fileManager.currentFilePath 
+            const projectRoot = this._fileManager.currentFilePath
                 ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
                 : undefined;
-            
+
             if (!projectRoot) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
                 return;
@@ -694,7 +694,7 @@ export class MessageHandler {
         try {
             // 解析HML内容
             this._hmlController.parseContent(content);
-            
+
             // TODO: 实现预览逻辑
             vscode.window.showInformationMessage(vscode.l10n.t('Preview feature is under development...'));
         } catch (error) {
@@ -810,19 +810,19 @@ export class MessageHandler {
     private async _handleSwitchFile(filePath: string): Promise<void> {
         try {
             logger.info(`[MessageHandler] 切换文件: ${filePath}`);
-            
+
             // 打开文档
             const document = await vscode.workspace.openTextDocument(filePath);
-            
+
             // 更新 FileManager 的当前文件路径
             this._fileManager.currentFilePath = filePath;
-            
+
             // 加载文档内容
             await this._fileManager.loadFromDocument(document);
-            
+
             // 重新加载并发送到前端
             await this._fileManager.reloadCurrentDocument();
-            
+
             logger.info(`[MessageHandler] 文件切换完成: ${path.basename(filePath)}`);
         } catch (error) {
             logger.error(`[MessageHandler] 切换文件失败: ${error}`);
@@ -853,14 +853,14 @@ export class MessageHandler {
 
             // 构建回调文件路径
             const callbackFile = path.join(projectRoot, 'src', 'callbacks', `${designName}_callbacks.c`);
-            
+
             // 检查文件是否存在，如果不存在则先生成代码
             if (!fs.existsSync(callbackFile)) {
                 const result = await vscode.window.showInformationMessage(
                     vscode.l10n.t('The callback file already exists. Do you want to overwrite it?'),
                     vscode.l10n.t('Overwrite'), vscode.l10n.t('Cancel')
                 );
-                
+
                 if (result === vscode.l10n.t('Overwrite')) {
                     await this.handleGenerateCode();
                     // 等待一下确保文件生成完成
@@ -958,10 +958,12 @@ export class MessageHandler {
             configService.saveConfig(projectRoot, config);
 
             logger.debug('[MessageHandler] 转换配置已保存');
-            
-            // 如果是视频格式变更，自动触发代码生成
-            if (changedField === 'videoFormat') {
-                logger.info('[MessageHandler] 视频格式变更，自动触发代码生成');
+
+            // 如果是视频格式变更或部署方式变更，自动触发代码生成
+            // - videoFormat: 不同格式生成不同的播放器代码
+            // - deployment: c-array / external-bin 切换会改变 lv_img_dsc_list 与 entry 文件
+            if (changedField === 'videoFormat' || changedField === 'deployment') {
+                logger.info(`[MessageHandler] ${changedField} 变更，自动触发代码生成`);
                 this.handleGenerateCode().catch(err => {
                     logger.error(`[MessageHandler] 自动代码生成失败: ${err}`);
                 });
@@ -1134,7 +1136,7 @@ export class MessageHandler {
         try {
             logger.info(`[MessageHandler] 启动协作主机，端口: ${port}`);
             const address = await this._collaborationService.startHost(port);
-            
+
             // 通知前端更新状态
             this._panel.webview.postMessage({
                 command: 'collaborationStateChanged',
@@ -1153,7 +1155,7 @@ export class MessageHandler {
             );
         } catch (error) {
             logger.error(`[MessageHandler] 启动协作主机失败: ${error}`);
-            
+
             // 通知前端更新错误状态
             this._panel.webview.postMessage({
                 command: 'collaborationStateChanged',
@@ -1173,7 +1175,7 @@ export class MessageHandler {
         try {
             logger.info('[MessageHandler] 停止协作主机');
             this._collaborationService.stop();
-            
+
             // 通知前端更新状态
             this._panel.webview.postMessage({
                 command: 'collaborationStateChanged',
@@ -1264,7 +1266,7 @@ export class MessageHandler {
         try {
             logger.info('[MessageHandler] 离开协作会话');
             this._collaborationService.stop();
-            
+
             // 通知前端更新状态
             this._panel.webview.postMessage({
                 command: 'collaborationStateChanged',
@@ -1288,7 +1290,7 @@ export class MessageHandler {
     public sendCollaborationState(): void {
         const role = this._collaborationService.role;
         let status: 'disconnected' | 'connecting' | 'connected' | 'hosting' = 'disconnected';
-        
+
         if (this._collaborationService.isHost) {
             status = 'hosting';
         } else if (this._collaborationService.isGuest) {
@@ -1437,11 +1439,11 @@ export class MessageHandler {
     private throttleBroadcast(message: any) {
         const id = message.componentId;
         const command = message.command;
-        
+
         // 如果是 updateComponent，使用组件 ID 作为节流 Key
         // 如果是 save，使用 'global_save' 作为 Key
         let throttleKey: string | null = null;
-        
+
         if (command === 'updateComponent' && id) {
             throttleKey = id;
         } else if (command === 'save') {
@@ -1475,7 +1477,7 @@ export class MessageHandler {
                 payload: record.pendingMessage
             });
             record.hasNew = false;
-            
+
             // 启动冷却计时器 (30ms = ~33fps)
             record.timer = setTimeout(() => {
                 if (record) {

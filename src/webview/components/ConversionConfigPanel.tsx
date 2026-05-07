@@ -11,6 +11,7 @@ import {
   TargetFormat,
   VideoFormat,
   CompressionMethod,
+  DeploymentMode,
   YuvSampling,
   YuvBlur,
   JpegSampling,
@@ -97,6 +98,19 @@ const COMPRESSION_OPTIONS: { value: CompressionMethod; label: string }[] = [
   { value: 'adaptive', label: 'compressionAdaptive' },
 ];
 
+// 部署方式选项（文件夹用，无继承）
+const FOLDER_DEPLOYMENT_OPTIONS: { value: DeploymentMode; label: string }[] = [
+  { value: 'c-array', label: 'deploymentCArray' },
+  { value: 'external-bin', label: 'deploymentExternalBin' },
+];
+
+// 部署方式选项（图片用，含继承）
+const DEPLOYMENT_OPTIONS: { value: DeploymentMode; label: string }[] = [
+  { value: 'inherit', label: 'deploymentInherit' },
+  { value: 'c-array', label: 'deploymentCArray' },
+  { value: 'external-bin', label: 'deploymentExternalBin' },
+];
+
 // YUV 采样方式选项
 const YUV_SAMPLING_OPTIONS: { value: YuvSampling; label: string }[] = [
   { value: 'YUV444', label: 'YUV444' },
@@ -181,14 +195,33 @@ interface ConversionConfigPanelProps {
   // Props can be extended if needed
 }
 
+/**
+ * 获取部署方式的显示标签
+ */
+const getDeploymentLabel = (deployment: DeploymentMode): string => {
+  switch (deployment) {
+    case 'c-array':
+      return t('deploymentCArray');
+    case 'external-bin':
+      return t('deploymentExternalBin');
+    case 'inherit':
+      return t('deploymentInherit');
+    default:
+      return deployment;
+  }
+};
+
 const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
   const selectedAsset = useDesignerStore((state) => state.selectedAsset);
   const conversionConfig = useDesignerStore((state) => state.conversionConfig);
   const updateAssetConfig = useDesignerStore((state) => state.updateAssetConfig);
+  // 部署方式仅 LVGL 项目使用，HoneyGUI 项目下隐藏该控件
+  const targetEngine = useDesignerStore((state) => (state as any).projectConfig?.targetEngine || 'honeygui');
+  const isLvglProject = targetEngine === 'lvgl';
 
   // 判断是否是文件夹
   const isFolder = selectedAsset?.type === 'folder';
-  
+
   // 判断是否是视频文件
   const isVideo = useMemo(() => {
     if (!selectedAsset || isFolder) return false;
@@ -466,6 +499,53 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     };
   }, [selectedAsset, conversionConfig]);
 
+  // 获取有效部署方式（处理继承，仅 LVGL 项目使用）
+  const effectiveDeployment = useMemo((): { deployment: DeploymentMode; isInherited: boolean; inheritedFrom?: string } => {
+    if (!selectedAsset || !conversionConfig) {
+      return { deployment: 'c-array', isInherited: false };
+    }
+
+    const assetPath = (selectedAsset.relativePath || selectedAsset.name).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const itemSettings = conversionConfig.items[assetPath];
+
+    // 如果有明确配置且不是 inherit，直接使用
+    if (itemSettings && itemSettings.deployment && itemSettings.deployment !== 'inherit') {
+      return { deployment: itemSettings.deployment, isInherited: false };
+    }
+
+    // 需要继承：查找父级配置
+    const pathParts = assetPath.split('/');
+    for (let i = pathParts.length - 1; i >= 0; i--) {
+      const parentPath = pathParts.slice(0, i).join('/');
+      const parentSettings = parentPath ? conversionConfig.items[parentPath] : undefined;
+
+      if (parentSettings && parentSettings.deployment && parentSettings.deployment !== 'inherit') {
+        return {
+          deployment: parentSettings.deployment,
+          isInherited: true,
+          inheritedFrom: parentPath || t('Root'),
+        };
+      }
+    }
+
+    // 检查 defaultSettings
+    const defaultDeployment = conversionConfig.defaultSettings?.deployment;
+    if (defaultDeployment && defaultDeployment !== 'inherit') {
+      return {
+        deployment: defaultDeployment,
+        isInherited: true,
+        inheritedFrom: t('defaultSettings'),
+      };
+    }
+
+    // 最终 fallback：c-array
+    return {
+      deployment: 'c-array',
+      isInherited: true,
+      inheritedFrom: t('defaultSettings'),
+    };
+  }, [selectedAsset, conversionConfig]);
+
   // 处理格式变更
   const handleFormatChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -680,6 +760,24 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     [selectedAsset, currentSettings, updateAssetConfig]
   );
 
+  // 处理部署方式变更（仅 LVGL 项目）
+  const handleDeploymentChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (!selectedAsset) return;
+      const newDeployment = e.target.value as DeploymentMode;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(
+        assetPath,
+        {
+          ...currentSettings,
+          deployment: newDeployment,
+        },
+        'deployment' // 触发代码生成（影响 lv_img_dsc_list 与 entry 文件）
+      );
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
   // 处理 JPEG 背景色变更
   const handleJpegBackgroundColorChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -713,9 +811,11 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
 
   const formatOptions = isFolder ? FOLDER_FORMAT_OPTIONS : IMAGE_FORMAT_OPTIONS;
   const videoFormatOptions = isFolder ? FOLDER_VIDEO_FORMAT_OPTIONS : VIDEO_FORMAT_OPTIONS;
+  const deploymentOptions = isFolder ? FOLDER_DEPLOYMENT_OPTIONS : DEPLOYMENT_OPTIONS;
   const currentFormat = currentSettings.format || (isFolder ? 'adaptive16' : 'inherit');
   const currentVideoFormat = currentSettings.videoFormat || (isFolder ? 'MJPEG' : 'inherit');
   const currentCompression = currentSettings.compression || 'inherit';
+  const currentDeployment: DeploymentMode = currentSettings.deployment || (isFolder ? 'c-array' : 'inherit');
   const showYuvParams = currentCompression === 'yuv' || effectiveSettings.settings.compression === 'yuv';
   const showJpegParams = currentCompression === 'jpeg' || effectiveSettings.settings.compression === 'jpeg';
 
@@ -768,6 +868,31 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
           <div className="config-hint">{t('adaptiveCompressionHint')}</div>
         )}
       </div>
+
+      {/* 部署方式：仅 LVGL 项目显示 */}
+      {isLvglProject && (
+        <div className="config-item">
+          <label>{t('Deployment')}</label>
+          <select value={currentDeployment} onChange={handleDeploymentChange}>
+            {deploymentOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {t(option.label as any)}
+              </option>
+            ))}
+          </select>
+          {/* 部署方式继承状态指示器（仅图片可选 inherit） */}
+          {currentDeployment === 'inherit' && effectiveDeployment.isInherited && (
+            <div className="inherited-indicator">
+              <span className="icon">↩️</span>
+              <span>
+                {t('inheritedFrom')}: {effectiveDeployment.inheritedFrom} (
+                {getDeploymentLabel(effectiveDeployment.deployment)})
+              </span>
+            </div>
+          )}
+          <div className="config-hint">{t('deploymentHint')}</div>
+        </div>
+      )}
 
       <div className="config-item checkbox-item">
         <div className="checkbox-wrapper">
@@ -902,10 +1027,10 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
   // 渲染视频设置区域
   const renderVideoSettings = () => {
     // 获取有效的视频格式（用于确定质量范围）
-    const effectiveFormat = currentVideoFormat === 'inherit' 
-      ? effectiveVideoSettings.videoFormat 
+    const effectiveFormat = currentVideoFormat === 'inherit'
+      ? effectiveVideoSettings.videoFormat
       : currentVideoFormat;
-    
+
     // 根据格式确定质量范围和默认值
     const isH264 = effectiveFormat === 'H264';
     const qualityMin = isH264 ? 0 : 1;
@@ -913,11 +1038,11 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     const qualityDefault = isH264 ? 23 : 5;
     const qualityLabel = isH264 ? t('CRF Quality (0-51)') : t('Quality (1-31)');
     const qualityHint = isH264 ? t('H.264 CRF value, 0=lossless, 23=default, 51=lowest') : t('JPEG compression quality, 1=highest, 5=default, 31=lowest');
-    
+
     // 当前质量值和帧率值
     const currentQuality = currentSettings.videoQuality;
     const currentFrameRate = currentSettings.videoFrameRate;
-    
+
     return (
       <div className="config-group">
         <div className="config-group-title">🎬 {t('Video Settings')}</div>

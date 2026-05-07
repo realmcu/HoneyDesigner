@@ -28,10 +28,13 @@ export class LvglImageGenerator extends LvglBaseGenerator {
     code += `    lv_obj_set_size(${component.id}, ${width}, ${height});\n`;
 
     if (src) {
-      const builtinVar = ctx.getBuiltinImageVar(String(src));
-      if (builtinVar) {
-        code += `    lv_image_set_src(${component.id}, &${builtinVar});\n`;
+      // Use unified getImageRef to support both c-array and external-bin modes
+      const imageRef = ctx.resources.getImageRef(String(src));
+      if (imageRef) {
+        // Both c-array and external-bin use the same syntax: &name
+        code += `    lv_image_set_src(${component.id}, &${imageRef.name});\n`;
       } else if (!isGif) {
+        // Fallback to file path for unconverted images (e.g., GIF)
         const lvglImageSrc = normalizeLvglImageSource(String(src));
         code += `    lv_image_set_src(${component.id}, "${escapeCString(lvglImageSrc)}");\n`;
       } else {

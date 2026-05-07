@@ -53,9 +53,6 @@ export class LvglButtonGenerator extends LvglBaseGenerator {
     const initialState = component.data?.initialState === 'on';
     const hasTwoImages = !!(imageOn && imageOff);
 
-    const imageOnVar = ctx.getBuiltinImageVar(imageOn);
-    const imageOffVar = ctx.getBuiltinImageVar(imageOff);
-
     let code = `    lv_obj_set_style_pad_all(${component.id}, 0, 0);\n`;
 
     if (!hasTwoImages) {
@@ -64,31 +61,35 @@ export class LvglButtonGenerator extends LvglBaseGenerator {
     }
 
     if (toggleMode) {
-      code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_RELEASED', imageOff, imageOffVar);
-      code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_CHECKED_RELEASED', imageOn, imageOnVar);
+      code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_RELEASED', imageOff, ctx);
+      code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_CHECKED_RELEASED', imageOn, ctx);
       code += `    lv_obj_add_flag(${component.id}, LV_OBJ_FLAG_CHECKABLE);\n`;
       if (initialState) {
         code += `    lv_obj_add_state(${component.id}, LV_STATE_CHECKED);\n`;
       }
     } else {
       if (imageOn) {
-        code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_RELEASED', imageOn, imageOnVar);
+        code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_RELEASED', imageOn, ctx);
       } else if (imageOff) {
-        code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_RELEASED', imageOff, imageOffVar);
+        code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_RELEASED', imageOff, ctx);
       }
       if (imageOn && imageOff) {
-        code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_PRESSED', imageOff, imageOffVar);
+        code += this.setImageButtonSrc(component.id, 'LV_IMAGEBUTTON_STATE_PRESSED', imageOff, ctx);
       }
     }
 
     return code;
   }
 
-  private setImageButtonSrc(id: string, state: string, imgPath: string, builtinVar: string | undefined): string {
-    if (builtinVar) {
-      return `    lv_imagebutton_set_src(${id}, ${state}, NULL, &${builtinVar}, NULL);\n`;
-    }
+  private setImageButtonSrc(id: string, state: string, imgPath: string, ctx: LvglGeneratorContext): string {
     if (imgPath) {
+      // Use unified getImageRef to support both c-array and external-bin modes
+      const imageRef = ctx.resources.getImageRef(imgPath);
+      if (imageRef) {
+        // Both c-array and external-bin use the same syntax: &name
+        return `    lv_imagebutton_set_src(${id}, ${state}, NULL, &${imageRef.name}, NULL);\n`;
+      }
+      // Fallback to file path for unconverted images
       const src = normalizeLvglImageSource(imgPath);
       return `    lv_imagebutton_set_src(${id}, ${state}, NULL, "${escapeCString(src)}", NULL);\n`;
     }
