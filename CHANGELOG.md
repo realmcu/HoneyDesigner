@@ -2,6 +2,17 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.3] - 2026-05-07
+
+### Added
+- LVGL：新增 GIF 动图（hg_gif）代码生成器，使用 lv_gif_create/lv_gif_set_src
+- LVGL：新增 SVG 图像（hg_svg）代码生成器，启用 LV_USE_SVG 支持
+
+### Fixed
+- 修复数字输入框（width/height/x/y 等）清空后出现自动填充数值的问题：空值时不再立即触发保存，改为失焦时才提交默认值
+- 修复输入数值后切换选中控件，导致新控件属性被意外覆盖的问题
+- 修复 list note 无法绑定 timer 的问题
+
 ## [1.7.1] - 2026-04-30
 
 ### Added
