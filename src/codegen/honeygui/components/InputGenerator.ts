@@ -19,7 +19,7 @@ export class InputGenerator implements ComponentCodeGenerator {
     let code = `${indentStr}${component.id} = gui_text_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height});\n`;
     
     // Set placeholder text
-    code += `${indentStr}gui_text_set(${component.id}, (void *)"${escapedPlaceholder}", "Arial", APP_COLOR_GRAY, strlen("${escapedPlaceholder}"), ${component.style?.fontSize || 16});\n`;
+    code += `${indentStr}gui_text_set(${component.id}, (void *)"${escapedPlaceholder}", GUI_FONT_SRC_TTF, APP_COLOR_GRAY, strlen("${escapedPlaceholder}"), ${component.style?.fontSize || 16});\n`;
     
     // Enable input functionality
     code += `${indentStr}gui_text_input_set(${component.id}, true);\n`;
@@ -34,13 +34,13 @@ export class InputGenerator implements ComponentCodeGenerator {
     // Set initial text value if present (requires C string escaping)
     if (component.data?.text) {
       const escapedText = this.escapeCString(component.data.text);
-      code += `${indentStr}gui_text_set(${component.id}, (void *)"${escapedText}", "Arial", APP_COLOR_BLACK, strlen("${escapedText}"), ${component.style?.fontSize || 16});\n`;
+      code += `${indentStr}gui_text_set(${component.id}, (void *)"${escapedText}", GUI_FONT_SRC_TTF, APP_COLOR_BLACK, strlen("${escapedText}"), ${component.style?.fontSize || 16});\n`;
     }
     
     // Text color
     if (component.style?.color) {
       const color = this.convertColor(component.style.color);
-      code += `${indentStr}gui_text_set_color(${component.id}, ${color});\n`;
+      code += `${indentStr}gui_text_color_set(${component.id}, ${color});\n`;
     }
 
     // Visibility

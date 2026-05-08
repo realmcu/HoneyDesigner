@@ -26,7 +26,7 @@ export class ClawFaceGenerator implements ComponentCodeGenerator {
     let code = '';
 
     if (component.visible === false) {
-      code += `${indentStr}gui_obj_hidden_set((gui_obj_t *)${component.id}, true);\n`;
+      code += `${indentStr}gui_obj_hidden((gui_obj_t *)${component.id}, true);\n`;
     }
 
     return code;

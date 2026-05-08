@@ -29,7 +29,7 @@ export class ButtonGenerator implements ComponentCodeGenerator {
 
       let code = `${indentStr}${component.id} = (gui_obj_t *)gui_img_create_from_fs(${parentRef}, "${component.name}", "${binOff}", ${x}, ${y}, ${width}, ${height});\n`;
       code += `${indentStr}if (${component.id}_state) {\n`;
-      code += `${indentStr}    gui_img_set_src((gui_img_t *)${component.id}, "${binOn}", IMG_SRC_FILESYS);\n`;
+      code += `${indentStr}    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);\n`;
       code += `${indentStr}}\n`;
       return code;
     }
@@ -195,9 +195,9 @@ void ${component.id}_toggle_cb(void *obj, gui_event_t *e)
     
     // Switch image based on state and call corresponding callback
     if (${component.id}_state) {
-        gui_img_set_src((gui_img_t *)${component.id}, "${binOn}", IMG_SRC_FILESYS);
+        gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);
 ${onCallLinedefine}${onCallLine}    } else {
-        gui_img_set_src((gui_img_t *)${component.id}, "${binOff}", IMG_SRC_FILESYS);
+        gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOff}", IMG_SRC_FILESYS);
 ${onCallLinedefine}${offCallLine}    }
     gui_fb_change();
 ${extraCode}}
@@ -215,9 +215,9 @@ void ${component.id}_set_state(bool state)
         ${component.id}_state = state;
         
         if (state) {
-            gui_img_set_src((gui_img_t *)${component.id}, "${binOn}", IMG_SRC_FILESYS);
+            gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);
 ${onCallLinedefine}${onCallLineNull}        } else {
-            gui_img_set_src((gui_img_t *)${component.id}, "${binOff}", IMG_SRC_FILESYS);
+            gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOff}", IMG_SRC_FILESYS);
 ${onCallLinedefine}${offCallLineNull}        }
     }
 }
@@ -263,7 +263,7 @@ void ${component.id}_press_cb(void *obj, gui_event_t *e)
 {
     GUI_UNUSED(obj);
     GUI_UNUSED(e);
-    gui_img_set_src((gui_img_t *)${component.id}, "${binOn}", IMG_SRC_FILESYS);
+    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);
     gui_fb_change();
 }
 
@@ -272,7 +272,7 @@ void ${component.id}_release_cb(void *obj, gui_event_t *e)
 {
     GUI_UNUSED(obj);
     GUI_UNUSED(e);
-    gui_img_set_src((gui_img_t *)${component.id}, "${binOff}", IMG_SRC_FILESYS);
+    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOff}", IMG_SRC_FILESYS);
     gui_fb_change();
 ${clickCallCode}${extraCode}}
 `;

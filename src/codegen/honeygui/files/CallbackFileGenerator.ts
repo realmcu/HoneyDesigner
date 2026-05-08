@@ -954,7 +954,7 @@ void ${callback}(void *obj)\n{\n`;
         imagePath = imagePath.replace(/\.[^.]+$/, '.bin');
       }
       code += `    // Change image: ${imagePath}\n`;
-      code += `    gui_img_set_src((gui_img_t *)target, "${imagePath}", IMG_SRC_FILESYS);\n`;
+      code += `    gui_img_set_src((gui_img_t *)target, (const uint8_t *)"${imagePath}", IMG_SRC_FILESYS);\n`;
       code += `    gui_img_refresh_size((gui_img_t *)target);\n`;
       code += `    \n`;
     } else if (action.type === 'imageSequence') {
@@ -980,7 +980,7 @@ void ${callback}(void *obj)\n{\n`;
         });
         code += `    };\n`;
         code += `    uint16_t index = (${processedPaths.length} - 1) * ${progressExpr};\n`;
-        code += `    gui_img_set_src((gui_img_t *)target, img_data_array[index], IMG_SRC_FILESYS);\n`;
+        code += `    gui_img_set_src((gui_img_t *)target, (const uint8_t *)img_data_array[index], IMG_SRC_FILESYS);\n`;
         code += `    gui_img_refresh_size((gui_img_t *)target);\n`;
         code += `    \n`;
       }
