@@ -380,6 +380,10 @@ export class ConversionConfigService {
     const compressionNeedsInherit = !itemSettings || !itemSettings.compression || itemSettings.compression === 'inherit';
     const deploymentNeedsInherit = !itemSettings || !itemSettings.deployment || itemSettings.deployment === 'inherit';
 
+    // isInherited 仅反映 format/compression 的继承状态：
+    // deployment 在 buildResolvedConfig 中有硬默认 'c-array'，未显式设置时不应被视为"继承"。
+    const semanticallyInherited = formatNeedsInherit || compressionNeedsInherit;
+
     // 如果三者都不需要继承，直接使用当前配置
     if (!formatNeedsInherit && !compressionNeedsInherit && !deploymentNeedsInherit) {
       return this.buildResolvedConfig(itemSettings!, false);
@@ -420,7 +424,11 @@ export class ConversionConfigService {
       deployment: deploymentNeedsInherit ? inheritedSettings.deployment : itemSettings!.deployment,
     };
 
-    return this.buildResolvedConfig(mergedSettings, true, inheritedFrom);
+    return this.buildResolvedConfig(
+      mergedSettings,
+      semanticallyInherited,
+      semanticallyInherited ? inheritedFrom : undefined
+    );
   }
 
 
