@@ -36,8 +36,82 @@ export class LvglImageConverter {
   }
 
   /**
+   * Prepare built-in image resources from a pre-filtered list with format config.
+   * Used by LvglResourceManager when images have been split by deployment mode.
+   */
+  prepareFromListWithFormat(
+    images: Array<{ sourcePath: string; format: string }>,
+    srcDir: string,
+    lvglDir: string
+  ): void {
+    this.builtinImageVarMap.clear();
+    this.builtinImageVars = [];
+
+    const toolPath = this.findLvglImageTool();
+    if (!toolPath) {
+      console.warn('LVGL image conversion tool not found, skipping built-in image conversion');
+      return;
+    }
+
+    const projectRoot = path.dirname(srcDir);
+    const assetsDir = path.join(projectRoot, 'assets');
+    if (!fs.existsSync(assetsDir)) {
+      return;
+    }
+
+    // Build the set of varNames that are currently needed
+    const neededVarNames = new Set<string>();
+    for (const img of images) {
+      neededVarNames.add(buildImageVarName(img.sourcePath));
+    }
+
+    // Remove orphaned img_*.c files (no longer referenced by any component)
+    this.cleanupOrphanedImages(lvglDir, neededVarNames);
+
+    if (images.length === 0) {
+      return;
+    }
+
+    for (const img of images) {
+      const inputPath = this.resolveImagePath(projectRoot, img.sourcePath);
+      if (!inputPath) {
+        console.warn(`Image file not found, skipping: ${img.sourcePath}`);
+        continue;
+      }
+
+      const varName = buildImageVarName(img.sourcePath);
+      const outputFile = path.join(lvglDir, `${varName}.c`);
+
+      // Check if existing C file matches the requested format
+      const existingFormat = this.parseExistingFormat(outputFile);
+      const formatChanged = existingFormat && existingFormat !== img.format;
+
+      // Incremental check: skip if output exists and is newer than source AND format matches
+      if (!formatChanged && this.isUpToDate(inputPath, outputFile)) {
+        // Already converted and up-to-date, just register the mapping
+        const key = normalizeImageKey(img.sourcePath);
+        this.builtinImageVarMap.set(key, varName);
+        this.builtinImageVars.push(varName);
+        continue;
+      }
+
+      if (formatChanged) {
+        console.log(`[LvglResourceManager] Format changed for ${img.sourcePath}: ${existingFormat} -> ${img.format}`);
+      }
+
+      const success = this.convertImageToLvgl(toolPath, inputPath, lvglDir, varName, img.format);
+      if (success) {
+        const key = normalizeImageKey(img.sourcePath);
+        this.builtinImageVarMap.set(key, varName);
+        this.builtinImageVars.push(varName);
+      }
+    }
+  }
+
+  /**
    * Prepare built-in image resources from a pre-filtered list.
    * Used by LvglResourceManager when images have been split by deployment mode.
+   * @deprecated Use prepareFromListWithFormat instead
    */
   prepareFromList(images: string[], srcDir: string, lvglDir: string): void {
     this.builtinImageVarMap.clear();
@@ -189,19 +263,43 @@ export class LvglImageConverter {
   }
 
   /**
+   * Parse existing C file to extract color format
+   * Returns format string like 'RGB565', 'ARGB8888' etc., or null if not found
+   */
+  private parseExistingFormat(outputFile: string): string | null {
+    if (!fs.existsSync(outputFile)) {
+      return null;
+    }
+    try {
+      const content = fs.readFileSync(outputFile, 'utf-8');
+      // Look for LV_COLOR_FORMAT_XXX in the header
+      const match = content.match(/LV_COLOR_FORMAT_(\w+)/);
+      if (match) {
+        return match[1]; // e.g., 'RGB565', 'ARGB8888'
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  /**
    * Convert image to LVGL C array using LVGLImage.py
    */
   private convertImageToLvgl(
     toolPath: string,
     inputPath: string,
     outputDir: string,
-    varName: string
+    varName: string,
+    requestedFormat?: string
   ): boolean {
     const ext = path.extname(inputPath).toLowerCase();
 
     let actualInputPath = inputPath;
     let tempPngPath: string | null = null;
-    let colorFormat = 'ARGB8888';
+
+    // Map conversion.json format to LVGLImage.py color format
+    let colorFormat = this.mapToLvglColorFormat(requestedFormat);
 
     if (ext !== '.png') {
       tempPngPath = path.join(outputDir, `_temp_${varName}.png`);
@@ -211,7 +309,6 @@ export class LvglImageConverter {
         return false;
       }
       actualInputPath = tempPngPath;
-      colorFormat = 'RGB565';
     }
 
     const baseArgs = [toolPath, '--ofmt', 'C', '--cf', colorFormat, '-o', outputDir, '--name', varName, actualInputPath];
@@ -240,6 +337,25 @@ export class LvglImageConverter {
       console.warn(`Image conversion failed: ${inputPath}`);
     }
     return success;
+  }
+
+  /**
+   * Map conversion.json format to LVGLImage.py color format
+   * LVGLImage.py supports: RGB565, RGB888, ARGB8888, XRGB8888, A8, A4, A2, A1
+   */
+  private mapToLvglColorFormat(format?: string): string {
+    if (!format) {
+      return 'ARGB8888'; // default
+    }
+    const normalized = format.trim().toUpperCase();
+    // LVGLImage.py supports these formats
+    const supported = ['RGB565', 'RGB888', 'ARGB8888', 'XRGB8888', 'A8', 'A4', 'A2', 'A1'];
+    if (supported.includes(normalized)) {
+      return normalized;
+    }
+    // Unsupported formats fallback to ARGB8888
+    console.warn(`[LvglResourceManager] Unsupported format for LVGLImage.py: ${format}, using ARGB8888`);
+    return 'ARGB8888';
   }
 
   /**

@@ -44,7 +44,7 @@ export class LvglResourceManager {
     const config = configService.loadConfig(projectRoot);
 
     // Split images into c-array and external-bin groups
-    const cArrayImages: string[] = [];
+    const cArrayImages: Array<{ sourcePath: string; format: string }> = [];
     const externalBinImages: ExternalBinImage[] = [];
 
     for (const imgSrc of allImages) {
@@ -56,12 +56,15 @@ export class LvglResourceManager {
           resolvedCompression: resolved.compression
         });
       } else {
-        cArrayImages.push(imgSrc);
+        cArrayImages.push({
+          sourcePath: imgSrc,
+          format: resolved.format
+        });
       }
     }
 
-    // Process c-array images (existing logic)
-    this.imageConverter.prepareFromList(cArrayImages, srcDir, lvglDir);
+    // Process c-array images (with format config)
+    this.imageConverter.prepareFromListWithFormat(cArrayImages, srcDir, lvglDir);
 
     // Process external-bin images (new logic)
     if (externalBinImages.length > 0) {

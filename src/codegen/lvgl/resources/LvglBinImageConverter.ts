@@ -2,12 +2,15 @@
  * LVGL binary image resource converter
  * Converts project images to LVGL binary format for external-bin deployment mode
  *
+ * Uses HoneyGUI TypeScript ImageConverter to produce .bin files,
+ * then parses the HoneyGUI binary header to extract metadata for lv_img_dsc_list generation.
  * The generated bin files are packaged into romfs.bin by LvglRomfsPackager
  * and referenced via lv_image_dsc_t descriptors in lv_img_dsc_list.c/h
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { spawnSync } from 'child_process';
+import { ImageConverter } from '../../../../tools/image-converter/converter';
+import { PixelFormat } from '../../../../tools/image-converter/types';
 
 /**
  * Input image info for external-bin conversion
@@ -35,15 +38,15 @@ export interface BinImageInfo {
     width: number;
     /** Image height in pixels */
     height: number;
-    /** Stride in bytes */
+    /** Stride in bytes (row length in pixel data) */
     stride: number;
-    /** LVGL color format enum name (e.g., "LV_COLOR_FORMAT_RGB565") */
+    /** LVGL color format enum name (e.g., "LV_COLOR_FORMAT_RGB565"), mapped from HoneyGUI PixelFormat */
     colorFormat: string;
-    /** Pixel data size (excluding header) */
+    /** Pixel data size (excluding all headers: RGBDataHeader + IMDC + offset table) */
     dataSize: number;
-    /** Bin header size (always 12 bytes for LVGL v9 bin format) */
+    /** Total header size in bytes before pixel data starts (RGBDataHeader 8B + optional IMDC 12B + offset table) */
     headerSize: number;
-    /** Whether the image is compressed */
+    /** Whether the image was compressed (HoneyGUI compression: RLE/FastLZ/YUV) */
     compressed: boolean;
     /** C variable descriptor name (e.g., "bg", "weather_day_scr_bg") */
     descriptorName: string;
@@ -52,26 +55,44 @@ export interface BinImageInfo {
 }
 
 /**
- * Color format mapping from format string to LVGL enum name
+ * Map HoneyGUI PixelFormat to LVGL color format enum name.
+ * Only maps formats supported by both engines; unmapped formats fall back to LV_COLOR_FORMAT_RAW.
  */
-const COLOR_FORMAT_MAP: Record<string, string> = {
-    'L8': 'LV_COLOR_FORMAT_L8',
-    'I1': 'LV_COLOR_FORMAT_I1',
-    'I2': 'LV_COLOR_FORMAT_I2',
-    'I4': 'LV_COLOR_FORMAT_I4',
-    'I8': 'LV_COLOR_FORMAT_I8',
-    'A1': 'LV_COLOR_FORMAT_A1',
-    'A2': 'LV_COLOR_FORMAT_A2',
-    'A4': 'LV_COLOR_FORMAT_A4',
-    'A8': 'LV_COLOR_FORMAT_A8',
-    'AL88': 'LV_COLOR_FORMAT_AL88',
-    'ARGB8888': 'LV_COLOR_FORMAT_ARGB8888',
-    'XRGB8888': 'LV_COLOR_FORMAT_XRGB8888',
-    'RGB565': 'LV_COLOR_FORMAT_RGB565',
-    'RGB565_SWAPPED': 'LV_COLOR_FORMAT_RGB565_SWAPPED',
-    'ARGB8565': 'LV_COLOR_FORMAT_ARGB8565',
-    'RGB565A8': 'LV_COLOR_FORMAT_RGB565A8',
-    'RGB888': 'LV_COLOR_FORMAT_RGB888',
+const HONEYGUI_TO_LVGL_FORMAT_MAP: Record<number, string> = {
+    [PixelFormat.RGB565]:      'LV_COLOR_FORMAT_RGB565',
+    [PixelFormat.ARGB8565]:    'LV_COLOR_FORMAT_ARGB8565',
+    [PixelFormat.RGB888]:      'LV_COLOR_FORMAT_RGB888',
+    [PixelFormat.ARGB8888]:    'LV_COLOR_FORMAT_ARGB8888',
+    [PixelFormat.XRGB8888]:    'LV_COLOR_FORMAT_XRGB8888',
+    [PixelFormat.A8]:          'LV_COLOR_FORMAT_A8',
+    [PixelFormat.A4]:          'LV_COLOR_FORMAT_A4',
+    [PixelFormat.A2]:          'LV_COLOR_FORMAT_A2',
+    [PixelFormat.A1]:          'LV_COLOR_FORMAT_A1',
+    [PixelFormat.I8]:          'LV_COLOR_FORMAT_I8',
+    [PixelFormat.I4]:          'LV_COLOR_FORMAT_I4',
+    [PixelFormat.I2]:          'LV_COLOR_FORMAT_I2',
+    [PixelFormat.I1]:          'LV_COLOR_FORMAT_I1',
+};
+
+/**
+ * Bytes per pixel for each HoneyGUI PixelFormat (used for stride calculation).
+ * Sub-byte formats (A1/A2/A4/I1/I2/I4) use fractional values.
+ */
+const PIXEL_FORMAT_BYTES_PER_PIXEL: Record<number, number> = {
+    [PixelFormat.RGB565]:      2,
+    [PixelFormat.ARGB8565]:    3,
+    [PixelFormat.RGB888]:      3,
+    [PixelFormat.ARGB8888]:    4,
+    [PixelFormat.XRGB8888]:    4,
+    [PixelFormat.A8]:          1,
+    [PixelFormat.A4]:          0.5,
+    [PixelFormat.A2]:          0.25,
+    [PixelFormat.A1]:          0.125,
+    [PixelFormat.I8]:          1,
+    [PixelFormat.I4]:          0.5,
+    [PixelFormat.I2]:          0.25,
+    [PixelFormat.I1]:          0.125,
+    [PixelFormat.GRAY]:        1,
 };
 
 /**
@@ -79,11 +100,11 @@ const COLOR_FORMAT_MAP: Record<string, string> = {
  * Converts images to LVGL bin format using LVGLImage.py
  */
 export class LvglBinImageConverter {
-    /** LVGL bin header size in bytes (magic + cf + flags + w + h + stride + reserved) */
-    private static readonly LVGL_BIN_HEADER_SIZE = 12;
+    /** HoneyGUI RGBDataHeader size in bytes */
+    private static readonly HONEYGUI_HEADER_SIZE = 8;
 
-    /** Magic number for LVGL v9 bin format */
-    private static readonly LVGL_BIN_MAGIC = 0x19;
+    /** HoneyGUI IMDCFileHeader size in bytes (compressed images only) */
+    private static readonly IMDC_HEADER_SIZE = 12;
 
     /** Image extensions that can be converted */
     private static readonly CONVERTIBLE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.bmp', '.webp']);
@@ -116,9 +137,35 @@ export class LvglBinImageConverter {
     }
 
     /**
+     * Map conversion.json format string → LVGL color format enum + HoneyGUI PixelFormat + bytes per pixel.
+     * Returns null for unsupported formats.
+     */
+    private resolveFormatInfo(formatStr: string): { pixelFormat: PixelFormat; lvglColorFormat: string; bytesPerPixel: number } | null {
+        const normalized = formatStr.trim().toUpperCase();
+        const map: Record<string, { pf: PixelFormat; lvgl: string; bpp: number }> = {
+            'RGB565':   { pf: PixelFormat.RGB565,   lvgl: 'LV_COLOR_FORMAT_RGB565',   bpp: 2 },
+            'ARGB8565': { pf: PixelFormat.ARGB8565, lvgl: 'LV_COLOR_FORMAT_ARGB8565', bpp: 3 },
+            'RGB888':   { pf: PixelFormat.RGB888,   lvgl: 'LV_COLOR_FORMAT_RGB888',   bpp: 3 },
+            'ARGB8888': { pf: PixelFormat.ARGB8888, lvgl: 'LV_COLOR_FORMAT_ARGB8888', bpp: 4 },
+            'XRGB8888': { pf: PixelFormat.XRGB8888, lvgl: 'LV_COLOR_FORMAT_XRGB8888', bpp: 4 },
+            'A8':       { pf: PixelFormat.A8,       lvgl: 'LV_COLOR_FORMAT_A8',       bpp: 1 },
+            'A4':       { pf: PixelFormat.A4,       lvgl: 'LV_COLOR_FORMAT_A4',       bpp: 0.5 },
+            'A2':       { pf: PixelFormat.A2,       lvgl: 'LV_COLOR_FORMAT_A2',       bpp: 0.25 },
+            'A1':       { pf: PixelFormat.A1,       lvgl: 'LV_COLOR_FORMAT_A1',       bpp: 0.125 },
+            'I8':       { pf: PixelFormat.I8,       lvgl: 'LV_COLOR_FORMAT_I8',       bpp: 1 },
+            'I4':       { pf: PixelFormat.I4,       lvgl: 'LV_COLOR_FORMAT_I4',       bpp: 0.5 },
+            'I2':       { pf: PixelFormat.I2,       lvgl: 'LV_COLOR_FORMAT_I2',       bpp: 0.25 },
+            'I1':       { pf: PixelFormat.I1,       lvgl: 'LV_COLOR_FORMAT_I1',       bpp: 0.125 },
+        };
+        const entry = map[normalized];
+        if (!entry) return null;
+        return { pixelFormat: entry.pf, lvglColorFormat: entry.lvgl, bytesPerPixel: entry.bpp };
+    }
+
+    /**
      * Prepare external-bin images (incremental conversion)
-     * - Converts images to LVGL bin format
-     * - Skips images whose bin file is newer than source
+     * - Converts images using HoneyGUI TypeScript ImageConverter
+     * - Skips images whose bin file is newer than source AND format matches
      * - Removes orphaned bin files
      */
     async prepare(
@@ -133,12 +180,6 @@ export class LvglBinImageConverter {
             return [];
         }
 
-        const toolPath = this.findLvglImageTool();
-        if (!toolPath) {
-            console.warn('LVGL image conversion tool not found, skipping bin image conversion');
-            return [];
-        }
-
         // Ensure output directory exists
         if (!fs.existsSync(outputRootDir)) {
             fs.mkdirSync(outputRootDir, { recursive: true });
@@ -148,6 +189,13 @@ export class LvglBinImageConverter {
         const neededBinPaths = new Set<string>();
 
         for (const img of images) {
+            // Resolve format info from conversion config (not from bin header!)
+            const fmtInfo = this.resolveFormatInfo(img.resolvedFormat);
+            if (!fmtInfo) {
+                console.warn(`Unsupported format for LVGL external-bin: ${img.resolvedFormat}, skipping ${img.sourcePath}`);
+                continue;
+            }
+
             const inputPath = this.resolveImagePath(projectRoot, img.sourcePath);
             if (!inputPath) {
                 console.warn(`Image file not found, skipping: ${img.sourcePath}`);
@@ -165,21 +213,23 @@ export class LvglBinImageConverter {
                 fs.mkdirSync(binDir, { recursive: true });
             }
 
-            // Incremental check: skip if bin exists and is newer than source
+            // Incremental check: skip if bin exists AND is newer than source AND format matches
             if (this.isUpToDate(inputPath, binAbsPath)) {
-                // Parse existing bin file to get metadata
-                const info = this.parseBinFile(binAbsPath, img.sourcePath, binRelPath);
-                if (info) {
+                // Verify the existing bin format matches the requested format
+                const existingInfo = this.parseBinFile(binAbsPath, img.sourcePath, binRelPath);
+                if (existingInfo && existingInfo.colorFormat === fmtInfo.lvglColorFormat) {
+                    // Format matches, reuse existing bin
                     const key = this.normalizeSourceKey(img.sourcePath);
-                    this.binImageInfoMap.set(key, info);
-                    this.binImageInfos.push(info);
+                    this.binImageInfoMap.set(key, existingInfo);
+                    this.binImageInfos.push(existingInfo);
+                    continue;
                 }
-                continue;
+                // Format mismatch, need to re-convert
+                console.log(`[LvglResourceManager] Format changed, re-converting: ${img.sourcePath}`);
             }
 
-            // Convert image to bin format
+            // Convert image to HoneyGUI bin format using TypeScript ImageConverter
             const success = await this.convertImageToBin(
-                toolPath,
                 inputPath,
                 binAbsPath,
                 img.resolvedFormat
@@ -248,24 +298,6 @@ export class LvglBinImageConverter {
     }
 
     /**
-     * Find LVGLImage.py conversion tool
-     */
-    private findLvglImageTool(): string | null {
-        const candidates = [
-            process.env.HONEYGUI_LVGL_IMAGE_TOOL,
-            path.resolve(__dirname, '../../../../../lvgl-pc/lvgl-official-tools/scripts/LVGLImage.py'),
-            path.join(process.cwd(), 'lvgl-pc', 'lvgl-official-tools', 'scripts', 'LVGLImage.py'),
-        ].filter((c): c is string => !!c);
-
-        for (const candidate of candidates) {
-            if (fs.existsSync(candidate)) {
-                return candidate;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Resolve absolute path for an image
      */
     private resolveImagePath(projectRoot: string, source: string): string | null {
@@ -290,102 +322,78 @@ export class LvglBinImageConverter {
     }
 
     /**
-     * Convert image to LVGL bin format using LVGLImage.py
+     * Convert image to HoneyGUI bin format using TypeScript ImageConverter.
+     * Output: RGBDataHeader (8 bytes) + pixel data.
+     * HoneyGUI compression (RLE/FastLZ/YUV) is not LVGL-compatible, so we convert uncompressed.
+     * LVGL handles compression separately via LV_IMAGE_FLAGS_COMPRESSED.
      */
     private async convertImageToBin(
-        toolPath: string,
         inputPath: string,
         outputPath: string,
         colorFormat: string
     ): Promise<boolean> {
-        const ext = path.extname(inputPath).toLowerCase();
-
-        let actualInputPath = inputPath;
-        let tempPngPath: string | null = null;
-        let cf = colorFormat || 'RGB565';
-
-        // Convert non-PNG images to PNG first
-        if (ext !== '.png') {
-            tempPngPath = path.join(path.dirname(outputPath), `_temp_${path.basename(outputPath, '.bin')}.png`);
-            const convertSuccess = this.convertToPng(inputPath, tempPngPath);
-            if (!convertSuccess) {
-                console.warn(`Image format conversion failed: ${inputPath}`);
+        try {
+            const pixelFormat = this.resolvePixelFormat(colorFormat);
+            if (pixelFormat === null) {
+                console.warn(`[LvglResourceManager] Unsupported format: ${colorFormat}, skipping ${inputPath}`);
                 return false;
             }
-            actualInputPath = tempPngPath;
-        }
 
-        // Build LVGLImage.py command
-        const outputDir = path.dirname(outputPath);
-        const baseName = path.basename(outputPath, '.bin');
+            const converter = new ImageConverter();
+            await converter.convert(inputPath, outputPath, pixelFormat);
 
-        const baseArgs = [
-            toolPath,
-            '--ofmt', 'BIN',
-            '--cf', cf,
-            '-o', outputDir,
-            '--name', baseName,
-            actualInputPath
-        ];
-
-        const pythonCommands = ['python', 'python3', 'py'];
-        let success = false;
-
-        for (const pyCmd of pythonCommands) {
-            const args = pyCmd === 'py' ? ['-3', ...baseArgs] : baseArgs;
-            const result = spawnSync(pyCmd, args, { encoding: 'utf-8', windowsHide: true });
-
-            if (result.status === 0) {
-                // LVGLImage.py creates .bin file directly
-                if (fs.existsSync(outputPath)) {
-                    success = true;
-                    break;
-                }
-            }
-        }
-
-        // Cleanup temp PNG
-        if (tempPngPath && fs.existsSync(tempPngPath)) {
-            try { fs.unlinkSync(tempPngPath); } catch { /* ignore */ }
-        }
-
-        if (!success) {
-            console.warn(`Image bin conversion failed: ${inputPath}`);
-        }
-        return success;
-    }
-
-    /**
-     * Convert image to PNG format using Pillow
-     */
-    private convertToPng(inputPath: string, outputPath: string): boolean {
-        const script = `from PIL import Image; img = Image.open(r'${inputPath.replace(/'/g, "\\'")}'); img.convert('RGBA').save(r'${outputPath.replace(/'/g, "\\'")}', 'PNG')`;
-
-        const pythonCommands = ['python', 'python3', 'py'];
-
-        for (const pyCmd of pythonCommands) {
-            const args = pyCmd === 'py' ? ['-3', '-c', script] : ['-c', script];
-            const result = spawnSync(pyCmd, args, { encoding: 'utf-8', windowsHide: true });
-
-            if (result.status === 0 && fs.existsSync(outputPath)) {
+            if (fs.existsSync(outputPath)) {
+                console.log(`[LvglBinImageConverter] Converted: ${inputPath} -> ${outputPath}`);
                 return true;
             }
-        }
 
-        return false;
+            console.warn(`[LvglBinImageConverter] No output: ${inputPath}`);
+            return false;
+        } catch (error) {
+            console.warn(`[LvglBinImageConverter] Failed: ${inputPath}`, error);
+            return false;
+        }
     }
 
     /**
-     * Parse LVGL bin file header to extract metadata
+     * Map conversion.json format string to HoneyGUI PixelFormat enum.
+     */
+    private resolvePixelFormat(formatStr: string): PixelFormat | null {
+        const normalized = formatStr.trim().toUpperCase();
+        const map: Record<string, PixelFormat> = {
+            'RGB565':   PixelFormat.RGB565,
+            'ARGB8565': PixelFormat.ARGB8565,
+            'RGB888':   PixelFormat.RGB888,
+            'ARGB8888': PixelFormat.ARGB8888,
+            'XRGB8888': PixelFormat.XRGB8888,
+            'A8':       PixelFormat.A8,
+            'A4':       PixelFormat.A4,
+            'A2':       PixelFormat.A2,
+            'A1':       PixelFormat.A1,
+            'I8':       PixelFormat.I8,
+            'I4':       PixelFormat.I4,
+            'I2':       PixelFormat.I2,
+            'I1':       PixelFormat.I1,
+        };
+        return map[normalized] ?? null;
+    }
+
+    /**
+     * Parse HoneyGUI bin file header to extract metadata.
      *
-     * LVGL v9 bin header format (12 bytes):
-     * - byte 0: magic (0x19)
-     * - byte 1: color format
-     * - byte 2-3: flags (16 bits)
-     * - byte 4-5: width (16 bits)
-     * - byte 6-7: height (16 bits)
-     * - byte 8-9: stride (16 bits)
-     * - byte 10-11: reserved (16 bits)
+     * HoneyGUI bin format:
+     *   RGBDataHeader (8 bytes):
+     *     byte 0:    flags (bit0=scan, bit1=align, bit2-3=resize, bit4=compress, ...)
+     *     byte 1:    type (PixelFormat enum value)
+     *     bytes 2-3: width (int16 LE)
+     *     bytes 4-5: height (int16 LE)
+     *     bytes 6-7: version + rsvd2
+     *
+     *   If compressed (flags bit4=1):
+     *     IMDCFileHeader (12 bytes) + offset table ((height+1)*4 bytes) + compressed data
+     *
+     *   If uncompressed:
+     *     pixel data starts immediately after RGBDataHeader
      */
     private parseBinFile(
         binAbsPath: string,
@@ -394,35 +402,43 @@ export class LvglBinImageConverter {
     ): BinImageInfo | null {
         try {
             const fd = fs.openSync(binAbsPath, 'r');
-            const header = Buffer.alloc(LvglBinImageConverter.LVGL_BIN_HEADER_SIZE);
+            const header = Buffer.alloc(LvglBinImageConverter.HONEYGUI_HEADER_SIZE);
             fs.readSync(fd, header, 0, header.length, 0);
-            fs.closeSync(fd);
 
-            // Validate magic number
-            const magic = header.readUInt8(0);
-            if (magic !== LvglBinImageConverter.LVGL_BIN_MAGIC) {
-                console.warn(`Invalid LVGL bin magic: ${magic.toString(16)} in ${binAbsPath}`);
-                return null;
+            // Parse RGBDataHeader fields
+            const flags = header.readUInt8(0);
+            const honeyguiFormat = header.readUInt8(1);
+            const width = header.readInt16LE(2);
+            const height = header.readInt16LE(4);
+
+            // Check compress flag (bit 4 in HoneyGUI RGBDataHeader byte 0)
+            const compressed = (flags & 0x10) !== 0;
+
+            // Map HoneyGUI PixelFormat to LVGL color format enum
+            const colorFormat = HONEYGUI_TO_LVGL_FORMAT_MAP[honeyguiFormat] || 'LV_COLOR_FORMAT_RAW';
+
+            // Calculate stride from format and width
+            const bpp = PIXEL_FORMAT_BYTES_PER_PIXEL[honeyguiFormat] || 1;
+            const stride = Math.ceil(width * bpp);
+
+            // Calculate total header size and pixel data size
+            let totalHeaderSize = LvglBinImageConverter.HONEYGUI_HEADER_SIZE; // RGBDataHeader
+
+            if (compressed) {
+                // IMDCFileHeader (12 bytes) + offset table ((height+1)*4 bytes)
+                totalHeaderSize += LvglBinImageConverter.IMDC_HEADER_SIZE + (height + 1) * 4;
+                // Read IMDC header to verify
+                const imdcHeader = Buffer.alloc(LvglBinImageConverter.IMDC_HEADER_SIZE);
+                fs.readSync(fd, imdcHeader, 0, imdcHeader.length, LvglBinImageConverter.HONEYGUI_HEADER_SIZE);
+                // Skip offset table - just calculate size
             }
 
-            // Parse header fields
-            const cfValue = header.readUInt8(1) & 0x1f;  // color format (lower 5 bits)
-            const flags = header.readUInt16LE(2);
-            const width = header.readUInt16LE(4);
-            const height = header.readUInt16LE(6);
-            const stride = header.readUInt16LE(8);
+            fs.closeSync(fd);
 
-            // Get color format enum name
-            const colorFormatName = this.cfValueToEnumName(cfValue);
-
-            // Check if compressed (bit 0 of flags)
-            const compressed = (flags & 0x01) !== 0;
-
-            // Calculate data size
+            // Calculate pixel data size (total file - headers)
             const stat = fs.statSync(binAbsPath);
-            const dataSize = stat.size - LvglBinImageConverter.LVGL_BIN_HEADER_SIZE;
+            const dataSize = stat.size - totalHeaderSize;
 
-            // Generate descriptor name and macro name
             const descriptorName = this.generateDescriptorName(sourcePath);
             const macroName = this.generateMacroName(sourcePath);
 
@@ -433,9 +449,9 @@ export class LvglBinImageConverter {
                 width,
                 height,
                 stride,
-                colorFormat: colorFormatName,
+                colorFormat,
                 dataSize,
-                headerSize: LvglBinImageConverter.LVGL_BIN_HEADER_SIZE,
+                headerSize: totalHeaderSize,
                 compressed,
                 descriptorName,
                 macroName,
@@ -444,38 +460,6 @@ export class LvglBinImageConverter {
             console.warn(`Failed to parse bin file: ${binAbsPath}`, err);
             return null;
         }
-    }
-
-    /**
-     * Convert color format value to LVGL enum name
-     */
-    private cfValueToEnumName(cfValue: number): string {
-        // Color format values from LVGLImage.py
-        const cfNames: Record<number, string> = {
-            0x00: 'LV_COLOR_FORMAT_UNKNOWN',
-            0x01: 'LV_COLOR_FORMAT_RAW',
-            0x02: 'LV_COLOR_FORMAT_RAW_ALPHA',
-            0x06: 'LV_COLOR_FORMAT_L8',
-            0x07: 'LV_COLOR_FORMAT_I1',
-            0x08: 'LV_COLOR_FORMAT_I2',
-            0x09: 'LV_COLOR_FORMAT_I4',
-            0x0A: 'LV_COLOR_FORMAT_I8',
-            0x0B: 'LV_COLOR_FORMAT_A1',
-            0x0C: 'LV_COLOR_FORMAT_A2',
-            0x0D: 'LV_COLOR_FORMAT_A4',
-            0x0E: 'LV_COLOR_FORMAT_A8',
-            0x0F: 'LV_COLOR_FORMAT_RGB888',
-            0x10: 'LV_COLOR_FORMAT_ARGB8888',
-            0x11: 'LV_COLOR_FORMAT_XRGB8888',
-            0x12: 'LV_COLOR_FORMAT_RGB565',
-            0x13: 'LV_COLOR_FORMAT_ARGB8565',
-            0x14: 'LV_COLOR_FORMAT_RGB565A8',
-            0x15: 'LV_COLOR_FORMAT_AL88',
-            0x1A: 'LV_COLOR_FORMAT_ARGB8888_PREMULTIPLIED',
-            0x1B: 'LV_COLOR_FORMAT_RGB565_SWAPPED',
-        };
-
-        return cfNames[cfValue] || `LV_COLOR_FORMAT_UNKNOWN`;
     }
 
     /**

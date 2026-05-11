@@ -3,7 +3,9 @@
  * Generates lv_img_dsc_list.h and lv_img_dsc_list.c for external-bin deployment mode
  *
  * The generated files provide lv_image_dsc_t descriptors for each external-bin image,
- * allowing them to be referenced via descriptors like &bg instead of raw bin data.
+ * mapping HoneyGUI binary format metadata to LVGL image descriptors.
+ * Each descriptor references pixel data from romfs.bin via ui_resource.h macros,
+ * skipping the HoneyGUI binary headers (RGBDataHeader + optional IMDC).
  */
 import { BinImageInfo } from '../resources/LvglBinImageConverter';
 
@@ -98,8 +100,9 @@ export class LvglImgDscListGenerator {
     /**
      * Generate a single lv_image_dsc_t descriptor
      *
-     * The .data pointer points to (MACRO + headerSize) to skip the LVGL bin header.
-     * LVGL v9 bin header is 12 bytes: magic + cf + flags + w + h + stride + reserved
+     * The .data pointer points to (MACRO + headerSize) to skip the HoneyGUI binary header.
+     * HoneyGUI bin format: RGBDataHeader (8B) + optional IMDC (12B) + optional offset table.
+     * headerSize is the total header size computed by LvglBinImageConverter.parseBinFile().
      */
     private generateImageDescriptor(img: BinImageInfo): string {
         let code = `/**\n`;
@@ -134,17 +137,15 @@ export class LvglImgDscListGenerator {
      * Generate flags value for the image descriptor
      *
      * Currently supported flags:
-     * - 0: Normal image
-     * - LV_IMAGE_FLAGS_USER1: Compressed image (custom flag for compression)
+     * - 0: Normal image (uncompressed)
+     * - LV_IMAGE_FLAGS_USER1: RLE compressed image
      *
-     * Note: LVGL v9 uses different compression flags. The compressed flag
-     * from BinImageInfo indicates the image data was compressed during conversion.
+     * LVGL 仅支持 HoneyGUI 的 RLE 压缩，不支持 FastLZ 和 YUV。
+     * HoneyGUI 压缩使用自定义 USER1 标志位，而非 LVGL 原生的 LV_IMAGE_FLAGS_COMPRESSED。
      */
     private generateFlags(img: BinImageInfo): string {
         if (img.compressed) {
-            // Use LV_IMAGE_FLAGS_COMPRESSED if available, otherwise use a custom flag
-            // LVGL v9 has LV_IMAGE_FLAGS_COMPRESSED = 0x02
-            return 'LV_IMAGE_FLAGS_COMPRESSED';
+            return 'LV_IMAGE_FLAGS_USER1';
         }
         return '0';
     }

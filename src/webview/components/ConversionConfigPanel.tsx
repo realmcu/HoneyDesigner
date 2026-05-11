@@ -76,8 +76,8 @@ const VIDEO_FORMAT_OPTIONS: { value: VideoFormat; label: string }[] = [
   { value: 'H264', label: 'H264' },
 ];
 
-// 压缩方式选项（文件夹用，含继承）
-const FOLDER_COMPRESSION_OPTIONS: { value: CompressionMethod; label: string }[] = [
+// 压缩方式选项 - HoneyGUI 项目（文件夹用，含继承）
+const FOLDER_COMPRESSION_OPTIONS_HONEYGUI: { value: CompressionMethod; label: string }[] = [
   { value: 'inherit', label: 'compressionInherit' },
   { value: 'none', label: 'compressionNone' },
   { value: 'rle', label: 'compressionRLE' },
@@ -87,8 +87,8 @@ const FOLDER_COMPRESSION_OPTIONS: { value: CompressionMethod; label: string }[] 
   { value: 'adaptive', label: 'compressionAdaptive' },
 ];
 
-// 压缩方式选项（图片用，含继承）
-const COMPRESSION_OPTIONS: { value: CompressionMethod; label: string }[] = [
+// 压缩方式选项 - HoneyGUI 项目（图片用，含继承）
+const COMPRESSION_OPTIONS_HONEYGUI: { value: CompressionMethod; label: string }[] = [
   { value: 'inherit', label: 'compressionInherit' },
   { value: 'none', label: 'compressionNone' },
   { value: 'rle', label: 'compressionRLE' },
@@ -96,6 +96,34 @@ const COMPRESSION_OPTIONS: { value: CompressionMethod; label: string }[] = [
   { value: 'yuv', label: 'compressionYUV' },
   { value: 'jpeg', label: 'compressionJPEG' },
   { value: 'adaptive', label: 'compressionAdaptive' },
+];
+
+// 压缩方式选项 - LVGL c-array 模式（文件夹用，含继承）
+// LVGLImage.py 支持的压缩方式
+const FOLDER_COMPRESSION_OPTIONS_LVGL_CARRAY: { value: CompressionMethod; label: string }[] = [
+  { value: 'inherit', label: 'compressionInherit' },
+  { value: 'none', label: 'compressionNone' },
+  { value: 'rle', label: 'compressionRLE' },
+];
+
+// 压缩方式选项 - LVGL c-array 模式（图片用，含继承）
+const COMPRESSION_OPTIONS_LVGL_CARRAY: { value: CompressionMethod; label: string }[] = [
+  { value: 'inherit', label: 'compressionInherit' },
+  { value: 'none', label: 'compressionNone' },
+  { value: 'rle', label: 'compressionRLE' },
+];
+
+// 压缩方式选项 - LVGL external-bin 模式（文件夹用）
+// HoneyGUI bin 格式的压缩与 LVGL 不兼容，仅 RLE 在 LVGL 实机可解析
+const FOLDER_COMPRESSION_OPTIONS_LVGL_BIN: { value: CompressionMethod; label: string }[] = [
+  { value: 'none', label: 'compressionNone' },
+  { value: 'rle', label: 'compressionRLE' },
+];
+
+// 压缩方式选项 - LVGL external-bin 模式（图片用）
+const COMPRESSION_OPTIONS_LVGL_BIN: { value: CompressionMethod; label: string }[] = [
+  { value: 'none', label: 'compressionNone' },
+  { value: 'rle', label: 'compressionRLE' },
 ];
 
 // 部署方式选项（文件夹用，无继承）
@@ -621,6 +649,36 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     [selectedAsset, currentSettings, updateAssetConfig]
   );
 
+  // 处理部署方式变更（仅 LVGL 项目）
+  const handleDeploymentChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (!selectedAsset) return;
+      const newDeployment = e.target.value as DeploymentMode;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      const newSettings: ItemSettings = {
+        ...currentSettings,
+        deployment: newDeployment,
+      };
+
+      // LVGL external-bin 模式压缩限制：
+      // 当切换到 external-bin 时，如果当前压缩方式不在允许列表中（none, rle），
+      // 自动重置为 'none'
+      if (newDeployment === 'external-bin') {
+        const allowedCompressions: CompressionMethod[] = ['none', 'rle'];
+        const currentComp = currentSettings.compression || 'inherit';
+        // 如果当前压缩方式不在允许列表中，重置为 'none'
+        if (currentComp !== 'inherit' && !allowedCompressions.includes(currentComp)) {
+          newSettings.compression = 'none';
+        }
+      }
+
+      // 传递 changedField='deployment'，触发后端代码生成
+      // （切换 c-array / external-bin 会改变 lv_img_dsc_list 与 entry 文件）
+      updateAssetConfig(assetPath, newSettings, 'deployment');
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
   // 处理压缩方式变更
   const handleCompressionChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -760,24 +818,6 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     [selectedAsset, currentSettings, updateAssetConfig]
   );
 
-  // 处理部署方式变更（仅 LVGL 项目）
-  const handleDeploymentChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      if (!selectedAsset) return;
-      const newDeployment = e.target.value as DeploymentMode;
-      const assetPath = selectedAsset.relativePath || selectedAsset.name;
-      updateAssetConfig(
-        assetPath,
-        {
-          ...currentSettings,
-          deployment: newDeployment,
-        },
-        'deployment' // 触发代码生成（影响 lv_img_dsc_list 与 entry 文件）
-      );
-    },
-    [selectedAsset, currentSettings, updateAssetConfig]
-  );
-
   // 处理 JPEG 背景色变更
   const handleJpegBackgroundColorChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -819,6 +859,30 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
   const showYuvParams = currentCompression === 'yuv' || effectiveSettings.settings.compression === 'yuv';
   const showJpegParams = currentCompression === 'jpeg' || effectiveSettings.settings.compression === 'jpeg';
 
+  // 根据目标引擎和部署模式选择压缩选项
+  // - HoneyGUI 项目：支持所有压缩方式
+  // - LVGL c-array 模式：支持 none, rle（LVGLImage.py 支持）
+  // - LVGL external-bin 模式：支持 none, rle（仅 RLE 在 LVGL 实机可解析）
+  const compressionOptions = useMemo(() => {
+    if (!isLvglProject) {
+      // HoneyGUI 项目：支持所有压缩方式
+      return isFolder ? FOLDER_COMPRESSION_OPTIONS_HONEYGUI : COMPRESSION_OPTIONS_HONEYGUI;
+    }
+    // LVGL 项目：根据部署模式选择
+    // 注意：文件夹的 deployment 可能是 'c-array' 或 'external-bin'（无继承）
+    // 图片的 deployment 可能是 'inherit'，需要解析
+    const effectiveDeploymentMode = currentDeployment === 'inherit'
+      ? (effectiveSettings.settings.deployment || 'c-array')
+      : currentDeployment;
+
+    if (effectiveDeploymentMode === 'external-bin') {
+      // LVGL external-bin 模式：仅支持 none, rle
+      return isFolder ? FOLDER_COMPRESSION_OPTIONS_LVGL_BIN : COMPRESSION_OPTIONS_LVGL_BIN;
+    }
+    // LVGL c-array 模式：支持 none, rle
+    return isFolder ? FOLDER_COMPRESSION_OPTIONS_LVGL_CARRAY : COMPRESSION_OPTIONS_LVGL_CARRAY;
+  }, [isLvglProject, isFolder, currentDeployment, effectiveSettings.settings.deployment]);
+
   // 渲染图片设置区域
   const renderImageSettings = () => (
     <div className="config-group">
@@ -848,7 +912,7 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
       <div className="config-item">
         <label>{t('Compression Method')}</label>
         <select value={currentCompression} onChange={handleCompressionChange}>
-          {(isFolder ? FOLDER_COMPRESSION_OPTIONS : COMPRESSION_OPTIONS).map((option) => (
+          {compressionOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {t(option.label as any)}
             </option>

@@ -118,7 +118,10 @@ export class LvglFontConverter {
       }
 
       console.log(`[LvglFontConverter] Converting font: ${config.fontFile}, size: ${config.fontSize}, bpp: ${config.bpp}, chars(${config.characters.length}): "${config.characters.substring(0, 80)}${config.characters.length > 80 ? '...' : ''}"`);
-      const success = this.convertFontToLvgl(inputPath, fontOutputDir, varName, config.fontSize, config.bpp, config.characters, srcDir);
+      const extendedOpts = config.pixelOrder === 'LSB'
+        ? { pixelOrder: 'LSB' as const, noCompress: true, extractGlyphBitmap: true }
+        : undefined;
+      const success = this.convertFontToLvgl(inputPath, fontOutputDir, varName, config.fontSize, config.bpp, config.characters, srcDir, extendedOpts);
       if (success) {
         this.builtinFontVarMap.set(key, varName);
         this.builtinFontVars.push(varName);
@@ -192,7 +195,7 @@ export class LvglFontConverter {
    * Includes text characters + additional character sets (range, string, file, codepage)
    * Groups by (fontFile, fontSize, bpp) to avoid overwriting when different renderModes are used.
    */
-  private collectFontConfigs(components: Component[], projectRoot: string): Array<{ fontFile: string; fontSize: number; bpp: number; characters: string }> {
+  private collectFontConfigs(components: Component[], projectRoot: string): Array<{ fontFile: string; fontSize: number; bpp: number; characters: string; pixelOrder?: 'MSB' | 'LSB' }> {
     const fontExts = new Set(['.ttf', '.otf', '.woff', '.woff2']);
     /** Component types that support custom fonts */
     const fontComponentTypes = new Set(['hg_label', 'hg_time_label', 'hg_timer_label', 'hg_checkbox', 'hg_radio']);
@@ -200,6 +203,7 @@ export class LvglFontConverter {
       fontFile: string;
       fontSize: number;
       bpp: number;
+      pixelOrder: 'MSB' | 'LSB';
       characters: Set<string>;
       additionalCharSets: Set<string>; // JSON-serialized for dedup
     }>();
@@ -222,6 +226,7 @@ export class LvglFontConverter {
 
       const fontSize = Number(component.style?.fontSize || component.data?.fontSize || 16);
       const bpp = this.parseRenderMode((component.data as any)?.renderMode);
+      const pixelOrder = (component.data as any)?.pixelOrder === 'LSB' ? 'LSB' as const : 'MSB' as const;
       // checkbox/radio may store text in 'text' or 'label' field
       const text = String(component.data?.text || component.data?.label || '');
       const key = normalizeFontKey(fontFileStr, fontSize, bpp);
@@ -250,6 +255,7 @@ export class LvglFontConverter {
           fontFile: fontFileStr,
           fontSize,
           bpp,
+          pixelOrder,
           characters: new Set(text),
           additionalCharSets
         });
@@ -271,7 +277,8 @@ export class LvglFontConverter {
         fontFile: config.fontFile,
         fontSize: config.fontSize,
         bpp: config.bpp,
-        characters: this.buildCharacterSet(allChars)
+        characters: this.buildCharacterSet(allChars),
+        pixelOrder: config.pixelOrder
       };
     });
   }
@@ -402,7 +409,26 @@ export class LvglFontConverter {
   }
 
   /**
-   * Convert font to LVGL C format using lv_font_conv
+   * Find the local lv_font_conv tool script.
+   * Looks in tools/lv-font-conv/ relative to the project root.
+   */
+  private findFontConvTool(): string | null {
+    const candidates = [
+      // Relative to the compiled extension (out/src/codegen/lvgl/resources/ -> project root)
+      path.resolve(__dirname, '../../../../../tools/lv-font-conv/lv_font_conv.js'),
+      // Absolute workspace root
+      path.join(process.cwd(), 'tools', 'lv-font-conv', 'lv_font_conv.js'),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Convert font to LVGL C format using local lv_font_conv (forked version with pixel-order + extract-glyph-bitmap)
    */
   private convertFontToLvgl(
     inputPath: string,
@@ -411,14 +437,18 @@ export class LvglFontConverter {
     fontSize: number,
     bpp: number,
     characters: string,
-    srcDir: string
+    srcDir: string,
+    options?: { pixelOrder?: 'MSB' | 'LSB'; extractGlyphBitmap?: boolean; noCompress?: boolean }
   ): boolean {
+    const toolPath = this.findFontConvTool();
+    if (!toolPath) {
+      console.warn('[LvglFontConverter] Local lv_font_conv tool not found, skipping font conversion');
+      return false;
+    }
+
     try {
       const outputFile = path.join(outputDir, `${varName}.c`);
 
-      // Build lv_font_conv arguments
-      // Use --range for individual code points to avoid shell escaping issues with --symbols
-      // (space and other special chars get eaten by shell when using --symbols with shell: true)
       const codePoints = Array.from(new Set(characters))
         .map(ch => ch.codePointAt(0)!)
         .filter(cp => cp !== undefined)
@@ -427,7 +457,7 @@ export class LvglFontConverter {
       const ranges = this.compactRanges(codePoints);
 
       const args = [
-        'lv_font_conv',
+        toolPath,
         '--font', inputPath,
         '--size', String(fontSize),
         '--format', 'lvgl',
@@ -439,7 +469,18 @@ export class LvglFontConverter {
         args.push('--range', range);
       }
 
-      const result = spawnSync('npx', args, {
+      // Extended options (fork-specific)
+      if (options?.pixelOrder) {
+        args.push('--pixel-order', options.pixelOrder);
+      }
+      if (options?.noCompress) {
+        args.push('--no-compress');
+      }
+      if (options?.extractGlyphBitmap) {
+        args.push('--extract-glyph-bitmap');
+      }
+
+      const result = spawnSync('node', args, {
         encoding: 'utf-8',
         timeout: 60000,
         cwd: path.dirname(srcDir),
