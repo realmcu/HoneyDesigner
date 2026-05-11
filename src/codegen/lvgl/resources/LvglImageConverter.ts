@@ -12,6 +12,7 @@ import { Component } from '../../../hml/types';
 import { normalizeImageKey, buildImageVarName } from '../LvglUtils';
 
 export class LvglImageConverter {
+  private static readonly CONVERSION_TIMEOUT_MS = 60000;
   private builtinImageVarMap: Map<string, string> = new Map();
   private builtinImageVars: string[] = [];
 
@@ -272,8 +273,8 @@ export class LvglImageConverter {
     }
     try {
       const content = fs.readFileSync(outputFile, 'utf-8');
-      // Look for LV_COLOR_FORMAT_XXX in the header
-      const match = content.match(/LV_COLOR_FORMAT_(\w+)/);
+      // Look for .cf = LV_COLOR_FORMAT_XXX in the image descriptor
+      const match = content.match(/\.cf\s*=\s*LV_COLOR_FORMAT_(\w+)/);
       if (match) {
         return match[1]; // e.g., 'RGB565', 'ARGB8888'
       }
@@ -318,7 +319,16 @@ export class LvglImageConverter {
 
     for (const pyCmd of pythonCommands) {
       const args = pyCmd === 'py' ? ['-3', ...baseArgs] : baseArgs;
-      const result = spawnSync(pyCmd, args, { encoding: 'utf-8', windowsHide: true });
+      const result = spawnSync(pyCmd, args, {
+        encoding: 'utf-8',
+        windowsHide: true,
+        timeout: LvglImageConverter.CONVERSION_TIMEOUT_MS
+      });
+
+      if (this.isProcessTimeout(result.error)) {
+        console.warn(`Image conversion timed out: ${inputPath}`);
+        break;
+      }
 
       if (result.status === 0) {
         const outputFile = path.join(outputDir, `${varName}.c`);
@@ -341,20 +351,21 @@ export class LvglImageConverter {
 
   /**
    * Map conversion.json format to LVGLImage.py color format
-   * LVGLImage.py supports: RGB565, RGB888, ARGB8888, XRGB8888, A8, A4, A2, A1
+   * LVGLImage.py supports: RGB565, RGB888, ARGB8888, XRGB8888, A8, A4, A2, A1,
+   *                       I8 (palette-indexed; I4/I2/I1 not yet wired here)
    */
   private mapToLvglColorFormat(format?: string): string {
     if (!format) {
       return 'ARGB8888'; // default
     }
     const normalized = format.trim().toUpperCase();
-    // LVGLImage.py supports these formats
-    const supported = ['RGB565', 'RGB888', 'ARGB8888', 'XRGB8888', 'A8', 'A4', 'A2', 'A1'];
+    // LVGLImage.py supports these formats natively
+    const supported = ['RGB565', 'RGB888', 'ARGB8888', 'XRGB8888', 'A8', 'A4', 'A2', 'A1', 'I8'];
     if (supported.includes(normalized)) {
       return normalized;
     }
-    // Unsupported formats fallback to ARGB8888
-    console.warn(`[LvglResourceManager] Unsupported format for LVGLImage.py: ${format}, using ARGB8888`);
+    // Unsupported formats (e.g., ARGB8565, adaptive*, RGB565_SWAPPED) fallback to ARGB8888
+    console.warn(`[LvglImageConverter] Unsupported format for LVGLImage.py: ${format}, using ARGB8888`);
     return 'ARGB8888';
   }
 
@@ -368,7 +379,16 @@ export class LvglImageConverter {
 
     for (const pyCmd of pythonCommands) {
       const args = pyCmd === 'py' ? ['-3', '-c', script] : ['-c', script];
-      const result = spawnSync(pyCmd, args, { encoding: 'utf-8', windowsHide: true });
+      const result = spawnSync(pyCmd, args, {
+        encoding: 'utf-8',
+        windowsHide: true,
+        timeout: LvglImageConverter.CONVERSION_TIMEOUT_MS
+      });
+
+      if (this.isProcessTimeout(result.error)) {
+        console.warn(`Image PNG conversion timed out: ${inputPath}`);
+        break;
+      }
 
       if (result.status === 0 && fs.existsSync(outputPath)) {
         return true;
@@ -376,6 +396,10 @@ export class LvglImageConverter {
     }
 
     return false;
+  }
+
+  private isProcessTimeout(error: Error | undefined): boolean {
+    return !!error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT';
   }
 
   /**

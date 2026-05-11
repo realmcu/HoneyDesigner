@@ -126,6 +126,15 @@ const COMPRESSION_OPTIONS_LVGL_BIN: { value: CompressionMethod; label: string }[
   { value: 'rle', label: 'compressionRLE' },
 ];
 
+// LVGL external-bin + RLE 模式下，运行时 lv_idu.c::decompress_rle_data 仅支持的颜色格式
+// 见 LVGL/src/libs/rle/lv_idu.c
+const LVGL_BIN_RLE_SUPPORTED_FORMATS: TargetFormat[] = [
+  'RGB565',
+  'RGB888',
+  'ARGB8565',
+  'ARGB8888',
+];
+
 // 部署方式选项（文件夹用，无继承）
 const FOLDER_DEPLOYMENT_OPTIONS: { value: DeploymentMode; label: string }[] = [
   { value: 'c-array', label: 'deploymentCArray' },
@@ -574,6 +583,11 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     };
   }, [selectedAsset, conversionConfig]);
 
+  const currentFormat = currentSettings.format || (isFolder ? 'adaptive16' : 'inherit');
+  const currentVideoFormat = currentSettings.videoFormat || (isFolder ? 'MJPEG' : 'inherit');
+  const currentCompression = currentSettings.compression || 'inherit';
+  const currentDeployment: DeploymentMode = currentSettings.deployment || (isFolder ? 'c-array' : 'inherit');
+
   // 处理格式变更
   const handleFormatChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -660,15 +674,34 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
         deployment: newDeployment,
       };
 
-      // LVGL external-bin 模式压缩限制：
-      // 当切换到 external-bin 时，如果当前压缩方式不在允许列表中（none, rle），
-      // 自动重置为 'none'
+      // LVGL external-bin 模式限制：
+      // - 压缩方式：仅 none / rle，其余重置为 'none'
+      // - 格式：Index 格式（I8/I4/I2/I1）不支持，重置为 'inherit'
+      // - 若有效压缩 = RLE，格式还必须在运行时支持的 4 种之内（lv_idu.c）
       if (newDeployment === 'external-bin') {
         const allowedCompressions: CompressionMethod[] = ['none', 'rle'];
         const currentComp = currentSettings.compression || 'inherit';
-        // 如果当前压缩方式不在允许列表中，重置为 'none'
         if (currentComp !== 'inherit' && !allowedCompressions.includes(currentComp)) {
           newSettings.compression = 'none';
+        }
+
+        // 格式兜底：external-bin 不支持 Index 格式
+        const disallowedFormats: TargetFormat[] = ['I8'];
+        const currentFmt = currentSettings.format || 'inherit';
+        if (currentFmt !== 'inherit' && disallowedFormats.includes(currentFmt as TargetFormat)) {
+          newSettings.format = 'inherit';
+        }
+
+        // RLE 模式下，格式必须在运行时解码器支持列表内
+        const effectiveCompAfter = newSettings.compression === 'inherit' || newSettings.compression === undefined
+          ? (effectiveSettings.settings.compression || 'none')
+          : newSettings.compression;
+        if (effectiveCompAfter === 'rle') {
+          const fmtAfter = newSettings.format || 'inherit';
+          if (fmtAfter !== 'inherit'
+              && !LVGL_BIN_RLE_SUPPORTED_FORMATS.includes(fmtAfter as TargetFormat)) {
+            newSettings.format = 'inherit';
+          }
         }
       }
 
@@ -676,7 +709,8 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
       // （切换 c-array / external-bin 会改变 lv_img_dsc_list 与 entry 文件）
       updateAssetConfig(assetPath, newSettings, 'deployment');
     },
-    [selectedAsset, currentSettings, updateAssetConfig]
+    [selectedAsset, currentSettings, updateAssetConfig,
+     effectiveSettings.settings.compression]
   );
 
   // 处理压缩方式变更
@@ -713,9 +747,26 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
       if (newCompression !== 'jpeg') {
         delete newSettings.jpegParams;
       }
+
+      // LVGL external-bin + RLE：格式必须在运行时解码器支持列表内（lv_idu.c）
+      // 否则自动重置 format 为 inherit，避免运行时解码失败
+      if (newCompression === 'rle') {
+        const effectiveDeployment = currentDeployment === 'inherit'
+          ? (effectiveSettings.settings.deployment || 'c-array')
+          : currentDeployment;
+        if (effectiveDeployment === 'external-bin') {
+          const fmt = newSettings.format || 'inherit';
+          if (fmt !== 'inherit'
+              && !LVGL_BIN_RLE_SUPPORTED_FORMATS.includes(fmt as TargetFormat)) {
+            newSettings.format = 'inherit';
+          }
+        }
+      }
+
       updateAssetConfig(assetPath, newSettings);
     },
-    [selectedAsset, currentSettings, updateAssetConfig]
+    [selectedAsset, currentSettings, updateAssetConfig, currentDeployment,
+     effectiveSettings.settings.deployment]
   );
 
   // 处理 YUV 采样方式变更
@@ -849,13 +900,42 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     );
   }
 
-  const formatOptions = isFolder ? FOLDER_FORMAT_OPTIONS : IMAGE_FORMAT_OPTIONS;
   const videoFormatOptions = isFolder ? FOLDER_VIDEO_FORMAT_OPTIONS : VIDEO_FORMAT_OPTIONS;
   const deploymentOptions = isFolder ? FOLDER_DEPLOYMENT_OPTIONS : DEPLOYMENT_OPTIONS;
-  const currentFormat = currentSettings.format || (isFolder ? 'adaptive16' : 'inherit');
-  const currentVideoFormat = currentSettings.videoFormat || (isFolder ? 'MJPEG' : 'inherit');
-  const currentCompression = currentSettings.compression || 'inherit';
-  const currentDeployment: DeploymentMode = currentSettings.deployment || (isFolder ? 'c-array' : 'inherit');
+
+  // 格式选项：
+  // - HoneyGUI 项目：保留全部格式（含 I8）
+  // - LVGL c-array：保留 LVGL 原生格式能力（含 I8，LVGLImage.py 支持调色板转换）
+  // - LVGL external-bin：
+  //     · 移除 Index 格式（调色板布局与 LVGL 解码器不兼容）
+  //     · 若有效压缩 = RLE，进一步收紧到运行时 lv_idu.c 支持的 4 种格式
+  //       (RGB565/RGB888/ARGB8565/ARGB8888)
+  const formatOptions = useMemo(() => {
+    const base = isFolder ? FOLDER_FORMAT_OPTIONS : IMAGE_FORMAT_OPTIONS;
+    if (!isLvglProject) {
+      return base;
+    }
+    const effectiveDeploymentMode = currentDeployment === 'inherit'
+      ? (effectiveSettings.settings.deployment || 'c-array')
+      : currentDeployment;
+    if (effectiveDeploymentMode !== 'external-bin') {
+      return base;
+    }
+    // external-bin: 先去掉 Index 格式
+    let filtered = base.filter(opt => opt.value !== 'I8');
+    // 解析有效压缩方式（图片可能 inherit）
+    const effectiveCompression = currentCompression === 'inherit'
+      ? (effectiveSettings.settings.compression || 'none')
+      : currentCompression;
+    // RLE 模式下，运行时只能解码 4 种颜色格式
+    if (effectiveCompression === 'rle') {
+      filtered = filtered.filter(opt =>
+        opt.value === 'inherit' || LVGL_BIN_RLE_SUPPORTED_FORMATS.includes(opt.value as TargetFormat)
+      );
+    }
+    return filtered;
+  }, [isLvglProject, isFolder, currentDeployment, currentCompression,
+      effectiveSettings.settings.deployment, effectiveSettings.settings.compression]);
   const showYuvParams = currentCompression === 'yuv' || effectiveSettings.settings.compression === 'yuv';
   const showJpegParams = currentCompression === 'jpeg' || effectiveSettings.settings.compression === 'jpeg';
 

@@ -100,9 +100,14 @@ export class LvglImgDscListGenerator {
     /**
      * Generate a single lv_image_dsc_t descriptor
      *
-     * The .data pointer points to (MACRO + headerSize) to skip the HoneyGUI binary header.
-     * HoneyGUI bin format: RGBDataHeader (8B) + optional IMDC (12B) + optional offset table.
-     * headerSize is the total header size computed by LvglBinImageConverter.parseBinFile().
+     * The `.data` pointer is `(MACRO + headerSize)`:
+     *   - Uncompressed: headerSize = 8, so `.data` skips RGBDataHeader and points
+     *     to raw pixel bytes that LVGL's stock decoders consume directly.
+     *   - Compressed (RLE -> LV_IMAGE_FLAGS_USER1): headerSize = 0, so `.data`
+     *     points to the bin file start. The custom USER1 decoder reads the
+     *     RGBDataHeader, IMDCFileHeader, and offset table itself.
+     * `.data_size` matches: pixel-only size for uncompressed, full file size
+     * for compressed.
      */
     private generateImageDescriptor(img: BinImageInfo): string {
         let code = `/**\n`;

@@ -27,6 +27,8 @@ export class MessageHandler {
     private readonly _collaborationService: any; // 引用 CollaborationService
     private _collaborationController?: CollaborationController; // Add reference
     private _autoCodeGenTimer: NodeJS.Timeout | null = null;
+    private _isCodeGenerating: boolean = false;
+    private _hasPendingCodeGeneration: boolean = false;
     private _updateThrottles: Map<string, { timer: NodeJS.Timeout | null, pendingMessage: any, hasNew: boolean }> = new Map();
     private _userFuncWatcher: vscode.FileSystemWatcher | undefined;
 
@@ -707,9 +709,20 @@ export class MessageHandler {
      * 生成代码
      */
     private async handleGenerateCode(): Promise<void> {
+        if (this._isCodeGenerating) {
+            this._hasPendingCodeGeneration = true;
+            logger.info('[MessageHandler] 代码生成正在进行，已合并为待处理任务');
+            return;
+        }
+
+        this._isCodeGenerating = true;
         try {
-            await CodeGenerationService.generateFromFile(this._fileManager.currentFilePath, this._codeGenerator);
+            do {
+                this._hasPendingCodeGeneration = false;
+                await CodeGenerationService.generateFromFile(this._fileManager.currentFilePath, this._codeGenerator);
+            } while (this._hasPendingCodeGeneration);
         } finally {
+            this._isCodeGenerating = false;
             // 通知前端操作完成
             this._panel.webview.postMessage({ command: 'operationComplete', operation: 'codegen' });
         }

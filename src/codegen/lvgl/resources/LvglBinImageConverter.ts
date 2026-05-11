@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ImageConverter } from '../../../../tools/image-converter/converter';
 import { PixelFormat } from '../../../../tools/image-converter/types';
+import { RLECompression } from '../../../../tools/image-converter/compress/rle';
 
 /**
  * Input image info for external-bin conversion
@@ -42,9 +43,18 @@ export interface BinImageInfo {
     stride: number;
     /** LVGL color format enum name (e.g., "LV_COLOR_FORMAT_RGB565"), mapped from HoneyGUI PixelFormat */
     colorFormat: string;
-    /** Pixel data size (excluding all headers: RGBDataHeader + IMDC + offset table) */
+    /**
+     * Value to write into `lv_image_dsc_t.data_size`.
+     * - Uncompressed: pixel data size (file size - RGBDataHeader)
+     * - Compressed (RLE): full bin file size, so the custom USER1 decoder
+     *   receives the complete blob (RGBDataHeader + IMDC + offset table + data)
+     */
     dataSize: number;
-    /** Total header size in bytes before pixel data starts (RGBDataHeader 8B + optional IMDC 12B + offset table) */
+    /**
+     * Byte offset added to the romfs macro to form `lv_image_dsc_t.data`.
+     * - Uncompressed: 8 (skip RGBDataHeader, so .data points to raw pixels)
+     * - Compressed (RLE): 0 (point to bin file start; the custom decoder parses headers)
+     */
     headerSize: number;
     /** Whether the image was compressed (HoneyGUI compression: RLE/FastLZ/YUV) */
     compressed: boolean;
@@ -97,7 +107,8 @@ const PIXEL_FORMAT_BYTES_PER_PIXEL: Record<number, number> = {
 
 /**
  * LVGL binary image converter
- * Converts images to LVGL bin format using LVGLImage.py
+ * Converts images to HoneyGUI bin format (with optional RLE compression)
+ * for LVGL external-bin deployment mode.
  */
 export class LvglBinImageConverter {
     /** HoneyGUI RGBDataHeader size in bytes */
@@ -108,6 +119,18 @@ export class LvglBinImageConverter {
 
     /** Image extensions that can be converted */
     private static readonly CONVERTIBLE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.bmp', '.webp']);
+
+    /**
+     * Color formats the LVGL runtime RLE decoder (lv_idu.c::decompress_rle_data)
+     * can handle. RLE compression is disabled for any image whose color format
+     * is outside this set.
+     */
+    private static readonly RLE_RUNTIME_FORMATS = new Set([
+        'LV_COLOR_FORMAT_RGB565',
+        'LV_COLOR_FORMAT_RGB888',
+        'LV_COLOR_FORMAT_ARGB8565',
+        'LV_COLOR_FORMAT_ARGB8888',
+    ]);
 
     /** Bin image info map (source key -> BinImageInfo) */
     private binImageInfoMap: Map<string, BinImageInfo> = new Map();
@@ -139,6 +162,15 @@ export class LvglBinImageConverter {
     /**
      * Map conversion.json format string → LVGL color format enum + HoneyGUI PixelFormat + bytes per pixel.
      * Returns null for unsupported formats.
+     *
+     * Note: Index formats (I8/I4/I2/I1) are intentionally NOT supported in
+     * external-bin mode. Reasons:
+     *   - HoneyGUI I8 bin layout (header + info + palette + indices) differs
+     *     from what LVGL's stock decoder expects; pointer math would land
+     *     inside the palette.
+     *   - I4/I2/I1 bit-packed writers aren't implemented in ImageConverter.
+     * Re-introduce only after both writer and parser are aligned with LVGL's
+     * expected layout (see review #3).
      */
     private resolveFormatInfo(formatStr: string): { pixelFormat: PixelFormat; lvglColorFormat: string; bytesPerPixel: number } | null {
         const normalized = formatStr.trim().toUpperCase();
@@ -152,10 +184,6 @@ export class LvglBinImageConverter {
             'A4':       { pf: PixelFormat.A4,       lvgl: 'LV_COLOR_FORMAT_A4',       bpp: 0.5 },
             'A2':       { pf: PixelFormat.A2,       lvgl: 'LV_COLOR_FORMAT_A2',       bpp: 0.25 },
             'A1':       { pf: PixelFormat.A1,       lvgl: 'LV_COLOR_FORMAT_A1',       bpp: 0.125 },
-            'I8':       { pf: PixelFormat.I8,       lvgl: 'LV_COLOR_FORMAT_I8',       bpp: 1 },
-            'I4':       { pf: PixelFormat.I4,       lvgl: 'LV_COLOR_FORMAT_I4',       bpp: 0.5 },
-            'I2':       { pf: PixelFormat.I2,       lvgl: 'LV_COLOR_FORMAT_I2',       bpp: 0.25 },
-            'I1':       { pf: PixelFormat.I1,       lvgl: 'LV_COLOR_FORMAT_I1',       bpp: 0.125 },
         };
         const entry = map[normalized];
         if (!entry) return null;
@@ -213,26 +241,44 @@ export class LvglBinImageConverter {
                 fs.mkdirSync(binDir, { recursive: true });
             }
 
-            // Incremental check: skip if bin exists AND is newer than source AND format matches
+            // Whether RLE compression is requested for this image
+            let useRle = (img.resolvedCompression || '').toLowerCase() === 'rle';
+
+            // LVGL runtime RLE decoder (lv_idu.c::decompress_rle_data) only handles
+            // RGB565 / RGB888 / ARGB8565 / ARGB8888. For other formats we silently
+            // disable RLE to avoid producing un-decodable bin files.
+            if (useRle && !LvglBinImageConverter.RLE_RUNTIME_FORMATS.has(fmtInfo.lvglColorFormat)) {
+                console.warn(
+                    `[LvglBinImageConverter] RLE not supported for ${fmtInfo.lvglColorFormat} ` +
+                    `(${img.sourcePath}); falling back to uncompressed.`
+                );
+                useRle = false;
+            }
+
+            // Incremental check: skip if bin exists AND is newer than source AND
+            // both format and compression match
             if (this.isUpToDate(inputPath, binAbsPath)) {
-                // Verify the existing bin format matches the requested format
+                // Verify the existing bin format & compression match the requested config
                 const existingInfo = this.parseBinFile(binAbsPath, img.sourcePath, binRelPath);
-                if (existingInfo && existingInfo.colorFormat === fmtInfo.lvglColorFormat) {
-                    // Format matches, reuse existing bin
+                if (existingInfo
+                    && existingInfo.colorFormat === fmtInfo.lvglColorFormat
+                    && existingInfo.compressed === useRle) {
+                    // Format & compression match, reuse existing bin
                     const key = this.normalizeSourceKey(img.sourcePath);
                     this.binImageInfoMap.set(key, existingInfo);
                     this.binImageInfos.push(existingInfo);
                     continue;
                 }
-                // Format mismatch, need to re-convert
-                console.log(`[LvglResourceManager] Format changed, re-converting: ${img.sourcePath}`);
+                // Format or compression mismatch, need to re-convert
+                console.log(`[LvglBinImageConverter] Config changed, re-converting: ${img.sourcePath}`);
             }
 
             // Convert image to HoneyGUI bin format using TypeScript ImageConverter
             const success = await this.convertImageToBin(
                 inputPath,
                 binAbsPath,
-                img.resolvedFormat
+                img.resolvedFormat,
+                useRle
             );
 
             if (success) {
@@ -323,27 +369,41 @@ export class LvglBinImageConverter {
 
     /**
      * Convert image to HoneyGUI bin format using TypeScript ImageConverter.
-     * Output: RGBDataHeader (8 bytes) + pixel data.
-     * HoneyGUI compression (RLE/FastLZ/YUV) is not LVGL-compatible, so we convert uncompressed.
-     * LVGL handles compression separately via LV_IMAGE_FLAGS_COMPRESSED.
+     *
+     * Uncompressed output: RGBDataHeader (8 bytes) + pixel data.
+     * RLE-compressed output: RGBDataHeader (8) + IMDCFileHeader (12) + offset table
+     *                        ((height+1)*4 bytes) + RLE-compressed pixel data.
+     *
+     * The compressed bin format uses HoneyGUI's RLE layout. On the LVGL side the
+     * resulting `lv_image_dsc_t` is tagged with `LV_IMAGE_FLAGS_USER1` (see
+     * `LvglImgDscListGenerator.generateFlags`) so a custom decoder can recognize
+     * the HoneyGUI RLE format.
+     *
+     * FastLZ / YUV are not exposed to LVGL external-bin and not handled here.
      */
     private async convertImageToBin(
         inputPath: string,
         outputPath: string,
-        colorFormat: string
+        colorFormat: string,
+        useRle: boolean = false
     ): Promise<boolean> {
         try {
             const pixelFormat = this.resolvePixelFormat(colorFormat);
             if (pixelFormat === null) {
-                console.warn(`[LvglResourceManager] Unsupported format: ${colorFormat}, skipping ${inputPath}`);
+                console.warn(`[LvglBinImageConverter] Unsupported format: ${colorFormat}, skipping ${inputPath}`);
                 return false;
             }
 
             const converter = new ImageConverter();
+            if (useRle) {
+                // HoneyGUI RLE compressor; ImageConverter sets compress flag bit
+                // in RGBDataHeader and writes IMDCFileHeader + offset table + data.
+                converter.setCompressor(new RLECompression());
+            }
             await converter.convert(inputPath, outputPath, pixelFormat);
 
             if (fs.existsSync(outputPath)) {
-                console.log(`[LvglBinImageConverter] Converted: ${inputPath} -> ${outputPath}`);
+                console.log(`[LvglBinImageConverter] Converted${useRle ? ' (RLE)' : ''}: ${inputPath} -> ${outputPath}`);
                 return true;
             }
 
@@ -357,6 +417,8 @@ export class LvglBinImageConverter {
 
     /**
      * Map conversion.json format string to HoneyGUI PixelFormat enum.
+     * Index formats (I8/I4/I2/I1) are not supported in external-bin mode;
+     * see `resolveFormatInfo` for rationale.
      */
     private resolvePixelFormat(formatStr: string): PixelFormat | null {
         const normalized = formatStr.trim().toUpperCase();
@@ -370,10 +432,6 @@ export class LvglBinImageConverter {
             'A4':       PixelFormat.A4,
             'A2':       PixelFormat.A2,
             'A1':       PixelFormat.A1,
-            'I8':       PixelFormat.I8,
-            'I4':       PixelFormat.I4,
-            'I2':       PixelFormat.I2,
-            'I1':       PixelFormat.I1,
         };
         return map[normalized] ?? null;
     }
@@ -400,8 +458,9 @@ export class LvglBinImageConverter {
         sourcePath: string,
         binRelPath: string
     ): BinImageInfo | null {
+        let fd: number | null = null;
         try {
-            const fd = fs.openSync(binAbsPath, 'r');
+            fd = fs.openSync(binAbsPath, 'r');
             const header = Buffer.alloc(LvglBinImageConverter.HONEYGUI_HEADER_SIZE);
             fs.readSync(fd, header, 0, header.length, 0);
 
@@ -421,23 +480,20 @@ export class LvglBinImageConverter {
             const bpp = PIXEL_FORMAT_BYTES_PER_PIXEL[honeyguiFormat] || 1;
             const stride = Math.ceil(width * bpp);
 
-            // Calculate total header size and pixel data size
-            let totalHeaderSize = LvglBinImageConverter.HONEYGUI_HEADER_SIZE; // RGBDataHeader
-
-            if (compressed) {
-                // IMDCFileHeader (12 bytes) + offset table ((height+1)*4 bytes)
-                totalHeaderSize += LvglBinImageConverter.IMDC_HEADER_SIZE + (height + 1) * 4;
-                // Read IMDC header to verify
-                const imdcHeader = Buffer.alloc(LvglBinImageConverter.IMDC_HEADER_SIZE);
-                fs.readSync(fd, imdcHeader, 0, imdcHeader.length, LvglBinImageConverter.HONEYGUI_HEADER_SIZE);
-                // Skip offset table - just calculate size
-            }
-
-            fs.closeSync(fd);
-
-            // Calculate pixel data size (total file - headers)
+            // Determine the (headerOffset, dataSize) pair written into lv_image_dsc_t.
+            //
+            // Uncompressed images:
+            //   .data points past RGBDataHeader (8) to raw pixel bytes;
+            //   .data_size = file size - 8.
+            //
+            // Compressed images (HoneyGUI RLE -> LV_IMAGE_FLAGS_USER1):
+            //   The custom USER1 decoder needs the full HoneyGUI bin (RGBDataHeader
+            //   + IMDCFileHeader + offset table + compressed data) to parse line
+            //   offsets and algorithm params. Therefore .data points to the file
+            //   start and .data_size covers the full file.
             const stat = fs.statSync(binAbsPath);
-            const dataSize = stat.size - totalHeaderSize;
+            const headerOffset = compressed ? 0 : LvglBinImageConverter.HONEYGUI_HEADER_SIZE;
+            const dataSize = compressed ? stat.size : stat.size - LvglBinImageConverter.HONEYGUI_HEADER_SIZE;
 
             const descriptorName = this.generateDescriptorName(sourcePath);
             const macroName = this.generateMacroName(sourcePath);
@@ -451,14 +507,19 @@ export class LvglBinImageConverter {
                 stride,
                 colorFormat,
                 dataSize,
-                headerSize: totalHeaderSize,
+                headerSize: headerOffset,
                 compressed,
                 descriptorName,
                 macroName,
             };
         } catch (err) {
-            console.warn(`Failed to parse bin file: ${binAbsPath}`, err);
+            console.warn(`[LvglBinImageConverter] Failed to parse bin file: ${binAbsPath}`, err);
             return null;
+        } finally {
+            // Always close the file descriptor, even if parsing threw
+            if (fd !== null) {
+                try { fs.closeSync(fd); } catch { /* ignore */ }
+            }
         }
     }
 
