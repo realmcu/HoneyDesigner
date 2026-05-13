@@ -576,6 +576,8 @@ const zhCN = {
   'Entry (Main Screen)': '主界面入口',
   'Resident Memory': '常驻内存',
   'Animation Step': '动画步长',
+  'Snapshot Cache': '快照缓存',
+  'Snapshot Cache Tooltip': '启用快照缓存可使页面切换更流畅，代价是增加内存消耗。',
   'hg_view size is determined by project resolution and cannot be modified': 'hg_view 的宽高由项目分辨率决定，不可修改',
 
   // HgWindowProperties

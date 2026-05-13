@@ -98,6 +98,16 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
                   onChange={(value) => handleDataChange('residentMemory', value)}
                 />
               </div>
+              <div className="property-item" title={t('Snapshot Cache Tooltip')}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label>{t('Snapshot Cache')}</label>
+                  <PropertyEditor
+                    type="boolean"
+                    value={component.data?.snapShot === true || component.data?.snapShot === 'true'}
+                    onChange={(value) => handleDataChange('snapShot', value)}
+                  />
+                </div>
+              </div>
               <div className="property-item">
                 <label>{t('Animation Step')}</label>
                 <PropertyEditor

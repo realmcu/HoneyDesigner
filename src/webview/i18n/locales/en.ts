@@ -576,6 +576,8 @@ const en = {
   'Entry (Main Screen)': 'Entry (Main Screen)',
   'Resident Memory': 'Resident Memory',
   'Animation Step': 'Animation Step',
+  'Snapshot Cache': 'Snapshot Cache',
+  'Snapshot Cache Tooltip': 'Enable snapshot cache to make view transitions smoother, at the cost of additional memory usage.',
   'hg_view size is determined by project resolution and cannot be modified': 'hg_view size is determined by project resolution and cannot be modified',
 
   // HgWindowProperties

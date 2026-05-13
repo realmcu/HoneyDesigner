@@ -26,6 +26,9 @@ export class ViewGenerator implements ComponentCodeGenerator {
     // Handle residentMemory correctly: support both boolean and string types
     const residentMemoryValue = component.data?.residentMemory;
     const residentMemory = residentMemoryValue === true || residentMemoryValue === 'true';
+    // Handle snapShot correctly: support both boolean and string types
+    const snapShotValue = component.data?.snapShot;
+    const snapShot = snapShotValue === true || snapShotValue === 'true';
     // Default animation step is 1/10 of screen height
     const defaultAnimateStep = Math.round(component.position.height / 10);
     const animateStep = component.data?.animateStep ?? defaultAnimateStep;
@@ -132,8 +135,8 @@ export class ViewGenerator implements ComponentCodeGenerator {
     
     code += `${indentStr}}\n`;
     
-    // GUI_VIEW_INSTANCE macro call (second parameter is resident memory flag)
-    code += `${indentStr}GUI_VIEW_INSTANCE("${name}", ${residentMemory ? 'true' : 'false'}, ${name}_switch_in, ${name}_switch_out);\n`;
+    // GUI_VIEW_INSTANCE macro call — always uses 5 args (snap_shot is last)
+    code += `${indentStr}GUI_VIEW_INSTANCE("${name}", ${residentMemory ? 'true' : 'false'}, ${name}_switch_in, ${name}_switch_out, ${snapShot ? 'true' : 'false'});\n`;
 
     return code;
   }
