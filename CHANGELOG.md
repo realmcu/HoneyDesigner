@@ -2,6 +2,19 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.5] - 2026-05-14
+
+### Added
+- hg_view 新增「快照缓存」属性（snapShot），启用后页面切换更流畅，代价是增加内存消耗，默认不开启
+- 代码生成：`GUI_VIEW_INSTANCE` 统一使用 5 参数形式，第 5 个参数为 `snap_shot` 开关
+- LVGL：新增 external-bin 部署模式（romfs 资源），支持 `LvglBinImageConverter` + `LvglRomfsPackager`，图像可打包为 romfs.bin 在仿真器中加载
+- LVGL：新增 RLE 压缩支持（external-bin 模式），支持 RGB565/RGB888/ARGB8565/ARGB8888，自动剔除不兼容格式（Index 系列）
+- LVGL：集成 lv-font-conv 字体转换工具，完善 LVGL 字体二进制生成流程
+
+### Fixed
+- 修正 HoneyGUI 多个组件生成器（Button/Image/Input/Map 等）函数传参错误
+- 修正 `isInherited` 语义，避免 deployment 字段误触发继承标记
+
 ## [1.7.3] - 2026-05-07
 
 ### Added
