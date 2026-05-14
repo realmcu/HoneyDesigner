@@ -184,7 +184,7 @@ HmlEditorProvider.resolveCustomTextEditor()
    - **Git Tag**：每次发布都创建 git tag（如 `v1.6.30`）
 11. **发布正式版本**：
    - 当用户说"发布版本"、"发布正式版"或"publish"时，执行以下流程：
-     1. 更新版本号到下一个偶数版本（如 1.6.30 → 1.6.32）
+     1. 更新版本号到下一个偶数版本（如 1.6.30 → 1.6.32）, 根据 git 记录，总结更新 changelog
      2. 执行 `npm install` 确保依赖最新
      3. 执行 `npm run compile` 编译代码
      4. 执行 `npm run build:webview` 构建前端
@@ -194,7 +194,7 @@ HmlEditorProvider.resolveCustomTextEditor()
      8. 执行 `vsce publish` 发布到 VSCode 插件市场
 12. **发布测试版本**：
    - 当用户说"发布测试版"、"发布预览版"或"publish preview"时，执行以下流程：
-     1. 更新版本号到下一个奇数版本（如 1.6.30 → 1.6.31）
+     1. 更新版本号到下一个奇数版本（如 1.6.30 → 1.6.31）, 根据 git 记录，总结更新 changelog
      2. 执行 `npm install` 确保依赖最新
      3. 执行 `npm run compile` 编译代码
      4. 执行 `npm run build:webview` 构建前端

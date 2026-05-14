@@ -8,7 +8,7 @@ import { VideoConverterService } from '../services/VideoConverterService';
 import { Model3DConverterService } from '../services/Model3DConverterService';
 import { FontConverterService, FontConvertOptions } from '../services/FontConverterService';
 import { GlassConverterService, GlassConvertOptions, GlassConvertResult } from '../services/GlassConverterService';
-import { ConversionConfigService, VideoFormat, ConversionConfig, YuvBlur } from '../services/ConversionConfigService';
+import { ConversionConfigService, VideoFormat, ConversionConfig, YuvBlur, VideoScaleConfig } from '../services/ConversionConfigService';
 import { SamplingFactor } from '../../tools/image-to-jpeg-converter/src/index';
 import { ProjectConfig, DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig';
 import { RomfsConfig } from '../common/RomfsConfig';
@@ -1090,6 +1090,9 @@ Return('objs')
             // 从 conversion.json 解析视频帧率（处理继承）
             const resolvedVideoFrameRate = this.resolveVideoFrameRate(normalizedPath, conversionConfig);
             
+            // 从 conversion.json 解析视频缩放（处理继承）
+            const resolvedVideoScale = this.resolveVideoScale(normalizedPath, conversionConfig);
+            
             // 优先级：组件配置 > conversion.json > 项目配置 > 默认值
             const configFormat = componentConfig?.format || 
                 resolvedVideoFormat ||
@@ -1104,16 +1107,45 @@ Return('objs')
             // 根据格式校验和修正质量值
             const quality = this.normalizeVideoQuality(rawQuality, configFormat);
             
-            const options = componentConfig ? {
+            // 从 conversion.json 缩放配置计算 ScaleOptions
+            let computedScale: { width?: number; height?: number } | undefined;
+            if (resolvedVideoScale) {
+                if (resolvedVideoScale.mode === 'percentage' && (resolvedVideoScale.widthPercentage || resolvedVideoScale.heightPercentage)) {
+                    try {
+                        const videoInfo = await videoConverter.getVideoInfo(fullPath);
+                        if (videoInfo?.width && videoInfo?.height) {
+                            const wp = resolvedVideoScale.widthPercentage;
+                            const hp = resolvedVideoScale.heightPercentage;
+                            if (wp && hp) {
+                                computedScale = {
+                                    width: Math.round(videoInfo.width * wp / 100 / 2) * 2,
+                                    height: Math.round(videoInfo.height * hp / 100 / 2) * 2,
+                                };
+                            } else if (wp) {
+                                computedScale = { width: Math.round(videoInfo.width * wp / 100 / 2) * 2 };
+                            } else if (hp) {
+                                computedScale = { height: Math.round(videoInfo.height * hp / 100 / 2) * 2 };
+                            }
+                        } else {
+                            this.logger.log(`无法获取视频信息以计算缩放比例: ${normalizedPath}，跳过缩放`, true);
+                        }
+                    } catch (e) {
+                        this.logger.log(`获取视频信息失败: ${normalizedPath} - ${e}，跳过缩放`, true);
+                    }
+                } else if (resolvedVideoScale.mode === 'pixels' && (resolvedVideoScale.width || resolvedVideoScale.height)) {
+                    computedScale = {
+                        width: resolvedVideoScale.width,
+                        height: resolvedVideoScale.height,
+                    };
+                }
+            }
+            
+            const options = {
                 format: configFormat,
                 quality: quality,
                 frameRate: frameRate,
-                crop: componentConfig.crop,
-                scale: componentConfig.scale
-            } : {
-                format: configFormat,
-                quality: quality,
-                frameRate: frameRate
+                crop: componentConfig?.crop,
+                scale: computedScale,
             };
             
             // 生成输出路径
@@ -1517,6 +1549,36 @@ Return('objs')
         }
         
         // 没有找到配置，返回 undefined（让调用方使用默认值）
+        return undefined;
+    }
+
+    /**
+     * 解析视频缩放配置（处理继承）
+     * @param assetPath 资源路径（相对于 assets 目录）
+     * @param config conversion.json 配置
+     * @returns 解析后的视频缩放配置，如果没有配置则返回 undefined
+     */
+    private resolveVideoScale(
+        assetPath: string,
+        config: { items: Record<string, { videoScale?: VideoScaleConfig }> }
+    ): VideoScaleConfig | undefined {
+        const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+        const itemSettings = config.items[normalizedPath];
+
+        if (itemSettings?.videoScale !== undefined) {
+            return itemSettings.videoScale;
+        }
+
+        const pathParts = normalizedPath.split('/');
+        for (let i = pathParts.length - 1; i >= 0; i--) {
+            const parentPath = pathParts.slice(0, i).join('/');
+            const parentSettings = config.items[parentPath];
+
+            if (parentSettings?.videoScale !== undefined) {
+                return parentSettings.videoScale;
+            }
+        }
+
         return undefined;
     }
 

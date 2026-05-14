@@ -288,6 +288,62 @@
   text-align: center;
 }
 
+/* Checkbox label (inline checkbox + text) */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  margin-bottom: 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Radio group (horizontal) */
+.config-radio-group {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+
+.radio-label input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Input with trailing unit text (e.g. "%" or "px") */
+.config-input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.config-input-with-unit input {
+  flex: 1;
+  min-width: 0;
+}
+
+.unit-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
 .jpeg-color-control {
   display: flex;
   align-items: center;

@@ -79,6 +79,22 @@ export interface YuvParams {
 }
 
 /**
+ * 视频缩放配置
+ */
+export interface VideoScaleConfig {
+  /** 缩放模式：按像素或按比例 */
+  mode: 'pixels' | 'percentage';
+  /** 目标宽度（像素模式，可选，留空自动保持宽高比） */
+  width?: number;
+  /** 目标高度（像素模式，可选，留空自动保持宽高比） */
+  height?: number;
+  /** 宽度缩放比例（比例模式，如 50 表示缩放到原来的 50%，留空则根据高度自动计算） */
+  widthPercentage?: number;
+  /** 高度缩放比例（比例模式，如 50 表示缩放到原来的 50%，留空则根据宽度自动计算） */
+  heightPercentage?: number;
+}
+
+/**
  * 单个项目（文件夹或图片）的配置
  */
 export interface ItemSettings {
@@ -90,6 +106,8 @@ export interface ItemSettings {
   videoQuality?: number;
   /** 视频帧率 (FPS) */
   videoFrameRate?: number;
+  /** 视频缩放配置 */
+  videoScale?: VideoScaleConfig;
   /** 压缩方式 */
   compression?: CompressionMethod;
   /** 抖动处理 */

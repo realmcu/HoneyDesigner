@@ -568,6 +568,12 @@ const zhCN = {
   'Drag video file from assets panel to canvas': '从资源面板拖拽视频文件到画布',
   'Video will be converted to this format during compilation': '编译时将视频转换为此格式',
   'Output video frame rate': '输出视频帧率',
+  'Enable Video Scale': '启用视频缩放',
+  'Scale Mode': '缩放模式',
+  'By Percentage (%)': '按比例 (%)',
+  'By Pixels (px)': '按像素 (px)',
+  'Auto': '自动',
+  'Leave one empty to maintain aspect ratio': '留空其中一项以自动保持宽高比',
   'JPEG compression quality, 1=highest, 5=default, 31=lowest': 'JPEG 压缩质量，1=最高质量，5=默认，31=最低质量',
   'H.264 CRF value, 0=lossless, 23=default, 51=lowest': 'H.264 CRF 值，0=无损，23=默认，51=最低质量',
 

@@ -3,24 +3,22 @@ import * as fs from 'fs';
 import { spawn } from 'child_process';
 
 // 直接导入本地 video-converter 源码
-import { VideoConverter, OutputFormat, ProgressCallback, ConversionOptions } from '../../tools/video-converter-ts/src/index';
+import { VideoConverter, OutputFormat, ProgressCallback, ConversionOptions, ScaleOptions } from '../../tools/video-converter-ts/src/index';
 
 export interface VideoConvertOptions {
     format: 'mjpeg' | 'avi' | 'h264';
     frameRate?: number;  // 帧率
     quality?: number;    // 质量: MJPEG/AVI 为 1-31（1最高），H264 为 CRF 值 0-51
-    // 视频裁剪和缩放选项（FFmpeg 预处理）
+    // 视频裁剪（FFmpeg 预处理）
     crop?: {
         x: number;       // 裁剪起始 X 坐标
         y: number;       // 裁剪起始 Y 坐标
         width: number;   // 裁剪宽度
         height: number;  // 裁剪高度
     };
-    scale?: {
-        width: number;   // 目标宽度
-        height: number;  // 目标高度
-        keepAspectRatio?: boolean; // 是否保持宽高比
-    };
+    // 视频缩放（委托给 video-converter-ts 库处理）
+    // 只指定 width 或 height 时自动保持宽高比；两者都指定则按精确尺寸缩放
+    scale?: ScaleOptions;
 }
 
 export interface VideoConvertResult {
@@ -43,9 +41,9 @@ export type LogCallback = (message: string) => void;
  * 视频转换服务
  * 
  * 转换流程：
- * 1. FFmpeg 预处理（仅尺寸变换：缩放/裁剪），如有需要
- * 2. 使用 TypeScript 视频转换器进行格式转换和编码
- * 3. 如果没有尺寸变换需求，直接调用转换器转换原始视频
+ * 1. FFmpeg 预处理（仅裁剪），如有 crop 需求
+ * 2. 使用 TypeScript 视频转换器进行格式转换和编码（内置支持 scale）
+ * 3. 如果没有裁剪需求，直接调用转换器转换原始视频
  */
 export class VideoConverterService {
     private logCallback?: LogCallback;
@@ -103,10 +101,10 @@ export class VideoConverterService {
     }
 
     /**
-     * 检查是否需要 FFmpeg 预处理（尺寸变换）
+     * 检查是否需要 FFmpeg 预处理（仅裁剪；缩放由库处理）
      */
     private needsPreprocessing(options: VideoConvertOptions): boolean {
-        return !!(options.crop || options.scale);
+        return !!options.crop;
     }
 
     /**
@@ -129,8 +127,8 @@ export class VideoConverterService {
      * 转换单个视频文件
      * 
      * 流程：
-     * 1. 如果有尺寸变换需求，先用 FFmpeg 预处理
-     * 2. 调用 TypeScript 视频转换器进行格式转换
+     * 1. 如果有裁剪需求，先用 FFmpeg 预处理裁剪
+     * 2. 调用 TypeScript 视频转换器进行格式转换（缩放由库内部处理）
      */
     async convert(
         inputPath: string,
@@ -157,7 +155,7 @@ export class VideoConverterService {
         let videoToConvert = inputPath;
         let tempPreprocessFile: string | null = null;
 
-        // 第一步：FFmpeg 预处理（如果需要尺寸变换）
+        // 第一步：FFmpeg 预处理（仅用于裁剪）
         if (this.needsPreprocessing(options)) {
             const ffmpegAvailable = await this.checkFFmpegAvailable();
             if (!ffmpegAvailable) {
@@ -165,7 +163,7 @@ export class VideoConverterService {
                     success: false,
                     inputPath,
                     outputPath,
-                    error: 'FFmpeg not found. Required for video scaling/cropping.'
+                    error: 'FFmpeg not found. Required for video cropping.'
                 };
             }
 
@@ -182,12 +180,13 @@ export class VideoConverterService {
             videoToConvert = tempPreprocessFile;
         }
 
-        // 第二步：使用 TypeScript 转换器进行格式转换
+        // 第二步：使用 TypeScript 转换器进行格式转换（scale 由库处理）
         try {
             const outputFormat = this.mapFormat(options.format);
             const conversionOptions: ConversionOptions = {
                 frameRate: options.frameRate,
-                quality: options.quality
+                quality: options.quality,
+                scale: options.scale  // 缩放委托给库
             };
             const result = await this.converter.convert(
                 videoToConvert,
@@ -196,27 +195,16 @@ export class VideoConverterService {
                 conversionOptions
             );
 
-            // 计算总耗时
             const totalDuration = (Date.now() - startTime) / 1000;
 
-            if (result.success) {
-                return {
-                    success: true,
-                    inputPath,
-                    outputPath,
-                    duration: totalDuration,
-                    frameCount: result.frameCount,
-                    frameRate: result.frameRate
-                };
-            } else {
-                return {
-                    success: false,
-                    inputPath,
-                    outputPath,
-                    error: result.errorMessage || 'Conversion failed',
-                    duration: totalDuration
-                };
-            }
+            return {
+                success: true,
+                inputPath,
+                outputPath,
+                duration: totalDuration,
+                frameCount: result.frameCount,
+                frameRate: result.frameRate
+            };
         } catch (error) {
             const totalDuration = (Date.now() - startTime) / 1000;
             return {
@@ -231,7 +219,7 @@ export class VideoConverterService {
 
 
     /**
-     * FFmpeg 预处理（仅尺寸变换）
+     * FFmpeg 预处理（仅处理裁剪；缩放由 video-converter-ts 库处理）
      */
     private async ffmpegPreprocess(
         inputPath: string,
@@ -239,39 +227,22 @@ export class VideoConverterService {
         options: VideoConvertOptions
     ): Promise<VideoConvertResult> {
         return new Promise((resolve) => {
-            // 构建 FFmpeg 参数（仅尺寸变换，保持原格式）
             const args = [
                 '-i', inputPath,
                 '-y',
             ];
 
-            const videoFilters: string[] = [];
-            
             if (options.crop) {
                 const { x, y, width, height } = options.crop;
-                videoFilters.push(`crop=${width}:${height}:${x}:${y}`);
-            }
-            
-            if (options.scale) {
-                const { width, height, keepAspectRatio } = options.scale;
-                if (keepAspectRatio) {
-                    videoFilters.push(`scale=${width}:${height}:force_original_aspect_ratio=decrease`);
-                    videoFilters.push(`pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`);
-                } else {
-                    videoFilters.push(`scale=${width}:${height}`);
-                }
+                args.push('-vf', `crop=${width}:${height}:${x}:${y}`);
             }
 
-            if (videoFilters.length > 0) {
-                args.push('-vf', videoFilters.join(','));
-            }
-
-            // 重新编码为通用格式（因为有滤镜无法直接复制流）
+            // 重新编码为通用格式（滤镜存在时无法直接复制流）
             args.push(
-                '-c:v', 'libx264',  // 使用 H.264 编码
+                '-c:v', 'libx264',
                 '-preset', 'fast',
-                '-crf', '18',       // 高质量
-                '-an',              // 无音频
+                '-crf', '18',
+                '-an',
                 outputPath
             );
 
@@ -339,82 +310,6 @@ export class VideoConverterService {
         return Promise.all(
             items.map(item => this.convert(item.input, item.output, item.options))
         );
-    }
-
-
-    /**
-     * 转换 assets 目录下的所有视频
-     */
-    async convertAssetsDir(
-        assetsDir: string,
-        outputDir: string,
-        defaultOptions: VideoConvertOptions = { format: 'mjpeg', quality: 1 }
-    ): Promise<VideoConvertResult[]> {
-        if (!fs.existsSync(assetsDir)) {
-            return [];
-        }
-
-        const videoExts = [
-            '.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv',
-            '.m4v', '.3gp', '.asf', '.rm', '.rmvb', '.vob', '.ts'
-        ];
-        
-        const items: Array<{ input: string; output: string; options: VideoConvertOptions }> = [];
-
-        const scanDir = (dir: string) => {
-            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-                const fullPath = path.join(dir, entry.name);
-                if (entry.isDirectory()) {
-                    scanDir(fullPath);
-                } else if (videoExts.includes(path.extname(entry.name).toLowerCase())) {
-                    const relativePath = path.relative(assetsDir, fullPath);
-                    const outputExt = this.getOutputExtension(defaultOptions.format);
-                    const outputPath = path.join(
-                        outputDir,
-                        relativePath.replace(/\.[^.]+$/i, outputExt)
-                    );
-                    
-                    items.push({
-                        input: fullPath,
-                        output: outputPath,
-                        options: { ...defaultOptions }
-                    });
-                }
-            }
-        };
-
-        scanDir(assetsDir);
-        return this.convertBatch(items);
-    }
-
-    /**
-     * 根据组件配置转换视频
-     */
-    async convertWithComponentConfig(
-        inputPath: string,
-        outputDir: string,
-        componentData: {
-            format?: 'mjpeg' | 'avi' | 'h264';
-            frameRate?: number;
-            quality?: number;
-            crop?: { x: number; y: number; width: number; height: number };
-            scale?: { width: number; height: number; keepAspectRatio?: boolean };
-        }
-    ): Promise<VideoConvertResult> {
-        const options: VideoConvertOptions = {
-            format: componentData.format || 'mjpeg',
-            frameRate: componentData.frameRate,
-            quality: componentData.quality || 1,
-            crop: componentData.crop,
-            scale: componentData.scale
-        };
-
-        const inputFileName = path.basename(inputPath);
-        const outputExt = this.getOutputExtension(options.format);
-        const outputFileName = inputFileName.replace(/\.[^.]+$/, outputExt);
-        const outputPath = path.join(outputDir, outputFileName);
-
-        return this.convert(inputPath, outputPath, options);
     }
 
     /**

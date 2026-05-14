@@ -568,6 +568,12 @@ const en = {
   'Drag video file from assets panel to canvas': 'Drag video file from assets panel to canvas',
   'Video will be converted to this format during compilation': 'Video will be converted to this format during compilation',
   'Output video frame rate': 'Output video frame rate',
+  'Enable Video Scale': 'Enable Video Scale',
+  'Scale Mode': 'Scale Mode',
+  'By Percentage (%)': 'By Percentage (%)',
+  'By Pixels (px)': 'By Pixels (px)',
+  'Auto': 'Auto',
+  'Leave one empty to maintain aspect ratio': 'Leave one empty to maintain aspect ratio',
   'JPEG compression quality, 1=highest, 5=default, 31=lowest': 'JPEG compression quality, 1=highest, 5=default, 31=lowest',
   'H.264 CRF value, 0=lossless, 23=default, 51=lowest': 'H.264 CRF value, 0=lossless, 23=default, 51=lowest',
 

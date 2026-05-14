@@ -22,6 +22,7 @@ import { VideoParser } from './parser';
 import { FFmpegBuilder } from './ffmpeg-builder';
 import { FFmpegExecutor } from './ffmpeg-executor';
 import { MjpegPacker, AviAligner, H264Packer } from './postprocess/index';
+import { VideoScaler } from './preprocess/index';
 
 /**
  * VideoConverter class - Main entry point for video conversion
@@ -64,10 +65,19 @@ export class VideoConverter {
 
   /**
    * Convert video to specified format
+   *
+   * If `options.scale` is provided, the input video is first scaled by
+   * {@link VideoScaler} (a pre-processing step decoupled from conversion),
+   * then the scaled intermediate file is used as the conversion input.
+   *
+   * In `debug` mode the scaled intermediate file is kept next to the output
+   * file (e.g. `output.pre-scaled.mp4`); otherwise it is deleted after the
+   * conversion completes.
+   *
    * @param inputPath - Path to input video file
    * @param outputPath - Path to output file
    * @param outputFormat - Target output format
-   * @param options - Conversion options (frameRate, quality)
+   * @param options - Conversion options (frameRate, quality, debug, scale)
    * @returns Promise<ConversionResult> - Conversion result
    */
   async convert(
@@ -76,32 +86,81 @@ export class VideoConverter {
     outputFormat: OutputFormat,
     options: ConversionOptions = {}
   ): Promise<ConversionResult> {
+    const debug = options.debug ?? false;
+    let actualInputPath = inputPath;
+    let tempScaledPath: string | null = null;
+
     try {
-      // Get video info
-      const videoInfo = await this.getVideoInfo(inputPath);
-      
-      // Determine target frame rate
-      const targetFps = options.frameRate ?? videoInfo.frameRate;
-      
-      // Default quality
-      const quality = options.quality ?? (outputFormat === OutputFormat.H264 ? 23 : 5);
-      
-      // Convert based on format
-      switch (outputFormat) {
-        case OutputFormat.MJPEG:
-          return this.convertToMjpeg(inputPath, outputPath, videoInfo, targetFps, quality);
-        case OutputFormat.AVI_MJPEG:
-          return this.convertToAviMjpeg(inputPath, outputPath, videoInfo, targetFps, quality, options.debug ?? false);
-        case OutputFormat.H264:
-          return this.convertToH264(inputPath, outputPath, videoInfo, targetFps, quality);
-        default:
-          throw new VideoConverterError(`Unsupported output format: ${outputFormat}`);
+      // ── Pre-processing: scale ──────────────────────────────────────────
+      if (options.scale) {
+        if (debug) {
+          // Place the scaled file next to the output for easy inspection
+          const baseName = path.basename(outputPath, path.extname(outputPath));
+          const outputDir = path.dirname(outputPath);
+          tempScaledPath = path.join(outputDir, `${baseName}.pre-scaled.mp4`);
+        } else {
+          tempScaledPath = path.join(os.tmpdir(), `pre-scaled-${Date.now()}.mp4`);
+        }
+
+        const scaler = new VideoScaler(this.progressCallback);
+        await scaler.scale(inputPath, tempScaledPath, options.scale);
+
+        if (debug) {
+          console.log(`[DEBUG] Scaled video saved: ${tempScaledPath}`);
+        }
+
+        actualInputPath = tempScaledPath;
       }
+
+      // ── Video info (from actual input, may be the scaled file) ─────────
+      const videoInfo = await this.getVideoInfo(actualInputPath);
+
+      const targetFps = options.frameRate ?? videoInfo.frameRate;
+      const quality = options.quality ?? (outputFormat === OutputFormat.H264 ? 23 : 1);
+
+      // ── Conversion ────────────────────────────────────────────────────
+      const convResult = await this.runConversion(
+        actualInputPath, outputPath, outputFormat, videoInfo, targetFps, quality, debug
+      );
+
+      // Always report the *original* inputPath in the result, not the temp
+      // scaled file path, so callers see the path they originally provided.
+      return { ...convResult, inputPath };
+
     } catch (error) {
       if (error instanceof VideoConverterError || error instanceof FFmpegNotFoundError) {
         throw error;
       }
       throw new VideoConverterError(`Conversion failed: ${error}`);
+    } finally {
+      // Clean up the scaled intermediate file unless debug mode is active
+      if (tempScaledPath && !debug && fs.existsSync(tempScaledPath)) {
+        fs.unlinkSync(tempScaledPath);
+      }
+    }
+  }
+
+  /**
+   * Dispatch conversion to the appropriate format-specific handler.
+   */
+  private async runConversion(
+    inputPath: string,
+    outputPath: string,
+    outputFormat: OutputFormat,
+    videoInfo: VideoInfo,
+    targetFps: number,
+    quality: number,
+    debug: boolean
+  ): Promise<ConversionResult> {
+    switch (outputFormat) {
+      case OutputFormat.MJPEG:
+        return this.convertToMjpeg(inputPath, outputPath, videoInfo, targetFps, quality);
+      case OutputFormat.AVI_MJPEG:
+        return this.convertToAviMjpeg(inputPath, outputPath, videoInfo, targetFps, quality, debug);
+      case OutputFormat.H264:
+        return this.convertToH264(inputPath, outputPath, videoInfo, targetFps, quality);
+      default:
+        throw new VideoConverterError(`Unsupported output format: ${outputFormat}`);
     }
   }
 
@@ -209,13 +268,6 @@ export class VideoConverter {
     targetFps: number,
     crf: number
   ): Promise<ConversionResult> {
-    // Ensure output directory exists
-    const outputDir = path.dirname(outputPath);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-    
-
     // Create temp H264 file
     const tempH264 = outputPath + '.temp.h264';
     

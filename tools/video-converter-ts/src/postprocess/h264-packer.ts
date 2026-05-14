@@ -326,7 +326,7 @@ export class H264Packer {
     let auStarted = false;
     let audSeen = false;
     
-    while (true) { // eslint-disable-line no-constant-condition
+    while (true) {
       const nal = this.nextNalBounds(data, pos);
       if (nal.headerPos === null) break;
       
@@ -392,7 +392,7 @@ export class H264Packer {
     let height = 0;
     let pos = 0;
     
-    while (true) { // eslint-disable-line no-constant-condition
+    while (true) {
       const nal = this.nextNalBounds(h264Data, pos);
       if (nal.headerPos === null) break;
       

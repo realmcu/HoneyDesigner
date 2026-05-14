@@ -8,6 +8,7 @@
  */
 
 import * as path from 'path';
+import { ScaleOptions } from './models';
 
 export class FFmpegBuilder {
   /**
@@ -26,7 +27,50 @@ export class FFmpegBuilder {
     'aq-mode=1:aq-strength=1.00';
 
   /**
-   * Build MJPEG frames extraction command
+   * Build video scaling (resize) command
+   *
+   * Scales the input video to the specified dimensions using the FFmpeg `scale`
+   * video filter. When only one dimension is specified, the other is computed
+   * automatically to preserve the original aspect ratio (result is always an
+   * even number, required by most codecs).
+   *
+   * Command format (example — both dimensions):
+   *   ffmpeg -i input.mp4 -vf "scale=1280:720" -c:v libx264 -crf 18 -preset fast output.mp4
+   *
+   * @param inputPath - Input video file path
+   * @param outputPath - Output file path (use `.mp4` extension for best compatibility)
+   * @param options - Scale options (width and/or height in pixels)
+   * @returns FFmpeg command arguments array
+   */
+  buildScaleCmd(
+    inputPath: string,
+    outputPath: string,
+    options: ScaleOptions
+  ): string[] {
+    const { width, height } = options;
+
+    // Build scale expression: use -2 for auto-calculated dimension (keeps aspect
+    // ratio and ensures result is divisible by 2, required by most video codecs)
+    let scaleExpr: string;
+    if (width !== undefined && height !== undefined) {
+      scaleExpr = `${width}:${height}`;
+    } else if (width !== undefined) {
+      scaleExpr = `${width}:-2`;
+    } else {
+      scaleExpr = `-2:${height}`;
+    }
+
+    return [
+      'ffmpeg', '-i', inputPath,
+      '-vf', `scale=${scaleExpr}`,
+      '-c:v', 'libx264',
+      '-crf', '18',
+      '-preset', 'fast',
+      outputPath,
+    ];
+  }
+
+  /**
    * 
    * Command format:
    * ffmpeg -i input.mp4 -r 24 -vf "format=yuvj420p" -q:v 5 output/frame_%04d.jpg

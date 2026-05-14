@@ -71,6 +71,19 @@ export interface ConversionResult {
 export type ProgressCallback = (current: number, total: number) => void;
 
 /**
+ * Options for scaling (resizing) a video before conversion.
+ * At least one dimension must be provided.
+ * When only one dimension is specified, the other is calculated automatically
+ * to maintain the original aspect ratio (rounded to the nearest even number).
+ */
+export interface ScaleOptions {
+  /** Target width in pixels (must be a positive integer) */
+  width?: number;
+  /** Target height in pixels (must be a positive integer) */
+  height?: number;
+}
+
+/**
  * Options for video conversion
  */
 export interface ConversionOptions {
@@ -80,4 +93,12 @@ export interface ConversionOptions {
   quality?: number;
   /** Debug mode - keep intermediate files for inspection */
   debug?: boolean;
+  /**
+   * Scale (resize) the input video before conversion.
+   * Scaling is performed as a pre-processing step, independent of the conversion.
+   * When both width and height are specified, the video is scaled to the exact
+   * dimensions (may change aspect ratio).
+   * When only one is specified, the other is auto-calculated to preserve aspect ratio.
+   */
+  scale?: ScaleOptions;
 }

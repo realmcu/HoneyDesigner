@@ -17,6 +17,7 @@ import {
   JpegSampling,
   ItemSettings,
   ConversionConfig,
+  VideoScaleConfig,
 } from '../types';
 import './ConversionConfigPanel.css';
 
@@ -499,6 +500,36 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     };
   }, [selectedAsset, conversionConfig]);
 
+  // 获取有效视频缩放配置（处理继承）
+  const effectiveVideoScale = useMemo((): { scale: VideoScaleConfig | undefined; isInherited: boolean; inheritedFrom?: string } => {
+    if (!selectedAsset || !conversionConfig) {
+      return { scale: undefined, isInherited: false };
+    }
+
+    const assetPath = (selectedAsset.relativePath || selectedAsset.name).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const itemSettings = conversionConfig.items[assetPath];
+
+    if (itemSettings && itemSettings.videoScale !== undefined) {
+      return { scale: itemSettings.videoScale, isInherited: false };
+    }
+
+    const pathParts = assetPath.split('/');
+    for (let i = pathParts.length - 1; i >= 0; i--) {
+      const parentPath = pathParts.slice(0, i).join('/');
+      const parentSettings = parentPath ? conversionConfig.items[parentPath] : undefined;
+
+      if (parentSettings && parentSettings.videoScale !== undefined) {
+        return {
+          scale: parentSettings.videoScale,
+          isInherited: true,
+          inheritedFrom: parentPath || t('Root'),
+        };
+      }
+    }
+
+    return { scale: undefined, isInherited: false };
+  }, [selectedAsset, conversionConfig]);
+
   // 获取有效 Dither 配置（处理继承）
   const effectiveDither = useMemo((): { dither: boolean; isInherited: boolean; inheritedFrom?: string } => {
     if (!selectedAsset || !conversionConfig) {
@@ -644,6 +675,19 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
       updateAssetConfig(assetPath, {
         ...currentSettings,
         videoFrameRate: frameRate,
+      });
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
+  // 处理视频缩放更新（通用）
+  const handleVideoScaleUpdate = useCallback(
+    (scale: VideoScaleConfig | undefined) => {
+      if (!selectedAsset) return;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(assetPath, {
+        ...currentSettings,
+        videoScale: scale,
       });
     },
     [selectedAsset, currentSettings, updateAssetConfig]
@@ -1251,6 +1295,185 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
             </div>
           )}
         </div>
+        {/* 视频缩放设置 */}
+        <div className="config-item">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={!!currentSettings.videoScale}
+              onChange={(e) =>
+                handleVideoScaleUpdate(
+                  e.target.checked
+                    ? { mode: 'percentage', widthPercentage: 50, heightPercentage: 50 }
+                    : undefined
+                )
+              }
+            />
+            <span>{t('Enable Video Scale')}</span>
+          </label>
+          {effectiveVideoScale.isInherited && !currentSettings.videoScale && (
+            <div className="inherited-indicator">
+              <span className="icon">↩️</span>
+              <span>
+                {t('inheritedFrom')}: {effectiveVideoScale.inheritedFrom}
+              </span>
+            </div>
+          )}
+        </div>
+        {currentSettings.videoScale && (() => {
+          const currentScale = currentSettings.videoScale;
+          return (
+            <>
+              <div className="config-item">
+                <label>{t('Scale Mode')}</label>
+                <div className="config-radio-group">
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      value="percentage"
+                      checked={currentScale.mode === 'percentage'}
+                      onChange={() => {
+                        // 切换到百分比模式：若有像素值和元数据，自动换算为百分比
+                        if (assetMetadata?.width && assetMetadata?.height && (currentScale.width || currentScale.height)) {
+                          handleVideoScaleUpdate({
+                            mode: 'percentage',
+                            widthPercentage: currentScale.width ? Math.round(currentScale.width / assetMetadata.width * 100) : currentScale.widthPercentage,
+                            heightPercentage: currentScale.height ? Math.round(currentScale.height / assetMetadata.height * 100) : currentScale.heightPercentage,
+                          });
+                        } else {
+                          handleVideoScaleUpdate({ mode: 'percentage', widthPercentage: currentScale.widthPercentage ?? 100, heightPercentage: currentScale.heightPercentage ?? 100 });
+                        }
+                      }}
+                    />
+                    {t('By Percentage (%)')}
+                  </label>
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      value="pixels"
+                      checked={currentScale.mode === 'pixels'}
+                      onChange={() => {
+                        // 切换到像素模式：若有百分比值和元数据，自动换算为像素
+                        if (assetMetadata?.width && assetMetadata?.height && (currentScale.widthPercentage || currentScale.heightPercentage)) {
+                          handleVideoScaleUpdate({
+                            mode: 'pixels',
+                            width: currentScale.widthPercentage ? Math.round(assetMetadata.width * currentScale.widthPercentage / 100) : currentScale.width,
+                            height: currentScale.heightPercentage ? Math.round(assetMetadata.height * currentScale.heightPercentage / 100) : currentScale.height,
+                          });
+                        } else {
+                          handleVideoScaleUpdate({ mode: 'pixels', width: currentScale.width, height: currentScale.height });
+                        }
+                      }}
+                    />
+                    {t('By Pixels (px)')}
+                  </label>
+                </div>
+              </div>
+              {currentScale.mode === 'percentage' ? (
+                <>
+                  <div className="config-item">
+                    <label>{t('Width')} %</label>
+                    <div className="config-input-with-unit">
+                      <input
+                        type="number"
+                        min={1}
+                        max={400}
+                        value={currentScale.widthPercentage ?? ''}
+                        placeholder={currentScale.heightPercentage !== undefined ? String(currentScale.heightPercentage) : t('Auto')}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                          handleVideoScaleUpdate({ ...currentScale, widthPercentage: val });
+                        }}
+                      />
+                      <span className="unit-label">%</span>
+                    </div>
+                    {assetMetadata?.width && currentScale.widthPercentage && (
+                      <div className="config-hint">
+                        → {Math.round(assetMetadata.width * currentScale.widthPercentage / 100)} px
+                      </div>
+                    )}
+                  </div>
+                  <div className="config-item">
+                    <label>{t('Height')} %</label>
+                    <div className="config-input-with-unit">
+                      <input
+                        type="number"
+                        min={1}
+                        max={400}
+                        value={currentScale.heightPercentage ?? ''}
+                        placeholder={currentScale.widthPercentage !== undefined ? String(currentScale.widthPercentage) : t('Auto')}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                          handleVideoScaleUpdate({ ...currentScale, heightPercentage: val });
+                        }}
+                      />
+                      <span className="unit-label">%</span>
+                    </div>
+                    {assetMetadata?.height && currentScale.heightPercentage && (
+                      <div className="config-hint">
+                        → {Math.round(assetMetadata.height * currentScale.heightPercentage / 100)} px
+                      </div>
+                    )}
+                  </div>
+                  {assetMetadata?.width && assetMetadata?.height && currentScale.widthPercentage && currentScale.heightPercentage && (
+                    <div className="config-hint">
+                      → {Math.round(assetMetadata.width * currentScale.widthPercentage / 100)} × {Math.round(assetMetadata.height * currentScale.heightPercentage / 100)} px
+                    </div>
+                  )}
+                  <div className="config-hint">{t('Leave one empty to maintain aspect ratio')}</div>
+                </>
+              ) : (
+                <>
+                  <div className="config-item">
+                    <label>{t('Width')} (px)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={currentScale.width ?? ''}
+                      placeholder={
+                        (assetMetadata?.width && assetMetadata?.height && currentScale.height)
+                          ? String(Math.round(currentScale.height * assetMetadata.width / assetMetadata.height))
+                          : t('Auto')
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                        handleVideoScaleUpdate({ ...currentScale, width: val });
+                      }}
+                    />
+                    {assetMetadata?.width && assetMetadata?.height && currentScale.width && !currentScale.height && (
+                      <div className="config-hint">
+                        → {currentScale.width} × {Math.round(currentScale.width * assetMetadata.height / assetMetadata.width)} px
+                      </div>
+                    )}
+                  </div>
+                  <div className="config-item">
+                    <label>{t('Height')} (px)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={currentScale.height ?? ''}
+                      placeholder={
+                        (assetMetadata?.width && assetMetadata?.height && currentScale.width)
+                          ? String(Math.round(currentScale.width * assetMetadata.height / assetMetadata.width))
+                          : t('Auto')
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                        handleVideoScaleUpdate({ ...currentScale, height: val });
+                      }}
+                    />
+                    {assetMetadata?.width && assetMetadata?.height && !currentScale.width && currentScale.height && (
+                      <div className="config-hint">
+                        → {Math.round(currentScale.height * assetMetadata.width / assetMetadata.height)} × {currentScale.height} px
+                      </div>
+                    )}
+                  </div>
+                  <div className="config-hint">{t('Leave one empty to maintain aspect ratio')}</div>
+                </>
+              )}
+            </>
+          );
+        })()}
       </div>
     );
   };
