@@ -2,6 +2,11 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.7] - 2026-05-15
+
+### Added
+- hg_video 新增视频缩放配置：支持 pixel（绝对像素）和 percentage（百分比）两种模式，可在转换配置面板中为单个视频或目录统一设置输出尺寸
+
 ## [1.7.5] - 2026-05-14
 
 ### Added
