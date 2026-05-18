@@ -2,6 +2,21 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.9] - 2026-05-19
+
+### Added
+- hg_video 新增画布预览（Canvas Preview）：设计器中直接渲染视频首帧，支持裁剪（crop）和缩放（scale）效果的实时预览，精确反映最终输出画面
+- hg_video 代码生成：变量类型由 `gui_obj_t` 更正为 `gui_video_t`；自动播放关闭时生成 `GUI_VIDEO_STATE_INIT`，开启时生成 `GUI_VIDEO_STATE_PLAYING`
+
+### Fixed
+- hg_video：移除 crop 配置后，控件尺寸正确恢复为视频自然分辨率
+- hg_video：修复从 HML 文件重新加载时 autoPlay 属性类型转换错误，导致始终生成 PLAYING 状态的问题
+- hg_video：默认启用自动播放（autoPlay 默认值由 false 改为 true）
+- LVGL：无事件绑定时也始终生成回调文件，避免编译缺失符号错误
+
+### Changed
+- 更新仿真器 GUI 库（libgui.a）至最新构建（feca4953f，2026-05-18）
+
 ## [1.7.7] - 2026-05-15
 
 ### Added
