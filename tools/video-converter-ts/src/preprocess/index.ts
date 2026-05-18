@@ -7,3 +7,4 @@
  */
 
 export { VideoScaler } from './video-scaler';
+export { VideoCropper } from './video-cropper';

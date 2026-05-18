@@ -95,6 +95,27 @@ export interface VideoScaleConfig {
 }
 
 /**
+ * 视频裁剪配置
+ */
+export interface VideoCropConfig {
+  /** 裁剪宽度（必填） */
+  width: number;
+  /** 裁剪高度（必填） */
+  height: number;
+  /** 裁剪起始 X 坐标（可选，未设置时自动居中） */
+  x?: number;
+  /** 裁剪起始 Y 坐标（可选，未设置时自动居中） */
+  y?: number;
+}
+
+/**
+ * 预处理顺序：裁剪和缩放的执行顺序
+ * - 'crop-then-scale'：先裁剪，再缩放（默认）
+ * - 'scale-then-crop'：先缩放，再裁剪
+ */
+export type PreprocessOrder = 'crop-then-scale' | 'scale-then-crop';
+
+/**
  * 单个项目（文件夹或图片）的配置
  */
 export interface ItemSettings {
@@ -108,6 +129,10 @@ export interface ItemSettings {
   videoFrameRate?: number;
   /** 视频缩放配置 */
   videoScale?: VideoScaleConfig;
+  /** 视频裁剪配置 */
+  videoCrop?: VideoCropConfig;
+  /** 裁剪与缩放的预处理顺序（默认：先裁剪后缩放） */
+  preprocessOrder?: PreprocessOrder;
   /** 压缩方式 */
   compression?: CompressionMethod;
   /** 抖动处理 */

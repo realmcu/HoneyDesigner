@@ -84,6 +84,21 @@ export interface ToolsPanelTranslations {
     previewFailed: string;
     enableDither: string;
     ditherHint: string;
+    videoScale: string;
+    pixels: string;
+    percentage: string;
+    width: string;
+    height: string;
+    widthPct: string;
+    heightPct: string;
+    videoCrop: string;
+    xPos: string;
+    yPos: string;
+    autoCenterHint: string;
+    preprocessOrder: string;
+    cropThenScale: string;
+    scaleThenCrop: string;
+    originalSize: string;
 }
 
 /** 获取资源转换工具翻译 */
@@ -171,6 +186,21 @@ export function getToolsPanelTranslations(): ToolsPanelTranslations {
         previewFailed: vscode.l10n.t('Preview failed'),
         enableDither: vscode.l10n.t('Enable Dither'),
         ditherHint: vscode.l10n.t('ditherHint'),
+        videoScale: vscode.l10n.t('Scale'),
+        pixels: vscode.l10n.t('Pixels'),
+        percentage: vscode.l10n.t('Percentage'),
+        width: vscode.l10n.t('Width'),
+        height: vscode.l10n.t('Height'),
+        widthPct: vscode.l10n.t('Width %'),
+        heightPct: vscode.l10n.t('Height %'),
+        videoCrop: vscode.l10n.t('Crop'),
+        xPos: vscode.l10n.t('X'),
+        yPos: vscode.l10n.t('Y'),
+        autoCenterHint: vscode.l10n.t('auto center'),
+        preprocessOrder: vscode.l10n.t('Order'),
+        cropThenScale: vscode.l10n.t('Crop → Scale'),
+        scaleThenCrop: vscode.l10n.t('Scale → Crop'),
+        originalSize: vscode.l10n.t('Original'),
     };
 }
 
@@ -340,6 +370,8 @@ let currentPath = [];
 let filterType = 'all';
 const folderSettings = {};
 let conversionConfig = null;  // conversion.json 配置
+const videoInfoCache = new Map();  // 视频原始尺寸缓存 id → {width, height}
+let currentScaleBase = { w: 0, h: 0 };  // 缩放比例计算基础尺寸（考虑裁剪顺序）
 
 const IMAGE_EXTS = ['.png','.jpg','.jpeg','.bmp','.gif'];
 const VIDEO_EXTS = ['.mp4','.avi','.mov','.mkv','.webm'];
@@ -751,6 +783,11 @@ function selectItem(id) {
     selectedFolder = null;
     renderGrid();
     renderProperties();
+    // Request video info for proportional scale hints
+    const file = files.get(id);
+    if (file && file.type === 'video' && !videoInfoCache.has(id)) {
+        vscode.postMessage({ type: 'getVideoInfo', id, name: file.name, relativePath: file.relativePath });
+    }
 }
 
 function removeFile(e, id) {
@@ -898,6 +935,12 @@ function renderProperties() {
             const currentVideoFormat = folderVideoConfig.videoFormat || 'mjpeg';
             const currentVideoQuality = folderVideoConfig.videoQuality || 1;
             const currentVideoFrameRate = folderVideoConfig.videoFrameRate || '';
+            const folderScale = folderVideoConfig.videoScale;
+            const folderScaleMode = folderScale ? folderScale.mode : 'disabled';
+            const folderCrop = folderVideoConfig.videoCrop;
+            const folderCropEnabled = !!folderCrop;
+            const folderHasBoth = (folderScaleMode !== 'disabled') && folderCropEnabled;
+            const folderPreprocessOrder = folderVideoConfig.preprocessOrder || 'crop-then-scale';
             
             html += '<div class="prop-group"><div class="prop-group-title">🎬 '+T.videoSettings+' ('+vidCount+')</div>' +
                 '<div class="prop-row"><label>'+T.format+':</label><select onchange="updateFolderVideoConfig(\\'videoFormat\\',this.value)">' +
@@ -906,7 +949,33 @@ function renderProperties() {
                 '<option value="h264"'+(currentVideoFormat==='h264'?' selected':'')+'>H.264</option>' +
                 '</select></div>' +
                 '<div class="prop-row"><label>'+T.quality+':</label><input type="number" min="1" max="31" value="'+currentVideoQuality+'" onchange="updateFolderVideoConfig(\\'videoQuality\\',+this.value)"></div>' +
-                '<div class="prop-row"><label>'+T.frameRate+':</label><input type="number" value="'+currentVideoFrameRate+'" placeholder="'+T.keepOriginal+'" onchange="updateFolderVideoConfig(\\'videoFrameRate\\',this.value?+this.value:null)"></div></div>';
+                '<div class="prop-row"><label>'+T.frameRate+':</label><input type="number" value="'+currentVideoFrameRate+'" placeholder="'+T.keepOriginal+'" onchange="updateFolderVideoConfig(\\'videoFrameRate\\',this.value?+this.value:null)"></div>' +
+                '<div class="prop-row"><label>'+T.videoScale+':</label><select onchange="updateFolderVideoScaleConfig(\\'mode\\',this.value)">' +
+                '<option value="disabled"'+(folderScaleMode==='disabled'?' selected':'')+'>'+T.disabled+'</option>' +
+                '<option value="pixels"'+(folderScaleMode==='pixels'?' selected':'')+'>'+T.pixels+'</option>' +
+                '<option value="percentage"'+(folderScaleMode==='percentage'?' selected':'')+'>'+T.percentage+'</option>' +
+                '</select></div>' +
+                (folderScaleMode==='pixels' ?
+                    '<div class="prop-row"><label>'+T.width+':</label><input type="number" min="2" value="'+(folderScale&&folderScale.width!=null?folderScale.width:'')+'" placeholder="'+T.keepOriginal+'" onchange="updateFolderVideoScaleConfig(\\'width\\',this.value?+this.value:null)"></div>' +
+                    '<div class="prop-row"><label>'+T.height+':</label><input type="number" min="2" value="'+(folderScale&&folderScale.height!=null?folderScale.height:'')+'" placeholder="'+T.keepOriginal+'" onchange="updateFolderVideoScaleConfig(\\'height\\',this.value?+this.value:null)"></div>'
+                : folderScaleMode==='percentage' ?
+                    '<div class="prop-row"><label>'+T.widthPct+':</label><input type="number" min="1" max="1000" value="'+(folderScale&&folderScale.widthPercentage!=null?folderScale.widthPercentage:'')+'" placeholder="'+T.keepOriginal+'" onchange="updateFolderVideoScaleConfig(\\'widthPercentage\\',this.value?+this.value:null)"></div>' +
+                    '<div class="prop-row"><label>'+T.heightPct+':</label><input type="number" min="1" max="1000" value="'+(folderScale&&folderScale.heightPercentage!=null?folderScale.heightPercentage:'')+'" placeholder="'+T.keepOriginal+'" onchange="updateFolderVideoScaleConfig(\\'heightPercentage\\',this.value?+this.value:null)"></div>'
+                : '') +
+                '<div class="prop-row"><label>'+T.videoCrop+':</label><label style="width:auto;display:flex;align-items:center;gap:4px"><input type="checkbox" '+(folderCropEnabled?'checked':'')+' onchange="updateFolderVideoCropConfig(\\'enabled\\',this.checked)">'+T.enabled+'</label></div>' +
+                (folderCropEnabled ?
+                    '<div class="prop-row"><label>'+T.width+':</label><input type="number" min="2" value="'+(folderCrop&&folderCrop.width?folderCrop.width:'')+'" onchange="updateFolderVideoCropConfig(\\'width\\',this.value?+this.value:0)"></div>' +
+                    '<div class="prop-row"><label>'+T.height+':</label><input type="number" min="2" value="'+(folderCrop&&folderCrop.height?folderCrop.height:'')+'" onchange="updateFolderVideoCropConfig(\\'height\\',this.value?+this.value:0)"></div>' +
+                    '<div class="prop-row"><label>'+T.xPos+':</label><input type="number" min="0" value="'+(folderCrop&&folderCrop.x!=null?folderCrop.x:'')+'" placeholder="'+T.autoCenterHint+'" onchange="updateFolderVideoCropConfig(\\'x\\',this.value)"></div>' +
+                    '<div class="prop-row"><label>'+T.yPos+':</label><input type="number" min="0" value="'+(folderCrop&&folderCrop.y!=null?folderCrop.y:'')+'" placeholder="'+T.autoCenterHint+'" onchange="updateFolderVideoCropConfig(\\'y\\',this.value)"></div>'
+                : '') +
+                (folderHasBoth ?
+                    '<div class="prop-row"><label>'+T.preprocessOrder+':</label><select onchange="updateFolderVideoConfig(\\'preprocessOrder\\',this.value)">' +
+                    '<option value="crop-then-scale"'+(folderPreprocessOrder==='crop-then-scale'?' selected':'')+'>'+T.cropThenScale+'</option>' +
+                    '<option value="scale-then-crop"'+(folderPreprocessOrder==='scale-then-crop'?' selected':'')+'>'+T.scaleThenCrop+'</option>' +
+                    '</select></div>'
+                : '') +
+                '</div>';
         }
         
         if (modCount > 0) {
@@ -1043,8 +1112,33 @@ function renderProperties() {
         const inheritedFormat = effectiveConfig.videoFormat || 'mjpeg';
         const inheritedQuality = effectiveConfig.videoQuality || 1;
         const inheritedFrameRate = effectiveConfig.videoFrameRate || '';
+        const currentScale = videoConfig.videoScale;
+        const scaleMode = currentScale ? currentScale.mode : 'disabled';
+        const currentCrop = videoConfig.videoCrop;
+        const cropEnabled = !!currentCrop;
+        const hasBothScaleAndCrop = (scaleMode !== 'disabled') && cropEnabled;
+        const currentPreprocessOrder = videoConfig.preprocessOrder || 'crop-then-scale';
+        const videoInfo = videoInfoCache.get(selectedId);
+        const origW = (videoInfo && videoInfo.width) || 0;
+        const origH = (videoInfo && videoInfo.height) || 0;
+        // Scale base depends on preprocess order:
+        // crop-then-scale → base is cropped dimensions; scale-then-crop → base is original dimensions
+        const cropW = currentCrop && currentCrop.width ? currentCrop.width : 0;
+        const cropH = currentCrop && currentCrop.height ? currentCrop.height : 0;
+        const scaleBaseW = (cropEnabled && currentPreprocessOrder === 'crop-then-scale' && cropW && cropH) ? cropW : origW;
+        const scaleBaseH = (cropEnabled && currentPreprocessOrder === 'crop-then-scale' && cropW && cropH) ? cropH : origH;
+        currentScaleBase = { w: scaleBaseW, h: scaleBaseH };
+        const scaleWVal = currentScale && currentScale.width != null ? currentScale.width : null;
+        const scaleHVal = currentScale && currentScale.height != null ? currentScale.height : null;
+        const wPropHint = (scaleBaseW && scaleBaseH && scaleHVal !== null && scaleWVal === null) ? String(Math.round(scaleHVal * scaleBaseW / scaleBaseH / 2) * 2) : T.keepOriginal;
+        const hPropHint = (scaleBaseW && scaleBaseH && scaleWVal !== null && scaleHVal === null) ? String(Math.round(scaleWVal * scaleBaseH / scaleBaseW / 2) * 2) : T.keepOriginal;
+        const scaleWPctVal = currentScale && currentScale.widthPercentage != null ? currentScale.widthPercentage : null;
+        const scaleHPctVal = currentScale && currentScale.heightPercentage != null ? currentScale.heightPercentage : null;
+        const wPctHint = (scaleHPctVal !== null && scaleWPctVal === null) ? String(scaleHPctVal) : T.keepOriginal;
+        const hPctHint = (scaleWPctVal !== null && scaleHPctVal === null) ? String(scaleWPctVal) : T.keepOriginal;
         
         html += '<div class="prop-group"><div class="prop-group-title">'+T.conversionConfig+'</div>' +
+            (origW && origH ? '<div class="prop-row"><label>'+T.originalSize+':</label><span style="font-size:11px;color:var(--vscode-descriptionForeground)">'+origW+'×'+origH+'</span></div>' : '') +
             '<div class="prop-row"><label>'+T.format+':</label><select onchange="updateVideoConfig(\\'videoFormat\\',this.value)">' +
             '<option value=""'+(!currentFormat?' selected':'')+'>'+T.inherit+' ('+inheritedFormat.toUpperCase()+')</option>' +
             '<option value="mjpeg"'+(currentFormat==='mjpeg'?' selected':'')+'>MJPEG</option>' +
@@ -1052,7 +1146,33 @@ function renderProperties() {
             '<option value="h264"'+(currentFormat==='h264'?' selected':'')+'>H.264</option>' +
             '</select></div>' +
             '<div class="prop-row"><label>'+T.quality+':</label><input type="number" min="1" max="31" value="'+currentQuality+'" placeholder="'+T.inherit+' ('+inheritedQuality+')" onchange="updateVideoConfig(\\'videoQuality\\',this.value?+this.value:null)"></div>' +
-            '<div class="prop-row"><label>'+T.frameRate+':</label><input type="number" value="'+currentFrameRate+'" placeholder="'+(inheritedFrameRate||T.keepOriginal)+'" onchange="updateVideoConfig(\\'videoFrameRate\\',this.value?+this.value:null)"></div></div>';
+            '<div class="prop-row"><label>'+T.frameRate+':</label><input type="number" value="'+currentFrameRate+'" placeholder="'+(inheritedFrameRate||T.keepOriginal)+'" onchange="updateVideoConfig(\\'videoFrameRate\\',this.value?+this.value:null)"></div>' +
+            '<div class="prop-row"><label>'+T.videoScale+':</label><select onchange="updateVideoScaleConfig(\\'mode\\',this.value)">' +
+            '<option value="disabled"'+(scaleMode==='disabled'?' selected':'')+'>'+T.disabled+'</option>' +
+            '<option value="pixels"'+(scaleMode==='pixels'?' selected':'')+'>'+T.pixels+'</option>' +
+            '<option value="percentage"'+(scaleMode==='percentage'?' selected':'')+'>'+T.percentage+'</option>' +
+            '</select></div>' +
+            (scaleMode==='pixels' ?
+                '<div class="prop-row"><label>'+T.width+':</label><input id="scaleWidthInput" type="number" min="2" value="'+(scaleWVal!=null?scaleWVal:'')+'" placeholder="'+wPropHint+'" oninput="onScaleWidthInput(this.value)" onchange="updateVideoScaleConfig(\\'width\\',this.value?+this.value:null)"></div>' +
+                '<div class="prop-row"><label>'+T.height+':</label><input id="scaleHeightInput" type="number" min="2" value="'+(scaleHVal!=null?scaleHVal:'')+'" placeholder="'+hPropHint+'" oninput="onScaleHeightInput(this.value)" onchange="updateVideoScaleConfig(\\'height\\',this.value?+this.value:null)"></div>'
+            : scaleMode==='percentage' ?
+                '<div class="prop-row"><label>'+T.widthPct+':</label><input id="scaleWidthPctInput" type="number" min="1" max="1000" value="'+(scaleWPctVal!=null?scaleWPctVal:'')+'" placeholder="'+wPctHint+'" oninput="onScaleWidthPctInput(this.value)" onchange="updateVideoScaleConfig(\\'widthPercentage\\',this.value?+this.value:null)"></div>' +
+                '<div class="prop-row"><label>'+T.heightPct+':</label><input id="scaleHeightPctInput" type="number" min="1" max="1000" value="'+(scaleHPctVal!=null?scaleHPctVal:'')+'" placeholder="'+hPctHint+'" oninput="onScaleHeightPctInput(this.value)" onchange="updateVideoScaleConfig(\\'heightPercentage\\',this.value?+this.value:null)"></div>'
+            : '') +
+            '<div class="prop-row"><label>'+T.videoCrop+':</label><label style="width:auto;display:flex;align-items:center;gap:4px"><input type="checkbox" '+(cropEnabled?'checked':'')+' onchange="updateVideoCropConfig(\\'enabled\\',this.checked)">'+T.enabled+'</label></div>' +
+            (cropEnabled ?
+                '<div class="prop-row"><label>'+T.width+':</label><input type="number" min="2" value="'+(currentCrop&&currentCrop.width?currentCrop.width:'')+'" onchange="updateVideoCropConfig(\\'width\\',this.value?+this.value:0)"></div>' +
+                '<div class="prop-row"><label>'+T.height+':</label><input type="number" min="2" value="'+(currentCrop&&currentCrop.height?currentCrop.height:'')+'" onchange="updateVideoCropConfig(\\'height\\',this.value?+this.value:0)"></div>' +
+                '<div class="prop-row"><label>'+T.xPos+':</label><input type="number" min="0" value="'+(currentCrop&&currentCrop.x!=null?currentCrop.x:'')+'" placeholder="'+T.autoCenterHint+'" onchange="updateVideoCropConfig(\\'x\\',this.value)"></div>' +
+                '<div class="prop-row"><label>'+T.yPos+':</label><input type="number" min="0" value="'+(currentCrop&&currentCrop.y!=null?currentCrop.y:'')+'" placeholder="'+T.autoCenterHint+'" onchange="updateVideoCropConfig(\\'y\\',this.value)"></div>'
+            : '') +
+            (hasBothScaleAndCrop ?
+                '<div class="prop-row"><label>'+T.preprocessOrder+':</label><select onchange="updateVideoConfig(\\'preprocessOrder\\',this.value)">' +
+                '<option value="crop-then-scale"'+(currentPreprocessOrder==='crop-then-scale'?' selected':'')+'>'+T.cropThenScale+'</option>' +
+                '<option value="scale-then-crop"'+(currentPreprocessOrder==='scale-then-crop'?' selected':'')+'>'+T.scaleThenCrop+'</option>' +
+                '</select></div>'
+            : '') +
+            '</div>';
     } else if (file.type === 'font') {
         const ifnt = inherited.font || {};
         const charsets = settings.characterSets || ifnt.characterSets || [{type:'range',value:'0x20-0x7E'}];
@@ -1230,6 +1350,155 @@ function updateVideoConfig(key, value) {
     
     updateConversionConfig(videoPath, newConfig);
     renderProperties();
+}
+
+// 更新单个视频的缩放配置
+function updateVideoScaleConfig(field, value) {
+    const file = files.get(selectedId);
+    if (!file || file.type !== 'video') return;
+    const videoPath = file.relativePath ? file.relativePath + '/' + file.name : file.name;
+    const currentConfig = getImageConversionConfig(videoPath) || {};
+    const newConfig = { ...currentConfig };
+    if (field === 'mode') {
+        if (value === 'disabled') {
+            delete newConfig.videoScale;
+            delete newConfig.preprocessOrder;
+        } else {
+            const oldMode = newConfig.videoScale && newConfig.videoScale.mode;
+            const info = videoInfoCache.get(selectedId);
+            if (oldMode === 'pixels' && value === 'percentage' && info && info.width && info.height) {
+                // pixels → percentage: convert stored pixel values to percentages (crop-order-aware base)
+                const cropCfg = newConfig.videoCrop;
+                const ppOrder = newConfig.preprocessOrder || 'crop-then-scale';
+                const bW = (cropCfg && ppOrder === 'crop-then-scale' && cropCfg.width && cropCfg.height) ? cropCfg.width : info.width;
+                const bH = (cropCfg && ppOrder === 'crop-then-scale' && cropCfg.width && cropCfg.height) ? cropCfg.height : info.height;
+                const old = newConfig.videoScale || {};
+                newConfig.videoScale = { mode: 'percentage' };
+                if (old.width != null) newConfig.videoScale.widthPercentage = Math.round(old.width / bW * 100 * 10) / 10;
+                if (old.height != null) newConfig.videoScale.heightPercentage = Math.round(old.height / bH * 100 * 10) / 10;
+            } else if (oldMode === 'percentage' && value === 'pixels' && info && info.width && info.height) {
+                // percentage → pixels: convert stored percentages to pixel values (crop-order-aware base)
+                const cropCfg = newConfig.videoCrop;
+                const ppOrder = newConfig.preprocessOrder || 'crop-then-scale';
+                const bW = (cropCfg && ppOrder === 'crop-then-scale' && cropCfg.width && cropCfg.height) ? cropCfg.width : info.width;
+                const bH = (cropCfg && ppOrder === 'crop-then-scale' && cropCfg.width && cropCfg.height) ? cropCfg.height : info.height;
+                const old = newConfig.videoScale || {};
+                newConfig.videoScale = { mode: 'pixels' };
+                if (old.widthPercentage != null) newConfig.videoScale.width = Math.round(bW * old.widthPercentage / 100 / 2) * 2;
+                if (old.heightPercentage != null) newConfig.videoScale.height = Math.round(bH * old.heightPercentage / 100 / 2) * 2;
+            } else {
+                newConfig.videoScale = { ...newConfig.videoScale, mode: value };
+            }
+        }
+    } else {
+        if (!newConfig.videoScale) newConfig.videoScale = { mode: 'pixels' };
+        if (value === null) { delete newConfig.videoScale[field]; }
+        else { newConfig.videoScale[field] = value; }
+    }
+    updateConversionConfig(videoPath, newConfig);
+    renderProperties();
+}
+
+// 更新单个视频的裁剪配置
+function updateVideoCropConfig(field, value) {
+    const file = files.get(selectedId);
+    if (!file || file.type !== 'video') return;
+    const videoPath = file.relativePath ? file.relativePath + '/' + file.name : file.name;
+    const currentConfig = getImageConversionConfig(videoPath) || {};
+    const newConfig = { ...currentConfig };
+    if (field === 'enabled') {
+        if (!value) {
+            delete newConfig.videoCrop;
+            delete newConfig.preprocessOrder;
+        } else {
+            newConfig.videoCrop = newConfig.videoCrop || { width: 100, height: 100 };
+        }
+    } else if (field === 'x' || field === 'y') {
+        if (!newConfig.videoCrop) newConfig.videoCrop = { width: 100, height: 100 };
+        if (value === '' || value === null) { delete newConfig.videoCrop[field]; }
+        else { newConfig.videoCrop[field] = +value; }
+    } else {
+        if (!newConfig.videoCrop) newConfig.videoCrop = { width: 100, height: 100 };
+        if (value === null) { delete newConfig.videoCrop[field]; }
+        else { newConfig.videoCrop[field] = value; }
+    }
+    updateConversionConfig(videoPath, newConfig);
+    renderProperties();
+}
+
+// 更新文件夹视频缩放配置
+function updateFolderVideoScaleConfig(field, value) {
+    if (!selectedFolder) return;
+    const currentConfig = getFolderConversionConfig(selectedFolder) || {};
+    const newConfig = { ...currentConfig };
+    if (field === 'mode') {
+        if (value === 'disabled') {
+            delete newConfig.videoScale;
+            delete newConfig.preprocessOrder;
+        } else {
+            newConfig.videoScale = { ...newConfig.videoScale, mode: value };
+        }
+    } else {
+        if (!newConfig.videoScale) newConfig.videoScale = { mode: 'pixels' };
+        if (value === null) { delete newConfig.videoScale[field]; }
+        else { newConfig.videoScale[field] = value; }
+    }
+    updateConversionConfig(selectedFolder, newConfig);
+    renderProperties();
+}
+
+// 更新文件夹视频裁剪配置
+function updateFolderVideoCropConfig(field, value) {
+    if (!selectedFolder) return;
+    const currentConfig = getFolderConversionConfig(selectedFolder) || {};
+    const newConfig = { ...currentConfig };
+    if (field === 'enabled') {
+        if (!value) {
+            delete newConfig.videoCrop;
+            delete newConfig.preprocessOrder;
+        } else {
+            newConfig.videoCrop = newConfig.videoCrop || { width: 100, height: 100 };
+        }
+    } else if (field === 'x' || field === 'y') {
+        if (!newConfig.videoCrop) newConfig.videoCrop = { width: 100, height: 100 };
+        if (value === '' || value === null) { delete newConfig.videoCrop[field]; }
+        else { newConfig.videoCrop[field] = +value; }
+    } else {
+        if (!newConfig.videoCrop) newConfig.videoCrop = { width: 100, height: 100 };
+        if (value === null) { delete newConfig.videoCrop[field]; }
+        else { newConfig.videoCrop[field] = value; }
+    }
+    updateConversionConfig(selectedFolder, newConfig);
+    renderProperties();
+}
+
+// 动态计算等比例缩放提示（oninput 实时更新）
+function onScaleWidthInput(value) {
+    const { w, h } = currentScaleBase;
+    if (!w || !h) return;
+    const hInput = document.getElementById('scaleHeightInput');
+    if (!hInput || hInput.value !== '') return;
+    hInput.placeholder = value ? String(Math.round(+value * h / w / 2) * 2) : T.keepOriginal;
+}
+
+function onScaleHeightInput(value) {
+    const { w, h } = currentScaleBase;
+    if (!w || !h) return;
+    const wInput = document.getElementById('scaleWidthInput');
+    if (!wInput || wInput.value !== '') return;
+    wInput.placeholder = value ? String(Math.round(+value * w / h / 2) * 2) : T.keepOriginal;
+}
+
+function onScaleWidthPctInput(value) {
+    const hInput = document.getElementById('scaleHeightPctInput');
+    if (!hInput || hInput.value !== '') return;
+    hInput.placeholder = value || T.keepOriginal;
+}
+
+function onScaleHeightPctInput(value) {
+    const wInput = document.getElementById('scaleWidthPctInput');
+    if (!wInput || wInput.value !== '') return;
+    wInput.placeholder = value || T.keepOriginal;
 }
 
 function updateSetting(key, value) {
@@ -1518,6 +1787,7 @@ window.addEventListener('message', e => {
         selectedFolder = null;
         currentPath = [];
         conversionConfig = null;
+        videoInfoCache.clear();
         Object.keys(folderSettings).forEach(k => delete folderSettings[k]);
         renderBreadcrumb();
         renderGrid();
@@ -1580,6 +1850,9 @@ window.addEventListener('message', e => {
         r.className = 'results ' + (fail ? (ok ? 'mixed' : 'error') : 'success');
         r.textContent = T.complete+': ' + ok + ' '+T.success+', ' + fail + ' '+T.failed;
         if (fail) r.textContent += '\\n' + msg.results.filter(x=>!x.success).map(x=>x.fileName+': '+x.error).join('\\n');
+    } else if (msg.type === 'videoInfoResult') {
+        if (msg.info) videoInfoCache.set(msg.id, msg.info);
+        if (selectedId === msg.id) renderProperties();
     } else if (msg.type === 'glassPreviewResult') {
         // 处理玻璃预览结果
         const img = document.getElementById('glassPreviewImage');

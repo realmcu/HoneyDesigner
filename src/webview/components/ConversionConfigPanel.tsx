@@ -18,6 +18,8 @@ import {
   ItemSettings,
   ConversionConfig,
   VideoScaleConfig,
+  VideoCropConfig,
+  PreprocessOrder,
 } from '../types';
 import './ConversionConfigPanel.css';
 
@@ -530,6 +532,36 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     return { scale: undefined, isInherited: false };
   }, [selectedAsset, conversionConfig]);
 
+  // 获取有效视频裁剪配置（处理继承）
+  const effectiveVideoCrop = useMemo((): { crop: VideoCropConfig | undefined; isInherited: boolean; inheritedFrom?: string } => {
+    if (!selectedAsset || !conversionConfig) {
+      return { crop: undefined, isInherited: false };
+    }
+
+    const assetPath = (selectedAsset.relativePath || selectedAsset.name).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const itemSettings = conversionConfig.items[assetPath];
+
+    if (itemSettings && itemSettings.videoCrop !== undefined) {
+      return { crop: itemSettings.videoCrop, isInherited: false };
+    }
+
+    const pathParts = assetPath.split('/');
+    for (let i = pathParts.length - 1; i >= 0; i--) {
+      const parentPath = pathParts.slice(0, i).join('/');
+      const parentSettings = parentPath ? conversionConfig.items[parentPath] : undefined;
+
+      if (parentSettings && parentSettings.videoCrop !== undefined) {
+        return {
+          crop: parentSettings.videoCrop,
+          isInherited: true,
+          inheritedFrom: parentPath || t('Root'),
+        };
+      }
+    }
+
+    return { crop: undefined, isInherited: false };
+  }, [selectedAsset, conversionConfig]);
+
   // 获取有效 Dither 配置（处理继承）
   const effectiveDither = useMemo((): { dither: boolean; isInherited: boolean; inheritedFrom?: string } => {
     if (!selectedAsset || !conversionConfig) {
@@ -688,6 +720,32 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
       updateAssetConfig(assetPath, {
         ...currentSettings,
         videoScale: scale,
+      });
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
+  // 处理视频裁剪更新（通用）
+  const handleVideoCropUpdate = useCallback(
+    (crop: VideoCropConfig | undefined) => {
+      if (!selectedAsset) return;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(assetPath, {
+        ...currentSettings,
+        videoCrop: crop,
+      });
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
+  // 处理预处理顺序变更
+  const handlePreprocessOrderChange = useCallback(
+    (order: PreprocessOrder) => {
+      if (!selectedAsset) return;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(assetPath, {
+        ...currentSettings,
+        preprocessOrder: order,
       });
     },
     [selectedAsset, currentSettings, updateAssetConfig]
@@ -1322,6 +1380,13 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
         </div>
         {currentSettings.videoScale && (() => {
           const currentScale = currentSettings.videoScale;
+          // crop-then-scale 时以裁剪后尺寸作为缩放基准；否则以原始视频尺寸为基准
+          const effectiveOrder = currentSettings.preprocessOrder ?? 'crop-then-scale';
+          const cropForScale = currentSettings.videoCrop;
+          const scaleBaseW = (effectiveOrder === 'crop-then-scale' && cropForScale?.width)
+            ? cropForScale.width : assetMetadata?.width;
+          const scaleBaseH = (effectiveOrder === 'crop-then-scale' && cropForScale?.height)
+            ? cropForScale.height : assetMetadata?.height;
           return (
             <>
               <div className="config-item">
@@ -1333,12 +1398,12 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                       value="percentage"
                       checked={currentScale.mode === 'percentage'}
                       onChange={() => {
-                        // 切换到百分比模式：若有像素值和元数据，自动换算为百分比
-                        if (assetMetadata?.width && assetMetadata?.height && (currentScale.width || currentScale.height)) {
+                        // 切换到百分比模式：若有像素值和基准尺寸，自动换算为百分比
+                        if (scaleBaseW && scaleBaseH && (currentScale.width || currentScale.height)) {
                           handleVideoScaleUpdate({
                             mode: 'percentage',
-                            widthPercentage: currentScale.width ? Math.round(currentScale.width / assetMetadata.width * 100) : currentScale.widthPercentage,
-                            heightPercentage: currentScale.height ? Math.round(currentScale.height / assetMetadata.height * 100) : currentScale.heightPercentage,
+                            widthPercentage: currentScale.width ? Math.round(currentScale.width / scaleBaseW * 100) : currentScale.widthPercentage,
+                            heightPercentage: currentScale.height ? Math.round(currentScale.height / scaleBaseH * 100) : currentScale.heightPercentage,
                           });
                         } else {
                           handleVideoScaleUpdate({ mode: 'percentage', widthPercentage: currentScale.widthPercentage ?? 100, heightPercentage: currentScale.heightPercentage ?? 100 });
@@ -1353,12 +1418,12 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                       value="pixels"
                       checked={currentScale.mode === 'pixels'}
                       onChange={() => {
-                        // 切换到像素模式：若有百分比值和元数据，自动换算为像素
-                        if (assetMetadata?.width && assetMetadata?.height && (currentScale.widthPercentage || currentScale.heightPercentage)) {
+                        // 切换到像素模式：若有百分比值和基准尺寸，自动换算为像素
+                        if (scaleBaseW && scaleBaseH && (currentScale.widthPercentage || currentScale.heightPercentage)) {
                           handleVideoScaleUpdate({
                             mode: 'pixels',
-                            width: currentScale.widthPercentage ? Math.round(assetMetadata.width * currentScale.widthPercentage / 100) : currentScale.width,
-                            height: currentScale.heightPercentage ? Math.round(assetMetadata.height * currentScale.heightPercentage / 100) : currentScale.height,
+                            width: currentScale.widthPercentage ? Math.round(scaleBaseW * currentScale.widthPercentage / 100) : currentScale.width,
+                            height: currentScale.heightPercentage ? Math.round(scaleBaseH * currentScale.heightPercentage / 100) : currentScale.height,
                           });
                         } else {
                           handleVideoScaleUpdate({ mode: 'pixels', width: currentScale.width, height: currentScale.height });
@@ -1387,9 +1452,9 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                       />
                       <span className="unit-label">%</span>
                     </div>
-                    {assetMetadata?.width && currentScale.widthPercentage && (
+                    {scaleBaseW && currentScale.widthPercentage && (
                       <div className="config-hint">
-                        → {Math.round(assetMetadata.width * currentScale.widthPercentage / 100)} px
+                        → {Math.round(scaleBaseW * currentScale.widthPercentage / 100)} px
                       </div>
                     )}
                   </div>
@@ -1409,15 +1474,15 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                       />
                       <span className="unit-label">%</span>
                     </div>
-                    {assetMetadata?.height && currentScale.heightPercentage && (
+                    {scaleBaseH && currentScale.heightPercentage && (
                       <div className="config-hint">
-                        → {Math.round(assetMetadata.height * currentScale.heightPercentage / 100)} px
+                        → {Math.round(scaleBaseH * currentScale.heightPercentage / 100)} px
                       </div>
                     )}
                   </div>
-                  {assetMetadata?.width && assetMetadata?.height && currentScale.widthPercentage && currentScale.heightPercentage && (
+                  {scaleBaseW && scaleBaseH && currentScale.widthPercentage && currentScale.heightPercentage && (
                     <div className="config-hint">
-                      → {Math.round(assetMetadata.width * currentScale.widthPercentage / 100)} × {Math.round(assetMetadata.height * currentScale.heightPercentage / 100)} px
+                      → {Math.round(scaleBaseW * currentScale.widthPercentage / 100)} × {Math.round(scaleBaseH * currentScale.heightPercentage / 100)} px
                     </div>
                   )}
                   <div className="config-hint">{t('Leave one empty to maintain aspect ratio')}</div>
@@ -1431,8 +1496,8 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                       min={1}
                       value={currentScale.width ?? ''}
                       placeholder={
-                        (assetMetadata?.width && assetMetadata?.height && currentScale.height)
-                          ? String(Math.round(currentScale.height * assetMetadata.width / assetMetadata.height))
+                        (scaleBaseW && scaleBaseH && currentScale.height)
+                          ? String(Math.round(currentScale.height * scaleBaseW / scaleBaseH))
                           : t('Auto')
                       }
                       onChange={(e) => {
@@ -1440,9 +1505,9 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                         handleVideoScaleUpdate({ ...currentScale, width: val });
                       }}
                     />
-                    {assetMetadata?.width && assetMetadata?.height && currentScale.width && !currentScale.height && (
+                    {scaleBaseW && scaleBaseH && currentScale.width && !currentScale.height && (
                       <div className="config-hint">
-                        → {currentScale.width} × {Math.round(currentScale.width * assetMetadata.height / assetMetadata.width)} px
+                        → {currentScale.width} × {Math.round(currentScale.width * scaleBaseH / scaleBaseW)} px
                       </div>
                     )}
                   </div>
@@ -1453,8 +1518,8 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                       min={1}
                       value={currentScale.height ?? ''}
                       placeholder={
-                        (assetMetadata?.width && assetMetadata?.height && currentScale.width)
-                          ? String(Math.round(currentScale.width * assetMetadata.height / assetMetadata.width))
+                        (scaleBaseW && scaleBaseH && currentScale.width)
+                          ? String(Math.round(currentScale.width * scaleBaseH / scaleBaseW))
                           : t('Auto')
                       }
                       onChange={(e) => {
@@ -1462,15 +1527,138 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
                         handleVideoScaleUpdate({ ...currentScale, height: val });
                       }}
                     />
-                    {assetMetadata?.width && assetMetadata?.height && !currentScale.width && currentScale.height && (
+                    {scaleBaseW && scaleBaseH && !currentScale.width && currentScale.height && (
                       <div className="config-hint">
-                        → {Math.round(currentScale.height * assetMetadata.width / assetMetadata.height)} × {currentScale.height} px
+                        → {Math.round(currentScale.height * scaleBaseW / scaleBaseH)} × {currentScale.height} px
                       </div>
                     )}
                   </div>
                   <div className="config-hint">{t('Leave one empty to maintain aspect ratio')}</div>
                 </>
               )}
+            </>
+          );
+        })()}
+        {/* 当缩放和裁剪都启用时，显示预处理顺序选项 */}
+        {currentSettings.videoScale && currentSettings.videoCrop && (
+          <div className="config-item">
+            <label>{t('Preprocess Order')}</label>
+            <div className="config-radio-group">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  checked={(currentSettings.preprocessOrder ?? 'crop-then-scale') === 'crop-then-scale'}
+                  onChange={() => handlePreprocessOrderChange('crop-then-scale')}
+                />
+                {t('Crop First, Then Scale')}
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  checked={currentSettings.preprocessOrder === 'scale-then-crop'}
+                  onChange={() => handlePreprocessOrderChange('scale-then-crop')}
+                />
+                {t('Scale First, Then Crop')}
+              </label>
+            </div>
+          </div>
+        )}
+        {/* 视频裁剪设置 */}
+        <div className="config-item">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={!!currentSettings.videoCrop}
+              onChange={(e) =>
+                handleVideoCropUpdate(
+                  e.target.checked ? { width: 100, height: 100 } : undefined
+                )
+              }
+            />
+            <span>{t('Enable Video Crop')}</span>
+          </label>
+          {effectiveVideoCrop.isInherited && !currentSettings.videoCrop && (
+            <div className="inherited-indicator">
+              <span className="icon">↩️</span>
+              <span>
+                {t('inheritedFrom')}: {effectiveVideoCrop.inheritedFrom}
+              </span>
+            </div>
+          )}
+        </div>
+        {currentSettings.videoCrop && (() => {
+          const currentCrop = currentSettings.videoCrop;
+          return (
+            <>
+              {assetMetadata?.width && assetMetadata?.height && (
+                <div className="config-item">
+                  <div className="config-hint">
+                    {t('Original')}: {assetMetadata.width} × {assetMetadata.height} px
+                    {currentCrop.width && currentCrop.height && (
+                      <> → {t('Crop')}: {currentCrop.width} × {currentCrop.height} px</>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="config-item">
+                <label>{t('Crop Width')}</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={assetMetadata?.width}
+                  value={currentCrop.width ?? ''}
+                  placeholder={assetMetadata?.width ? String(assetMetadata.width) : ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? 1 : parseInt(e.target.value, 10);
+                    if (val > 0) {
+                      handleVideoCropUpdate({ ...currentCrop, width: val });
+                    }
+                  }}
+                />
+              </div>
+              <div className="config-item">
+                <label>{t('Crop Height')}</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={assetMetadata?.height}
+                  value={currentCrop.height ?? ''}
+                  placeholder={assetMetadata?.height ? String(assetMetadata.height) : ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? 1 : parseInt(e.target.value, 10);
+                    if (val > 0) {
+                      handleVideoCropUpdate({ ...currentCrop, height: val });
+                    }
+                  }}
+                />
+              </div>
+              <div className="config-item">
+                <label>{t('Crop X (from left)')}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={currentCrop.x ?? ''}
+                  placeholder={t('Auto Center')}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                    handleVideoCropUpdate({ ...currentCrop, x: val });
+                  }}
+                />
+              </div>
+              <div className="config-item">
+                <label>{t('Crop Y (from top)')}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={currentCrop.y ?? ''}
+                  placeholder={t('Auto Center')}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                    handleVideoCropUpdate({ ...currentCrop, y: val });
+                  }}
+                />
+                <div className="config-hint">{t('Leave X/Y empty for centered crop')}</div>
+              </div>
             </>
           );
         })()}

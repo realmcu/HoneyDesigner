@@ -415,6 +415,13 @@ export class MessageHandler {
                 );
                 break;
 
+            case 'getVideoNaturalSize':
+                this._assetManager.handleGetVideoNaturalSize(
+                    message.videoPath,
+                    this._fileManager.currentFilePath
+                );
+                break;
+
             case 'createVideoComponent':
                 this._assetManager.handleCreateVideoComponent(
                     message.videoPath,

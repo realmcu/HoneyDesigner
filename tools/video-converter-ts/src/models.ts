@@ -84,6 +84,37 @@ export interface ScaleOptions {
 }
 
 /**
+ * Options for cropping a video before conversion.
+ * Both width and height are required; x and y are optional (default to center).
+ */
+export interface CropOptions {
+  /** Crop region width in pixels (must be a positive integer) */
+  width: number;
+  /** Crop region height in pixels (must be a positive integer) */
+  height: number;
+  /**
+   * X offset of the top-left crop corner in pixels (non-negative integer).
+   * Defaults to `(source_width - width) / 2` (horizontally centered).
+   */
+  x?: number;
+  /**
+   * Y offset of the top-left crop corner in pixels (non-negative integer).
+   * Defaults to `(source_height - height) / 2` (vertically centered).
+   */
+  y?: number;
+}
+
+/**
+ * A single pre-processing step in the ordered preprocess pipeline.
+ *
+ * Steps are executed in array order before the main conversion.
+ * The output of each step is the input for the next.
+ */
+export type PreprocessStep =
+  | { type: 'scale'; options: ScaleOptions }
+  | { type: 'crop';  options: CropOptions  };
+
+/**
  * Options for video conversion
  */
 export interface ConversionOptions {
@@ -94,11 +125,22 @@ export interface ConversionOptions {
   /** Debug mode - keep intermediate files for inspection */
   debug?: boolean;
   /**
-   * Scale (resize) the input video before conversion.
-   * Scaling is performed as a pre-processing step, independent of the conversion.
-   * When both width and height are specified, the video is scaled to the exact
-   * dimensions (may change aspect ratio).
-   * When only one is specified, the other is auto-calculated to preserve aspect ratio.
+   * Ordered pre-processing pipeline executed before the main conversion.
+   * Each step receives the output of the previous step as its input.
+   * When this field is set, the `scale` shorthand is ignored.
+   *
+   * @example
+   * // Crop first, then scale the cropped region
+   * preprocess: [
+   *   { type: 'crop',  options: { width: 640, height: 360 } },
+   *   { type: 'scale', options: { width: 1280 } },
+   * ]
+   */
+  preprocess?: PreprocessStep[];
+  /**
+   * Convenience shorthand: scale the input video before conversion.
+   * Equivalent to `preprocess: [{ type: 'scale', options: <value> }]`.
+   * Ignored when `preprocess` is set.
    */
   scale?: ScaleOptions;
 }

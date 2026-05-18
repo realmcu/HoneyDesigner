@@ -366,9 +366,8 @@ const componentDefinitions: ComponentDefinition[] = [
     defaultSize: { width: 320, height: 240 },
     properties: [
       { name: 'src', label: 'Video Path', type: 'string', group: 'data' },
-      { name: 'autoplay', label: 'Autoplay', type: 'boolean', defaultValue: false, group: 'general' },
+      { name: 'autoPlay', label: 'Autoplay', type: 'boolean', defaultValue: true, group: 'general' },
       { name: 'loop', label: 'Loop', type: 'boolean', defaultValue: false, group: 'general' },
-      { name: 'controls', label: 'Show Controls', type: 'boolean', defaultValue: true, group: 'general' },
     ],
   },
   {

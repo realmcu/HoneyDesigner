@@ -1729,6 +1729,37 @@ export class AssetManager extends EventEmitter {
     }
 
     /**
+     * 处理画布组件获取视频自然尺寸请求（不修改组件状态，仅用于 VideoWidget 预览）
+     */
+    public async handleGetVideoNaturalSize(
+        videoPath: string,
+        currentFilePath: string | undefined
+    ): Promise<void> {
+        try {
+            if (!currentFilePath) {
+                return;
+            }
+
+            const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
+            if (!projectRoot) {
+                return;
+            }
+
+            const absolutePath = path.join(projectRoot, videoPath);
+            const videoSize = await this.getVideoSizeAsync(absolutePath);
+
+            this._panel.webview.postMessage({
+                command: 'videoNaturalSizeResult',
+                videoPath,
+                width: videoSize.width,
+                height: videoSize.height
+            });
+        } catch (error) {
+            logger.error(`[AssetManager] 获取视频自然尺寸失败: ${error}`);
+        }
+    }
+
+    /**
      * 处理创建视频组件请求（已废弃，使用 handleGetVideoSize）
      */
     public handleCreateVideoComponent(

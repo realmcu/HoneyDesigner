@@ -142,6 +142,25 @@ export class ToolsPanel {
             case 'previewGlass':
                 await this.previewGlass(message.id, message.data, message.settings);
                 break;
+            case 'getVideoInfo':
+                await this.handleGetVideoInfo(message.id, message.name, message.relativePath);
+                break;
+        }
+    }
+
+    private async handleGetVideoInfo(id: string, name: string, relativePath: string): Promise<void> {
+        if (!this.outputDir) {
+            this.panel.webview.postMessage({ type: 'videoInfoResult', id, info: null });
+            return;
+        }
+        const originDir = path.join(this.outputDir, 'origin');
+        const filePath = path.join(originDir, relativePath || '', name);
+        try {
+            const info = await this.videoConverter.getVideoInfo(filePath);
+            this.panel.webview.postMessage({ type: 'videoInfoResult', id, info });
+        } catch (e) {
+            logger.error(`getVideoInfo failed: ${e}`);
+            this.panel.webview.postMessage({ type: 'videoInfoResult', id, info: null });
         }
     }
 
@@ -892,10 +911,55 @@ export class ToolsPanel {
                 case 'video':
                     const extMap: Record<string, string> = { avi: '.avi', h264: '.h264', mjpeg: '.mjpeg' };
                     outputPath = path.join(outputSubDir, file.name.replace(/\.[^.]+$/, extMap[settings.format] || '.mjpeg'));
+
+                    // 解析百分比缩放为像素（逻辑同 BuildCore.ts）
+                    let resolvedScale: { width?: number; height?: number } | undefined;
+                    if (settings.videoScaleConfig) {
+                        const scaleConfig = settings.videoScaleConfig;
+                        if (scaleConfig.mode === 'pixels' && (scaleConfig.width || scaleConfig.height)) {
+                            resolvedScale = { width: scaleConfig.width, height: scaleConfig.height };
+                        } else if (scaleConfig.mode === 'percentage' && (scaleConfig.widthPercentage || scaleConfig.heightPercentage)) {
+                            try {
+                                const effectiveOrder = settings.preprocessOrder ?? 'crop-then-scale';
+                                let baseWidth: number | undefined;
+                                let baseHeight: number | undefined;
+                                if (effectiveOrder === 'crop-then-scale' && settings.crop) {
+                                    baseWidth = settings.crop.width;
+                                    baseHeight = settings.crop.height;
+                                } else {
+                                    const videoInfo = await this.videoConverter.getVideoInfo(tempInput);
+                                    if (videoInfo?.width && videoInfo?.height) {
+                                        baseWidth = videoInfo.width;
+                                        baseHeight = videoInfo.height;
+                                    }
+                                }
+                                if (baseWidth && baseHeight) {
+                                    const wp = scaleConfig.widthPercentage;
+                                    const hp = scaleConfig.heightPercentage;
+                                    if (wp && hp) {
+                                        resolvedScale = {
+                                            width: Math.round(baseWidth * wp / 100 / 2) * 2,
+                                            height: Math.round(baseHeight * hp / 100 / 2) * 2,
+                                        };
+                                    } else if (wp) {
+                                        resolvedScale = { width: Math.round(baseWidth * wp / 100 / 2) * 2 };
+                                    } else if (hp) {
+                                        resolvedScale = { height: Math.round(baseHeight * hp / 100 / 2) * 2 };
+                                    }
+                                }
+                            } catch (e) {
+                                logger.warn(`获取视频信息失败，跳过缩放: ${file.name} - ${e}`);
+                            }
+                        }
+                    }
+
                     result = await this.videoConverter.convert(tempInput, outputPath, {
                         format: settings.format || 'mjpeg',
                         quality: settings.quality || 1,
-                        frameRate: settings.frameRate
+                        frameRate: settings.frameRate,
+                        scale: resolvedScale,
+                        crop: settings.crop,
+                        preprocessOrder: settings.preprocessOrder,
                     });
                     break;
                 case 'model':
@@ -1180,7 +1244,8 @@ export class ToolsPanel {
         }
         
         // 检查是否有视频相关配置
-        if (!itemSettings.videoFormat && !itemSettings.videoQuality && !itemSettings.videoFrameRate) {
+        if (!itemSettings.videoFormat && !itemSettings.videoQuality && !itemSettings.videoFrameRate &&
+            !itemSettings.videoScale && !itemSettings.videoCrop) {
             return null;
         }
         
@@ -1192,6 +1257,23 @@ export class ToolsPanel {
         
         if (itemSettings.videoFrameRate) {
             settings.frameRate = itemSettings.videoFrameRate;
+        }
+        
+        if (itemSettings.videoScale) {
+            settings.videoScaleConfig = itemSettings.videoScale;
+        }
+        
+        if (itemSettings.videoCrop) {
+            settings.crop = {
+                width: itemSettings.videoCrop.width,
+                height: itemSettings.videoCrop.height,
+                x: itemSettings.videoCrop.x,
+                y: itemSettings.videoCrop.y,
+            };
+        }
+        
+        if (itemSettings.preprocessOrder) {
+            settings.preprocessOrder = itemSettings.preprocessOrder;
         }
         
         return settings;

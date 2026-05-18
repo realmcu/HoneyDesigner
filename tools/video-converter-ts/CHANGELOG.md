@@ -8,6 +8,35 @@
 
 ---
 
+## [1.2.0] - 2026-05-20
+
+### Added
+
+- **视频裁剪预处理**：新增 `VideoCropper` 类（`src/preprocess/video-cropper.ts`），提供独立的视频裁剪 API，与转换流程完全解耦
+  - `cropper.crop(input, output, { width, height, x?, y? })` — 接收像素单位参数
+  - `width` 和 `height` 均为必填项（正整数）
+  - `x` / `y` 为可选偏移量（非负整数），省略时 FFmpeg 自动居中裁剪区域
+  - 使用 libx264 CRF 18 输出中间文件，质量接近无损
+- **`CropOptions` 接口**：新增 `{ width: number; height: number; x?: number; y?: number }` 类型
+- **`PreprocessStep` 联合类型**：`{ type: 'scale'; options: ScaleOptions } | { type: 'crop'; options: CropOptions }`
+- **`ConversionOptions.preprocess`**：在 `convert()` API 中添加 `preprocess?: PreprocessStep[]` 参数，支持有序的多步预处理 pipeline
+  - 各步骤按数组顺序依次执行，上一步的输出作为下一步的输入
+  - 设置 `preprocess` 时，`scale` 字段被忽略（`preprocess` 优先级更高）
+  - 向后兼容：未设置 `preprocess` 时，`scale` 字段仍按 v1.1 逻辑工作
+- **`FFmpegBuilder.buildCropCmd()`**：构建 FFmpeg 裁剪命令（`-vf crop=W:H[:X:Y]`）
+- **debug 模式扩展**：开启 `debug: true` 时，所有预处理中间文件均保留（命名格式 `<name>.pre-<步骤序号>-<类型>.mp4`）；关闭时自动清理
+
+### Changed
+
+- `VideoConverter.convert()` 内部预处理逻辑重构：单一 `scale?` 块替换为通用预处理 pipeline 循环，`scale` 字段自动转换为单步 pipeline 保持向后兼容
+
+### Docs
+
+- 合并 `QUICK_START.md` 和 `INTEGRATION.md` 全部内容到 `SOURCE_INTEGRATION.md`，删除冗余文档，`SOURCE_INTEGRATION.md` 成为唯一集成与 API 参考文档
+- `README.md` 更新 API 概览（补全 v1.2.0 类型）、项目结构和版本记录
+
+---
+
 ## [1.1.0] - 2026-05-14
 
 ### Added

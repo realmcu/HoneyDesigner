@@ -15,14 +15,15 @@ import {
   ConversionResult,
   OutputFormat,
   ProgressCallback,
-  ConversionOptions
+  ConversionOptions,
+  PreprocessStep
 } from './models';
 import { VideoConverterError, FFmpegNotFoundError } from './errors';
 import { VideoParser } from './parser';
 import { FFmpegBuilder } from './ffmpeg-builder';
 import { FFmpegExecutor } from './ffmpeg-executor';
 import { MjpegPacker, AviAligner, H264Packer } from './postprocess/index';
-import { VideoScaler } from './preprocess/index';
+import { VideoScaler, VideoCropper } from './preprocess/index';
 
 /**
  * VideoConverter class - Main entry point for video conversion
@@ -66,18 +67,19 @@ export class VideoConverter {
   /**
    * Convert video to specified format
    *
-   * If `options.scale` is provided, the input video is first scaled by
-   * {@link VideoScaler} (a pre-processing step decoupled from conversion),
-   * then the scaled intermediate file is used as the conversion input.
+   * When `options.preprocess` is provided, each step is executed in order
+   * before the main conversion — the output of each step becomes the input for
+   * the next. When only `options.scale` is provided (v1.1 shorthand), it is
+   * wrapped into a single-element preprocess array for backward compatibility.
    *
-   * In `debug` mode the scaled intermediate file is kept next to the output
-   * file (e.g. `output.pre-scaled.mp4`); otherwise it is deleted after the
-   * conversion completes.
+   * In `debug` mode all intermediate files are kept next to the output file
+   * (e.g. `output.pre-1-scale.mp4`, `output.pre-2-crop.mp4`); otherwise they
+   * are deleted in a `finally` block even when conversion throws.
    *
    * @param inputPath - Path to input video file
    * @param outputPath - Path to output file
    * @param outputFormat - Target output format
-   * @param options - Conversion options (frameRate, quality, debug, scale)
+   * @param options - Conversion options (frameRate, quality, debug, preprocess, scale)
    * @returns Promise<ConversionResult> - Conversion result
    */
   async convert(
@@ -88,31 +90,46 @@ export class VideoConverter {
   ): Promise<ConversionResult> {
     const debug = options.debug ?? false;
     let actualInputPath = inputPath;
-    let tempScaledPath: string | null = null;
+    const tempPaths: string[] = [];
+
+    // Normalise: preprocess[] takes precedence; scale? is a shorthand alias
+    const preprocessSteps: PreprocessStep[] =
+      options.preprocess && options.preprocess.length > 0
+        ? options.preprocess
+        : options.scale
+          ? [{ type: 'scale', options: options.scale }]
+          : [];
 
     try {
-      // ── Pre-processing: scale ──────────────────────────────────────────
-      if (options.scale) {
+      // ── Pre-processing pipeline ─────────────────────────────────────────
+      for (const [i, step] of preprocessSteps.entries()) {
+        let tempPath: string;
+
         if (debug) {
-          // Place the scaled file next to the output for easy inspection
           const baseName = path.basename(outputPath, path.extname(outputPath));
-          const outputDir = path.dirname(outputPath);
-          tempScaledPath = path.join(outputDir, `${baseName}.pre-scaled.mp4`);
+          const outputDir  = path.dirname(outputPath);
+          tempPath = path.join(outputDir, `${baseName}.pre-${i + 1}-${step.type}.mp4`);
         } else {
-          tempScaledPath = path.join(os.tmpdir(), `pre-scaled-${Date.now()}.mp4`);
+          tempPath = path.join(os.tmpdir(), `pre-${step.type}-${Date.now()}-${i}.mp4`);
         }
 
-        const scaler = new VideoScaler(this.progressCallback);
-        await scaler.scale(inputPath, tempScaledPath, options.scale);
+        if (step.type === 'scale') {
+          const scaler = new VideoScaler(this.progressCallback);
+          await scaler.scale(actualInputPath, tempPath, step.options);
+        } else {
+          const cropper = new VideoCropper(this.progressCallback);
+          await cropper.crop(actualInputPath, tempPath, step.options);
+        }
 
         if (debug) {
-          console.log(`[DEBUG] Scaled video saved: ${tempScaledPath}`);
+          console.log(`[DEBUG] Preprocess step ${i + 1} (${step.type}) saved: ${tempPath}`);
         }
 
-        actualInputPath = tempScaledPath;
+        tempPaths.push(tempPath);
+        actualInputPath = tempPath;
       }
 
-      // ── Video info (from actual input, may be the scaled file) ─────────
+      // ── Video info (from actual input, may be a preprocessed file) ──────
       const videoInfo = await this.getVideoInfo(actualInputPath);
 
       const targetFps = options.frameRate ?? videoInfo.frameRate;
@@ -123,8 +140,7 @@ export class VideoConverter {
         actualInputPath, outputPath, outputFormat, videoInfo, targetFps, quality, debug
       );
 
-      // Always report the *original* inputPath in the result, not the temp
-      // scaled file path, so callers see the path they originally provided.
+      // Always report the *original* inputPath in the result, not a temp path
       return { ...convResult, inputPath };
 
     } catch (error) {
@@ -133,9 +149,13 @@ export class VideoConverter {
       }
       throw new VideoConverterError(`Conversion failed: ${error}`);
     } finally {
-      // Clean up the scaled intermediate file unless debug mode is active
-      if (tempScaledPath && !debug && fs.existsSync(tempScaledPath)) {
-        fs.unlinkSync(tempScaledPath);
+      // Clean up all preprocess intermediates unless debug mode is active
+      if (!debug) {
+        for (const p of tempPaths) {
+          if (fs.existsSync(p)) {
+            fs.unlinkSync(p);
+          }
+        }
       }
     }
   }

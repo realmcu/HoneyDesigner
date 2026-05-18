@@ -8,7 +8,7 @@ import { VideoConverterService } from '../services/VideoConverterService';
 import { Model3DConverterService } from '../services/Model3DConverterService';
 import { FontConverterService, FontConvertOptions } from '../services/FontConverterService';
 import { GlassConverterService, GlassConvertOptions, GlassConvertResult } from '../services/GlassConverterService';
-import { ConversionConfigService, VideoFormat, ConversionConfig, YuvBlur, VideoScaleConfig } from '../services/ConversionConfigService';
+import { ConversionConfigService, VideoFormat, ConversionConfig, YuvBlur, VideoScaleConfig, VideoCropConfig, PreprocessOrder } from '../services/ConversionConfigService';
 import { SamplingFactor } from '../../tools/image-to-jpeg-converter/src/index';
 import { ProjectConfig, DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig';
 import { RomfsConfig } from '../common/RomfsConfig';
@@ -1093,6 +1093,12 @@ Return('objs')
             // 从 conversion.json 解析视频缩放（处理继承）
             const resolvedVideoScale = this.resolveVideoScale(normalizedPath, conversionConfig);
             
+            // 从 conversion.json 解析视频裁剪（处理继承）
+            const resolvedVideoCrop = this.resolveVideoCrop(normalizedPath, conversionConfig);
+            
+            // 从 conversion.json 解析预处理顺序（处理继承）
+            const resolvedPreprocessOrder = this.resolvePreprocessOrder(normalizedPath, conversionConfig);
+            
             // 优先级：组件配置 > conversion.json > 项目配置 > 默认值
             const configFormat = componentConfig?.format || 
                 resolvedVideoFormat ||
@@ -1112,22 +1118,36 @@ Return('objs')
             if (resolvedVideoScale) {
                 if (resolvedVideoScale.mode === 'percentage' && (resolvedVideoScale.widthPercentage || resolvedVideoScale.heightPercentage)) {
                     try {
-                        const videoInfo = await videoConverter.getVideoInfo(fullPath);
-                        if (videoInfo?.width && videoInfo?.height) {
+                        // crop-then-scale：百分比基于裁剪后的尺寸（上一步输出），而非原始视频
+                        // scale-then-crop 或无裁剪：百分比基于原始视频尺寸
+                        let baseWidth: number | undefined;
+                        let baseHeight: number | undefined;
+                        const effectiveOrder = resolvedPreprocessOrder ?? 'crop-then-scale';
+                        if (effectiveOrder === 'crop-then-scale' && resolvedVideoCrop) {
+                            baseWidth = resolvedVideoCrop.width;
+                            baseHeight = resolvedVideoCrop.height;
+                        } else {
+                            const videoInfo = await videoConverter.getVideoInfo(fullPath);
+                            if (videoInfo?.width && videoInfo?.height) {
+                                baseWidth = videoInfo.width;
+                                baseHeight = videoInfo.height;
+                            } else {
+                                this.logger.log(`无法获取视频信息以计算缩放比例: ${normalizedPath}，跳过缩放`, true);
+                            }
+                        }
+                        if (baseWidth && baseHeight) {
                             const wp = resolvedVideoScale.widthPercentage;
                             const hp = resolvedVideoScale.heightPercentage;
                             if (wp && hp) {
                                 computedScale = {
-                                    width: Math.round(videoInfo.width * wp / 100 / 2) * 2,
-                                    height: Math.round(videoInfo.height * hp / 100 / 2) * 2,
+                                    width: Math.round(baseWidth * wp / 100 / 2) * 2,
+                                    height: Math.round(baseHeight * hp / 100 / 2) * 2,
                                 };
                             } else if (wp) {
-                                computedScale = { width: Math.round(videoInfo.width * wp / 100 / 2) * 2 };
+                                computedScale = { width: Math.round(baseWidth * wp / 100 / 2) * 2 };
                             } else if (hp) {
-                                computedScale = { height: Math.round(videoInfo.height * hp / 100 / 2) * 2 };
+                                computedScale = { height: Math.round(baseHeight * hp / 100 / 2) * 2 };
                             }
-                        } else {
-                            this.logger.log(`无法获取视频信息以计算缩放比例: ${normalizedPath}，跳过缩放`, true);
                         }
                     } catch (e) {
                         this.logger.log(`获取视频信息失败: ${normalizedPath} - ${e}，跳过缩放`, true);
@@ -1144,8 +1164,9 @@ Return('objs')
                 format: configFormat,
                 quality: quality,
                 frameRate: frameRate,
-                crop: componentConfig?.crop,
+                crop: resolvedVideoCrop,
                 scale: computedScale,
+                preprocessOrder: resolvedPreprocessOrder,
             };
             
             // 生成输出路径
@@ -1576,6 +1597,66 @@ Return('objs')
 
             if (parentSettings?.videoScale !== undefined) {
                 return parentSettings.videoScale;
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * 解析视频裁剪配置（处理继承）
+     * @param assetPath 资源路径（相对于 assets 目录）
+     * @param config conversion.json 配置
+     * @returns 解析后的视频裁剪配置，如果没有配置则返回 undefined
+     */
+    private resolveVideoCrop(
+        assetPath: string,
+        config: { items: Record<string, { videoCrop?: VideoCropConfig }> }
+    ): VideoCropConfig | undefined {
+        const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+        const itemSettings = config.items[normalizedPath];
+
+        if (itemSettings?.videoCrop !== undefined) {
+            return itemSettings.videoCrop;
+        }
+
+        const pathParts = normalizedPath.split('/');
+        for (let i = pathParts.length - 1; i >= 0; i--) {
+            const parentPath = pathParts.slice(0, i).join('/');
+            const parentSettings = config.items[parentPath];
+
+            if (parentSettings?.videoCrop !== undefined) {
+                return parentSettings.videoCrop;
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * 解析预处理顺序配置（处理继承）
+     * @param assetPath 资源路径（相对于 assets 目录）
+     * @param config conversion.json 配置
+     * @returns 解析后的顺序配置，如果没有配置则返回 undefined
+     */
+    private resolvePreprocessOrder(
+        assetPath: string,
+        config: { items: Record<string, { preprocessOrder?: PreprocessOrder }> }
+    ): PreprocessOrder | undefined {
+        const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+        const itemSettings = config.items[normalizedPath];
+
+        if (itemSettings?.preprocessOrder !== undefined) {
+            return itemSettings.preprocessOrder;
+        }
+
+        const pathParts = normalizedPath.split('/');
+        for (let i = pathParts.length - 1; i >= 0; i--) {
+            const parentPath = pathParts.slice(0, i).join('/');
+            const parentSettings = config.items[parentPath];
+
+            if (parentSettings?.preprocessOrder !== undefined) {
+                return parentSettings.preprocessOrder;
             }
         }
 

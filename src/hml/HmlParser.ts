@@ -697,7 +697,9 @@ export class HmlParser {
       // 蜂窝菜单属性
       'iconFolder', 'iconImages', 'iconSize', 'offsetX', 'offsetY', 'iconActions',
       // list 用户自定义 note_design 属性
-      'useUserNoteDesign', 'userNoteDesignFunc'
+      'useUserNoteDesign', 'userNoteDesignFunc',
+      // hg_video 属性
+      'autoPlay', 'frameRate',
     ]);
 
     const metaProps = new Set([

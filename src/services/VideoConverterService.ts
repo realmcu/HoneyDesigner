@@ -3,22 +3,19 @@ import * as fs from 'fs';
 import { spawn } from 'child_process';
 
 // 直接导入本地 video-converter 源码
-import { VideoConverter, OutputFormat, ProgressCallback, ConversionOptions, ScaleOptions } from '../../tools/video-converter-ts/src/index';
+import { VideoConverter, OutputFormat, ProgressCallback, ConversionOptions, ScaleOptions, CropOptions, PreprocessStep } from '../../tools/video-converter-ts/src/index';
 
 export interface VideoConvertOptions {
     format: 'mjpeg' | 'avi' | 'h264';
     frameRate?: number;  // 帧率
     quality?: number;    // 质量: MJPEG/AVI 为 1-31（1最高），H264 为 CRF 值 0-51
-    // 视频裁剪（FFmpeg 预处理）
-    crop?: {
-        x: number;       // 裁剪起始 X 坐标
-        y: number;       // 裁剪起始 Y 坐标
-        width: number;   // 裁剪宽度
-        height: number;  // 裁剪高度
-    };
-    // 视频缩放（委托给 video-converter-ts 库处理）
+    // 视频裁剪（由 video-converter-ts 库的 preprocess 管道处理，x/y 可选，留空自动居中）
+    crop?: CropOptions;
+    // 视频缩放（由 video-converter-ts 库的 preprocess 管道处理）
     // 只指定 width 或 height 时自动保持宽高比；两者都指定则按精确尺寸缩放
     scale?: ScaleOptions;
+    // 预处理顺序：'crop-then-scale'（先裁剪再缩放，默认）或 'scale-then-crop'
+    preprocessOrder?: 'crop-then-scale' | 'scale-then-crop';
 }
 
 export interface VideoConvertResult {
@@ -40,10 +37,10 @@ export type LogCallback = (message: string) => void;
 /**
  * 视频转换服务
  * 
- * 转换流程：
- * 1. FFmpeg 预处理（仅裁剪），如有 crop 需求
- * 2. 使用 TypeScript 视频转换器进行格式转换和编码（内置支持 scale）
- * 3. 如果没有裁剪需求，直接调用转换器转换原始视频
+ * 转换流程（统一 preprocess 管道）：
+ * 1. 如有裁剪需求，先执行 crop 步骤
+ * 2. 如有缩放需求，再执行 scale 步骤
+ * 3. 两者均由 video-converter-ts 库内部通过 FFmpeg 处理
  */
 export class VideoConverterService {
     private logCallback?: LogCallback;
@@ -102,9 +99,10 @@ export class VideoConverterService {
 
     /**
      * 检查是否需要 FFmpeg 预处理（仅裁剪；缩放由库处理）
+     * @deprecated 裁剪现已通过 preprocess 管道由库统一处理
      */
-    private needsPreprocessing(options: VideoConvertOptions): boolean {
-        return !!options.crop;
+    private needsPreprocessing(_options: VideoConvertOptions): boolean {
+        return false;
     }
 
     /**
@@ -126,9 +124,8 @@ export class VideoConverterService {
     /**
      * 转换单个视频文件
      * 
-     * 流程：
-     * 1. 如果有裁剪需求，先用 FFmpeg 预处理裁剪
-     * 2. 调用 TypeScript 视频转换器进行格式转换（缩放由库内部处理）
+     * 使用 video-converter-ts preprocess 管道统一处理裁剪和缩放：
+     * 先裁剪（crop），再缩放（scale），再进行格式转换
      */
     async convert(
         inputPath: string,
@@ -152,150 +149,53 @@ export class VideoConverterService {
         }
 
         const startTime = Date.now();
-        let videoToConvert = inputPath;
-        let tempPreprocessFile: string | null = null;
 
-        // 第一步：FFmpeg 预处理（仅用于裁剪）
-        if (this.needsPreprocessing(options)) {
-            const ffmpegAvailable = await this.checkFFmpegAvailable();
-            if (!ffmpegAvailable) {
-                return {
-                    success: false,
-                    inputPath,
-                    outputPath,
-                    error: 'FFmpeg not found. Required for video cropping.'
-                };
-            }
-
-            // 创建临时文件用于预处理输出
-            const inputExt = path.extname(inputPath);
-            const outputBase = outputPath.slice(0, -path.extname(outputPath).length);
-            tempPreprocessFile = outputBase + '.preprocess' + inputExt;
-
-            const preprocessResult = await this.ffmpegPreprocess(inputPath, tempPreprocessFile, options);
-            if (!preprocessResult.success) {
-                return preprocessResult;
-            }
-
-            videoToConvert = tempPreprocessFile;
-        }
-
-        // 第二步：使用 TypeScript 转换器进行格式转换（scale 由库处理）
         try {
             const outputFormat = this.mapFormat(options.format);
+
+    // 构建预处理管道：顺序由 preprocessOrder 决定，默认先裁剪后缩放
+            const preprocessSteps: PreprocessStep[] = [];
+            const order = options.preprocessOrder ?? 'crop-then-scale';
+            if (order === 'crop-then-scale') {
+                if (options.crop) preprocessSteps.push({ type: 'crop', options: options.crop });
+                if (options.scale) preprocessSteps.push({ type: 'scale', options: options.scale });
+            } else {
+                if (options.scale) preprocessSteps.push({ type: 'scale', options: options.scale });
+                if (options.crop) preprocessSteps.push({ type: 'crop', options: options.crop });
+            }
+
             const conversionOptions: ConversionOptions = {
                 frameRate: options.frameRate,
                 quality: options.quality,
-                scale: options.scale  // 缩放委托给库
+                preprocess: preprocessSteps.length > 0 ? preprocessSteps : undefined,
             };
+
             const result = await this.converter.convert(
-                videoToConvert,
+                inputPath,
                 outputPath,
                 outputFormat,
                 conversionOptions
             );
 
-            const totalDuration = (Date.now() - startTime) / 1000;
-
             return {
                 success: true,
                 inputPath,
                 outputPath,
-                duration: totalDuration,
+                duration: (Date.now() - startTime) / 1000,
                 frameCount: result.frameCount,
                 frameRate: result.frameRate
             };
         } catch (error) {
-            const totalDuration = (Date.now() - startTime) / 1000;
             return {
                 success: false,
                 inputPath,
                 outputPath,
                 error: `Conversion error: ${error}`,
-                duration: totalDuration
+                duration: (Date.now() - startTime) / 1000
             };
         }
     }
 
-
-    /**
-     * FFmpeg 预处理（仅处理裁剪；缩放由 video-converter-ts 库处理）
-     */
-    private async ffmpegPreprocess(
-        inputPath: string,
-        outputPath: string,
-        options: VideoConvertOptions
-    ): Promise<VideoConvertResult> {
-        return new Promise((resolve) => {
-            const args = [
-                '-i', inputPath,
-                '-y',
-            ];
-
-            if (options.crop) {
-                const { x, y, width, height } = options.crop;
-                args.push('-vf', `crop=${width}:${height}:${x}:${y}`);
-            }
-
-            // 重新编码为通用格式（滤镜存在时无法直接复制流）
-            args.push(
-                '-c:v', 'libx264',
-                '-preset', 'fast',
-                '-crf', '18',
-                '-an',
-                outputPath
-            );
-
-            // 打印 FFmpeg 预处理命令
-            const ffmpegCmd = `ffmpeg ${args.join(' ')}`;
-            this.log(`FFmpeg 预处理命令: ${ffmpegCmd}`);
-
-            const proc = spawn('ffmpeg', args, {
-                shell: true,
-                stdio: ['pipe', 'pipe', 'pipe']
-            });
-
-            let stderr = '';
-            proc.stderr?.on('data', (data) => {
-                stderr += data.toString();
-            });
-
-            proc.on('close', (code) => {
-                if (code === 0) {
-                    resolve({
-                        success: true,
-                        inputPath,
-                        outputPath
-                    });
-                } else {
-                    resolve({
-                        success: false,
-                        inputPath,
-                        outputPath,
-                        error: `FFmpeg preprocessing failed: ${this.parseFFmpegError(stderr)}`
-                    });
-                }
-            });
-
-            proc.on('error', (err) => {
-                resolve({
-                    success: false,
-                    inputPath,
-                    outputPath,
-                    error: `FFmpeg process error: ${err.message}`
-                });
-            });
-        });
-    }
-
-    /**
-     * 解析 FFmpeg 错误信息
-     */
-    private parseFFmpegError(stderr: string): string {
-        if (!stderr) return 'Unknown error';
-        const lines = stderr.trim().split('\n');
-        return lines.slice(-3).join('\n');
-    }
 
     /**
      * 批量转换视频

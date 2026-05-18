@@ -36,7 +36,9 @@ export {
   ConversionResult,
   ProgressCallback,
   ConversionOptions,
-  ScaleOptions
+  ScaleOptions,
+  CropOptions,
+  PreprocessStep
 } from './models';
 
 // Error classes
@@ -59,4 +61,4 @@ export { FFmpegExecutor } from './ffmpeg-executor';
 export { MjpegPacker, AviAligner, H264Packer, BitReader } from './postprocess/index';
 
 // Pre-processors (for advanced usage)
-export { VideoScaler } from './preprocess/index';
+export { VideoScaler, VideoCropper } from './preprocess/index';

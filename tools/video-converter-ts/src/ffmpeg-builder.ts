@@ -8,7 +8,7 @@
  */
 
 import * as path from 'path';
-import { ScaleOptions } from './models';
+import { ScaleOptions, CropOptions } from './models';
 
 export class FFmpegBuilder {
   /**
@@ -63,6 +63,52 @@ export class FFmpegBuilder {
     return [
       'ffmpeg', '-i', inputPath,
       '-vf', `scale=${scaleExpr}`,
+      '-c:v', 'libx264',
+      '-crf', '18',
+      '-preset', 'fast',
+      outputPath,
+    ];
+  }
+
+  /**
+   * Build video crop command
+   *
+   * Crops the input video to the specified region using the FFmpeg `crop` filter.
+   * When x and y are omitted the crop region is centered in the source frame.
+   *
+   * Command format (centered):
+   *   ffmpeg -i input.mp4 -vf "crop=640:360" -c:v libx264 -crf 18 -preset fast output.mp4
+   *
+   * Command format (explicit position):
+   *   ffmpeg -i input.mp4 -vf "crop=640:360:100:50" -c:v libx264 -crf 18 -preset fast output.mp4
+   *
+   * @param inputPath - Input video file path
+   * @param outputPath - Output file path (use `.mp4` extension for best compatibility)
+   * @param options - Crop options (width, height, and optional x/y offset)
+   * @returns FFmpeg command arguments array
+   */
+  buildCropCmd(
+    inputPath: string,
+    outputPath: string,
+    options: CropOptions
+  ): string[] {
+    const { width, height, x, y } = options;
+
+    // Build crop expression: omit x/y to let FFmpeg auto-center the region
+    let cropExpr: string;
+    if (x !== undefined && y !== undefined) {
+      cropExpr = `${width}:${height}:${x}:${y}`;
+    } else if (x !== undefined) {
+      cropExpr = `${width}:${height}:${x}:(in_h-${height})/2`;
+    } else if (y !== undefined) {
+      cropExpr = `${width}:${height}:(in_w-${width})/2:${y}`;
+    } else {
+      cropExpr = `${width}:${height}`;
+    }
+
+    return [
+      'ffmpeg', '-i', inputPath,
+      '-vf', `crop=${cropExpr}`,
       '-c:v', 'libx264',
       '-crf', '18',
       '-preset', 'fast',

@@ -145,9 +145,9 @@ const COMPONENT_PROPERTY_TYPES: Record<string, Record<string, PropertyType>> = {
 
   // ─── 多媒体 ───
   hg_video: {
-    autoplay: 'boolean',
+    autoPlay: 'boolean',
     loop: 'boolean',
-    controls: 'boolean',
+    frameRate: 'number',
   },
   hg_lottie: {
     autoplay: 'boolean',

@@ -68,7 +68,7 @@ export class VideoGenerator implements ComponentCodeGenerator {
 
     const src = component.data?.src || '';
     const frameRate = component.data?.frameRate || 30;
-    const autoPlay = component.data?.autoPlay !== false;
+    const autoPlay = component.data?.autoPlay !== false && component.data?.autoPlay !== 'false';
     const loop = component.data?.loop === true;
 
     // Read video format from conversion.json (with inheritance)
@@ -95,6 +95,8 @@ export class VideoGenerator implements ComponentCodeGenerator {
 
     if (autoPlay) {
       code += `${indentStr}gui_video_set_state((gui_video_t *)${component.id}, GUI_VIDEO_STATE_PLAYING);\n`;
+    } else {
+      code += `${indentStr}gui_video_set_state((gui_video_t *)${component.id}, GUI_VIDEO_STATE_INIT);\n`;
     }
 
     return code;

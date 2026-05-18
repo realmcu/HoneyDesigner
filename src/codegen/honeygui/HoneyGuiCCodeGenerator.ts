@@ -1043,6 +1043,8 @@ static void ${component.id}_breath_anim_cb(void *p)
         return 'gui_menu_cellular_t';
       case 'hg_qbcode':
         return 'gui_qbcode_t';
+      case 'hg_video':
+        return 'gui_video_t';
       default:
         // Other unimplemented components use gui_obj_t
         return 'gui_obj_t';
