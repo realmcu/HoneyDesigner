@@ -101,33 +101,32 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       files.push(entryHeaderFile, entrySourceFile);
 
       // Generate callback files (with protected area mechanism)
+      // Always generate callback files, even if no events are configured, to ensure header exists for #include
       const callbackImpls = this.collectCallbackImpls(orderedComponents);
-      if (callbackImpls.length > 0) {
-        const callbackHeaderFile = path.join(lvglDir, `${designName}_lvgl_callbacks.h`);
-        const callbackSourceFile = path.join(lvglDir, `${designName}_lvgl_callbacks.c`);
-        const callbackNames = callbackImpls.map(impl => impl.name);
+      const callbackHeaderFile = path.join(lvglDir, `${designName}_lvgl_callbacks.h`);
+      const callbackSourceFile = path.join(lvglDir, `${designName}_lvgl_callbacks.c`);
+      const callbackNames = callbackImpls.map(impl => impl.name);
 
-        const generatedHeader = this.callbackFileGenerator.generateHeader(designName, callbackNames);
-        const generatedSource = this.callbackFileGenerator.generateImplementation(designName, callbackImpls);
+      const generatedHeader = this.callbackFileGenerator.generateHeader(designName, callbackNames);
+      const generatedSource = this.callbackFileGenerator.generateImplementation(designName, callbackImpls);
 
-        fs.writeFileSync(callbackHeaderFile, generatedHeader, 'utf-8');
+      fs.writeFileSync(callbackHeaderFile, generatedHeader, 'utf-8');
 
-        // Callback implementation file: merge protected areas to preserve user code if file exists
-        if (fs.existsSync(callbackSourceFile)) {
-          try {
-            const existing = fs.readFileSync(callbackSourceFile, 'utf-8');
-            const merged = LvglProtectedAreaMerger.merge(existing, generatedSource);
-            fs.writeFileSync(callbackSourceFile, merged, 'utf-8');
-          } catch (e) {
-            console.warn(`Failed to read existing callback file, overwriting: ${e}`);
-            fs.writeFileSync(callbackSourceFile, generatedSource, 'utf-8');
-          }
-        } else {
+      // Callback implementation file: merge protected areas to preserve user code if file exists
+      if (fs.existsSync(callbackSourceFile)) {
+        try {
+          const existing = fs.readFileSync(callbackSourceFile, 'utf-8');
+          const merged = LvglProtectedAreaMerger.merge(existing, generatedSource);
+          fs.writeFileSync(callbackSourceFile, merged, 'utf-8');
+        } catch (e) {
+          console.warn(`Failed to read existing callback file, overwriting: ${e}`);
           fs.writeFileSync(callbackSourceFile, generatedSource, 'utf-8');
         }
-
-        files.push(callbackHeaderFile, callbackSourceFile);
+      } else {
+        fs.writeFileSync(callbackSourceFile, generatedSource, 'utf-8');
       }
+
+      files.push(callbackHeaderFile, callbackSourceFile);
 
       // External-bin post-processing: package romfs and generate img_dsc_list
       if (hasExternalBin) {

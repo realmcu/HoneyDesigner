@@ -60,4 +60,15 @@ export class LvglCallbackFileGenerator {
 
     return code;
   }
+
+  /**
+   * Generate empty callback files skeleton
+   * Used when no events are configured, to ensure header file exists for #include
+   * @param designName Design name
+   */
+  generateEmptySkeleton(designName: string): { header: string; source: string } {
+    const header = this.generateHeader(designName, []);
+    const source = this.generateImplementation(designName, []);
+    return { header, source };
+  }
 }
