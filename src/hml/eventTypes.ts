@@ -162,7 +162,6 @@ const ANIMATION_LABEL_KEYS: Record<string, string> = {
 // 导出静态选项（用于 Webview，使用翻译键）
 export const SWITCH_OUT_STYLES = [
   { value: 'SWITCH_INIT_STATE', labelKey: 'Out: Still (Initial State)' },
-  { value: 'SWITCH_OUT_NONE_ANIMATION', labelKey: 'Out: No Animation' },
   { value: 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION', labelKey: 'Slide Left' },
   { value: 'SWITCH_OUT_TO_RIGHT_USE_TRANSLATION', labelKey: 'Slide Right' },
   { value: 'SWITCH_OUT_TO_TOP_USE_TRANSLATION', labelKey: 'Slide Up' },
