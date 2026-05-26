@@ -333,8 +333,7 @@ export class ViewGenerator implements ComponentCodeGenerator {
     }
 
     let code = '';
-    const name = component.name;
-    
+
     // Filter enabled timers
     const enabledTimers = timers.filter((timer: any) => timer.enabled !== false);
     
@@ -342,24 +341,26 @@ export class ViewGenerator implements ComponentCodeGenerator {
       return '';
     }
 
-    code += `${indentStr}// Create timer\n`;
-    
-    enabledTimers.forEach((timer: any, index: number) => {
-      const interval = timer.interval || 1000;
-      const reload = timer.reload !== false;
-      
-      // Determine callback function name
-      let callbackName: string;
-      if (timer.mode === 'custom' && timer.callback) {
-        callbackName = timer.callback;
+    enabledTimers.forEach((timer: any) => {
+      let callback: string;
+      // Preset action mode: supports segments (multi-step animation) or actions (single-step animation)
+      if (timer.mode === 'preset' && ((timer.segments && timer.segments.length > 0) || (timer.actions && timer.actions.length > 0))) {
+        // Preset action mode: generate callback function name from timer ID
+        callback = `${component.id}_${timer.id}_cb`;
+      } else if (timer.mode === 'custom' && timer.callback) {
+        // Custom function mode
+        callback = timer.callback;
       } else {
-        // Preset mode or no callback specified, use auto-generated name
-        callbackName = `${name}_timer_${index}_cb`;
+        return; // Skip invalid configuration
       }
-      
-      // Use view as variable name (cast to gui_obj_t*)
-      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)view, ${interval}, ${reload ? 'true' : 'false'}, ${callbackName});\n`;
-      code += `${indentStr}gui_obj_start_timer((gui_obj_t *)view);\n`;
+
+      const timerName = timer.name || timer.id;
+      code += `${indentStr}// Bind timer: ${timerName}\n`;
+      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)view, ${timer.interval}, ${timer.reload !== false ? 'true' : 'false'}, ${callback});\n`;
+      // If not set to run immediately, call gui_obj_start_timer
+      if (!timer.runImmediately) {
+        code += `${indentStr}gui_obj_start_timer((gui_obj_t *)view);\n`;
+      }
     });
 
     return code;
