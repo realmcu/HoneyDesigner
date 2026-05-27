@@ -141,9 +141,10 @@ export interface AssetFile {
   name: string;
   path: string;
   relativePath?: string; // 相对于 assets 目录的路径
-  type: 'image' | 'font' | 'model3d' | 'folder' | 'svg' | 'video' | 'glass' | 'lottie';
+  type: 'image' | 'font' | 'model3d' | 'folder' | 'svg' | 'video' | 'glass' | 'lottie' | 'trmap' | 'raw';
   size: number;
   children?: AssetFile[]; // 文件夹的子项
+  isUserAsset?: boolean;  // user 目录下的资源（不转换，直接打包）
 }
 
 

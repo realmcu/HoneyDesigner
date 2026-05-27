@@ -229,6 +229,12 @@ Return('objs')
         const trmapCount = this.copyTrmapAssets(assetsDir, outputDir);
         this.logger.log(`TRMAP 拷贝完成: ${trmapCount} 个`);
 
+        // 拷贝 user 目录（不转换，原样复制）
+        const userCount = this.copyUserAssets(assetsDir, outputDir);
+        if (userCount > 0) {
+            this.logger.log(`user 目录拷贝完成: ${userCount} 个`);
+        }
+
         // 拷贝向量地图（hg_map）引用的字体文件（直接拷贝，不转换格式）
         this.logger.log('拷贝向量地图字体资源...');
         const mapFontCount = this.copyMapFonts(assetsDir, outputDir, usedAssets.mapFonts);
@@ -701,9 +707,18 @@ Return('objs')
                 for (const entry of entries) {
                     const fullPath = path.join(dir, entry.name);
                     if (entry.isDirectory()) {
+                        // 跳过 user/ 目录，由 copyUserAssets 处理
+                        const relDir = path.relative(assetsDir, fullPath).replace(/\\/g, '/');
+                        if (relDir === 'user' || relDir.startsWith('user/')) {
+                            continue;
+                        }
                         scanDir(fullPath);
                     } else {
                         const relativePath = path.relative(assetsDir, fullPath).replace(/\\/g, '/');
+                        // 跳过 user/ 目录下的文件
+                        if (relativePath.startsWith('user/')) {
+                            continue;
+                        }
                         const ext = path.extname(entry.name).toLowerCase();
                         if (imageExts.has(ext)) {
                             images.add(relativePath);
@@ -1805,9 +1820,18 @@ Return('objs')
             for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
                 const fullPath = path.join(dir, entry.name);
                 if (entry.isDirectory()) {
+                    // 跳过 user/ 目录，由 copyUserAssets 处理
+                    const relDir = path.relative(assetsDir, fullPath).replace(/\\/g, '/');
+                    if (relDir === 'user' || relDir.startsWith('user/')) {
+                        continue;
+                    }
                     scanDir(fullPath);
                 } else if (entry.name.toLowerCase().endsWith('.svg')) {
                     const relativePath = path.relative(assetsDir, fullPath);
+                    // 跳过 user/ 目录下的文件
+                    if (relativePath.replace(/\\/g, '/').startsWith('user/')) {
+                        continue;
+                    }
                     const destPath = path.join(outputDir, relativePath);
                     const destDir = path.dirname(destPath);
                     
@@ -1836,9 +1860,18 @@ Return('objs')
             for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
                 const fullPath = path.join(dir, entry.name);
                 if (entry.isDirectory()) {
+                    // 跳过 user/ 目录，由 copyUserAssets 处理
+                    const relDir = path.relative(assetsDir, fullPath).replace(/\\/g, '/');
+                    if (relDir === 'user' || relDir.startsWith('user/')) {
+                        continue;
+                    }
                     scanDir(fullPath);
                 } else if (entry.name.toLowerCase().endsWith('.trmap')) {
                     const relativePath = path.relative(assetsDir, fullPath);
+                    // 跳过 user/ 目录下的文件
+                    if (relativePath.replace(/\\/g, '/').startsWith('user/')) {
+                        continue;
+                    }
                     const destPath = path.join(outputDir, relativePath);
                     const destDir = path.dirname(destPath);
                     
@@ -1852,6 +1885,39 @@ Return('objs')
         };
         
         scanDir(assetsDir);
+        return count;
+    }
+
+    /**
+     * 拷贝 user 目录下的资源（直接复制，不进行任何格式转换）
+     */
+    protected copyUserAssets(assetsDir: string, outputDir: string): number {
+        const userDir = path.join(assetsDir, 'user');
+        const userOutputDir = path.join(outputDir, 'user');
+
+        if (!fs.existsSync(userDir)) {
+            return 0;
+        }
+
+        let count = 0;
+
+        const copyDir = (src: string, dest: string) => {
+            if (!fs.existsSync(dest)) {
+                fs.mkdirSync(dest, { recursive: true });
+            }
+            for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+                const srcPath = path.join(src, entry.name);
+                const destPath = path.join(dest, entry.name);
+                if (entry.isDirectory()) {
+                    copyDir(srcPath, destPath);
+                } else {
+                    fs.copyFileSync(srcPath, destPath);
+                    count++;
+                }
+            }
+        };
+
+        copyDir(userDir, userOutputDir);
         return count;
     }
 

@@ -733,6 +733,10 @@ const en = {
 
   // Conversion Config Panel
   'selectAssetToConfig': 'Select a folder or image to configure conversion settings',
+  'User Assets': 'User Assets',
+  'userAssetInfo': 'Files in the user directory are copied as-is to the resource package without conversion.',
+  'File Count': 'File Count',
+  'Total Size': 'Total Size',
   'Target Format': 'Target Format',
   'Video Format': 'Video Format',
   'Format': 'Format',

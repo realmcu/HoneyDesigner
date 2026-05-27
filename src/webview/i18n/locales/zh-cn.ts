@@ -733,6 +733,10 @@ const zhCN = {
 
   // 转换配置面板
   'selectAssetToConfig': '选择文件夹或图片以配置转换设置',
+  'User Assets': '用户资源',
+  'userAssetInfo': 'user 目录下的文件不进行转换，直接原样打包进资源包。',
+  'File Count': '文件数量',
+  'Total Size': '总大小',
   'Target Format': '目标格式',
   'Video Format': '视频格式',
   'Format': '格式',

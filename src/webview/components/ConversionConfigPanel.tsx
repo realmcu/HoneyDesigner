@@ -1065,6 +1065,71 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     return isFolder ? FOLDER_COMPRESSION_OPTIONS_LVGL_CARRAY : COMPRESSION_OPTIONS_LVGL_CARRAY;
   }, [isLvglProject, isFolder, currentDeployment, effectiveSettings.settings.deployment]);
 
+  // 如果是 user 目录下的资源，只显示文件信息，无需转换配置（必须在所有 hooks 之后）
+  if (selectedAsset.isUserAsset) {
+    const isUserFolder = selectedAsset.type === 'folder';
+
+    const computeFolderStats = (children: AssetFile[] = []): { count: number; size: number } => {
+      let count = 0, size = 0;
+      for (const child of children) {
+        if (child.type === 'folder') {
+          const sub = computeFolderStats(child.children);
+          count += sub.count;
+          size += sub.size;
+        } else {
+          count++;
+          size += child.size || 0;
+        }
+      }
+      return { count, size };
+    };
+
+    const folderStats = isUserFolder ? computeFolderStats(selectedAsset.children) : null;
+
+    return (
+      <div className="conversion-config-panel">
+        <div className="conversion-config-header">
+          <h3>{t('User Assets')}</h3>
+        </div>
+        <div className="conversion-config-content">
+          <div className="asset-info-section">
+            <div className="asset-name">
+              <span className="asset-icon">{isUserFolder ? '📦' : '📄'}</span>
+              <span>{selectedAsset.name}</span>
+            </div>
+            {selectedAsset.relativePath && (
+              <div className="asset-path">{selectedAsset.relativePath}</div>
+            )}
+            {isUserFolder && folderStats && (
+              <div className="asset-metadata">
+                <span className="asset-meta-item">{t('File Count')}: {folderStats.count}</span>
+                <span className="asset-meta-item">{t('Total Size')}: {formatFileSize(folderStats.size)}</span>
+              </div>
+            )}
+            {!isUserFolder && assetMetadata && (
+              <div className="asset-metadata">
+                {assetMetadata.width && assetMetadata.height && (
+                  <span className="asset-meta-item">{assetMetadata.width} × {assetMetadata.height} px</span>
+                )}
+                {assetMetadata.fileSize != null && (
+                  <span className="asset-meta-item">{formatFileSize(assetMetadata.fileSize)}</span>
+                )}
+              </div>
+            )}
+            {!isUserFolder && !assetMetadata && selectedAsset.size > 0 && (
+              <div className="asset-metadata">
+                <span className="asset-meta-item">{formatFileSize(selectedAsset.size)}</span>
+              </div>
+            )}
+          </div>
+          <div className="config-section">
+            <div className="config-hint">{t('userAssetInfo')}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 渲染图片设置区域
   const renderImageSettings = () => (
     <div className="config-group">

@@ -469,6 +469,7 @@ const AssetsPanel: React.FC = () => {
     // 递归扁平化所有文件，用于统计各分类数量
     const processAllAssets = (assetList: AssetFile[]) => {
       for (const asset of assetList) {
+        if (asset.isUserAsset) continue; // user 目录资源不计入分类统计
         if (asset.type === 'folder' && asset.children) {
           processAllAssets(asset.children);
         } else {
@@ -491,12 +492,17 @@ const AssetsPanel: React.FC = () => {
       const { files } = getCurrentFolderContent;
       result.all = [];
       for (const asset of files) {
-        const category = getAssetCategory(asset.name);
-        if (category) {
+        if (asset.isUserAsset) {
+          // user 目录资源直接显示，不过滤类型
           result.all.push(asset);
-        }
-        if (isModelDependency(asset.name)) {
-          result.all.push(asset);
+        } else {
+          const category = getAssetCategory(asset.name);
+          if (category) {
+            result.all.push(asset);
+          }
+          if (isModelDependency(asset.name)) {
+            result.all.push(asset);
+          }
         }
       }
     }
@@ -701,6 +707,7 @@ const AssetsPanel: React.FC = () => {
           {isTrmap && <div className="file-icon" style={{ fontSize: '48px' }}>🗺️</div>}
           {isFont && <div className="file-icon" style={{ fontSize: '48px' }}>🔤</div>}
           {isModelDep && <div className="file-icon" style={{ fontSize: '48px' }}>📄</div>}
+          {asset.type === 'raw' && <div className="file-icon" style={{ fontSize: '48px' }}>📄</div>}
         </div>
         <div className="asset-info">
           {editingAsset === asset.path ? (
@@ -720,7 +727,7 @@ const AssetsPanel: React.FC = () => {
             <span className="asset-name" title={asset.name}>{asset.name}</span>
           )}
           <div className="asset-actions">
-            {smartPacking && (
+            {smartPacking && !asset.isUserAsset && (
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -760,7 +767,7 @@ const AssetsPanel: React.FC = () => {
         onDoubleClick={(e) => handleFolderDoubleClick(folder, e)}
       >
         <div className="asset-preview folder-preview">
-          <div className="file-icon" style={{ fontSize: '48px' }}>📁</div>
+          <div className="file-icon" style={{ fontSize: '48px' }}>{folder.isUserAsset ? '📦' : '📁'}</div>
         </div>
         <div className="asset-info">
           {editingAsset === folder.path ? (
@@ -781,7 +788,7 @@ const AssetsPanel: React.FC = () => {
             <span className="asset-name" title={folder.name}>{folder.name}</span>
           )}
           <div className="asset-actions">
-            {smartPacking && (
+            {smartPacking && !folder.isUserAsset && (
             <button
               onClick={(e) => {
                 e.stopPropagation();

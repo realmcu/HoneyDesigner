@@ -118,6 +118,12 @@ export class AssetManager extends EventEmitter {
                 fs.mkdirSync(assetsDir, { recursive: true });
             }
 
+            // 确保 user/ 子目录存在
+            const userSubDir = path.join(assetsDir, 'user');
+            if (!fs.existsSync(userSubDir)) {
+                fs.mkdirSync(userSubDir, { recursive: true });
+            }
+
             // Setup file watcher on assets directory
             this.setupAssetsWatcher(assetsDir);
 
@@ -158,28 +164,34 @@ export class AssetManager extends EventEmitter {
 
     /**
      * 递归扫描资源目录
+     * @param isUserSubtree 是否在 user/ 子目录内（user 目录下的资源不需要转换）
      */
-    private scanAssetsDirectory(dirPath: string, rootPath: string): any[] {
+    private scanAssetsDirectory(dirPath: string, rootPath: string, isUserSubtree: boolean = false): any[] {
         const assets: any[] = [];
         const files = fs.readdirSync(dirPath);
         
         for (const file of files) {
             const filePath = path.join(dirPath, file);
             const stats = fs.statSync(filePath);
+            const relativePath = path.relative(rootPath, filePath).replace(/\\/g, '/');
+
+            // 判断是否在 user/ 子树中
+            const isUser = isUserSubtree || relativePath === 'user' || relativePath.startsWith('user/');
             
             if (stats.isDirectory()) {
                 // 递归扫描子目录
-                const children = this.scanAssetsDirectory(filePath, rootPath);
-                if (children.length > 0) {
+                const children = this.scanAssetsDirectory(filePath, rootPath, isUser);
+                // user/ 目录即使为空也显示
+                if (children.length > 0 || relativePath === 'user') {
                     const webviewUri = this._panel.webview.asWebviewUri(vscode.Uri.file(filePath));
-                    const relativePath = path.relative(rootPath, filePath).replace(/\\/g, '/');
                     assets.push({
                         name: file,
                         path: webviewUri.toString(),
                         relativePath: relativePath,
                         type: 'folder',
                         size: 0,
-                        children
+                        children,
+                        ...(isUser && { isUserAsset: true })
                     });
                 }
             } else if (stats.isFile()) {
@@ -194,8 +206,8 @@ export class AssetManager extends EventEmitter {
                 const lottieExts = ['.json', '.lottie']; // Lottie 动画文件
                 const trmapExts = ['.trmap']; // 纹理映射文件
                 
-                // 跳过 3D 模型依赖文件，不显示在资源栏
-                if (modelDepExts.includes(ext)) {
+                // 跳过 3D 模型依赖文件，不显示在资源栏（user 目录除外）
+                if (!isUser && modelDepExts.includes(ext)) {
                     continue;
                 }
                 
@@ -229,13 +241,24 @@ export class AssetManager extends EventEmitter {
                 
                 if (assetType) {
                     const webviewUri = this._panel.webview.asWebviewUri(vscode.Uri.file(filePath));
-                    const relativePath = path.relative(rootPath, filePath).replace(/\\/g, '/');
                     assets.push({
                         name: file,
                         path: webviewUri.toString(),
                         relativePath: relativePath,
                         type: assetType,
-                        size: stats.size
+                        size: stats.size,
+                        ...(isUser && { isUserAsset: true })
+                    });
+                } else if (isUser) {
+                    // user 目录下，未识别类型的文件也一并显示（raw 类型）
+                    const webviewUri = this._panel.webview.asWebviewUri(vscode.Uri.file(filePath));
+                    assets.push({
+                        name: file,
+                        path: webviewUri.toString(),
+                        relativePath: relativePath,
+                        type: 'raw',
+                        size: stats.size,
+                        isUserAsset: true
                     });
                 }
             }
