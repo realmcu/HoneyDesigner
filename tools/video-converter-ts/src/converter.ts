@@ -137,7 +137,8 @@ export class VideoConverter {
 
       // ── Conversion ────────────────────────────────────────────────────
       const convResult = await this.runConversion(
-        actualInputPath, outputPath, outputFormat, videoInfo, targetFps, quality, debug
+        actualInputPath, outputPath, outputFormat, videoInfo, targetFps, quality, debug,
+        options.backgroundColor
       );
 
       // Always report the *original* inputPath in the result, not a temp path
@@ -170,15 +171,18 @@ export class VideoConverter {
     videoInfo: VideoInfo,
     targetFps: number,
     quality: number,
-    debug: boolean
+    debug: boolean,
+    backgroundColor?: string
   ): Promise<ConversionResult> {
     switch (outputFormat) {
       case OutputFormat.MJPEG:
-        return this.convertToMjpeg(inputPath, outputPath, videoInfo, targetFps, quality);
+        return this.convertToMjpeg(inputPath, outputPath, videoInfo, targetFps, quality, backgroundColor);
       case OutputFormat.AVI_MJPEG:
-        return this.convertToAviMjpeg(inputPath, outputPath, videoInfo, targetFps, quality, debug);
+        return this.convertToAviMjpeg(inputPath, outputPath, videoInfo, targetFps, quality, debug, backgroundColor);
+      case OutputFormat.AVI_MSV1:
+        return this.convertToAviMsv1(inputPath, outputPath, videoInfo, targetFps, quality, backgroundColor);
       case OutputFormat.H264:
-        return this.convertToH264(inputPath, outputPath, videoInfo, targetFps, quality);
+        return this.convertToH264(inputPath, outputPath, videoInfo, targetFps, quality, backgroundColor);
       default:
         throw new VideoConverterError(`Unsupported output format: ${outputFormat}`);
     }
@@ -193,14 +197,15 @@ export class VideoConverter {
     outputPath: string,
     videoInfo: VideoInfo,
     targetFps: number,
-    quality: number
+    quality: number,
+    backgroundColor?: string
   ): Promise<ConversionResult> {
     // Create temp directory for JPEG frames
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mjpeg_frames_'));
     
     try {
       // Build FFmpeg command
-      const cmd = this.builder.buildMjpegFramesCmd(inputPath, tempDir, targetFps, quality);
+      const cmd = this.builder.buildMjpegFramesCmd(inputPath, tempDir, targetFps, quality, backgroundColor);
       
       // Execute FFmpeg
       await this.executor.execute(cmd, videoInfo.frameCount);
@@ -239,7 +244,8 @@ export class VideoConverter {
     videoInfo: VideoInfo,
     targetFps: number,
     quality: number,
-    debug: boolean = false
+    debug: boolean = false,
+    backgroundColor?: string
   ): Promise<ConversionResult> {
     // Create temp AVI file
     const tempAvi = debug 
@@ -248,7 +254,7 @@ export class VideoConverter {
     
     try {
       // Build FFmpeg command
-      const cmd = this.builder.buildAviCmd(inputPath, tempAvi, targetFps, quality);
+      const cmd = this.builder.buildAviCmd(inputPath, tempAvi, targetFps, quality, backgroundColor);
       
       // Execute FFmpeg
       await this.executor.execute(cmd, videoInfo.frameCount);
@@ -279,6 +285,33 @@ export class VideoConverter {
   }
 
   /**
+   * Convert to AVI-MSV1 format (Microsoft Video 1 / CRAM codec)
+   *
+   * No post-processing: AviAligner is JPEG-specific and cannot be applied
+   * to MSV1 (RGB) frame data. FFmpeg output is the final file.
+   */
+  private async convertToAviMsv1(
+    inputPath: string,
+    outputPath: string,
+    videoInfo: VideoInfo,
+    targetFps: number,
+    quality: number,
+    backgroundColor?: string
+  ): Promise<ConversionResult> {
+    const cmd = this.builder.buildAviMsv1Cmd(inputPath, outputPath, targetFps, quality, backgroundColor);
+    await this.executor.execute(cmd, videoInfo.frameCount);
+    return {
+      success: true,
+      inputPath,
+      outputPath,
+      outputFormat: OutputFormat.AVI_MSV1,
+      frameCount: videoInfo.frameCount,
+      frameRate: targetFps,
+      quality
+    };
+  }
+
+  /**
    * Convert to H264 format
    */
   private async convertToH264(
@@ -286,14 +319,15 @@ export class VideoConverter {
     outputPath: string,
     videoInfo: VideoInfo,
     targetFps: number,
-    crf: number
+    crf: number,
+    backgroundColor?: string
   ): Promise<ConversionResult> {
     // Create temp H264 file
     const tempH264 = outputPath + '.temp.h264';
     
     try {
       // Build FFmpeg command
-      const cmd = this.builder.buildH264Cmd(inputPath, tempH264, targetFps, crf);
+      const cmd = this.builder.buildH264Cmd(inputPath, tempH264, targetFps, crf, backgroundColor);
       
       // Execute FFmpeg
       await this.executor.execute(cmd, videoInfo.frameCount);

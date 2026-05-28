@@ -118,21 +118,44 @@ export class FFmpegBuilder {
 
   /**
    * 
-   * Command format:
+   * Command format (no background):
    * ffmpeg -i input.mp4 -r 24 -vf "format=yuvj420p" -q:v 5 output/frame_%04d.jpg
+   *
+   * Command format (with background color for transparent GIF):
+   * ffmpeg -i input.gif -f lavfi -i "color=c=#FFFFFF"
+   *   -filter_complex "[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto,format=yuvj420p[out]"
+   *   -map "[out]" -r 24 -q:v 5 output/frame_%04d.jpg
    * 
    * @param inputPath - Input video file path
    * @param outputDir - Output directory path
    * @param frameRate - Target frame rate, undefined to keep original
    * @param quality - JPEG quality (1-31, 1 is highest), defaults to 5
+   * @param backgroundColor - Optional background color for transparent GIF (FFmpeg color value)
    * @returns FFmpeg command arguments array
    */
   buildMjpegFramesCmd(
     inputPath: string,
     outputDir: string,
     frameRate?: number,
-    quality: number = 5
+    quality: number = 5,
+    backgroundColor?: string
   ): string[] {
+    const outputPattern = path.join(outputDir, 'frame_%04d.jpg');
+
+    if (backgroundColor) {
+      const cmd: string[] = ['ffmpeg', '-i', inputPath];
+      cmd.push('-f', 'lavfi', '-i', `color=c=${backgroundColor}`);
+      cmd.push(
+        '-filter_complex',
+        '[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto,format=yuvj420p[out]'
+      );
+      cmd.push('-map', '[out]');
+      if (frameRate !== undefined) cmd.push('-r', String(frameRate));
+      cmd.push('-q:v', String(quality));
+      cmd.push(outputPattern);
+      return cmd;
+    }
+
     const cmd: string[] = ['ffmpeg', '-i', inputPath];
 
     // Add frame rate parameter if specified
@@ -146,7 +169,6 @@ export class FFmpegBuilder {
     cmd.push('-q:v', String(quality));
 
     // Output path pattern using path.join for cross-platform compatibility
-    const outputPattern = path.join(outputDir, 'frame_%04d.jpg');
     cmd.push(outputPattern);
 
     return cmd;
@@ -155,21 +177,45 @@ export class FFmpegBuilder {
   /**
    * Build AVI-MJPEG conversion command
    * 
-   * Command format:
+   * Command format (no background):
    * ffmpeg -i input.mp4 -an -r 25 -vcodec mjpeg -pix_fmt yuvj420p -q:v 5 output.avi
+   *
+   * Command format (with background color for transparent GIF):
+   * ffmpeg -i input.gif -f lavfi -i "color=c=#FFFFFF"
+   *   -filter_complex "[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto[out]"
+   *   -map "[out]" -an -r 25 -vcodec mjpeg -pix_fmt yuvj420p -q:v 5 output.avi
    * 
    * @param inputPath - Input video file path
    * @param outputPath - Output file path
    * @param frameRate - Target frame rate, undefined to keep original
    * @param quality - JPEG quality (1-31, 1 is highest), defaults to 5
+   * @param backgroundColor - Optional background color for transparent GIF (FFmpeg color value)
    * @returns FFmpeg command arguments array
    */
   buildAviCmd(
     inputPath: string,
     outputPath: string,
     frameRate?: number,
-    quality: number = 5
+    quality: number = 5,
+    backgroundColor?: string
   ): string[] {
+    if (backgroundColor) {
+      const cmd: string[] = ['ffmpeg', '-i', inputPath];
+      cmd.push('-f', 'lavfi', '-i', `color=c=${backgroundColor}`);
+      cmd.push(
+        '-filter_complex',
+        '[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto[out]'
+      );
+      cmd.push('-map', '[out]');
+      cmd.push('-an');
+      if (frameRate !== undefined) cmd.push('-r', String(frameRate));
+      cmd.push('-vcodec', 'mjpeg');
+      cmd.push('-pix_fmt', 'yuvj420p');
+      cmd.push('-q:v', String(quality));
+      cmd.push(outputPath);
+      return cmd;
+    }
+
     const cmd: string[] = ['ffmpeg', '-i', inputPath];
 
     // No audio
@@ -196,20 +242,27 @@ export class FFmpegBuilder {
   /**
    * Build H264 conversion command
    * 
-   * Command format:
+   * Command format (no background):
    * ffmpeg -r 30 -i input.mp4 -c:v libx264 -x264-params "..." -an -f rawvideo output.h264
+   *
+   * Command format (with background color for transparent GIF):
+   * ffmpeg -r 30 -i input.gif -f lavfi -i "color=c=#FFFFFF"
+   *   -filter_complex "[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto[out]"
+   *   -map "[out]" -c:v libx264 -x264-params "..." -an -f rawvideo output.h264
    * 
    * @param inputPath - Input video file path
    * @param outputPath - Output file path
    * @param frameRate - Input frame rate, undefined to keep original
    * @param crf - CRF value for quality control, defaults to 23
+   * @param backgroundColor - Optional background color for transparent GIF (FFmpeg color value)
    * @returns FFmpeg command arguments array
    */
   buildH264Cmd(
     inputPath: string,
     outputPath: string,
     frameRate?: number,
-    crf: number = 23
+    crf: number = 23,
+    backgroundColor?: string
   ): string[] {
     const cmd: string[] = ['ffmpeg'];
 
@@ -220,6 +273,15 @@ export class FFmpegBuilder {
 
     // Input file
     cmd.push('-i', inputPath);
+
+    if (backgroundColor) {
+      cmd.push('-f', 'lavfi', '-i', `color=c=${backgroundColor}`);
+      cmd.push(
+        '-filter_complex',
+        '[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto[out]'
+      );
+      cmd.push('-map', '[out]');
+    }
 
     // H264 encoder
     cmd.push('-c:v', 'libx264');
@@ -237,6 +299,66 @@ export class FFmpegBuilder {
     // Output path
     cmd.push(outputPath);
 
+    return cmd;
+  }
+
+  /**
+   * Build AVI-MSV1 conversion command (Microsoft Video 1 / CRAM codec)
+   *
+   * The msvideo1 encoder only supports rgb555le pixel format.
+   * No audio (-an). No post-processing required (unlike AVI-MJPEG which needs
+   * JPEG-specific 8-byte alignment via AviAligner).
+   *
+   * Command format (no background):
+   * ffmpeg -i input.mp4 -an [-r fps] -vcodec msvideo1 -pix_fmt rgb555le -q:v 1 output.avi
+   *
+   * Command format (with background color for transparent GIF):
+   * ffmpeg -i input.gif -f lavfi -i "color=c=white"
+   *   -filter_complex "[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto[out]"
+   *   -map "[out]" -an [-r fps] -vcodec msvideo1 -pix_fmt rgb555le -q:v 1 output.avi
+   *
+   * @param inputPath - Input video file path
+   * @param outputPath - Output AVI file path
+   * @param frameRate - Target frame rate, undefined to keep original
+   * @param quality - Quality (1-31, 1 is highest), defaults to 1
+   * @param backgroundColor - Optional background color for transparent GIF (FFmpeg color value)
+   * @returns FFmpeg command arguments array
+   */
+  buildAviMsv1Cmd(
+    inputPath: string,
+    outputPath: string,
+    frameRate?: number,
+    quality: number = 1,
+    backgroundColor?: string
+  ): string[] {
+    /** MSV1 requires width and height to be multiples of 4 */
+    const msv1ScaleAlign = 'scale=trunc(iw/4)*4:trunc(ih/4)*4';
+
+    if (backgroundColor) {
+      const cmd: string[] = ['ffmpeg', '-i', inputPath];
+      cmd.push('-f', 'lavfi', '-i', `color=c=${backgroundColor}`);
+      cmd.push(
+        '-filter_complex',
+        `[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto,${msv1ScaleAlign}[out]`
+      );
+      cmd.push('-map', '[out]');
+      cmd.push('-an');
+      if (frameRate !== undefined) cmd.push('-r', String(frameRate));
+      cmd.push('-vcodec', 'msvideo1');
+      cmd.push('-pix_fmt', 'rgb555le');
+      cmd.push('-q:v', String(quality));
+      cmd.push(outputPath);
+      return cmd;
+    }
+
+    const cmd: string[] = ['ffmpeg', '-i', inputPath];
+    cmd.push('-an');
+    if (frameRate !== undefined) cmd.push('-r', String(frameRate));
+    cmd.push('-vf', msv1ScaleAlign);
+    cmd.push('-vcodec', 'msvideo1');
+    cmd.push('-pix_fmt', 'rgb555le');
+    cmd.push('-q:v', String(quality));
+    cmd.push(outputPath);
     return cmd;
   }
 }

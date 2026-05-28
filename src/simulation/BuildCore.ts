@@ -700,6 +700,10 @@ Return('objs')
         const modelExts = new Set(['.gltf', '.glb', '.obj']);
         // 字体不在全量扫描中收集，只转换 HML 中 Label 引用的字体
 
+        // 预加载 conversion.json 用于 GIF 分类决策
+        const conversionConfigService = ConversionConfigService.getInstance();
+        const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
+
         const assetsDir = path.join(this.projectRoot, 'assets');
         if (fs.existsSync(assetsDir)) {
             const scanDir = (dir: string) => {
@@ -720,7 +724,15 @@ Return('objs')
                             continue;
                         }
                         const ext = path.extname(entry.name).toLowerCase();
-                        if (imageExts.has(ext)) {
+                        if (ext === '.gif') {
+                            // GIF: 根据 conversion.json 的 gifAsVideo 标志决定分类
+                            const gifSettings = conversionConfig.items[relativePath];
+                            if (gifSettings?.gifAsVideo) {
+                                videos.add(relativePath);
+                            } else {
+                                images.add(relativePath);
+                            }
+                        } else if (imageExts.has(ext)) {
                             images.add(relativePath);
                         } else if (videoExts.has(ext)) {
                             videos.add(relativePath);
@@ -873,7 +885,17 @@ Return('objs')
             // 根据扩展名分类
             const ext = path.extname(assetPath).toLowerCase();
             
-            if (imageExts.includes(ext)) {
+            if (ext === '.gif') {
+                // GIF: 根据 conversion.json 的 gifAsVideo 标志决定分类
+                const conversionConfigService = ConversionConfigService.getInstance();
+                const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
+                const gifSettings = conversionConfig.items[assetPath];
+                if (gifSettings?.gifAsVideo) {
+                    videos.add(assetPath);
+                } else {
+                    images.add(assetPath);
+                }
+            } else if (imageExts.includes(ext)) {
                 images.add(assetPath);
             } else if (videoExts.includes(ext)) {
                 videos.add(assetPath);
@@ -1038,6 +1060,11 @@ Return('objs')
             // GIF 和 SVG 文件特殊处理
             const ext = path.extname(relativePath).toLowerCase();
             if (ext === '.gif') {
+                // 如果该 GIF 被标记为按视频处理，跳过（由视频管道处理）
+                const gifSettings = config.items[relativePath];
+                if (gifSettings?.gifAsVideo) {
+                    continue;
+                }
                 items.push({ input: fullPath, output: outputPath });
             } else if (ext === '.svg') {
                 // SVG 直接拷贝，不转换
@@ -1410,7 +1437,8 @@ Return('objs')
         // 支持的视频格式
         const videoExts = [
             '.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv',
-            '.m4v', '.3gp', '.asf', '.rm', '.rmvb', '.vob', '.ts'
+            '.m4v', '.3gp', '.asf', '.rm', '.rmvb', '.vob', '.ts',
+            '.gif'  // GIF 当 gifAsVideo=true 时作为视频处理
         ];
         
         const convertTasks: Array<Promise<any>> = [];
@@ -1423,6 +1451,14 @@ Return('objs')
                 } else if (videoExts.includes(path.extname(entry.name).toLowerCase())) {
                     const relativePath = path.relative(assetsDir, fullPath);
                     const normalizedPath = relativePath.replace(/\\/g, '/');
+                    
+                    // GIF 文件：仅当 gifAsVideo=true 时才作为视频处理
+                    if (path.extname(entry.name).toLowerCase() === '.gif') {
+                        const gifSettings = conversionConfig.items[normalizedPath];
+                        if (!gifSettings?.gifAsVideo) {
+                            continue;
+                        }
+                    }
                     
                     // 查找使用此视频的组件配置
                     const componentConfig = videoComponentConfigs.find(config => 
@@ -1498,13 +1534,14 @@ Return('objs')
     private resolveVideoFormat(
         assetPath: string, 
         config: { items: Record<string, { videoFormat?: VideoFormat }> }
-    ): 'mjpeg' | 'avi' | 'h264' | undefined {
+    ): 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' | undefined {
         const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
         const itemSettings = config.items[normalizedPath];
         
         // 如果有明确配置且不是 inherit，直接使用
         if (itemSettings?.videoFormat && itemSettings.videoFormat !== 'inherit') {
-            return itemSettings.videoFormat.toLowerCase() as 'mjpeg' | 'avi' | 'h264';
+            const fmt = itemSettings.videoFormat.toLowerCase();
+            return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
         }
         
         // 需要继承：查找父级配置
@@ -1514,7 +1551,8 @@ Return('objs')
             const parentSettings = config.items[parentPath];
             
             if (parentSettings?.videoFormat && parentSettings.videoFormat !== 'inherit') {
-                return parentSettings.videoFormat.toLowerCase() as 'mjpeg' | 'avi' | 'h264';
+                const fmt = parentSettings.videoFormat.toLowerCase();
+                return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
             }
         }
         
@@ -1779,6 +1817,7 @@ Return('objs')
             case 'mjpeg':
                 return '.mjpeg';
             case 'avi':
+            case 'avi_msv1':
                 return '.avi';
             case 'h264':
                 return '.h264';

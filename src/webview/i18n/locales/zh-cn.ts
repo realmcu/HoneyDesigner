@@ -612,6 +612,13 @@ const zhCN = {
   'Restart automatically when playback ends': '视频播放结束后自动重新开始',
   'Format Note': '格式说明',
   'Video format is configured in Assets panel. Select video file to set output format (MJPEG/AVI/H264).': '视频格式在资源面板中配置。选择视频文件可设置输出格式（MJPEG/AVI/H264）。',
+  'Mini Video (MSV1)': 'Mini 视频 (MSV1)',
+  'Use MSV1 API for video rendering': '使用 MSV1 API 进行视频渲染',
+  'GIF Mode': 'GIF 处理模式',
+  'As Image': '作为图片',
+  'As Video': '作为视频',
+  'GIF will be converted via FFmpeg to a video format': '将通过 FFmpeg 把 GIF 转换为视频格式',
+  'GIF will be packed as-is (raw GIF data in .bin)': 'GIF 将直接打包（原始数据写入 .bin 文件）',
 
   // GeometryProperties - Gradient
   'Gradient Settings': '渐变设置',

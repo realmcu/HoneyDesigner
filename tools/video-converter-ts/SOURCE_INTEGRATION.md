@@ -110,7 +110,8 @@ await converter.convert('input.mp4', 'output.avi', OutputFormat.AVI_MJPEG);
 enum OutputFormat {
   MJPEG     = 'mjpeg',      // 连续 JPEG 帧裸流
   AVI_MJPEG = 'avi_mjpeg',  // AVI 容器封装，8 字节对齐
-  H264      = 'h264'        // H.264 裸流 + 自定义 32 字节头部
+  H264      = 'h264',       // H.264 裸流 + 自定义 32 字节头部
+  AVI_MSV1  = 'avi_msv1',   // Microsoft Video 1，rgb555le，宽高自动 4 倍数对齐
 }
 ```
 
@@ -119,6 +120,7 @@ enum OutputFormat {
 | MJPEG | `OutputFormat.MJPEG` | `.mjpeg` | 连续 JPEG 帧裸流 |
 | AVI-MJPEG | `OutputFormat.AVI_MJPEG` | `.avi` | AVI 容器，所有帧 8 字节对齐，含 idx1 索引 |
 | H264 | `OutputFormat.H264` | `.h264` | H.264 裸流 + 自定义 32 字节头部（含分辨率、帧数、帧时间）|
+| AVI-MSV1 | `OutputFormat.AVI_MSV1` | `.avi` | Microsoft Video 1（msvideo1），rgb555le 像素格式，宽高自动对齐为 4 的倍数 |
 
 ```typescript
 
@@ -145,7 +147,8 @@ type PreprocessStep =
 // 转换选项
 interface ConversionOptions {
   frameRate?: number;           // 目标帧率（默认保持原帧率）
-  quality?: number;             // MJPEG 质量 1-31（越小越好）；H264 CRF 0-51（越小越好）
+  quality?: number;             // MJPEG/MSV1 质量 1-31（越小越好）；H264 CRF 0-51（越小越好）
+  backgroundColor?: string;     // GIF 透明背景填充色（CSS 颜色值，如 'white'、'black'、'#FF0000'）；仅对含透明通道的 GIF 有效
   debug?: boolean;              // 默认 false；true 时保留所有预处理中间文件
   preprocess?: PreprocessStep[]; // 有序预处理 pipeline（优先级高于 scale）
   scale?: ScaleOptions;         // v1.1 缩放简写，等价于 preprocess: [{ type: 'scale', options }]
@@ -269,7 +272,7 @@ import {
   VideoConverter,       // 主转换器类
   VideoScaler,          // 独立缩放器类
   VideoCropper,         // 独立裁剪器类
-  OutputFormat,         // 输出格式枚举：MJPEG | AVI_MJPEG | H264
+  OutputFormat,         // 输出格式枚举：MJPEG | AVI_MJPEG | H264 | AVI_MSV1
   VideoInfo,            // 视频信息接口
   ConversionResult,     // 转换结果接口
   ConversionOptions,    // 转换选项（含 preprocess、scale、debug 等）
@@ -288,6 +291,31 @@ import {
 ---
 
 ## 使用示例
+
+### AVI-MSV1 转换（含 GIF 背景合成）
+
+```typescript
+import { VideoConverter, OutputFormat } from './video-converter';
+
+const converter = new VideoConverter();
+
+// 普通视频 → MSV1
+await converter.convert('input.mp4', 'output.avi', OutputFormat.AVI_MSV1, {
+  quality: 5,      // 1-31，越小质量越好
+  frameRate: 15,
+});
+
+// GIF（含透明背景）→ MSV1，背景填充为白色
+await converter.convert('animation.gif', 'output.avi', OutputFormat.AVI_MSV1, {
+  backgroundColor: 'white',  // 或 'black'、'#FF0000' 等 CSS 颜色
+});
+
+// GIF → MSV1，先缩放再转换（宽度不必是 4 的倍数，会自动对齐）
+await converter.convert('animation.gif', 'output.avi', OutputFormat.AVI_MSV1, {
+  backgroundColor: 'white',
+  scale: { width: 320 },  // 内部自动对齐为 4 的倍数
+});
+```
 
 ### 基本转换
 
@@ -625,6 +653,12 @@ your-vscode-extension/
 ---
 
 ## 常见问题
+
+### Q: AVI_MSV1 和 AVI_MJPEG 有什么区别？
+
+**A**: 
+- **AVI_MJPEG**：每帧为 JPEG 压缩数据，体积更小，质量高，兼容性好，需要 8 字节对齐后处理
+- **AVI_MSV1**：每帧为 RGB555 原始压缩数据，编码器为微软 Video 1，适用于对 MJPEG 不支持的嵌入式场景；宽高必须为 4 的倍数（工具自动对齐）；无需后处理
 
 ### Q: 用户需要安装 FFmpeg 吗？
 

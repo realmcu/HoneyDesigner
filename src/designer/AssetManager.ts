@@ -1047,7 +1047,7 @@ export class AssetManager extends EventEmitter {
                 canSelectMany: false,
                 defaultUri: this.getDefaultDialogUri(currentFilePath),
                 filters: {
-                    'Video': ['mp4', 'avi', 'mov', 'mkv', 'webm']
+                    'Video': ['mp4', 'avi', 'mov', 'mkv', 'webm', 'gif']
                 },
                 openLabel: vscode.l10n.t('Select Video')
             };

@@ -612,6 +612,13 @@ const en = {
   'Restart automatically when playback ends': 'Restart automatically when playback ends',
   'Format Note': 'Format Note',
   'Video format is configured in Assets panel. Select video file to set output format (MJPEG/AVI/H264).': 'Video format is configured in Assets panel. Select video file to set output format (MJPEG/AVI/H264).',
+  'Mini Video (MSV1)': 'Mini Video (MSV1)',
+  'Use MSV1 API for video rendering': 'Use MSV1 API for video rendering',
+  'GIF Mode': 'GIF Mode',
+  'As Image': 'As Image',
+  'As Video': 'As Video',
+  'GIF will be converted via FFmpeg to a video format': 'GIF will be converted via FFmpeg to a video format',
+  'GIF will be packed as-is (raw GIF data in .bin)': 'GIF will be packed as-is (raw GIF data in .bin)',
 
   // GeometryProperties - Gradient
   'Gradient Settings': 'Gradient Settings',

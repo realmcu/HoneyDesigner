@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { VideoConverter, OutputFormat, ProgressCallback, ConversionOptions, ScaleOptions, CropOptions, PreprocessStep } from '../../tools/video-converter-ts/src/index';
 
 export interface VideoConvertOptions {
-    format: 'mjpeg' | 'avi' | 'h264';
+    format: 'mjpeg' | 'avi' | 'h264' | 'avi_msv1';
     frameRate?: number;  // 帧率
     quality?: number;    // 质量: MJPEG/AVI 为 1-31（1最高），H264 为 CRF 值 0-51
     // 视频裁剪（由 video-converter-ts 库的 preprocess 管道处理，x/y 可选，留空自动居中）
@@ -89,6 +89,7 @@ export class VideoConverterService {
             case 'mjpeg':
                 return '.mjpeg';
             case 'avi':
+            case 'avi_msv1':
                 return '.avi';
             case 'h264':
                 return '.h264';
@@ -108,12 +109,14 @@ export class VideoConverterService {
     /**
      * 将服务格式映射到转换器格式
      */
-    private mapFormat(format: 'mjpeg' | 'avi' | 'h264'): OutputFormat {
+    private mapFormat(format: 'mjpeg' | 'avi' | 'h264' | 'avi_msv1'): OutputFormat {
         switch (format) {
             case 'mjpeg':
                 return OutputFormat.MJPEG;
             case 'avi':
                 return OutputFormat.AVI_MJPEG;
+            case 'avi_msv1':
+                return OutputFormat.AVI_MSV1;
             case 'h264':
                 return OutputFormat.H264;
             default:

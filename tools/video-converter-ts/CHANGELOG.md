@@ -8,6 +8,25 @@
 
 ---
 
+## [1.3.0] - 2026-05-28
+
+### Added
+
+- **AVI-MSV1 输出格式**：新增 `OutputFormat.AVI_MSV1`（`avi_msv1`），使用 Microsoft Video 1（`msvideo1`）编码器，像素格式 `rgb555le`
+  - 支持通过 `backgroundColor` 参数合成 GIF 透明背景（白色/黑色/任意 CSS 颜色）
+  - 支持 `frameRate`、`quality`（`-q:v 1–31`）参数控制
+  - 支持 `scale`（向后兼容字段）和 `preprocess` pipeline（scale/crop 有序组合）
+  - 自动对齐输出尺寸为 **4 的倍数**（`msvideo1` 编码器硬性要求，使用 `scale=trunc(iw/4)*4:trunc(ih/4)*4`）
+  - 无需 AviAligner 后处理（MSV1 帧为原始 RGB555，非 JPEG 数据）
+- **`FFmpegBuilder.buildAviMsv1Cmd()`**：构建 MSV1 命令，包含标准路径（`-vf`）和 backgroundColor 路径（`filter_complex` overlay）
+- CLI 新增 `avi_msv1` 格式支持，`-f avi_msv1`
+
+### Changed
+
+- `package.json` description 更新，补充 AVI-MSV1 格式说明
+
+---
+
 ## [1.2.0] - 2026-05-20
 
 ### Added

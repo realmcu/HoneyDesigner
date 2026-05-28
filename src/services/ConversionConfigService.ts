@@ -21,7 +21,7 @@ export type TargetFormat =
 /**
  * 视频目标格式枚举
  */
-export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'inherit';
+export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'MSV1' | 'inherit';
 
 /**
  * 压缩方式枚举
@@ -143,6 +143,8 @@ export interface ItemSettings {
   jpegParams?: JpegParams;
   /** 字体：不转换格式，直接拷贝原文件 */
   fontCopyOnly?: boolean;
+  /** GIF 文件处理模式：true=作为视频转换，false/undefined=作为图片处理（默认） */
+  gifAsVideo?: boolean;
   /** 资源部署方式（LVGL only，HoneyGUI 忽略此字段） */
   deployment?: DeploymentMode;
 }

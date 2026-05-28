@@ -17,7 +17,7 @@ export class VideoGenerator implements ComponentCodeGenerator {
   private resolveVideoFormat(
     assetPath: string, 
     projectRoot: string
-  ): 'mjpeg' | 'avi' | 'h264' {
+  ): 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' {
     const configService = ConversionConfigService.getInstance();
     const config = configService.loadConfig(projectRoot);
     
@@ -31,7 +31,8 @@ export class VideoGenerator implements ComponentCodeGenerator {
     
     // Use explicit config if not set to inherit
     if (itemSettings?.videoFormat && itemSettings.videoFormat !== 'inherit') {
-      return itemSettings.videoFormat.toLowerCase() as 'mjpeg' | 'avi' | 'h264';
+      const fmt = itemSettings.videoFormat.toLowerCase();
+      return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
     }
     
     // Inherit: look up parent directory config
@@ -41,7 +42,8 @@ export class VideoGenerator implements ComponentCodeGenerator {
       const parentSettings = config.items[parentPath];
       
       if (parentSettings?.videoFormat && parentSettings.videoFormat !== 'inherit') {
-        return parentSettings.videoFormat.toLowerCase() as 'mjpeg' | 'avi' | 'h264';
+        const fmt = parentSettings.videoFormat.toLowerCase();
+        return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
       }
     }
     
@@ -52,10 +54,11 @@ export class VideoGenerator implements ComponentCodeGenerator {
   /**
    * Get video output file extension
    */
-  private getVideoOutputExtension(format: 'mjpeg' | 'avi' | 'h264'): string {
+  private getVideoOutputExtension(format: 'mjpeg' | 'avi' | 'h264' | 'avi_msv1'): string {
     switch (format) {
       case 'mjpeg': return '.mjpeg';
-      case 'avi': return '.avi';
+      case 'avi':
+      case 'avi_msv1': return '.avi';
       case 'h264': return '.h264';
       default: return '.mjpeg';
     }
@@ -70,14 +73,18 @@ export class VideoGenerator implements ComponentCodeGenerator {
     const frameRate = component.data?.frameRate || 30;
     const autoPlay = component.data?.autoPlay !== false && component.data?.autoPlay !== 'false';
     const loop = component.data?.loop === true;
+    const useMsv1 = component.data?.useMsv1 === true || component.data?.useMsv1 === 'true';
 
     // Read video format from conversion.json (with inheritance)
     const format = context.projectRoot 
       ? this.resolveVideoFormat(src, context.projectRoot)
       : 'mjpeg';
 
+    // useMsv1=true forces avi_msv1 format
+    const effectiveFormat = useMsv1 ? 'avi_msv1' : format;
+
     // Replace extension based on format
-    const outputExt = this.getVideoOutputExtension(format);
+    const outputExt = this.getVideoOutputExtension(effectiveFormat);
     let videoSrc = src.replace(/\.[^.]+$/i, outputExt);
 
     // Strip assets/ prefix, ensure path starts with /
@@ -86,17 +93,35 @@ export class VideoGenerator implements ComponentCodeGenerator {
       videoSrc = '/' + videoSrc;
     }
 
-    let code = `${indentStr}${component.id} = gui_video_create_from_fs(${parentRef}, "${component.name}", "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
-    code += `${indentStr}gui_video_set_frame_rate((gui_video_t *)${component.id}, ${frameRate}.f);\n`;
+    let code: string;
+    if (useMsv1) {
+      // MSV1 API
+      code = `${indentStr}${component.id} = gui_msv1_create_from_fs(${parentRef}, "${component.name}", "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
+      code += `${indentStr}gui_msv1_set_frame_rate((gui_msv1_t *)${component.id}, ${frameRate}.f);\n`;
 
-    if (loop) {
-      code += `${indentStr}gui_video_set_repeat_count((gui_video_t *)${component.id}, GUI_VIDEO_REPEAT_INFINITE);\n`;
-    }
+      if (loop) {
+        code += `${indentStr}gui_msv1_set_repeat_count((gui_msv1_t *)${component.id}, GUI_VIDEO_REPEAT_INFINITE);\n`;
+      }
 
-    if (autoPlay) {
-      code += `${indentStr}gui_video_set_state((gui_video_t *)${component.id}, GUI_VIDEO_STATE_PLAYING);\n`;
+      if (autoPlay) {
+        code += `${indentStr}gui_msv1_set_state((gui_msv1_t *)${component.id}, GUI_VIDEO_STATE_PLAYING);\n`;
+      } else {
+        code += `${indentStr}gui_msv1_set_state((gui_msv1_t *)${component.id}, GUI_VIDEO_STATE_INIT);\n`;
+      }
     } else {
-      code += `${indentStr}gui_video_set_state((gui_video_t *)${component.id}, GUI_VIDEO_STATE_INIT);\n`;
+      // Standard video API
+      code = `${indentStr}${component.id} = gui_video_create_from_fs(${parentRef}, "${component.name}", "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
+      code += `${indentStr}gui_video_set_frame_rate((gui_video_t *)${component.id}, ${frameRate}.f);\n`;
+
+      if (loop) {
+        code += `${indentStr}gui_video_set_repeat_count((gui_video_t *)${component.id}, GUI_VIDEO_REPEAT_INFINITE);\n`;
+      }
+
+      if (autoPlay) {
+        code += `${indentStr}gui_video_set_state((gui_video_t *)${component.id}, GUI_VIDEO_STATE_PLAYING);\n`;
+      } else {
+        code += `${indentStr}gui_video_set_state((gui_video_t *)${component.id}, GUI_VIDEO_STATE_INIT);\n`;
+      }
     }
 
     return code;

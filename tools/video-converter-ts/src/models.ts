@@ -17,6 +17,8 @@ export enum OutputFormat {
   MJPEG = 'mjpeg',
   /** AVI container with MJPEG codec */
   AVI_MJPEG = 'avi_mjpeg',
+  /** AVI container with Microsoft Video 1 (MSV1/CRAM) codec, pixel format rgb555le */
+  AVI_MSV1 = 'avi_msv1',
   /** H264 raw stream with custom header */
   H264 = 'h264'
 }
@@ -143,4 +145,11 @@ export interface ConversionOptions {
    * Ignored when `preprocess` is set.
    */
   scale?: ScaleOptions;
+  /**
+   * Background color to composite behind transparent frames (e.g., animated GIF with alpha).
+   * Accepts FFmpeg color values: hex ('#RRGGBB') or named colors ('white', 'black').
+   * Applied during the main conversion step only; has no effect when `preprocess` steps
+   * are used because intermediate files do not preserve the alpha channel.
+   */
+  backgroundColor?: string;
 }

@@ -490,6 +490,42 @@ Image display with transform and blend mode support.
 
 ---
 
+### 7.6 `hg_gif` — GIF Animation
+
+Displays an animated GIF file directly (no format conversion; raw GIF data packed into `.bin`).
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `src` | string | — | GIF file path (relative to assets, e.g. `assets/anim.gif`) |
+
+- **Default size**: 100×100
+- **C API**: `gui_gif_create_from_fs`, header: `gui_gif.h`
+- The `.gif` source is packed as-is into a `.bin` file at build time.
+
+---
+
+### 7.7 `hg_video` — Video
+
+Plays a video file using the HoneyGUI video API (standard or MSV1).
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `src` | string | — | Video file path (relative to assets, e.g. `assets/clip.mp4`) |
+| `frameRate` | number | 30 | Playback frame rate (FPS) |
+| `autoPlay` | boolean | true | Start playing automatically after creation |
+| `loop` | boolean | false | Repeat playback indefinitely |
+| `useMsv1` | boolean | false | Use `gui_msv1` API instead of `gui_video` (requires AVI-MSV1 format) |
+
+**`useMsv1` notes**:
+- When `true`, generates `gui_msv1_create_from_fs()` and `gui_msv1_*` setters; adds `#include "gui_msv1.h"`.
+- The video asset **must** be converted to AVI-MSV1 format (`MSV1` in the Assets panel video format dropdown).
+- AVI-MSV1 constraints: `msvideo1` codec, `rgb555le` pixel format, width/height must be multiples of 4.
+
+- **Default size**: 200×200
+- **C API (standard)**: `gui_video_create_from_fs`, header: `gui_video.h`
+- **C API (MSV1)**: `gui_msv1_create_from_fs`, header: `gui_msv1.h`
+
+---
 
 
 ## 9. Graphics Controls
@@ -792,6 +828,8 @@ The designer generates C source code from HML. Here is the component-to-API mapp
 | `hg_button` | `gui_img_create_from_fs` (image-based) | `gui_img.h` |
 | `hg_label` | `gui_text_create` / `gui_scroll_text_create` | `gui_text.h` |
 | `hg_image` | `gui_img_create_from_fs` | `gui_img.h` |
+| `hg_gif` | `gui_gif_create_from_fs` | `gui_gif.h` |
+| `hg_video` | `gui_video_create_from_fs` (or `gui_msv1_create_from_fs` when `useMsv1=true`) | `gui_video.h` / `gui_msv1.h` |
 | `hg_arc` | `gui_arc_create` | `gui_arc.h` |
 | `hg_circle` | `gui_circle_create` | `gui_circle.h` |
 | `hg_rect` | `gui_rect_create` | `gui_rect.h` |

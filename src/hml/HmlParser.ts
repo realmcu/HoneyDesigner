@@ -699,7 +699,7 @@ export class HmlParser {
       // list 用户自定义 note_design 属性
       'useUserNoteDesign', 'userNoteDesignFunc',
       // hg_video 属性
-      'autoPlay', 'frameRate',
+      'autoPlay', 'frameRate', 'useMsv1',
     ]);
 
     const metaProps = new Set([

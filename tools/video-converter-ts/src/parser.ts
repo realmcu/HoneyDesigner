@@ -271,10 +271,7 @@ export class VideoParser {
     const height = videoStream.height || 0;
     const codec = videoStream.codec_name || 'unknown';
     
-    // Parse frame rate
-    const frameRate = this.parseFrameRate(videoStream);
-    
-    // Parse duration
+    // Parse duration first — needed by the GIF frame-rate fallback below
     let duration = 0.0;
     const durationStr = videoStream.duration || formatInfo.duration;
     if (durationStr) {
@@ -282,6 +279,25 @@ export class VideoParser {
         duration = parseFloat(durationStr);
       } catch {
         // Keep duration as 0
+      }
+    }
+
+    // Parse frame rate
+    let frameRate = this.parseFrameRate(videoStream);
+
+    // GIF-specific correction: avg_frame_rate is often "0/0" and r_frame_rate
+    // is typically "100/1" — a bogus value derived from GIF centisecond timing.
+    // When avg_frame_rate is absent or invalid, derive the real frame rate from
+    // nb_frames / duration instead of relying on the misleading r_frame_rate.
+    if (codec === 'gif') {
+      const avgFr = videoStream.avg_frame_rate ?? '';
+      const avgFrIsValid = avgFr !== '' && avgFr !== '0/0' && avgFr !== '0/1';
+      if (!avgFrIsValid) {
+        const nbFramesRaw = videoStream.nb_frames;
+        const nbFramesNum = nbFramesRaw ? parseInt(nbFramesRaw, 10) : 0;
+        if (nbFramesNum > 0 && duration > 0) {
+          frameRate = nbFramesNum / duration;
+        }
       }
     }
     

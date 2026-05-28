@@ -67,6 +67,7 @@ export const HgVideoProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const frameRate = videoData.frameRate || 30;
   const autoPlay = videoData.autoPlay !== false;
   const loop = videoData.loop === true;
+  const useMsv1 = videoData.useMsv1 === true || videoData.useMsv1 === 'true';
 
   return (
     <>
@@ -186,6 +187,19 @@ export const HgVideoProperties: React.FC<PropertyPanelProps> = ({ component, onU
                   {t('Loop')}
                 </label>
                 <small style={helpTextStyle}>{t('Restart automatically when playback ends')}</small>
+              </div>
+
+              <div className="property-item">
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={useMsv1}
+                    onChange={(e) => handlePropertyChange('useMsv1', e.target.checked)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  {t('Mini Video (MSV1)')}
+                </label>
+                <small style={helpTextStyle}>{t('Use MSV1 API for video rendering')}</small>
               </div>
             </CollapsibleGroup>
           </>

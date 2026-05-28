@@ -69,6 +69,7 @@ const FOLDER_VIDEO_FORMAT_OPTIONS: { value: VideoFormat; label: string }[] = [
   { value: 'MJPEG', label: 'MJPEG' },
   { value: 'AVI', label: 'AVI' },
   { value: 'H264', label: 'H264' },
+  { value: 'MSV1', label: 'MSV1' },
 ];
 
 // 视频文件可用的格式选项（包含继承选项）
@@ -77,6 +78,7 @@ const VIDEO_FORMAT_OPTIONS: { value: VideoFormat; label: string }[] = [
   { value: 'MJPEG', label: 'MJPEG' },
   { value: 'AVI', label: 'AVI' },
   { value: 'H264', label: 'H264' },
+  { value: 'MSV1', label: 'MSV1' },
 ];
 
 // 压缩方式选项 - HoneyGUI 项目（文件夹用，含继承）
@@ -267,6 +269,12 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
     if (!selectedAsset || isFolder) return false;
     const ext = selectedAsset.name.split('.').pop()?.toLowerCase() || '';
     return VIDEO_EXTS.includes(ext);
+  }, [selectedAsset, isFolder]);
+
+  // 判断是否是 GIF 文件
+  const isGif = useMemo(() => {
+    if (!selectedAsset || isFolder) return false;
+    return selectedAsset.name.split('.').pop()?.toLowerCase() === 'gif';
   }, [selectedAsset, isFolder]);
 
   // 判断是否是字体文件
@@ -676,6 +684,19 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
         videoFormat: newFormat,
         videoQuality: undefined, // Switch format, reset quality to default
       }, 'videoFormat'); // 传递变更字段，触发代码生成
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
+  // 处理 GIF 处理模式变更（图片 / 视频）
+  const handleGifAsVideoChange = useCallback(
+    (asVideo: boolean) => {
+      if (!selectedAsset) return;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(assetPath, {
+        ...currentSettings,
+        gifAsVideo: asVideo,
+      });
     },
     [selectedAsset, currentSettings, updateAssetConfig]
   );
@@ -1768,6 +1789,41 @@ const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
         ) : isVideo ? (
           /* 视频文件：只显示视频设置 */
           renderVideoSettings()
+        ) : isGif ? (
+          /* GIF 文件：先选择处理模式（图片 / 视频），再显示对应设置 */
+          <>
+            <div className="config-section">
+              <div className="config-section-title">{t('GIF Mode')}</div>
+              <div className="config-row">
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <label className="checkbox-label" style={{ cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name={`gif-mode-${selectedAsset?.relativePath}`}
+                      checked={!currentSettings.gifAsVideo}
+                      onChange={() => handleGifAsVideoChange(false)}
+                    />
+                    <span>{t('As Image')}</span>
+                  </label>
+                  <label className="checkbox-label" style={{ cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name={`gif-mode-${selectedAsset?.relativePath}`}
+                      checked={currentSettings.gifAsVideo === true}
+                      onChange={() => handleGifAsVideoChange(true)}
+                    />
+                    <span>{t('As Video')}</span>
+                  </label>
+                </div>
+                <div className="config-hint">
+                  {currentSettings.gifAsVideo
+                    ? t('GIF will be converted via FFmpeg to a video format')
+                    : t('GIF will be packed as-is (raw GIF data in .bin)')}
+                </div>
+              </div>
+            </div>
+            {currentSettings.gifAsVideo ? renderVideoSettings() : renderImageSettings()}
+          </>
         ) : isFont ? (
           /* 字体文件：显示"直接拷贝"选项 */
           <div className="config-section">

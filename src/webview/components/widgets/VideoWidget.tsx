@@ -10,7 +10,12 @@ export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers 
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gifCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [gifRendered, setGifRendered] = useState(false);
   const fileName = videoPath ? videoPath.split('/').pop() : '';
+
+  // GIF 文件不能用 <video> 播放，用 canvas 截取第一帧作为静态预览
+  const isGifSource = videoPath ? /\.gif$/i.test(videoPath) : false;
 
   const conversionConfig = useDesignerStore(state => state.conversionConfig);
   const updateComponent = useDesignerStore(state => state.updateComponent);
@@ -214,7 +219,7 @@ export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers 
 
   // 当浏览器无法解码视频时（如 .hgv 等专有格式），从后端 FFprobe 获取尺寸作为 fallback
   useEffect(() => {
-    if (!videoPath) return;
+    if (!videoPath || isGifSource) return;
     const vscodeAPI = (window as any).vscodeAPI;
     if (!vscodeAPI) return;
 
@@ -230,7 +235,33 @@ export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers 
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [videoPath]);
+  }, [videoPath, isGifSource]);
+
+  // GIF 源：加载图片，截取第一帧到 canvas（静态预览，不播放动画）
+  useEffect(() => {
+    if (!isGifSource || !webviewUri) return;
+    setGifRendered(false);
+    setNaturalSize(null);
+
+    const img = new Image();
+    img.onload = () => {
+      const { naturalWidth: w, naturalHeight: h } = img;
+      // 更新自然尺寸（用于组件宽高同步）
+      setNaturalSize({ w, h });
+      // 立即绘制到 canvas 捕获第一帧
+      const canvas = gifCanvasRef.current;
+      if (!canvas) return;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        setGifRendered(true);
+      }
+    };
+    img.onerror = () => setError(true);
+    img.src = webviewUri;
+  }, [isGifSource, webviewUri]);
 
   // 当输出尺寸改变时，自动同步组件宽高
   useEffect(() => {
@@ -267,8 +298,36 @@ export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers 
     );
   }
 
+  // GIF 源文件：用 canvas 截取第一帧作为静态预览
+  if (isGifSource) {
+    const containerStyle: React.CSSProperties = { ...style, overflow: 'hidden' };
+    return (
+      <div key={component.id} style={containerStyle} {...handlers}>
+        {gifRendered ? (
+          <canvas
+            ref={gifCanvasRef}
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+          />
+        ) : (
+          <>
+            {/* 隐藏的 canvas 用于 gif 截帧（需要先挂载到 DOM 才能被 useEffect 写入） */}
+            <canvas ref={gifCanvasRef} style={{ display: 'none' }} />
+            <div style={{
+              width: '100%', height: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#1a1a2e', color: '#888', fontSize: '12px', flexDirection: 'column'
+            }}>
+              <div style={{ fontSize: '32px', marginBottom: '4px' }}>🎬</div>
+              <div>{fileName}</div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div key={component.id} style={style} {...handlers}>
+    <div key={component.id} style={{ ...style, overflow: 'hidden' }} {...handlers}>
       {/* 隐藏的 video 元素，仅用于提取首帧 */}
       <video
         ref={videoRef}
@@ -287,7 +346,7 @@ export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers 
       {naturalSize ? (
         <canvas
           ref={canvasRef}
-          style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
         />
       ) : (
         <div style={{

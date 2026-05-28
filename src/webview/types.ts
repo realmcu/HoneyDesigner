@@ -182,7 +182,7 @@ export type TargetFormat =
  * - H264: H.264 编码格式
  * - inherit: 继承父文件夹设置（仅用于视频文件）
  */
-export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'inherit';
+export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'MSV1' | 'inherit';
 
 /**
  * 压缩方式枚举
@@ -313,6 +313,8 @@ export interface ItemSettings {
   dither?: boolean;
   /** 字体：不转换格式，直接拷贝原文件 */
   fontCopyOnly?: boolean;
+  /** GIF 文件处理模式：true=作为视频转换，false/undefined=作为图片处理（默认） */
+  gifAsVideo?: boolean;
   /** 资源部署方式（仅 LVGL 项目使用，HoneyGUI 项目忽略此字段） */
   deployment?: DeploymentMode;
 }
