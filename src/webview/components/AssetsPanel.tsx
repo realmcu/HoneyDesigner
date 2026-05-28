@@ -23,6 +23,33 @@ const MODEL_DEP_EXTS = ['mtl', 'bin'];  // 3D 模型依赖文件（材质文件�
 
 type AssetCategory = 'all' | 'images' | 'svgs' | 'videos' | 'models' | 'fonts' | 'glass' | 'lottie' | 'trmap';
 
+// GIF 静帧预览组件（使用 canvas 捕获第一帧，避免自动播放）
+const GifPreview: React.FC<{ src: string; alt: string }> = React.memo(({ src, alt }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = src;
+  }, [src]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      title={alt}
+      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+    />
+  );
+});
+
 // 视频预览组件
 const VideoPreview: React.FC<{ videoPath: string }> = ({ videoPath }) => {
   const [error, setError] = useState(false);
@@ -653,7 +680,8 @@ const AssetsPanel: React.FC = () => {
 
   const renderAssetItem = (asset: AssetFile) => {
     const ext = getFileExt(asset.name);
-    const isImage = IMAGE_EXTS.includes(ext) || SVG_EXTS.includes(ext);
+    const isGif = ext === 'gif';
+    const isImage = (IMAGE_EXTS.includes(ext) || SVG_EXTS.includes(ext)) && !isGif;
     const isVideo = VIDEO_EXTS.includes(ext);
     const isModel = MODEL_EXTS.includes(ext);
     const isFont = FONT_EXTS.includes(ext);
@@ -677,11 +705,13 @@ const AssetsPanel: React.FC = () => {
           // 设置自定义拖拽图像，只显示预览区域，不包含文件名
           const previewEl = e.currentTarget.querySelector('.asset-preview') as HTMLElement;
           if (previewEl) {
-            // 获取预览区域内的图片或其他元素
+            // 优先使用 img，其次使用 canvas（GIF 静帧）
             const imgEl = previewEl.querySelector('img');
+            const canvasEl = previewEl.querySelector('canvas');
             if (imgEl && imgEl.complete && imgEl.naturalWidth > 0) {
-              // 使用图片本身作为拖拽图像
               e.dataTransfer.setDragImage(imgEl, imgEl.width / 2, imgEl.height / 2);
+            } else if (canvasEl && canvasEl.width > 0) {
+              e.dataTransfer.setDragImage(canvasEl, canvasEl.width / 2, canvasEl.height / 2);
             } else {
               // 对于非图片资源，使用预览区域
               e.dataTransfer.setDragImage(previewEl, previewEl.offsetWidth / 2, previewEl.offsetHeight / 2);
@@ -690,6 +720,7 @@ const AssetsPanel: React.FC = () => {
         }}
       >
         <div className="asset-preview">
+          {isGif && <GifPreview src={asset.path} alt={asset.name} />}
           {isImage && (
             <img
               src={asset.path}

@@ -2225,8 +2225,8 @@ export class AssetManager extends EventEmitter {
                         if (info.videoTracks && info.videoTracks.length > 0) {
                             const track = info.videoTracks[0];
                             resolve({
-                                width: track.track_width || 320,
-                                height: track.track_height || 240
+                                width: Math.round(track.track_width) || 320,
+                                height: Math.round(track.track_height) || 240
                             });
                         } else {
                             resolve({ width: 320, height: 240 });
@@ -2291,8 +2291,8 @@ export class AssetManager extends EventEmitter {
                 if (info.videoTracks && info.videoTracks.length > 0) {
                     const track = info.videoTracks[0];
                     videoSize = {
-                        width: track.track_width || 320,
-                        height: track.track_height || 240
+                        width: Math.round(track.track_width) || 320,
+                        height: Math.round(track.track_height) || 240
                     };
                 }
             };
