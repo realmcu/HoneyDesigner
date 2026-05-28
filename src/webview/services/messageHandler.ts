@@ -486,20 +486,6 @@ export const handleBackendMessage = (
       // 资源加载完成，由 AssetsPanel 处理
       break;
 
-    case 'undoRedoState':
-      // 更新撤销/重做状态
-      if (typeof message.canUndo === 'boolean') {
-        // 通过 store 的 undoStack/redoStack 长度来表示状态
-        // 这里用一个简单的方式：设置一个标记数组
-        const { set } = require('../store').useDesignerStore.getState();
-        // 直接更新 store 状态
-        require('../store').useDesignerStore.setState({
-          undoStack: message.canUndo ? ['placeholder'] : [],
-          redoStack: message.canRedo ? ['placeholder'] : []
-        });
-      }
-      break;
-
     default:
       // 未知消息类型
       break;

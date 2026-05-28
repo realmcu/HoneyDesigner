@@ -748,6 +748,15 @@ const App: React.FC = () => {
             console.log('[Webview App] 远程删除组件:', message.componentId);
           }
           break;
+
+        case 'undoRedoState':
+          if (typeof message.canUndo === 'boolean') {
+            useDesignerStore.setState({
+              undoStack: message.canUndo ? ['placeholder'] : [],
+              redoStack: message.canRedo ? ['placeholder'] : [],
+            });
+          }
+          break;
       }
     });
 
