@@ -1,5 +1,5 @@
 import React from 'react';
-import { WidgetProps } from './types';
+import { WidgetProps, widgetMemo } from './types';
 import { ButtonWidget } from './ButtonWidget';
 import { LabelWidget } from './LabelWidget';
 import { TimeLabelWidget } from './TimeLabelWidget';
@@ -31,41 +31,41 @@ import { ClawFaceWidget } from './ClawFaceWidget';
 import { MenuCellularWidget } from './MenuCellularWidget';
 import { QbcodeWidget } from './QbcodeWidget';
 
-export { WidgetProps } from './types';
+export { WidgetProps, widgetMemo } from './types';
 
 /**
  * 组件类型到控件的映射
  */
 export const widgetRegistry: Record<string, React.FC<WidgetProps>> = {
-  hg_button: ButtonWidget,
-  hg_label: LabelWidget,
-  hg_time_label: TimeLabelWidget,
-  hg_timer_label: TimerLabelWidget,
-  hg_input: InputWidget,
-  hg_checkbox: CheckboxWidget,
-  hg_radio: RadioWidget,
-  hg_progressbar: ProgressBarWidget,
-  hg_slider: SliderWidget,
-  hg_switch: SwitchWidget,
-  hg_view: ContainerWidget,
-  hg_window: ContainerWidget,
-  hg_image: ImageWidget,
-  hg_gif: GifWidget,
-  hg_canvas: CanvasWidget,
-  hg_list: ListWidget,
-  hg_list_item: ListItemWidget,
-  hg_video: VideoWidget,
-  hg_3d: Model3DWidget,
-  hg_arc: ArcWidget,
-  hg_circle: CircleWidget,
-  hg_rect: RectWidget,
-  hg_svg: SvgWidget,
-  hg_glass: GlassWidget,
-  hg_lottie: LottieWidget,
-  hg_particle: ParticleWidget,
-  hg_map: MapWidget,
-  hg_openclaw: OpenClawWidget,
-  hg_claw_face: ClawFaceWidget,
-  hg_menu_cellular: MenuCellularWidget,
-  hg_qbcode: QbcodeWidget,
+  hg_button: widgetMemo(ButtonWidget),
+  hg_label: widgetMemo(LabelWidget),
+  hg_time_label: widgetMemo(TimeLabelWidget),
+  hg_timer_label: widgetMemo(TimerLabelWidget),
+  hg_input: widgetMemo(InputWidget),
+  hg_checkbox: widgetMemo(CheckboxWidget),
+  hg_radio: widgetMemo(RadioWidget),
+  hg_progressbar: widgetMemo(ProgressBarWidget),
+  hg_slider: widgetMemo(SliderWidget),
+  hg_switch: widgetMemo(SwitchWidget),
+  hg_view: widgetMemo(ContainerWidget),
+  hg_window: widgetMemo(ContainerWidget),
+  hg_image: widgetMemo(ImageWidget),
+  hg_gif: widgetMemo(GifWidget),
+  hg_canvas: widgetMemo(CanvasWidget),
+  hg_list: widgetMemo(ListWidget),
+  hg_list_item: widgetMemo(ListItemWidget),
+  hg_video: widgetMemo(VideoWidget),
+  hg_3d: widgetMemo(Model3DWidget),
+  hg_arc: widgetMemo(ArcWidget),
+  hg_circle: widgetMemo(CircleWidget),
+  hg_rect: widgetMemo(RectWidget),
+  hg_svg: widgetMemo(SvgWidget),
+  hg_glass: widgetMemo(GlassWidget),
+  hg_lottie: widgetMemo(LottieWidget),
+  hg_particle: widgetMemo(ParticleWidget),
+  hg_map: widgetMemo(MapWidget),
+  hg_openclaw: widgetMemo(OpenClawWidget),
+  hg_claw_face: widgetMemo(ClawFaceWidget),
+  hg_menu_cellular: widgetMemo(MenuCellularWidget),
+  hg_qbcode: widgetMemo(QbcodeWidget),
 };

@@ -383,6 +383,58 @@ export const createLottieComponentAtPosition = (
   return lottieId;
 };
 
+  // ============ 统一的 createXComponent 消息处理 ============
+
+  type CreateComponentFactory = (
+    path: string,
+    dropPosition: { x: number; y: number },
+    targetContainerId: string,
+    components: Component[],
+    addComponent: (component: Component) => void,
+    size?: { width: number; height: number }
+  ) => string | undefined;
+
+  /**
+   * 创建组件的工厂函数配置映射表
+   */
+  const createComponentConfigs: {
+    command: string;
+    factory: CreateComponentFactory;
+    pathField: string;
+    sizeField?: string;
+  }[] = [
+    { command: 'createImageComponent', factory: createImageComponentAtPosition, pathField: 'imagePath', sizeField: 'imageSize' },
+    { command: 'createGifComponent', factory: createGifComponentAtPosition, pathField: 'gifPath', sizeField: 'imageSize' },
+    { command: 'create3DComponent', factory: create3DComponentAtPosition, pathField: 'modelPath' },
+    { command: 'createVideoComponent', factory: createVideoComponentAtPosition, pathField: 'videoPath', sizeField: 'videoSize' },
+    { command: 'createSvgComponent', factory: createSvgComponentAtPosition, pathField: 'svgPath', sizeField: 'size' },
+    { command: 'createGlassComponent', factory: createGlassComponentAtPosition, pathField: 'glassPath', sizeField: 'size' },
+    { command: 'createLottieComponent', factory: createLottieComponentAtPosition, pathField: 'lottiePath', sizeField: 'size' },
+  ];
+
+  /**
+   * 统一的 createXComponent 消息处理器
+   * 根据 message.command 自动查找对应的工厂函数和路径字段
+   */
+  export function handleCreateComponentMessage(message: any): string | undefined {
+    const config = createComponentConfigs.find(c => c.command === message.command);
+    if (!config) return undefined;
+
+    const path = message[config.pathField];
+    if (!path || !message.targetContainerId || !message.dropPosition) return undefined;
+
+    const size = config.sizeField ? message[config.sizeField] : undefined;
+
+    return config.factory(
+      path,
+      message.dropPosition,
+      message.targetContainerId,
+      useDesignerStore.getState().components,
+      useDesignerStore.getState().addComponent,
+      size
+    );
+  }
+
 /**
  * 处理从后端接收的消息
  */

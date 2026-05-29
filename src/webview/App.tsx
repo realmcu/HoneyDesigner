@@ -15,7 +15,7 @@ import { Component, ComponentType } from './types';
 import useKeyboardShortcuts from './utils/keyboardShortcuts';
 import { generateComponentId } from './utils/componentNaming';
 import { getAbsolutePosition, findComponentAtPosition, isDropTargetType, isContainerType } from './utils/componentUtils';
-import { createImageComponentAtPosition, create3DComponentAtPosition, createVideoComponentAtPosition, createSvgComponentAtPosition, createGlassComponentAtPosition, createLottieComponentAtPosition, createGifComponentAtPosition, createLabelComponentAtPosition } from './services/messageHandler';
+import { handleCreateComponentMessage, createLabelComponentAtPosition } from './services/messageHandler';
 import { processImageFiles } from './utils/fileUtils';
 import { parseObjDependencies, parseMtlDependencies, findDependencyFiles } from './utils/objDependencyParser';
 import { clearUriCache } from './hooks/useWebviewUri';
@@ -215,7 +215,10 @@ const App: React.FC = () => {
         case 'loadHml':
           // 直接使用store方法，避免闭包问题
           const store = useDesignerStore.getState();
-          
+
+          // 切换文件前，确保防抖中的视图状态已写入 localStorage
+          store.flushSaveViewState();
+
           // 记录是否已有组件（区分首次加载和保存后刷新）
           const hadComponentsBefore = store.components.length > 0;
           
@@ -521,60 +524,15 @@ const App: React.FC = () => {
           break;
 
         case 'createImageComponent':
-          if (message.imagePath && message.targetContainerId && message.dropPosition) {
-            const store = useDesignerStore.getState();
-            const newId = createImageComponentAtPosition(
-              message.imagePath,
-              message.dropPosition,
-              message.targetContainerId,
-              store.components,
-              store.addComponent,
-              message.imageSize
-            );
-            if (newId) store.selectComponent(newId);
-          }
-          break;
-
         case 'createGifComponent':
-          if (message.gifPath && message.targetContainerId && message.dropPosition) {
-            const store = useDesignerStore.getState();
-            const newId = createGifComponentAtPosition(
-              message.gifPath,
-              message.dropPosition,
-              message.targetContainerId,
-              store.components,
-              store.addComponent,
-              message.imageSize
-            );
-            if (newId) store.selectComponent(newId);
-          }
-          break;
-
         case 'create3DComponent':
-          if (message.modelPath && message.targetContainerId && message.dropPosition) {
-            const store = useDesignerStore.getState();
-            const newId = create3DComponentAtPosition(
-              message.modelPath,
-              message.dropPosition,
-              message.targetContainerId,
-              store.components,
-              store.addComponent
-            );
-            if (newId) store.selectComponent(newId);
-          }
-          break;
-
         case 'createVideoComponent':
-          if (message.videoPath && message.targetContainerId && message.dropPosition) {
+        case 'createSvgComponent':
+        case 'createGlassComponent':
+        case 'createLottieComponent':
+          {
             const store = useDesignerStore.getState();
-            const newId = createVideoComponentAtPosition(
-              message.videoPath,
-              message.dropPosition,
-              message.targetContainerId,
-              store.components,
-              store.addComponent,
-              message.videoSize
-            );
+            const newId = handleCreateComponentMessage(message);
             if (newId) store.selectComponent(newId);
           }
           break;
@@ -592,51 +550,6 @@ const App: React.FC = () => {
                 }
               });
             }
-          }
-          break;
-
-        case 'createSvgComponent':
-          if (message.svgPath && message.targetContainerId && message.dropPosition) {
-            const store = useDesignerStore.getState();
-            const newId = createSvgComponentAtPosition(
-              message.svgPath,
-              message.dropPosition,
-              message.targetContainerId,
-              store.components,
-              store.addComponent,
-              message.size
-            );
-            if (newId) store.selectComponent(newId);
-          }
-          break;
-
-        case 'createGlassComponent':
-          if (message.glassPath && message.targetContainerId && message.dropPosition) {
-            const store = useDesignerStore.getState();
-            const newId = createGlassComponentAtPosition(
-              message.glassPath,
-              message.dropPosition,
-              message.targetContainerId,
-              store.components,
-              store.addComponent,
-              message.size
-            );
-            if (newId) store.selectComponent(newId);
-          }
-          break;
-
-        case 'createLottieComponent':
-          if (message.lottiePath && message.targetContainerId && message.dropPosition) {
-            const store = useDesignerStore.getState();
-            const newId = createLottieComponentAtPosition(
-              message.lottiePath,
-              message.dropPosition,
-              message.targetContainerId,
-              store.components,
-              store.addComponent,
-              message.size
-            );
-            if (newId) store.selectComponent(newId);
           }
           break;
 

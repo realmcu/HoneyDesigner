@@ -15,6 +15,8 @@ import {
 } from './utils/alignmentUtils';
 import { generateComponentId } from './utils/componentNaming';
 import { findComponentsWithBrokenRefs, isDropTargetType } from './utils/componentUtils';
+import { createCollaborationSlice } from './store/collaboration';
+import { setVSCodeAPIInstance } from './store/vscodeAPI';
 
 // ============ 层级调整辅助函数 ============
 
@@ -156,6 +158,7 @@ export interface DesignerStore extends DesignerState {
   centerViewOnCanvas: (componentId: string) => void;
   fitContentToView: () => void;
   saveViewState: (uiState?: { leftPanelTab?: 'components' | 'assets' | 'tree'; leftPanelVisible?: boolean; rightPanelVisible?: boolean; leftPanelWidth?: number; rightPanelWidth?: number }) => void;
+  flushSaveViewState: () => void;
   restoreViewState: (filePath: string) => { restored: boolean; state?: ViewState };
   
   // View connections
@@ -318,7 +321,120 @@ const viewStateStorage = {
   }
 };
 
-export const useDesignerStore = create<DesignerStore>((set, get) => ({
+/**
+ * RAF 防抖工具函数
+ * 将高频调用合并到下一个 requestAnimationFrame 回调中执行
+ * 用于缩放/平移时延迟写入 localStorage 等非关键操作
+ */
+function createRafDebouncer() {
+  let rafId: number | null = null;
+  let pendingFn: (() => void) | null = null;
+  return {
+    call: (fn: () => void) => {
+      pendingFn = fn;
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        pendingFn?.();
+        pendingFn = null;
+      });
+    },
+    flush: () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+        pendingFn?.();
+        pendingFn = null;
+      }
+    },
+  };
+}
+
+export const useDesignerStore = create<DesignerStore>((set, get) => {
+  // 用于缩放/平移时的防抖保存，避免高频操作反复写入 localStorage
+  const debounceSaveViewState = createRafDebouncer();
+
+  // ============ 共享的组件删除逻辑 ============
+
+  /**
+   * 内部共享删除实现：执行实际的组件删除、清理和消息发送
+   */
+  const removeComponentsImpl = (ids: string[], options?: { sendCoopMessage?: boolean }) => {
+    if (!ids || ids.length === 0) return;
+
+    const state = get();
+
+    // 统计被删除视图中 switchView 引用的清理数量
+    let cleanedCount = 0;
+    const deletedViews = state.components.filter(c => ids.includes(c.id) && c.type === 'hg_view');
+    const deletedViewIds = deletedViews.map(v => v.id);
+
+    if (deletedViews.length > 0) {
+      state.components.forEach(c => {
+        if (c.eventConfigs) {
+          c.eventConfigs.forEach(eventConfig => {
+            eventConfig.actions.forEach(action => {
+              if (action.type === 'switchView' && action.target && deletedViewIds.includes(action.target)) {
+                cleanedCount++;
+              }
+            });
+          });
+        }
+      });
+    }
+
+    // 收集所有被删除的 ID（包含直接子组件）
+    const removedIds = new Set<string>();
+    ids.forEach(fid => {
+      removedIds.add(fid);
+      state.components.forEach(c => {
+        if (c.parent === fid) removedIds.add(c.id);
+      });
+    });
+
+    set((state) => ({
+      components: state.components
+        .filter((c) => !removedIds.has(c.id))
+        .map(c => {
+          // 清理父组件的 children 数组中被删除的引用
+          if (c.children && c.children.some(childId => removedIds.has(childId))) {
+            c = { ...c, children: c.children.filter(childId => !removedIds.has(childId)) };
+          }
+          // 清理 eventConfigs 中的 switchView 引用
+          if (c.eventConfigs && deletedViews.length > 0) {
+            const newEventConfigs = c.eventConfigs.map(eventConfig => ({
+              ...eventConfig,
+              actions: eventConfig.actions.filter(action =>
+                !(action.type === 'switchView' && action.target && deletedViewIds.includes(action.target))
+              )
+            })).filter(eventConfig => eventConfig.actions.length > 0);
+
+            return {
+              ...c,
+              eventConfigs: newEventConfigs.length > 0 ? newEventConfigs : undefined
+            };
+          }
+          return c;
+        })
+    }));
+
+    if (vscodeAPI) {
+      // 协同消息（单个删除时需要广播）
+      if (options?.sendCoopMessage && ids.length === 1) {
+        vscodeAPI.postMessage({ command: 'deleteComponent', componentId: ids[0] });
+      }
+
+      vscodeAPI.postMessage({ command: 'delete', content: { ids, components: get().components } });
+    }
+
+    // 检测断裂的事件引用并返回统计信息
+    const allViewIds = new Set((get().allViews || []).map(v => v.id));
+    const brokenRefs = findComponentsWithBrokenRefs(get().components, allViewIds);
+
+    return { ids, cleanedCount, brokenRefs: brokenRefs.size > 0 ? Array.from(brokenRefs) : [] as string[] };
+  };
+
+  return {
   // State
   components: [],
   projectConfig: null as any, // 项目配置（分辨率等）
@@ -349,14 +465,6 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
   guiVersion: null, // GUI 库版本信息
   selectedAsset: null, // 选中的资源（文件夹或图片）
   conversionConfig: null, // 转换配置
-
-  // Collaboration state (多人协作状态)
-  collaborationRole: 'none' as 'none' | 'host' | 'guest',
-  collaborationStatus: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'hosting',
-  collaborationHostAddress: '',
-  collaborationHostPort: 3000,
-  collaborationPeerCount: 0,
-  collaborationError: null as string | null,
 
   // Actions
   setComponents: (components) => {
@@ -814,74 +922,17 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
       return;
     }
 
-    // 统计清理的引用数量
-    let cleanedCount = 0;
-    if (component.type === 'hg_view') {
-      state.components.forEach(c => {
-        if (c.eventConfigs) {
-          c.eventConfigs.forEach(eventConfig => {
-            eventConfig.actions.forEach(action => {
-              if (action.type === 'switchView' && action.target === id) {
-                cleanedCount++;
-              }
-            });
-          });
-        }
-      });
-    }
+    const result = removeComponentsImpl([id], { sendCoopMessage: true });
 
-    // 收集被删除组件及其子组件的 ID 集合
-    const removedIds = new Set<string>();
-    removedIds.add(id);
-    state.components.forEach(c => {
-      if (c.parent === id) removedIds.add(c.id);
-    });
-
-    set((state) => ({
-      components: state.components
-        .filter((c) => !removedIds.has(c.id))
-        .map(c => {
-          // 清理父组件的 children 数组中被删除的引用
-          if (c.children && c.children.some(childId => removedIds.has(childId))) {
-            c = { ...c, children: c.children.filter(childId => !removedIds.has(childId)) };
-          }
-          // 清理 eventConfigs 中的 switchView 引用
-          if (c.eventConfigs && component.type === 'hg_view') {
-            const newEventConfigs = c.eventConfigs.map(eventConfig => ({
-              ...eventConfig,
-              actions: eventConfig.actions.filter(action => 
-                !(action.type === 'switchView' && action.target === id)
-              )
-            })).filter(eventConfig => eventConfig.actions.length > 0);
-            
-            return {
-              ...c,
-              eventConfigs: newEventConfigs.length > 0 ? newEventConfigs : undefined
-            };
-          }
-          return c;
-        })
-    }));
-    
-    if (vscodeAPI) {
-      // 协同：发送 deleteComponent 消息以便后端广播
-      vscodeAPI.postMessage({ command: 'deleteComponent', componentId: id });
-
-      vscodeAPI.postMessage({ command: 'delete', content: { ids: [id], components: get().components } });
+    if (vscodeAPI && result) {
       let message = `删除控件: ${id}`;
-      if (cleanedCount > 0) {
-        message += `，已清理 ${cleanedCount} 个视图切换引用`;
+      if (result.cleanedCount > 0) {
+        message += `，已清理 ${result.cleanedCount} 个视图切换引用`;
       }
-
-      // 检测断裂的动画引用（含跨文件 view 验证）
-      const allViewIds = new Set((get().allViews || []).map(v => v.id));
-      const brokenRefs = findComponentsWithBrokenRefs(get().components, allViewIds);
-      if (brokenRefs.size > 0) {
-        const brokenIds = Array.from(brokenRefs);
-        message += `\n⚠ 以下控件存在断裂的事件引用: ${brokenIds.join(', ')}`;
-        console.warn(`[事件引用] 删除 ${id} 后产生断裂引用，受影响控件:`, brokenIds);
+      if (result.brokenRefs.length > 0) {
+        message += `\n⚠ 以下控件存在断裂的事件引用: ${result.brokenRefs.join(', ')}`;
+        console.warn(`[事件引用] 删除 ${id} 后产生断裂引用，受影响控件:`, result.brokenRefs);
       }
-
       vscodeAPI.postMessage({ command: 'notify', text: message });
     }
     get().saveToFile();
@@ -889,7 +940,7 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
 
   removeComponents: (ids) => {
     if (!ids || ids.length === 0) return;
-    
+
     // 过滤掉 mainView 和入口视图，不允许删除
     const state = get();
     const filteredIds = ids.filter(id => {
@@ -897,87 +948,30 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
       const isEntry = comp?.type === 'hg_view' && (comp.data?.entry === true || comp.data?.entry === 'true');
       return id !== 'mainView' && !isEntry;
     });
-    
+
     if (filteredIds.length === 0) {
       if (vscodeAPI) {
         vscodeAPI.postMessage({ command: 'notify', text: '主视图(Entry View)不可删除' });
       }
       return;
     }
-    
-    // 统计清理的引用数量
-    let cleanedCount = 0;
-    const deletedViews = state.components.filter(c => filteredIds.includes(c.id) && c.type === 'hg_view');
-    const deletedViewIds = deletedViews.map(v => v.id);
-    
-    if (deletedViews.length > 0) {
-      state.components.forEach(c => {
-        if (c.eventConfigs) {
-          c.eventConfigs.forEach(eventConfig => {
-            eventConfig.actions.forEach(action => {
-              if (action.type === 'switchView' && action.target && deletedViewIds.includes(action.target)) {
-                cleanedCount++;
-              }
-            });
-          });
-        }
-      });
-    }
-    
-    // 收集所有被删除的 ID（包含直接子组件）
-    const removedIds = new Set<string>();
-    filteredIds.forEach(fid => {
-      removedIds.add(fid);
-      state.components.forEach(c => {
-        if (c.parent && filteredIds.includes(c.parent)) removedIds.add(c.id);
-      });
-    });
-    
-    set((state) => ({
-      components: state.components
-        .filter((c) => !removedIds.has(c.id))
-        .map(c => {
-          // 清理父组件的 children 数组中被删除的引用
-          if (c.children && c.children.some(childId => removedIds.has(childId))) {
-            c = { ...c, children: c.children.filter(childId => !removedIds.has(childId)) };
-          }
-          // 清理 eventConfigs 中的 switchView 引用
-          if (c.eventConfigs && deletedViews.length > 0) {
-            const newEventConfigs = c.eventConfigs.map(eventConfig => ({
-              ...eventConfig,
-              actions: eventConfig.actions.filter(action => 
-                !(action.type === 'switchView' && action.target && deletedViewIds.includes(action.target))
-              )
-            })).filter(eventConfig => eventConfig.actions.length > 0);
-            
-            return {
-              ...c,
-              eventConfigs: newEventConfigs.length > 0 ? newEventConfigs : undefined
-            };
-          }
-          return c;
-        })
-    }));
-    
-    if (vscodeAPI) {
-      vscodeAPI.postMessage({ command: 'delete', content: { ids: filteredIds, components: get().components } });
-      let message = `批量删除控件: ${filteredIds.length} 个`;
+
+    const result = removeComponentsImpl(filteredIds);
+
+    if (vscodeAPI && result) {
+      let message: string;
       if (filteredIds.length < ids.length) {
         message = '根视图已跳过，其他组件已删除';
+      } else {
+        message = `批量删除控件: ${filteredIds.length} 个`;
       }
-      if (cleanedCount > 0) {
-        message += `，已清理 ${cleanedCount} 个视图切换引用`;
+      if (result.cleanedCount > 0) {
+        message += `，已清理 ${result.cleanedCount} 个视图切换引用`;
       }
-
-      // 检测断裂的动画引用（含跨文件 view 验证）
-      const allViewIds2 = new Set((get().allViews || []).map(v => v.id));
-      const brokenRefs = findComponentsWithBrokenRefs(get().components, allViewIds2);
-      if (brokenRefs.size > 0) {
-        const brokenIds = Array.from(brokenRefs);
-        message += `\n⚠ 以下控件存在断裂的事件引用: ${brokenIds.join(', ')}`;
-        console.warn(`[事件引用] 批量删除后产生断裂引用，受影响控件:`, brokenIds);
+      if (result.brokenRefs.length > 0) {
+        message += `\n⚠ 以下控件存在断裂的事件引用: ${result.brokenRefs.join(', ')}`;
+        console.warn(`[事件引用] 批量删除后产生断裂引用，受影响控件:`, result.brokenRefs);
       }
-
       vscodeAPI.postMessage({ command: 'notify', text: message });
     }
     get().saveToFile();
@@ -1004,13 +998,13 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
   // Canvas operations
   setZoom: (zoom) => {
     set({ zoom });
-    // 立即保存视图状态（不使用防抖，确保切换文件前保存）
-    get().saveViewState();
+    // 使用防抖保存视图状态，避免滚轮缩放时频繁写入 localStorage
+    debounceSaveViewState.call(() => get().saveViewState());
   },
   setCanvasOffset: (offset) => {
     set({ canvasOffset: offset });
-    // 立即保存视图状态（不使用防抖，确保切换文件前保存）
-    get().saveViewState();
+    // 使用防抖保存视图状态，避免平移时频繁写入 localStorage
+    debounceSaveViewState.call(() => get().saveViewState());
   },
   setEditingMode: (mode) => set({ editingMode: mode }),
   setCanvasBackgroundColor: (color) => set({ canvasBackgroundColor: color }),
@@ -1039,7 +1033,12 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
       console.log('[ViewState] 保存视图状态:', state.currentFilePath, viewState);
     }
   },
-  
+
+  // 立即执行防抖中的待处理保存（切换文件前调用，确保视图状态已写入 localStorage）
+  flushSaveViewState: () => {
+    debounceSaveViewState.flush();
+  },
+
   // 恢复视图状态
   restoreViewState: (filePath: string) => {
     const savedState = viewStateStorage.get(filePath);
@@ -1223,6 +1222,7 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
   // VSCode communication
   setVSCodeAPI: (api) => {
     vscodeAPI = api;
+    setVSCodeAPIInstance(api);
     set({ vscodeAPI: api });
   },
 
@@ -2277,86 +2277,7 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
     }
   },
 
-  // Collaboration methods (多人协作方法)
-  setCollaborationState: (state) => {
-    set((current) => ({
-      collaborationRole: state.role ?? current.collaborationRole,
-      collaborationStatus: state.status ?? current.collaborationStatus,
-      collaborationHostAddress: state.hostAddress ?? current.collaborationHostAddress,
-      collaborationHostPort: state.hostPort ?? current.collaborationHostPort,
-      collaborationPeerCount: state.peerCount ?? current.collaborationPeerCount,
-      collaborationError: state.error !== undefined ? state.error : current.collaborationError,
-    }));
-  },
-
-  resetCollaborationState: () => {
-    set({
-      collaborationRole: 'none',
-      collaborationStatus: 'disconnected',
-      collaborationHostAddress: '',
-      collaborationHostPort: 3000,
-      collaborationPeerCount: 0,
-      collaborationError: null,
-    });
-  },
-
-  startHost: (port: number) => {
-    set({
-      collaborationStatus: 'connecting',
-      collaborationHostPort: port,
-      collaborationError: null,
-    });
-    if (vscodeAPI) {
-      vscodeAPI.postMessage({
-        command: 'startHost',
-        port: port,
-      });
-    }
-  },
-
-  stopHost: () => {
-    if (vscodeAPI) {
-      vscodeAPI.postMessage({
-        command: 'stopHost',
-      });
-    }
-    set({
-      collaborationRole: 'none',
-      collaborationStatus: 'disconnected',
-      collaborationHostAddress: '',
-      collaborationPeerCount: 0,
-      collaborationError: null,
-    });
-  },
-
-  joinSession: (address: string) => {
-    set({
-      collaborationStatus: 'connecting',
-      collaborationHostAddress: address,
-      collaborationError: null,
-    });
-    if (vscodeAPI) {
-      vscodeAPI.postMessage({
-        command: 'joinSession',
-        address: address,
-      });
-    }
-  },
-
-  leaveSession: () => {
-    if (vscodeAPI) {
-      vscodeAPI.postMessage({
-        command: 'leaveSession',
-      });
-    }
-    set({
-      collaborationRole: 'none',
-      collaborationStatus: 'disconnected',
-      collaborationHostAddress: '',
-      collaborationPeerCount: 0,
-      collaborationError: null,
-    });
-  },
+  ...createCollaborationSlice(set, get),
 
   // 远程增量更新方法（协作模式，不触发保存和广播）
   remoteAddComponent: (component: Component) => {
@@ -2429,7 +2350,8 @@ export const useDesignerStore = create<DesignerStore>((set, get) => ({
       };
     });
   },
-}));
+};
+});
 
 // Helper function to generate unique ID
 export const generateId = (): string => {
