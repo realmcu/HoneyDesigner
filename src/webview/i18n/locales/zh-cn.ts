@@ -618,6 +618,8 @@ const zhCN = {
   'Video format is configured in Assets panel. Select video file to set output format (MJPEG/AVI/H264).': '视频格式在资源面板中配置。选择视频文件可设置输出格式（MJPEG/AVI/H264）。',
   'Mini Video (MSV1)': 'Mini 视频 (MSV1)',
   'Use MSV1 API for video rendering': '使用 MSV1 API 进行视频渲染',
+  'Lite Video (MSV1/Cinepak)': 'Lite 视频 (MSV1/Cinepak)',
+  'Use lite_video widget for AVI (MSV1 or Cinepak) playback': '使用 lite_video 控件播放 AVI（MSV1 或 Cinepak）视频',
   'GIF Mode': 'GIF 处理模式',
   'As Image': '作为图片',
   'As Video': '作为视频',

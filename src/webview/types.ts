@@ -182,7 +182,7 @@ export type TargetFormat =
  * - H264: H.264 编码格式
  * - inherit: 继承父文件夹设置（仅用于视频文件）
  */
-export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'MSV1' | 'inherit';
+export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'MSV1' | 'CINEPAK' | 'inherit';
 
 /**
  * 压缩方式枚举

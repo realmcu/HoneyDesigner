@@ -197,9 +197,9 @@ export const HgVideoProperties: React.FC<PropertyPanelProps> = ({ component, onU
                     onChange={(e) => handlePropertyChange('useMsv1', e.target.checked)}
                     style={{ marginRight: '8px' }}
                   />
-                  {t('Mini Video (MSV1)')}
+                  {t('Lite Video (MSV1/Cinepak)')}
                 </label>
-                <small style={helpTextStyle}>{t('Use MSV1 API for video rendering')}</small>
+                <small style={helpTextStyle}>{t('Use lite_video widget for AVI (MSV1 or Cinepak) playback')}</small>
               </div>
             </CollapsibleGroup>
           </>

@@ -108,10 +108,11 @@ await converter.convert('input.mp4', 'output.avi', OutputFormat.AVI_MJPEG);
 ```typescript
 // 输出格式
 enum OutputFormat {
-  MJPEG     = 'mjpeg',      // 连续 JPEG 帧裸流
-  AVI_MJPEG = 'avi_mjpeg',  // AVI 容器封装，8 字节对齐
-  H264      = 'h264',       // H.264 裸流 + 自定义 32 字节头部
-  AVI_MSV1  = 'avi_msv1',   // Microsoft Video 1，rgb555le，宽高自动 4 倍数对齐
+  MJPEG      = 'mjpeg',       // 连续 JPEG 帧裸流
+  AVI_MJPEG  = 'avi_mjpeg',   // AVI 容器封装，8 字节对齐
+  H264       = 'h264',        // H.264 裸流 + 自定义 32 字节头部
+  AVI_MSV1   = 'avi_msv1',    // Microsoft Video 1，rgb555le，宽高自动 4 倍数对齐
+  AVI_CINEPAK = 'avi_cinepak', // Cinepak，rgb24，宽高自动 4 倍数对齐，支持 GIF 透明
 }
 ```
 
@@ -121,6 +122,7 @@ enum OutputFormat {
 | AVI-MJPEG | `OutputFormat.AVI_MJPEG` | `.avi` | AVI 容器，所有帧 8 字节对齐，含 idx1 索引 |
 | H264 | `OutputFormat.H264` | `.h264` | H.264 裸流 + 自定义 32 字节头部（含分辨率、帧数、帧时间）|
 | AVI-MSV1 | `OutputFormat.AVI_MSV1` | `.avi` | Microsoft Video 1（msvideo1），rgb555le 像素格式，宽高自动对齐为 4 的倍数 |
+| AVI-Cinepak | `OutputFormat.AVI_CINEPAK` | `.avi` | Cinepak 编码，rgb24 像素格式，宽高自动对齐为 4 的倍数，支持 GIF 透明背景合成 |
 
 ```typescript
 
@@ -272,7 +274,7 @@ import {
   VideoConverter,       // 主转换器类
   VideoScaler,          // 独立缩放器类
   VideoCropper,         // 独立裁剪器类
-  OutputFormat,         // 输出格式枚举：MJPEG | AVI_MJPEG | H264 | AVI_MSV1
+  OutputFormat,         // 输出格式枚举：MJPEG | AVI_MJPEG | H264 | AVI_MSV1 | AVI_CINEPAK
   VideoInfo,            // 视频信息接口
   ConversionResult,     // 转换结果接口
   ConversionOptions,    // 转换选项（含 preprocess、scale、debug 等）
@@ -314,6 +316,31 @@ await converter.convert('animation.gif', 'output.avi', OutputFormat.AVI_MSV1, {
 await converter.convert('animation.gif', 'output.avi', OutputFormat.AVI_MSV1, {
   backgroundColor: 'white',
   scale: { width: 320 },  // 内部自动对齐为 4 的倍数
+});
+```
+
+### AVI-Cinepak 转换（含 GIF 背景合成）
+
+```typescript
+import { VideoConverter, OutputFormat } from './video-converter';
+
+const converter = new VideoConverter();
+
+// 普通视频 → Cinepak
+await converter.convert('input.mp4', 'output.avi', OutputFormat.AVI_CINEPAK, {
+  quality: 1,      // 1-31，越小质量越好
+  frameRate: 15,
+});
+
+// GIF（含透明背景）→ Cinepak，背景填充为白色
+await converter.convert('animation.gif', 'output.avi', OutputFormat.AVI_CINEPAK, {
+  backgroundColor: 'white',  // 或 'black'、'#FF0000' 等 CSS 颜色
+});
+
+// GIF → Cinepak，先缩放再转换（宽高自动对齐为 4 的倍数）
+await converter.convert('animation.gif', 'output.avi', OutputFormat.AVI_CINEPAK, {
+  backgroundColor: 'white',
+  scale: { width: 320 },
 });
 ```
 
@@ -654,11 +681,12 @@ your-vscode-extension/
 
 ## 常见问题
 
-### Q: AVI_MSV1 和 AVI_MJPEG 有什么区别？
+### Q: AVI_MSV1、AVI_CINEPAK 和 AVI_MJPEG 有什么区别？
 
 **A**: 
 - **AVI_MJPEG**：每帧为 JPEG 压缩数据，体积更小，质量高，兼容性好，需要 8 字节对齐后处理
 - **AVI_MSV1**：每帧为 RGB555 原始压缩数据，编码器为微软 Video 1，适用于对 MJPEG 不支持的嵌入式场景；宽高必须为 4 的倍数（工具自动对齐）；无需后处理
+- **AVI_CINEPAK**：Cinepak 编码（rgb24 像素），是早期多媒体标准之一，适用于需要 Cinepak 兼容的嵌入式/老式硬件场景；宽高必须为 4 的倍数（工具自动对齐）；支持 GIF 透明背景合成；无需后处理
 
 ### Q: 用户需要安装 FFmpeg 吗？
 

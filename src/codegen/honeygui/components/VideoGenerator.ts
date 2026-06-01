@@ -17,7 +17,7 @@ export class VideoGenerator implements ComponentCodeGenerator {
   private resolveVideoFormat(
     assetPath: string, 
     projectRoot: string
-  ): 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' {
+  ): 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' | 'avi_cinepak' {
     const configService = ConversionConfigService.getInstance();
     const config = configService.loadConfig(projectRoot);
     
@@ -32,7 +32,9 @@ export class VideoGenerator implements ComponentCodeGenerator {
     // Use explicit config if not set to inherit
     if (itemSettings?.videoFormat && itemSettings.videoFormat !== 'inherit') {
       const fmt = itemSettings.videoFormat.toLowerCase();
-      return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
+      if (fmt === 'msv1') { return 'avi_msv1'; }
+      if (fmt === 'cinepak') { return 'avi_cinepak'; }
+      return fmt as 'mjpeg' | 'avi' | 'h264';
     }
     
     // Inherit: look up parent directory config
@@ -43,7 +45,9 @@ export class VideoGenerator implements ComponentCodeGenerator {
       
       if (parentSettings?.videoFormat && parentSettings.videoFormat !== 'inherit') {
         const fmt = parentSettings.videoFormat.toLowerCase();
-        return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
+        if (fmt === 'msv1') { return 'avi_msv1'; }
+        if (fmt === 'cinepak') { return 'avi_cinepak'; }
+        return fmt as 'mjpeg' | 'avi' | 'h264';
       }
     }
     
@@ -54,11 +58,12 @@ export class VideoGenerator implements ComponentCodeGenerator {
   /**
    * Get video output file extension
    */
-  private getVideoOutputExtension(format: 'mjpeg' | 'avi' | 'h264' | 'avi_msv1'): string {
+  private getVideoOutputExtension(format: 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' | 'avi_cinepak'): string {
     switch (format) {
       case 'mjpeg': return '.mjpeg';
       case 'avi':
-      case 'avi_msv1': return '.avi';
+      case 'avi_msv1':
+      case 'avi_cinepak': return '.avi';
       case 'h264': return '.h264';
       default: return '.mjpeg';
     }
@@ -80,8 +85,14 @@ export class VideoGenerator implements ComponentCodeGenerator {
       ? this.resolveVideoFormat(src, context.projectRoot)
       : 'mjpeg';
 
-    // useMsv1=true forces avi_msv1 format
-    const effectiveFormat = useMsv1 ? 'avi_msv1' : format;
+    // useMsv1=true: use gui_lite_video widget (handles MSV1 and Cinepak automatically)
+    // If conversion.json specifies avi_cinepak, keep it; otherwise default to avi_msv1
+    let effectiveFormat = format;
+    if (useMsv1) {
+      if (format !== 'avi_cinepak') {
+        effectiveFormat = 'avi_msv1';
+      }
+    }
 
     // Replace extension based on format
     const outputExt = this.getVideoOutputExtension(effectiveFormat);
@@ -95,18 +106,18 @@ export class VideoGenerator implements ComponentCodeGenerator {
 
     let code: string;
     if (useMsv1) {
-      // MSV1 API
-      code = `${indentStr}${component.id} = gui_msv1_create_from_fs(${parentRef}, "${component.name}", "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
-      code += `${indentStr}gui_msv1_set_frame_rate((gui_msv1_t *)${component.id}, ${frameRate}.f);\n`;
+      // Lite Video API (auto-detects MSV1 or Cinepak codec from AVI header)
+      code = `${indentStr}${component.id} = gui_lite_video_create_from_fs(${parentRef}, "${component.name}", "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
+      code += `${indentStr}gui_lite_video_set_frame_rate((gui_lite_video_t *)${component.id}, ${frameRate}.f);\n`;
 
       if (loop) {
-        code += `${indentStr}gui_msv1_set_repeat_count((gui_msv1_t *)${component.id}, GUI_VIDEO_REPEAT_INFINITE);\n`;
+        code += `${indentStr}gui_lite_video_set_repeat_count((gui_lite_video_t *)${component.id}, GUI_VIDEO_REPEAT_INFINITE);\n`;
       }
 
       if (autoPlay) {
-        code += `${indentStr}gui_msv1_set_state((gui_msv1_t *)${component.id}, GUI_VIDEO_STATE_PLAYING);\n`;
+        code += `${indentStr}gui_lite_video_set_state((gui_lite_video_t *)${component.id}, GUI_VIDEO_STATE_PLAYING);\n`;
       } else {
-        code += `${indentStr}gui_msv1_set_state((gui_msv1_t *)${component.id}, GUI_VIDEO_STATE_INIT);\n`;
+        code += `${indentStr}gui_lite_video_set_state((gui_lite_video_t *)${component.id}, GUI_VIDEO_STATE_INIT);\n`;
       }
     } else {
       // Standard video API

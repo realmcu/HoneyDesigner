@@ -8,6 +8,22 @@
 
 ---
 
+## [1.4.0] - 2026-06-01
+
+### Added
+
+- **AVI-Cinepak 输出格式**：新增 `OutputFormat.AVI_CINEPAK`（`avi_cinepak`），使用 Cinepak（`cinepak`）编码器，像素格式 `rgb24`
+  - 支持通过 `backgroundColor` 参数合成 GIF 透明背景（白色/黑色/任意 CSS 颜色）
+  - 支持 `frameRate`、`quality`（`-q:v 1–31`）参数控制
+  - 自动对齐输出尺寸为 **4 的倍数**（Cinepak 编码器硬性要求，使用 `scale=trunc(iw/4)*4:trunc(ih/4)*4`）
+  - 无需 AviAligner 后处理（Cinepak 与 MSV1 同属原始 RGB 数据格式）
+- **`FFmpegBuilder.buildAviCinepakCmd()`**：构建 Cinepak 命令，包含标准路径（`-vf`）和 backgroundColor 路径（`filter_complex` overlay）
+- CLI 新增 `avi_cinepak` 格式支持，`-f avi_cinepak`
+
+### Fixed
+
+- `buildAviCinepakCmd` backgroundColor 路径：在 `filter_complex` 的 scale 对齐之后追加 `,setsar=1`，消除从 `color=c=` 色源继承的 `SAR 4:3` 元数据。该元数据会导致 Windows 原生 Cinepak 解码器按错误步长读取帧数据，在画面右侧产生黑白条纹
+
 ## [1.3.0] - 2026-05-28
 
 ### Added

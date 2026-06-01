@@ -254,12 +254,12 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       }
     });
 
-    // MSV1 video components require gui_msv1.h
-    const hasMsv1Video = this.components.some(c => 
+    // Lite video components require gui_lite_video.h
+    const hasLiteVideo = this.components.some(c => 
       c.type === 'hg_video' && (c.data?.useMsv1 === true || c.data?.useMsv1 === 'true')
     );
-    if (hasMsv1Video) {
-      code += `#include "gui_msv1.h"\n`;
+    if (hasLiteVideo) {
+      code += `#include "gui_lite_video.h"\n`;
     }
 
     // Particle effect component headers (dynamically generated based on particleEffect value)
@@ -1052,7 +1052,7 @@ static void ${component.id}_breath_anim_cb(void *p)
       case 'hg_qbcode':
         return 'gui_qbcode_t';
       case 'hg_video':
-        return (comp.data?.useMsv1 === true || comp.data?.useMsv1 === 'true') ? 'gui_msv1_t' : 'gui_video_t';
+        return (comp.data?.useMsv1 === true || comp.data?.useMsv1 === 'true') ? 'gui_lite_video_t' : 'gui_video_t';
       default:
         // Other unimplemented components use gui_obj_t
         return 'gui_obj_t';

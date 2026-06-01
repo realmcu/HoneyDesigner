@@ -70,6 +70,7 @@ const FOLDER_VIDEO_FORMAT_OPTIONS: { value: VideoFormat; label: string }[] = [
   { value: 'AVI', label: 'AVI' },
   { value: 'H264', label: 'H264' },
   { value: 'MSV1', label: 'MSV1' },
+  { value: 'CINEPAK', label: 'Cinepak' },
 ];
 
 // 视频文件可用的格式选项（包含继承选项）
@@ -79,6 +80,7 @@ const VIDEO_FORMAT_OPTIONS: { value: VideoFormat; label: string }[] = [
   { value: 'AVI', label: 'AVI' },
   { value: 'H264', label: 'H264' },
   { value: 'MSV1', label: 'MSV1' },
+  { value: 'CINEPAK', label: 'Cinepak' },
 ];
 
 // 压缩方式选项 - HoneyGUI 项目（文件夹用，含继承）

@@ -21,7 +21,7 @@ export type TargetFormat =
 /**
  * 视频目标格式枚举
  */
-export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'MSV1' | 'inherit';
+export type VideoFormat = 'MJPEG' | 'AVI' | 'H264' | 'MSV1' | 'CINEPAK' | 'inherit';
 
 /**
  * 压缩方式枚举

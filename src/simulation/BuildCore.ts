@@ -1534,14 +1534,16 @@ Return('objs')
     private resolveVideoFormat(
         assetPath: string, 
         config: { items: Record<string, { videoFormat?: VideoFormat }> }
-    ): 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' | undefined {
+    ): 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' | 'avi_cinepak' | undefined {
         const normalizedPath = assetPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
         const itemSettings = config.items[normalizedPath];
         
         // 如果有明确配置且不是 inherit，直接使用
         if (itemSettings?.videoFormat && itemSettings.videoFormat !== 'inherit') {
             const fmt = itemSettings.videoFormat.toLowerCase();
-            return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
+            if (fmt === 'msv1') { return 'avi_msv1'; }
+            if (fmt === 'cinepak') { return 'avi_cinepak'; }
+            return fmt as 'mjpeg' | 'avi' | 'h264';
         }
         
         // 需要继承：查找父级配置
@@ -1552,7 +1554,9 @@ Return('objs')
             
             if (parentSettings?.videoFormat && parentSettings.videoFormat !== 'inherit') {
                 const fmt = parentSettings.videoFormat.toLowerCase();
-                return fmt === 'msv1' ? 'avi_msv1' : fmt as 'mjpeg' | 'avi' | 'h264';
+                if (fmt === 'msv1') { return 'avi_msv1'; }
+                if (fmt === 'cinepak') { return 'avi_cinepak'; }
+                return fmt as 'mjpeg' | 'avi' | 'h264';
             }
         }
         
@@ -1818,6 +1822,7 @@ Return('objs')
                 return '.mjpeg';
             case 'avi':
             case 'avi_msv1':
+            case 'avi_cinepak':
                 return '.avi';
             case 'h264':
                 return '.h264';

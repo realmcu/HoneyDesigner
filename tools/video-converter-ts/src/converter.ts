@@ -181,6 +181,8 @@ export class VideoConverter {
         return this.convertToAviMjpeg(inputPath, outputPath, videoInfo, targetFps, quality, debug, backgroundColor);
       case OutputFormat.AVI_MSV1:
         return this.convertToAviMsv1(inputPath, outputPath, videoInfo, targetFps, quality, backgroundColor);
+      case OutputFormat.AVI_CINEPAK:
+        return this.convertToAviCinepak(inputPath, outputPath, videoInfo, targetFps, quality, backgroundColor);
       case OutputFormat.H264:
         return this.convertToH264(inputPath, outputPath, videoInfo, targetFps, quality, backgroundColor);
       default:
@@ -305,6 +307,33 @@ export class VideoConverter {
       inputPath,
       outputPath,
       outputFormat: OutputFormat.AVI_MSV1,
+      frameCount: videoInfo.frameCount,
+      frameRate: targetFps,
+      quality
+    };
+  }
+
+  /**
+   * Convert to AVI-Cinepak format
+   *
+   * No post-processing: AviAligner is JPEG-specific and cannot be applied
+   * to Cinepak (RGB) frame data. FFmpeg output is the final file.
+   */
+  private async convertToAviCinepak(
+    inputPath: string,
+    outputPath: string,
+    videoInfo: VideoInfo,
+    targetFps: number,
+    quality: number,
+    backgroundColor?: string
+  ): Promise<ConversionResult> {
+    const cmd = this.builder.buildAviCinepakCmd(inputPath, outputPath, targetFps, quality, backgroundColor);
+    await this.executor.execute(cmd, videoInfo.frameCount);
+    return {
+      success: true,
+      inputPath,
+      outputPath,
+      outputFormat: OutputFormat.AVI_CINEPAK,
       frameCount: videoInfo.frameCount,
       frameRate: targetFps,
       quality

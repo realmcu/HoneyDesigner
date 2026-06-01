@@ -618,6 +618,8 @@ const en = {
   'Video format is configured in Assets panel. Select video file to set output format (MJPEG/AVI/H264).': 'Video format is configured in Assets panel. Select video file to set output format (MJPEG/AVI/H264).',
   'Mini Video (MSV1)': 'Mini Video (MSV1)',
   'Use MSV1 API for video rendering': 'Use MSV1 API for video rendering',
+  'Lite Video (MSV1/Cinepak)': 'Lite Video (MSV1/Cinepak)',
+  'Use lite_video widget for AVI (MSV1 or Cinepak) playback': 'Use lite_video widget for AVI (MSV1 or Cinepak) playback',
   'GIF Mode': 'GIF Mode',
   'As Image': 'As Image',
   'As Video': 'As Video',

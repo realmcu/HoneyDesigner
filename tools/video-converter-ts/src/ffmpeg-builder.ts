@@ -303,6 +303,67 @@ export class FFmpegBuilder {
   }
 
   /**
+   * Build AVI-Cinepak conversion command (Cinepak codec)
+   *
+   * Cinepak only supports `rgb24` and `gray` pixel formats, and requires
+   * width and height to be multiples of 4.
+   * No audio (-an). No post-processing required.
+   *
+   * Command format (no background):
+   * ffmpeg -i input.mp4 -an [-r fps] -vf "scale=trunc(iw/4)*4:trunc(ih/4)*4"
+   *   -vcodec cinepak -pix_fmt rgb24 -q:v 1 output.avi
+   *
+   * Command format (with background color for transparent GIF):
+   * ffmpeg -i input.gif -f lavfi -i "color=c=white"
+   *   -filter_complex "[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto,scale=trunc(iw/4)*4:trunc(ih/4)*4,setsar=1[out]"
+   *   -map "[out]" -an [-r fps] -vcodec cinepak -pix_fmt rgb24 -q:v 1 output.avi
+   *
+   * @param inputPath - Input video file path
+   * @param outputPath - Output AVI file path
+   * @param frameRate - Target frame rate, undefined to keep original
+   * @param quality - Quality (1-31, 1 is highest), defaults to 1
+   * @param backgroundColor - Optional background color for transparent GIF (FFmpeg color value)
+   * @returns FFmpeg command arguments array
+   */
+  buildAviCinepakCmd(
+    inputPath: string,
+    outputPath: string,
+    frameRate?: number,
+    quality: number = 1,
+    backgroundColor?: string
+  ): string[] {
+    /** Cinepak requires width and height to be multiples of 4 */
+    const cinepakScaleAlign = 'scale=trunc(iw/4)*4:trunc(ih/4)*4';
+
+    if (backgroundColor) {
+      const cmd: string[] = ['ffmpeg', '-i', inputPath];
+      cmd.push('-f', 'lavfi', '-i', `color=c=${backgroundColor}`);
+      cmd.push(
+        '-filter_complex',
+        `[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto,${cinepakScaleAlign},setsar=1[out]`
+      );
+      cmd.push('-map', '[out]');
+      cmd.push('-an');
+      if (frameRate !== undefined) cmd.push('-r', String(frameRate));
+      cmd.push('-vcodec', 'cinepak');
+      cmd.push('-pix_fmt', 'rgb24');
+      cmd.push('-q:v', String(quality));
+      cmd.push(outputPath);
+      return cmd;
+    }
+
+    const cmd: string[] = ['ffmpeg', '-i', inputPath];
+    cmd.push('-an');
+    if (frameRate !== undefined) cmd.push('-r', String(frameRate));
+    cmd.push('-vf', cinepakScaleAlign);
+    cmd.push('-vcodec', 'cinepak');
+    cmd.push('-pix_fmt', 'rgb24');
+    cmd.push('-q:v', String(quality));
+    cmd.push(outputPath);
+    return cmd;
+  }
+
+  /**
    * Build AVI-MSV1 conversion command (Microsoft Video 1 / CRAM codec)
    *
    * The msvideo1 encoder only supports rgb555le pixel format.

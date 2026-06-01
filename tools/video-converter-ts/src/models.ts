@@ -19,6 +19,8 @@ export enum OutputFormat {
   AVI_MJPEG = 'avi_mjpeg',
   /** AVI container with Microsoft Video 1 (MSV1/CRAM) codec, pixel format rgb555le */
   AVI_MSV1 = 'avi_msv1',
+  /** AVI container with Cinepak codec, pixel format rgb24, width/height auto-aligned to multiples of 4 */
+  AVI_CINEPAK = 'avi_cinepak',
   /** H264 raw stream with custom header */
   H264 = 'h264'
 }
