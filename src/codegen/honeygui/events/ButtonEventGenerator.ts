@@ -90,6 +90,10 @@ export class ButtonEventGenerator extends DefaultEventGenerator {
       'onSwipeRight': 'swiped_right',
       'onSwipeUp': 'swiped_up',
       'onSwipeDown': 'swiped_down',
+      'onSwipeLeftQuick': 'swiped_left_quick',
+      'onSwipeRightQuick': 'swiped_right_quick',
+      'onSwipeUpQuick': 'swiped_up_quick',
+      'onSwipeDownQuick': 'swiped_down_quick',
     };
     const suffix = suffixMap[eventType] || 'event';
     return `${componentId}_${suffix}_cb`;

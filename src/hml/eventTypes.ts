@@ -17,6 +17,11 @@ export type EventType =
   | 'onSwipeRight'
   | 'onSwipeUp'
   | 'onSwipeDown'
+  // 边缘快滑事件
+  | 'onSwipeLeftQuick'
+  | 'onSwipeRightQuick'
+  | 'onSwipeUpQuick'
+  | 'onSwipeDownQuick'
   // 状态事件
   | 'onValueChange'
   | 'onCheckedChange'
@@ -70,7 +75,7 @@ export interface EventConfig {
 // ============ 组件支持的事件映射 ============
 
 export const COMPONENT_SUPPORTED_EVENTS: Record<string, EventType[]> = {
-  hg_view: ['onClick', 'onLongPress', 'onTouchDown', 'onTouchUp', 'onKeyShortPress', 'onKeyLongPress', 'onSwipeLeft', 'onSwipeRight', 'onSwipeUp', 'onSwipeDown', 'onShow', 'onHide', 'onMessage'],
+  hg_view: ['onClick', 'onLongPress', 'onTouchDown', 'onTouchUp', 'onKeyShortPress', 'onKeyLongPress', 'onSwipeLeft', 'onSwipeRight', 'onSwipeUp', 'onSwipeDown', 'onSwipeLeftQuick', 'onSwipeRightQuick', 'onSwipeUpQuick', 'onSwipeDownQuick', 'onShow', 'onHide', 'onMessage'],
   hg_window: ['onClick', 'onLongPress', 'onTouchDown', 'onTouchUp', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_button: ['onClick', 'onLongPress', 'onTouchDown', 'onTouchUp', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_image: ['onClick', 'onLongPress', 'onTouchDown', 'onTouchUp', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
@@ -82,7 +87,7 @@ export const COMPONENT_SUPPORTED_EVENTS: Record<string, EventType[]> = {
   hg_progressbar: ['onClick', 'onValueChange', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_input: ['onClick', 'onValueChange', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_canvas: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
-  hg_list: ['onClick', 'onLongPress', 'onSwipeLeft', 'onSwipeRight', 'onSwipeUp', 'onSwipeDown', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
+  hg_list: ['onClick', 'onLongPress', 'onSwipeLeft', 'onSwipeRight', 'onSwipeUp', 'onSwipeDown', 'onSwipeLeftQuick', 'onSwipeRightQuick', 'onSwipeUpQuick', 'onSwipeDownQuick', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_arc: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_rect: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
   hg_svg: ['onClick', 'onLongPress', 'onKeyShortPress', 'onKeyLongPress', 'onMessage'],
@@ -109,6 +114,10 @@ export const EVENT_LABEL_KEYS: Record<EventType, string> = {
   onSwipeRight: 'event.onSwipeRight',
   onSwipeUp: 'event.onSwipeUp',
   onSwipeDown: 'event.onSwipeDown',
+  onSwipeLeftQuick: 'event.onSwipeLeftQuick',
+  onSwipeRightQuick: 'event.onSwipeRightQuick',
+  onSwipeUpQuick: 'event.onSwipeUpQuick',
+  onSwipeDownQuick: 'event.onSwipeDownQuick',
   onValueChange: 'event.onValueChange',
   onCheckedChange: 'event.onCheckedChange',
   onShow: 'event.onShow',

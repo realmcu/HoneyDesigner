@@ -48,6 +48,11 @@ export const EVENT_TYPE_TO_GUI_EVENT: Record<string, string> = {
   'onSwipeRight': 'GUI_EVENT_TOUCH_MOVE_RIGHT',
   'onSwipeUp': 'GUI_EVENT_TOUCH_MOVE_UP',
   'onSwipeDown': 'GUI_EVENT_TOUCH_MOVE_DOWN',
+  // Quick slide events (edge of screen)
+  'onSwipeLeftQuick': 'GUI_EVENT_TOUCH_LEFT_SLIDE_QUICK',
+  'onSwipeRightQuick': 'GUI_EVENT_TOUCH_RIGHT_SLIDE_QUICK',
+  'onSwipeUpQuick': 'GUI_EVENT_TOUCH_UP_SLIDE_QUICK',
+  'onSwipeDownQuick': 'GUI_EVENT_TOUCH_DOWN_SLIDE_QUICK',
 };
 
 /**
@@ -64,6 +69,10 @@ export const EVENT_TYPE_TO_CALLBACK_SUFFIX: Record<string, string> = {
   'onSwipeRight': 'swiped_right',
   'onSwipeUp': 'swiped_up',
   'onSwipeDown': 'swiped_down',
+  'onSwipeLeftQuick': 'swiped_left_quick',
+  'onSwipeRightQuick': 'swiped_right_quick',
+  'onSwipeUpQuick': 'swiped_up_quick',
+  'onSwipeDownQuick': 'swiped_down_quick',
 };
 
 /**

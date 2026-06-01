@@ -350,7 +350,7 @@ function createRafDebouncer() {
   };
 }
 
-export const useDesignerStore = create<DesignerStore>((set, get) => {
+export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   // 用于缩放/平移时的防抖保存，避免高频操作反复写入 localStorage
   const debounceSaveViewState = createRafDebouncer();
 
@@ -2277,7 +2277,7 @@ export const useDesignerStore = create<DesignerStore>((set, get) => {
     }
   },
 
-  ...createCollaborationSlice(set, get),
+  ...createCollaborationSlice(set, get, api),
 
   // 远程增量更新方法（协作模式，不触发保存和广播）
   remoteAddComponent: (component: Component) => {

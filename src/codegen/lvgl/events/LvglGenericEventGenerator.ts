@@ -48,6 +48,10 @@ const SWIPE_DIR_MAP: Record<string, string> = {
   'onSwipeRight': 'LV_DIR_RIGHT',
   'onSwipeUp': 'LV_DIR_TOP',
   'onSwipeDown': 'LV_DIR_BOTTOM',
+  'onSwipeLeftQuick': 'LV_DIR_LEFT',
+  'onSwipeRightQuick': 'LV_DIR_RIGHT',
+  'onSwipeUpQuick': 'LV_DIR_TOP',
+  'onSwipeDownQuick': 'LV_DIR_BOTTOM',
 };
 
 // ============ Generator implementation ============

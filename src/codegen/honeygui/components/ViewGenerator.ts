@@ -16,6 +16,11 @@ const VIEW_SWITCH_EVENT_MAP: Record<string, string> = {
   'onSwipeRight': 'GUI_EVENT_TOUCH_MOVE_RIGHT',
   'onSwipeUp': 'GUI_EVENT_TOUCH_MOVE_UP',
   'onSwipeDown': 'GUI_EVENT_TOUCH_MOVE_DOWN',
+  // Quick slide events (edge of screen)
+  'onSwipeLeftQuick': 'GUI_EVENT_TOUCH_LEFT_SLIDE_QUICK',
+  'onSwipeRightQuick': 'GUI_EVENT_TOUCH_RIGHT_SLIDE_QUICK',
+  'onSwipeUpQuick': 'GUI_EVENT_TOUCH_UP_SLIDE_QUICK',
+  'onSwipeDownQuick': 'GUI_EVENT_TOUCH_DOWN_SLIDE_QUICK',
 };
 
 export class ViewGenerator implements ComponentCodeGenerator {

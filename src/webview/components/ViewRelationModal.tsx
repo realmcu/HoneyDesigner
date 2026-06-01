@@ -34,6 +34,10 @@ const eventTypeToLabel: Record<string, string> = {
   'onSwipeRight': '→',
   'onSwipeUp': '↑',
   'onSwipeDown': '↓',
+  'onSwipeLeftQuick': '⇠',
+  'onSwipeRightQuick': '⇢',
+  'onSwipeUpQuick': '⇡',
+  'onSwipeDownQuick': '⇣',
   'onClick': 'Click',
 };
 
