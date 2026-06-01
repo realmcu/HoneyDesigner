@@ -81,38 +81,26 @@ export class ImageGenerator implements ComponentCodeGenerator {
     // Apply transform if rotation, scale, or explicit focus is set
     if (hasRotation || needScale || hasExplicitFocus) {
       // 1. Translation
-      // Use explicit non-zero translateX/translateY if set
-      // Otherwise, auto-compensate for focus point offset on rotation/focus
+      // Translate = focus point + explicit offset (when both are set)
       const tx = transform?.translateX ?? 0;
       const ty = transform?.translateY ?? 0;
-      const hasNonZeroTranslate = tx !== 0 || ty !== 0;
-      
-      if (hasNonZeroTranslate) {
-        // Non-zero translation values set by user
-        code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, ${tx.toFixed(1)}f, ${ty.toFixed(1)}f);\n`;
-      } else if (hasRotation || hasExplicitFocus) {
-        // Auto-translate to compensate for focus point on rotation/focus
-        if (hasExplicitFocus) {
-          // Focus set by user, translate to focus point
-          const focusX = transform.focusX ?? 0;
-          const focusY = transform.focusY ?? 0;
-          if (needScale) {
-            const scaleX = transform?.scaleX ?? autoScaleX ?? 1.0;
-            const scaleY = transform?.scaleY ?? autoScaleY ?? 1.0;
-            code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, ${focusX.toFixed(1)}f * ${scaleX.toFixed(6)}f, ${focusY.toFixed(1)}f * ${scaleY.toFixed(6)}f);\n`;
-          } else {
-            code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, ${focusX.toFixed(1)}f, ${focusY.toFixed(1)}f);\n`;
-          }
+
+      if (hasExplicitFocus) {
+        const focusX = transform.focusX ?? 0;
+        const focusY = transform.focusY ?? 0;
+        const totalX = focusX + tx;
+        const totalY = focusY + ty;
+        code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, ${totalX.toFixed(1)}f, ${totalY.toFixed(1)}f);\n`;
+      } else if (hasRotation) {
+        // No explicit focus, translate to image center + explicit offset
+        if (tx !== 0 || ty !== 0) {
+          code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, gui_img_get_width((gui_img_t *)${component.id}) / 2.0f + ${tx.toFixed(1)}f, gui_img_get_height((gui_img_t *)${component.id}) / 2.0f + ${ty.toFixed(1)}f);\n`;
         } else {
-          // No focus set, translate to image center
-          if (needScale) {
-            const scaleX = transform?.scaleX ?? autoScaleX ?? 1.0;
-            const scaleY = transform?.scaleY ?? autoScaleY ?? 1.0;
-            code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, gui_img_get_width((gui_img_t *)${component.id}) / 2.0f * ${scaleX.toFixed(6)}f, gui_img_get_height((gui_img_t *)${component.id}) / 2.0f * ${scaleY.toFixed(6)}f);\n`;
-          } else {
-            code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, gui_img_get_width((gui_img_t *)${component.id}) / 2.0f, gui_img_get_height((gui_img_t *)${component.id}) / 2.0f);\n`;
-          }
+          code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, gui_img_get_width((gui_img_t *)${component.id}) / 2.0f, gui_img_get_height((gui_img_t *)${component.id}) / 2.0f);\n`;
         }
+      } else if (tx !== 0 || ty !== 0) {
+        // Translation only, no focus or rotation
+        code += `${indentStr}gui_img_translate((gui_img_t *)${component.id}, ${tx.toFixed(1)}f, ${ty.toFixed(1)}f);\n`;
       }
 
       // 2. Transform center point (focus)

@@ -116,32 +116,24 @@ export const calculateComponentStyle = (
       // CSS transform 从右到左执行，所以顺序是：
       
       // 最后：平移
-      // 如果用户设置了非零的 translate，使用用户值（替代补偿值）
-      // 否则，使用补偿值来抵消 focus 导致的偏移，让预览时图片保持在原位
+      // 补偿 focus 偏移 + 用户显式平移值（两者叠加）
       let totalTx: number;
       let totalTy: number;
-      
+
       // 检查是否有非零的 translate（0 当作未设置）
-      const hasNonZeroTranslate = (t.translateX ?? 0) !== 0 || (t.translateY ?? 0) !== 0;
-      
+      const userTx = t.translateX ?? 0;
+      const userTy = t.translateY ?? 0;
+      const hasNonZeroTranslate = userTx !== 0 || userTy !== 0;
+
       if (hasNonZeroTranslate) {
-        // 用户设置了非零的 translate，使用用户值
-        totalTx = t.translateX ?? 0;
-        totalTy = t.translateY ?? 0;
+        // 用户 translate 叠加到 focus 上
+        totalTx = focusX + userTx;
+        totalTy = focusY + userTy;
       } else {
-        // 没有用户 translate（或为 0），使用补偿值
         totalTx = focusX;
         totalTy = focusY;
-        
-        // 如果有缩放，补偿值需要乘以缩放系数
-        if (hasScale) {
-          const scaleX = t.scaleX ?? 1.0;
-          const scaleY = t.scaleY ?? 1.0;
-          totalTx = focusX * scaleX;
-          totalTy = focusY * scaleY;
-        }
       }
-      
+
       transforms.push(`translate(${totalTx}px, ${totalTy}px)`);
       
       // 旋转
