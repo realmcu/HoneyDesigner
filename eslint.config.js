@@ -1,7 +1,6 @@
 // eslint.config.js
 // Flat config equivalent of .eslintrc.json (CommonJS format)
 const tseslint = require('typescript-eslint');
-const importPlugin = require('eslint-plugin-import');
 const globals = require('globals');
 
 module.exports = [
@@ -16,12 +15,6 @@ module.exports = [
   // Equivalent of "extends: plugin:@typescript-eslint/recommended"
   ...tseslint.configs.recommended,
 
-  // Equivalent of "extends: plugin:import/recommended"
-  importPlugin.flatConfigs.recommended,
-
-  // Equivalent of "extends: plugin:import/typescript"
-  importPlugin.flatConfigs.typescript,
-
   // Equivalent of env, parserOptions, settings, and custom rules
   {
     languageOptions: {
@@ -33,9 +26,6 @@ module.exports = [
         ...globals.browser,
       },
     },
-    settings: {
-      'import/core-modules': ['vscode'],
-    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/ban-ts-comment': 'off',
@@ -44,7 +34,6 @@ module.exports = [
       '@typescript-eslint/no-require-imports': 'off',
       'no-case-declarations': 'off',
       'prefer-const': 'off',
-      'import/no-unresolved': 'off',
       'no-control-regex': 'off',
       'no-useless-escape': 'off',
       'no-empty': 'off',
