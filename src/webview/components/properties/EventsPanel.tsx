@@ -16,6 +16,21 @@ import {
   SWITCH_IN_STYLES,
   KEY_NAMES,
 } from '../../../hml/eventTypes';
+
+const SWIPE_EVENT_TYPES: EventType[] = [
+  'onSwipeLeft', 'onSwipeRight', 'onSwipeUp', 'onSwipeDown',
+];
+
+const SWIPE_MUTEX_PAIRS: Record<string, string> = {
+  'onSwipeLeft': 'onSwipeLeftQuick',
+  'onSwipeLeftQuick': 'onSwipeLeft',
+  'onSwipeRight': 'onSwipeRightQuick',
+  'onSwipeRightQuick': 'onSwipeRight',
+  'onSwipeUp': 'onSwipeUpQuick',
+  'onSwipeUpQuick': 'onSwipeUp',
+  'onSwipeDown': 'onSwipeDownQuick',
+  'onSwipeDownQuick': 'onSwipeDown',
+};
 import { t } from '../../i18n';
 import { isTimerTargetBroken } from '../../utils/componentUtils';
 import { TimerProperties } from './TimerProperties';
@@ -96,6 +111,13 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
   // 添加事件
   const handleAddEvent = () => {
     const usedEvents = new Set(eventConfigs.map(e => e.type));
+    // 同向快滑/慢滑互斥：已配置的事件及其 counterpart 都不可选
+    for (const used of usedEvents) {
+      const counterpart = SWIPE_MUTEX_PAIRS[used];
+      if (counterpart) {
+        usedEvents.add(counterpart as EventType);
+      }
+    }
     const availableEvents = supportedEvents.filter(e => !usedEvents.has(e));
     
     if (availableEvents.length === 0) return;
@@ -120,6 +142,11 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
 
   // 更新事件类型
   const handleEventTypeChange = (index: number, type: EventType) => {
+    // 同向快滑/慢滑互斥检查
+    const counterpart = SWIPE_MUTEX_PAIRS[type];
+    if (counterpart && eventConfigs.some((ec, i) => i !== index && ec.type === counterpart)) {
+      return;
+    }
     const newConfigs = [...eventConfigs];
     newConfigs[index] = { ...newConfigs[index], type };
     if (type === 'onMessage') {
@@ -362,9 +389,16 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
                   value={action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION'}
                   onChange={(e) => handleActionUpdate(eventIndex, actionIndex, { switchOutStyle: e.target.value })}
                 >
-                  {SWITCH_OUT_STYLES.map(s => (
-                    <option key={s.value} value={s.value}>{t(s.labelKey as any)}</option>
-                  ))}
+                  {SWITCH_OUT_STYLES
+                    .filter(s => {
+                      if (SWIPE_EVENT_TYPES.includes(eventConfig.type)) {
+                        return s.value !== 'SWITCH_OUT_NONE_ANIMATION';
+                      }
+                      return true;
+                    })
+                    .map(s => (
+                      <option key={s.value} value={s.value}>{t(s.labelKey as any)}</option>
+                    ))}
                 </select>
               </div>
               <div className="param-row">
@@ -613,9 +647,16 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
                 onClick={(e) => e.stopPropagation()}
                 className="event-type-select"
               >
-                {supportedEvents.map(et => (
-                  <option key={et} value={et}>{t(EVENT_LABEL_KEYS[et] as any)}</option>
-                ))}
+                {supportedEvents.map(et => {
+                  const counterpart = SWIPE_MUTEX_PAIRS[et];
+                  const disabled = counterpart != null
+                    && eventConfigs.some((ec, i) => i !== eventIndex && ec.type === counterpart);
+                  return (
+                    <option key={et} value={et} disabled={disabled}>
+                      {t(EVENT_LABEL_KEYS[et] as any)}
+                    </option>
+                  );
+                })}
               </select>
               <button
                 className="event-remove-btn"
