@@ -235,10 +235,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-interface ConversionConfigPanelProps {
-  // Props can be extended if needed
-}
-
 /**
  * 获取部署方式的显示标签
  */
@@ -255,7 +251,7 @@ const getDeploymentLabel = (deployment: DeploymentMode): string => {
   }
 };
 
-const ConversionConfigPanel: React.FC<ConversionConfigPanelProps> = () => {
+const ConversionConfigPanel: React.FC = () => {
   const selectedAsset = useDesignerStore((state) => state.selectedAsset);
   const conversionConfig = useDesignerStore((state) => state.conversionConfig);
   const updateAssetConfig = useDesignerStore((state) => state.updateAssetConfig);

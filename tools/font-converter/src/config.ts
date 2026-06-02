@@ -7,8 +7,7 @@
 
 import * as fs from 'fs';
 import * as ini from 'ini';
-import { FontConfig, RootConfig, CharacterSetSource, INISettings } from './types';
-import { RenderMode, Rotation, IndexMethod } from './types';
+import { FontConfig, RootConfig, CharacterSetSource, INISettings , RenderMode, Rotation, IndexMethod } from './types';
 import { DEFAULTS, VALIDATION_LIMITS } from './constants';
 import {
   FontConverterError,

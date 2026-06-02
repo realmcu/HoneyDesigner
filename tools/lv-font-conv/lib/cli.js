@@ -342,7 +342,7 @@ List of characters to copy, belongs to previously declared "--font". Examples:
     if (args.font) {
       for (const font of args.font) {
         const index = args_for_opts_string.indexOf(font.source_path);
-        // eslint-disable-next-line max-depth
+         
         if (index > -1) {
           // The addtion of '/' makes it consistent with container usage
           args_for_opts_string[index] = '/' + path.relative(projectRoot, args_for_opts_string[index]);

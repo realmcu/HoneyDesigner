@@ -90,7 +90,7 @@ ${u.long_dump(d.bin, { hex: true, col: cols })}`;
   to_lv_glyph_dsc() {
     this.lv_compile();
 
-    /* eslint-disable max-len */
+     
 
     let result = [ '    {.bitmap_index = 0, .adv_w = 0, .box_w = 0, .box_h = 0, .ofs_x = 0, .ofs_y = 0} /* id = 0 reserved */' ];
 

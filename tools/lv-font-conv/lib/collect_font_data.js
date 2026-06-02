@@ -45,7 +45,7 @@ module.exports = async function collect_font_data(args) {
     let font = fonts_freetype[source_path];
 
     for (let item of ranges) {
-      /* eslint-disable max-depth */
+       
       if (item.range) {
         for (let i = 0; i < item.range.length; i += 3) {
           let range = item.range.slice(i, i + 3);

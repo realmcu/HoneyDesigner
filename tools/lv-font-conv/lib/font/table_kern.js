@@ -230,7 +230,7 @@ class Kern {
     let data = format0_data;
     header.writeUInt8(0, O_FORMAT);
 
-    /* eslint-disable no-console */
+     
 
     if (this.should_use_format3()) {
       data = format3_data;

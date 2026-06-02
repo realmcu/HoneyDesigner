@@ -181,7 +181,7 @@ module.exports.glyph_render = function (face, code, opts = {}) {
     load_flags |= m.FT_LOAD_TARGET_LCD_V;
 
   } else {
-    /* eslint-disable no-lonely-if */
+     
 
     // Use "light" by default, it changes horizontal lines only.
     // "normal" is more strong (with vertical lines), but will break kerning, if

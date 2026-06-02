@@ -50,7 +50,7 @@ module.exports = function cmap_split(all_codepoints) {
       if (all_codepoints[i] - all_codepoints[j] < 256) {
         s = estimate_format0_size(all_codepoints[j], all_codepoints[i]);
 
-        /* eslint-disable max-depth */
+         
         if (prev_dist + s < min.dist) {
           min = {
             dist: prev_dist + s,
@@ -64,7 +64,7 @@ module.exports = function cmap_split(all_codepoints) {
       if (all_codepoints[i] - all_codepoints[j] < 256 && all_codepoints[i] - i === all_codepoints[j] - j) {
         s = estimate_format0_tiny_size(all_codepoints[j], all_codepoints[i]);
 
-        /* eslint-disable max-depth */
+         
         if (prev_dist + s < min.dist) {
           min = {
             dist: prev_dist + s,

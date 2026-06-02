@@ -93,7 +93,7 @@ static const lv_font_fmt_txt_kern_classes_t kern_classes =
 
     if (!f.hasKerning()) return '';
 
-    /* eslint-disable no-console */
+     
 
     if (f.kern.should_use_format3()) {
       if (f.kern.format3_forced) {

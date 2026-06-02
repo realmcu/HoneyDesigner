@@ -78,7 +78,7 @@ module.exports = function compress(bitStream, pixels, options) {
       bitStream.writeBits(p, opts.bpp);
       //debug(`==> ${opts.bpp} bits (val)`);
       for (let i = 0; i < same; i++) {
-        /*eslint-disable max-depth*/
+         
         if (i < same - 1) {
           bitStream.writeBits(1, 1);
           //debug('==> 1 bit (rle repeat)');

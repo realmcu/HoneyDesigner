@@ -85,7 +85,7 @@ ${u.long_dump(d.ids)}
       const u_list = has_charcodes ? `unicode_list_${idx}` : 'NULL';
       const id_list = has_ids ? `glyph_id_ofs_list_${idx}` : 'NULL';
 
-      /* eslint-disable max-len */
+       
       const head = `    {
         .range_start = ${min_code}, .range_length = ${max_code - min_code + 1}, .glyph_id_start = ${start_glyph_id},
         .unicode_list = ${u_list}, .glyph_id_ofs_list = ${id_list}, .list_length = ${entries_count}, .type = ${this.lv_format2enum(format)}

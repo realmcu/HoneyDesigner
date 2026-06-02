@@ -29,7 +29,7 @@ module.exports = function write_images(args, font) {
 
     let png = new PNG({ width: maxX - minX + 1, height: maxY - minY + 1 });
 
-    /* eslint-disable max-depth */
+     
     for (let pos = 0, y = maxY; y >= minY; y--) {
       for (let x = minX; x <= maxX; x++) {
         let value = 0;
