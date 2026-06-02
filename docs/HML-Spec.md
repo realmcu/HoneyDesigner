@@ -506,7 +506,7 @@ Displays an animated GIF file directly (no format conversion; raw GIF data packe
 
 ### 7.7 `hg_video` — Video
 
-Plays a video file using the HoneyGUI video API (standard or MSV1).
+Plays a video file using the HoneyGUI video API (standard or Lite Video).
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -514,16 +514,18 @@ Plays a video file using the HoneyGUI video API (standard or MSV1).
 | `frameRate` | number | 30 | Playback frame rate (FPS) |
 | `autoPlay` | boolean | true | Start playing automatically after creation |
 | `loop` | boolean | false | Repeat playback indefinitely |
-| `useMsv1` | boolean | false | Use `gui_msv1` API instead of `gui_video` (requires AVI-MSV1 format) |
+| `useMsv1` | boolean | false | Use `gui_lite_video` widget for AVI (MSV1 or Cinepak) playback |
 
-**`useMsv1` notes**:
-- When `true`, generates `gui_msv1_create_from_fs()` and `gui_msv1_*` setters; adds `#include "gui_msv1.h"`.
-- The video asset **must** be converted to AVI-MSV1 format (`MSV1` in the Assets panel video format dropdown).
+**`useMsv1` notes** (Lite Video mode):
+- When `true`, generates `gui_lite_video_create_from_fs()` and `gui_lite_video_*` setters; adds `#include "gui_lite_video.h"`.
+- The video asset **must** be converted to AVI-MSV1 or AVI-Cinepak format (set `MSV1` or `Cinepak` in the Assets panel video format dropdown).
+- The `gui_lite_video` widget auto-detects the codec (MSV1 or Cinepak) from the AVI header — no application-level codec selection required.
 - AVI-MSV1 constraints: `msvideo1` codec, `rgb555le` pixel format, width/height must be multiples of 4.
+- AVI-Cinepak constraints: `cinepak` codec, `rgb24` pixel format, width/height must be multiples of 4.
 
 - **Default size**: 200×200
 - **C API (standard)**: `gui_video_create_from_fs`, header: `gui_video.h`
-- **C API (MSV1)**: `gui_msv1_create_from_fs`, header: `gui_msv1.h`
+- **C API (Lite Video)**: `gui_lite_video_create_from_fs`, header: `gui_lite_video.h`
 
 ---
 
@@ -829,7 +831,7 @@ The designer generates C source code from HML. Here is the component-to-API mapp
 | `hg_label` | `gui_text_create` / `gui_scroll_text_create` | `gui_text.h` |
 | `hg_image` | `gui_img_create_from_fs` | `gui_img.h` |
 | `hg_gif` | `gui_gif_create_from_fs` | `gui_gif.h` |
-| `hg_video` | `gui_video_create_from_fs` (or `gui_msv1_create_from_fs` when `useMsv1=true`) | `gui_video.h` / `gui_msv1.h` |
+| `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | `gui_video.h` / `gui_lite_video.h` |
 | `hg_arc` | `gui_arc_create` | `gui_arc.h` |
 | `hg_circle` | `gui_circle_create` | `gui_circle.h` |
 | `hg_rect` | `gui_rect_create` | `gui_rect.h` |
