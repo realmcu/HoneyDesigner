@@ -2,6 +2,33 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.11] - 2026-06-03
+
+### Added
+- hg_video 新增 MSV1 格式视频支持，新增 GIF 视频支持
+- hg_video 新增 Cinepak 编码支持
+- hg_view 事件类型新增「快速滑动」（SWITCH_FAST_SWIPE）
+- hg_view 事件面板优化：事件类型分组展示，新增可视化事件添加交互逻辑
+- 资源管理器新增「用户资源目录」（user resource dir），支持自定义外部资源路径
+
+### Fixed
+- 修复 hg_img 同时设置变换中心与缩放比例时变换不生效的问题
+- 修复 hg_img 修改变换属性后画布预览不刷新的问题
+- 修复工具栏撤销/重做（Undo/Redo）按钮状态异常
+- 补全 hg_view 定时器（timer）相关事件功能
+- 修复 hg_view 滑动模式下可错误选择 `SWITCH_OUT_NONE_ANIMATION` 动画的问题
+- 修复 GIF 静帧预览不显示的问题
+
+### Changed
+- 更新仿真器 GUI 库（libgui.a）：同步最新 `gui_view`/`gui_view_instance` 头文件
+- 更新 HML Spec（增加 view 快速滑动事件类型定义）
+- 性能优化：引入 RAF 防抖减少 zoom/pan 时 localStorage 写入；全部 Widget 组件包裹 `React.memo` 避免无关重渲染
+- 代码质量：统一 `createXComponent` 消息处理器；抽取公共 `removeComponentsImpl` 逻辑；协作状态切片迁移至独立 Zustand slice
+
+### Internal
+- 升级 ESLint v8 → v10，迁移至 Flat Config 格式
+- 替换 `eslint-plugin-import` 为 `eslint-plugin-import-x` 以兼容 ESLint v10
+
 ## [1.7.9] - 2026-05-19
 
 ### Added
