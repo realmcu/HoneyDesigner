@@ -184,12 +184,21 @@ export function normalizeImageKey(source: string): string {
 }
 
 /**
- * Normalize font key (fontFile + fontSize + bpp combination)
- * @param bpp Bits per pixel (render mode), defaults to 4
+ * Normalize font key base (fontFile + fontSize + bpp), without pixelOrder.
+ * Used for conflict detection across different pixelOrder variants.
  */
-export function normalizeFontKey(fontFile: string, fontSize: number, bpp: number = 4): string {
+export function normalizeFontBaseKey(fontFile: string, fontSize: number, bpp: number = 4): string {
   const normalized = fontFile.replace(/\\/g, '/').toLowerCase().trim();
   return `${normalized}@${fontSize}@${bpp}`;
+}
+
+/**
+ * Normalize font key (fontFile + fontSize + bpp + pixelOrder combination)
+ * @param bpp Bits per pixel (render mode), defaults to 4
+ * @param pixelOrder Bit order for glyph bitmap, defaults to 'LSB'
+ */
+export function normalizeFontKey(fontFile: string, fontSize: number, bpp: number = 4, pixelOrder: 'MSB' | 'LSB' = 'LSB'): string {
+  return `${normalizeFontBaseKey(fontFile, fontSize, bpp)}@${pixelOrder}`;
 }
 
 /**
@@ -212,11 +221,14 @@ export function buildImageVarName(source: string): string {
 /**
  * Build font variable name
  * @param bpp Bits per pixel (render mode), defaults to 4
+ * @param pixelOrder Bit order for glyph bitmap, defaults to 'LSB'
  */
-export function buildFontVarName(fontFile: string, fontSize: number, bpp: number = 4): string {
+export function buildFontVarName(fontFile: string, fontSize: number, bpp: number = 4, pixelOrder: 'MSB' | 'LSB' = 'LSB'): string {
   const baseName = path.basename(fontFile, path.extname(fontFile))
     .replace(/[^a-zA-Z0-9_]/g, '_')
     .replace(/^_+|_+$/g, '')
     .replace(/_+/g, '_');
-  return `font_${baseName}_${fontSize}_bpp${bpp}`;
+  // Include pixelOrder suffix only for MSB (LSB is default, omit for backward compatibility)
+  const pixelOrderSuffix = pixelOrder === 'MSB' ? '_msb' : '';
+  return `font_${baseName}_${fontSize}_bpp${bpp}${pixelOrderSuffix}`;
 }

@@ -17,7 +17,7 @@ export interface LvglGeneratorContext {
   /** Get built-in image variable name (images converted to C arrays) - backward compatible, delegates to resources */
   getBuiltinImageVar(source: string): string | undefined;
   /** Get built-in font variable name (fonts converted to LVGL format) - backward compatible, delegates to resources */
-  getBuiltinFontVar(fontFile: string, fontSize: number, bpp?: number): string | null;
+  getBuiltinFontVar(fontFile: string, fontSize: number, bpp?: number, pixelOrder?: 'MSB' | 'LSB'): string | null;
   /** Look up ancestor container's background color */
   getAncestorBackgroundColor(component: Component): string | null;
 }

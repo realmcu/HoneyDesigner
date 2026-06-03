@@ -982,6 +982,10 @@ const en = {
   // GUI Version
   'Branch': 'Branch',
   'Build Date': 'Build Date',
+
+  // Font Pixel Order (LVGL only)
+  'Pixel Order': 'Pixel Order',
+  'Bit order for glyph bitmap': 'Bit order for glyph bitmap in font conversion',
 };
 
 export default en;

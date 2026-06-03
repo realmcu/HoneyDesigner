@@ -984,6 +984,10 @@ const zhCN = {
   // GUI Version
   'Branch': '分支',
   'Build Date': '构建日期',
+
+  // Font Pixel Order (LVGL only)
+  'Pixel Order': '像素序',
+  'Bit order for glyph bitmap': '字体转换时字形位图的位序',
 };
 
 export default zhCN;

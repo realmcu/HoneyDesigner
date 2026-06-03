@@ -108,8 +108,8 @@ export class LvglResourceManager {
   }
 
   /** Get C variable name for a converted font */
-  getFontVar(fontFile: string, fontSize: number, bpp: number = 4): string | null {
-    return this.fontConverter.getBuiltinFontVar(fontFile, fontSize, bpp);
+  getFontVar(fontFile: string, fontSize: number, bpp: number = 4, pixelOrder: 'MSB' | 'LSB' = 'LSB'): string | null {
+    return this.fontConverter.getBuiltinFontVar(fontFile, fontSize, bpp, pixelOrder);
   }
 
   /** Get list of all converted image variable names (c-array only) */

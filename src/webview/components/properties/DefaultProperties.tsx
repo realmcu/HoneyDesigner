@@ -36,6 +36,11 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   
   const definition = componentDefinitions.find((d) => d.type === component.type);
   const syncListItems = useDesignerStore((state) => state.syncListItems);
+  
+  // 获取项目目标引擎，判断是否是 LVGL 项目
+  const projectConfig = useDesignerStore((state) => state.projectConfig);
+  const targetEngine = projectConfig?.targetEngine || 'honeygui';
+  const isLvglProject = targetEngine === 'lvgl';
 
   const handleStyleChange = (property: string, value: any) => {
     onUpdate({
@@ -1427,6 +1432,24 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                     />
                     <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
                       {(component.data as any)?.renderMode || '4'}-bit {t('grayscale')}
+                    </span>
+                  </div>
+                )}
+                {/* 像素序 - 仅 LVGL 项目且定义了 renderMode 属性且点阵字体时显示 */}
+                {isLvglProject && definition.properties.some(p => p.name === 'renderMode') && ((component.data as any)?.fontType || 'bitmap') === 'bitmap' && (
+                  <div className="property-item">
+                    <label>{t('Pixel Order')}</label>
+                    <PropertyEditor
+                      type="select"
+                      value={(component.data as any)?.pixelOrder || 'LSB'}
+                      onChange={(value) => handleDataChange('pixelOrder', value)}
+                      options={[
+                        { value: 'LSB', label: 'LSB (Least Significant Bit first)' },
+                        { value: 'MSB', label: 'MSB (Most Significant Bit first)' },
+                      ]}
+                    />
+                    <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
+                      {t('Bit order for glyph bitmap')}
                     </span>
                   </div>
                 )}

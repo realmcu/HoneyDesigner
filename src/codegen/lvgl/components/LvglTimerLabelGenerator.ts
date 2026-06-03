@@ -34,7 +34,8 @@ export class LvglTimerLabelGenerator extends LvglBaseGenerator {
 
     // Font
     const bpp = Number((component.data as any)?.renderMode || 4);
-    const customFontVar = fontFile ? ctx.getBuiltinFontVar(String(fontFile), fontSize, bpp) : null;
+    const pixelOrder = (component.data as any)?.pixelOrder === 'MSB' ? 'MSB' : 'LSB';
+    const customFontVar = fontFile ? ctx.getBuiltinFontVar(String(fontFile), fontSize, bpp, pixelOrder) : null;
     if (customFontVar) {
       code += `    lv_obj_set_style_text_font(${component.id}, &${customFontVar}, LV_PART_MAIN);\n`;
     } else {

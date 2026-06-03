@@ -11,7 +11,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { spawnSync } from 'child_process';
 import { Component } from '../../../hml/types';
-import { normalizeFontKey, buildFontVarName } from '../LvglUtils';
+import { normalizeFontKey, normalizeFontBaseKey, buildFontVarName } from '../LvglUtils';
 
 interface CharacterSetSource {
   type: 'range' | 'string' | 'file' | 'codepage';
@@ -23,6 +23,10 @@ interface FontManifestEntry {
   varName: string;
   fontFile: string;
   fontSize: number;
+  /** Bits per pixel (render mode): 1, 2, 4, or 8 */
+  bpp: number;
+  /** Bit order for glyph bitmap: MSB (default) or LSB */
+  pixelOrder: 'MSB' | 'LSB';
   /** SHA-256 hash of the sorted character set string */
   charsHash: string;
   /** mtime of the source font file at conversion time */
@@ -40,8 +44,8 @@ export class LvglFontConverter {
   private builtinFontVars: string[] = [];
 
   /** Get converted font variable name */
-  getBuiltinFontVar(fontFile: string, fontSize: number, bpp: number = 4): string | null {
-    const key = normalizeFontKey(fontFile, fontSize, bpp);
+  getBuiltinFontVar(fontFile: string, fontSize: number, bpp: number = 4, pixelOrder: 'MSB' | 'LSB' = 'LSB'): string | null {
+    const key = normalizeFontKey(fontFile, fontSize, bpp, pixelOrder);
     return this.builtinFontVarMap.get(key) || null;
   }
 
@@ -78,7 +82,7 @@ export class LvglFontConverter {
     // Build the set of varNames that are currently needed
     const neededVarNames = new Set<string>();
     for (const config of fontConfigs) {
-      neededVarNames.add(buildFontVarName(config.fontFile, config.fontSize, config.bpp));
+      neededVarNames.add(buildFontVarName(config.fontFile, config.fontSize, config.bpp, config.pixelOrder));
     }
 
     // Remove orphaned font_*.c files
@@ -96,8 +100,8 @@ export class LvglFontConverter {
         continue;
       }
 
-      const varName = buildFontVarName(config.fontFile, config.fontSize, config.bpp);
-      const key = normalizeFontKey(config.fontFile, config.fontSize, config.bpp);
+      const varName = buildFontVarName(config.fontFile, config.fontSize, config.bpp, config.pixelOrder);
+      const key = normalizeFontKey(config.fontFile, config.fontSize, config.bpp, config.pixelOrder);
       const charsHash = this.hashString(config.characters);
       const fontMtimeMs = this.getFileMtime(inputPath);
       const outputFile = path.join(fontOutputDir, `${varName}.c`);
@@ -108,6 +112,8 @@ export class LvglFontConverter {
         && oldEntry.varName === varName
         && oldEntry.charsHash === charsHash
         && oldEntry.fontMtimeMs === fontMtimeMs
+        && oldEntry.bpp === config.bpp
+        && oldEntry.pixelOrder === config.pixelOrder
         && fs.existsSync(outputFile)) {
         // Up-to-date, just register the mapping
         this.builtinFontVarMap.set(key, varName);
@@ -117,15 +123,24 @@ export class LvglFontConverter {
         continue;
       }
 
-      console.log(`[LvglFontConverter] Converting font: ${config.fontFile}, size: ${config.fontSize}, bpp: ${config.bpp}, chars(${config.characters.length}): "${config.characters.substring(0, 80)}${config.characters.length > 80 ? '...' : ''}"`);
-      const extendedOpts = config.pixelOrder === 'LSB'
-        ? { pixelOrder: 'LSB' as const, noCompress: true, extractGlyphBitmap: true }
-        : undefined;
+      console.log(`[LvglFontConverter] Converting font: ${config.fontFile}, size: ${config.fontSize}, bpp: ${config.bpp}, pixelOrder: ${config.pixelOrder}, chars(${config.characters.length}): "${config.characters.substring(0, 80)}${config.characters.length > 80 ? '...' : ''}"`);
+      // Note: --extract-glyph-bitmap is temporarily disabled because the generated .c file
+      // uses #warning to prompt for FONT_xxx_GLYPH_BITMAP_BIN macro, but doesn't include
+      // ui_resource.h where the macro is defined. This causes compilation warnings.
+      // TODO: Re-enable after fixing lv_font_conv to add #include "ui_resource.h"
+      //
+      // Note: --pixel-order LSB requires --no-compress (enforced by lv_font_conv cli.js).
+      // --stride 1 is required for LSB only: the RTK draw unit checks `fdsc->stride`
+      // (lv_draw_rtk.c rtk_evaluate) and falls back to SW renderer without it, which
+      // assumes MSB and produces misaligned glyphs. MSB fonts work without stride.
+      const extendedOpts = config.pixelOrder === 'MSB'
+        ? { pixelOrder: 'MSB' as const, noCompress: true }
+        : { pixelOrder: 'LSB' as const, noCompress: true, stride: 1 };
       const success = this.convertFontToLvgl(inputPath, fontOutputDir, varName, config.fontSize, config.bpp, config.characters, srcDir, extendedOpts);
       if (success) {
         this.builtinFontVarMap.set(key, varName);
         this.builtinFontVars.push(varName);
-        newManifest.entries[key] = { varName, fontFile: config.fontFile, fontSize: config.fontSize, charsHash, fontMtimeMs };
+        newManifest.entries[key] = { varName, fontFile: config.fontFile, fontSize: config.fontSize, bpp: config.bpp, pixelOrder: config.pixelOrder, charsHash, fontMtimeMs };
       }
     }
 
@@ -193,12 +208,14 @@ export class LvglFontConverter {
    * Collect font configurations used by all text-bearing components
    * (hg_label, hg_time_label, hg_timer_label, hg_checkbox, hg_radio)
    * Includes text characters + additional character sets (range, string, file, codepage)
-   * Groups by (fontFile, fontSize, bpp) to avoid overwriting when different renderModes are used.
+   * Groups by (fontFile, fontSize, bpp, pixelOrder) to avoid overwriting.
+   * Warns if the same font has conflicting pixelOrder settings.
    */
-  private collectFontConfigs(components: Component[], projectRoot: string): Array<{ fontFile: string; fontSize: number; bpp: number; characters: string; pixelOrder?: 'MSB' | 'LSB' }> {
+  private collectFontConfigs(components: Component[], projectRoot: string): Array<{ fontFile: string; fontSize: number; bpp: number; characters: string; pixelOrder: 'MSB' | 'LSB' }> {
     const fontExts = new Set(['.ttf', '.otf', '.woff', '.woff2']);
     /** Component types that support custom fonts */
     const fontComponentTypes = new Set(['hg_label', 'hg_time_label', 'hg_timer_label', 'hg_checkbox', 'hg_radio']);
+    // Key: (fontFile, fontSize, bpp), Value: config with pixelOrder tracking
     const seen = new Map<string, {
       fontFile: string;
       fontSize: number;
@@ -207,6 +224,8 @@ export class LvglFontConverter {
       characters: Set<string>;
       additionalCharSets: Set<string>; // JSON-serialized for dedup
     }>();
+    // Track pixelOrder conflicts: key -> first seen pixelOrder
+    const pixelOrderConflictMap = new Map<string, 'MSB' | 'LSB'>();
 
     for (const component of components) {
       if (!fontComponentTypes.has(component.type)) {
@@ -226,13 +245,24 @@ export class LvglFontConverter {
 
       const fontSize = Number(component.style?.fontSize || component.data?.fontSize || 16);
       const bpp = this.parseRenderMode((component.data as any)?.renderMode);
-      const pixelOrder = (component.data as any)?.pixelOrder === 'LSB' ? 'LSB' as const : 'MSB' as const;
+      const pixelOrder = (component.data as any)?.pixelOrder === 'MSB' ? 'MSB' as const : 'LSB' as const;
       // checkbox/radio may store text in 'text' or 'label' field
       const text = String(component.data?.text || component.data?.label || '');
-      const key = normalizeFontKey(fontFileStr, fontSize, bpp);
+      // Key WITHOUT pixelOrder for conflict detection
+      const baseKey = normalizeFontBaseKey(fontFileStr, fontSize, bpp);
+      // Key WITH pixelOrder for actual dedup
+      const fullKey = normalizeFontKey(fontFileStr, fontSize, bpp, pixelOrder);
 
-      if (seen.has(key)) {
-        const existing = seen.get(key)!;
+      // Check for pixelOrder conflict
+      const firstPixelOrder = pixelOrderConflictMap.get(baseKey);
+      if (firstPixelOrder === undefined) {
+        pixelOrderConflictMap.set(baseKey, pixelOrder);
+      } else if (firstPixelOrder !== pixelOrder) {
+        console.warn(`[LvglFontConverter] Font "${fontFileStr}" size ${fontSize} bpp ${bpp}: conflicting pixelOrder (${firstPixelOrder} vs ${pixelOrder}). Both variants will be generated.`);
+      }
+
+      if (seen.has(fullKey)) {
+        const existing = seen.get(fullKey)!;
         for (const char of text) {
           existing.characters.add(char);
         }
@@ -251,7 +281,7 @@ export class LvglFontConverter {
             additionalCharSets.add(JSON.stringify(cs));
           }
         }
-        seen.set(key, {
+        seen.set(fullKey, {
           fontFile: fontFileStr,
           fontSize,
           bpp,
@@ -438,7 +468,7 @@ export class LvglFontConverter {
     bpp: number,
     characters: string,
     srcDir: string,
-    options?: { pixelOrder?: 'MSB' | 'LSB'; extractGlyphBitmap?: boolean; noCompress?: boolean }
+    options?: { pixelOrder?: 'MSB' | 'LSB'; extractGlyphBitmap?: boolean; noCompress?: boolean; stride?: number }
   ): boolean {
     const toolPath = this.findFontConvTool();
     if (!toolPath) {
@@ -478,6 +508,9 @@ export class LvglFontConverter {
       }
       if (options?.extractGlyphBitmap) {
         args.push('--extract-glyph-bitmap');
+      }
+      if (options?.stride && options.stride > 0) {
+        args.push('--stride', String(options.stride));
       }
 
       const result = spawnSync('node', args, {
