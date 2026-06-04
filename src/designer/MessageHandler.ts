@@ -257,7 +257,7 @@ export class MessageHandler {
                         'honeygui.uartDownload'
                     ];
                     if (needsCompletion.includes(commandId)) {
-                        vscode.commands.executeCommand(commandId).then(
+                        vscode.commands.executeCommand(commandId, message.args).then(
                             () => {
                                 this._panel.webview.postMessage({ command: 'operationComplete', operation: commandId });
                             },
@@ -266,7 +266,7 @@ export class MessageHandler {
                             }
                         );
                     } else {
-                        vscode.commands.executeCommand(commandId);
+                        vscode.commands.executeCommand(commandId, message.args);
                     }
                 }
                 break;

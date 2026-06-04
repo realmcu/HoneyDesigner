@@ -10,6 +10,18 @@ import { HmlController } from '../hml/HmlController';
 import { ProjectUtils } from '../utils/ProjectUtils';
 
 /**
+ * 仿真流程配置：可独立勾选的三个阶段
+ */
+export interface SimulationFlow {
+    /** 资源转换 */
+    convert?: boolean;
+    /** 由 HML 生成 C 代码 */
+    codegen?: boolean;
+    /** 编译并运行仿真器 */
+    simulate?: boolean;
+}
+
+/**
  * 编译仿真运行器
  * 负责完整的编译仿真流程
  */
@@ -43,10 +55,23 @@ export class SimulationRunner {
 
     /**
      * 启动编译仿真
+     *
+     * 流程由 flow 配置控制，可单独勾选以下三个阶段（默认全部启用）：
+     * - convert: 资源转换（图片/字体/视频/3D/romfs）
+     * - codegen: 由 HML 生成 C 代码
+     * - simulate: 编译并运行仿真器
+     * 未勾选的阶段不会执行。
      */
-    async start(options?: { skipCodeGen?: boolean }): Promise<void> {
+    async start(options?: { flow?: SimulationFlow }): Promise<void> {
         this.isCancelled = false;
-        const skipCodeGen = options?.skipCodeGen ?? false;
+        const flow = {
+            convert: options?.flow?.convert ?? true,
+            codegen: options?.flow?.codegen ?? true,
+            simulate: options?.flow?.simulate ?? true,
+        };
+        // 需要准备 build 目录的场景：资源转换（产物输出）或仿真（编译）
+        const needBuildDir = flow.convert || flow.simulate;
+
         try {
             this.listener?.onStart?.();
 
@@ -54,43 +79,68 @@ export class SimulationRunner {
             this.log(`目标引擎: ${targetEngine}`);
 
             if (targetEngine === 'lvgl') {
-                if (!skipCodeGen) {
+                if (flow.codegen) {
                     await this.generateCode();
                     this.throwIfCancelled();
                 } else {
-                    this.log(vscode.l10n.t('Skipping code generation (debug mode)'));
+                    this.log(vscode.l10n.t('Skipping code generation'));
                 }
-                await this.startLvglSimulation();
-                this.isRunning = true;
-                this.listener?.onSuccess?.();
+                // LVGL 的资源转换在仿真流程内部统一完成
+                if (flow.simulate) {
+                    await this.startLvglSimulation();
+                    this.isRunning = true;
+                    this.listener?.onSuccess?.();
+                } else if (flow.convert) {
+                    this.log(vscode.l10n.t('LVGL converts resources during simulation; enable Simulate to convert.'));
+                }
                 return;
             }
 
-            // 1. 环境检查
-            await this.checkEnvironment();
-            this.throwIfCancelled();
+            // 1. 环境检查（资源转换与仿真均依赖工具链）
+            if (needBuildDir) {
+                await this.checkEnvironment();
+                this.throwIfCancelled();
+            }
 
             // 2. 生成代码（所有 HML 文件）
-            if (!skipCodeGen) {
+            if (flow.codegen) {
                 await this.generateCode();
                 this.throwIfCancelled();
             } else {
-                this.log(vscode.l10n.t('Skipping code generation (debug mode)'));
+                this.log(vscode.l10n.t('Skipping code generation'));
             }
 
-            // 3. 准备编译环境
-            await this.setupBuildEnvironment();
-            this.throwIfCancelled();
+            // 3. 准备 build 目录
+            if (needBuildDir) {
+                this.log(vscode.l10n.t('Preparing build environment...'));
+                this.buildManager = new BuildManager(this.projectRoot, this.outputChannel);
+                await this.buildManager.setupBuildDir();
+                this.throwIfCancelled();
+            }
 
-            // 4. 编译
-            await this.compile();
-            this.throwIfCancelled();
+            // 4. 资源转换
+            if (flow.convert) {
+                await this.buildManager!.convertAssets();
+                this.throwIfCancelled();
+            } else {
+                this.log(vscode.l10n.t('Skipping resource conversion'));
+            }
 
-            // 5. 运行
-            await this.run();
+            // 5. 编译并运行（仿真阶段）
+            if (flow.simulate) {
+                await this.buildManager!.copyGeneratedCode();
+                this.throwIfCancelled();
 
-            this.isRunning = true;
-            this.listener?.onSuccess?.();
+                await this.compile();
+                this.throwIfCancelled();
+
+                await this.run();
+
+                this.isRunning = true;
+                this.listener?.onSuccess?.();
+            } else {
+                this.log('编译环境准备完成');
+            }
         } catch (error) {
             this.listener?.onError?.(error instanceof Error ? error : new Error(String(error)));
             throw error;
@@ -234,21 +284,6 @@ export class SimulationRunner {
             const { CodeGenerationService } = await import('../services/CodeGenerationService');
             await CodeGenerationService.promptOrphanCleanup(this.projectRoot, result.orphanedDesigns);
         }
-    }
-
-    /**
-     * 准备编译环境
-     */
-    private async setupBuildEnvironment(): Promise<void> {
-        this.log(vscode.l10n.t('Preparing build environment...'));
-
-        this.buildManager = new BuildManager(this.projectRoot, this.outputChannel);
-
-        await this.buildManager.setupBuildDir();
-        await this.buildManager.convertAssets();
-        await this.buildManager.copyGeneratedCode();
-
-        this.log('编译环境准备完成');
     }
 
     /**

@@ -206,10 +206,16 @@ const en = {
   'Undo': 'Undo',
   'Redo': 'Redo',
   'Generate Code': 'Generate Code',
+  'Convert Resource': 'Convert Resource',
+  'Convert Resource Tooltip': 'Convert project resources (images / fonts / videos / 3D / romfs) only',
   'Compile & Simulate': 'Compile & Simulate',
   'Debug Simulate': 'Debug Simulate',
   'Debug Simulate Tooltip': 'Skip code generation, only convert resources and run simulator',
   'More simulation options': 'More simulation options',
+  'Simulation Flow': 'Simulation Flow',
+  'Simulation Flow Hint': 'Clicking Simulate runs the checked steps in order.',
+  'Configure simulation flow': 'Configure simulation flow',
+  'Configured simulation flow': 'Configured simulation flow (click to configure)',
   'Simulate': 'Simulate',
   'Stop': 'Stop',
   'Stop Simulation': 'Stop Simulation',
@@ -970,6 +976,7 @@ const en = {
 
   // Toolbar operation states
   'Generating...': 'Generating...',
+  'Converting...': 'Converting...',
   'Starting...': 'Starting...',
 
   // View Statistics

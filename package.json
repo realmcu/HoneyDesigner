@@ -188,6 +188,12 @@
         "icon": "$(bug)"
       },
       {
+        "command": "honeygui.convertResource",
+        "title": "%command.convertResource%",
+        "category": "HoneyGUI",
+        "icon": "$(package)"
+      },
+      {
         "command": "honeygui.simulation.stop",
         "title": "%command.simulationStop%",
         "category": "HoneyGUI",

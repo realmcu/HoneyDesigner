@@ -9,6 +9,7 @@
   "command.codegen": "HoneyGUI: 生成代码",
   "command.simulation": "HoneyGUI: 编译仿真",
   "command.simulationDebug": "HoneyGUI: 调试仿真（跳过代码生成）",
+  "command.convertResource": "HoneyGUI: 转换资源",
   "command.simulationStop": "HoneyGUI: 停止仿真",
   "command.openInTextEditor": "用文本编辑器打开",
   "command.openInDesigner": "用 HoneyGUI 设计器打开",

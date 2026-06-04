@@ -9,6 +9,7 @@
   "command.codegen": "HoneyGUI: Generate Code",
   "command.simulation": "HoneyGUI: Compile & Simulate",
   "command.simulationDebug": "HoneyGUI: Debug Simulate (Skip Code Generation)",
+  "command.convertResource": "HoneyGUI: Convert Resource",
   "command.simulationStop": "HoneyGUI: Stop Simulation",
   "command.openInTextEditor": "Open with Text Editor",
   "command.openInDesigner": "Open with HoneyGUI Designer",

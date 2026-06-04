@@ -206,10 +206,16 @@ const zhCN = {
   'Undo': '撤销',
   'Redo': '重做',
   'Generate Code': '生成代码',
+  'Convert Resource': '转换资源',
+  'Convert Resource Tooltip': '仅转换项目资源（图片 / 字体 / 视频 / 3D / romfs）',
   'Compile & Simulate': '编译仿真',
   'Debug Simulate': '调试仿真',
   'Debug Simulate Tooltip': '跳过代码生成，仅执行资源转换和仿真器',
   'More simulation options': '更多仿真选项',
+  'Simulation Flow': '仿真流程',
+  'Simulation Flow Hint': '点击「仿真」时，将按顺序执行已勾选的阶段。',
+  'Configure simulation flow': '配置仿真流程',
+  'Configured simulation flow': '已配置的仿真流程（点击可配置）',
   'Simulate': '仿真',
   'Stop': '停止',
   'Stop Simulation': '停止仿真',
@@ -972,6 +978,7 @@ const zhCN = {
 
   // Toolbar operation states
   'Generating...': '生成中...',
+  'Converting...': '转换中...',
   'Starting...': '启动中...',
 
   // View Statistics

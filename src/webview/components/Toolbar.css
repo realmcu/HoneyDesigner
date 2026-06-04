@@ -366,6 +366,75 @@
   color: var(--vscode-menu-selectionForeground, #ffffff);
 }
 
+/* Simulation flow config menu */
+.sim-menu-title {
+  padding: 6px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vscode-descriptionForeground, #999999);
+}
+
+.sim-menu-hint {
+  padding: 6px 12px 4px;
+  margin-top: 2px;
+  border-top: 1px solid var(--vscode-menu-separatorBackground, #454545);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--vscode-descriptionForeground, #999999);
+  white-space: normal;
+  max-width: 220px;
+}
+
+.flow-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 1px solid var(--vscode-checkbox-border, #6b6b6b);
+  border-radius: 3px;
+  background: var(--vscode-checkbox-background, transparent);
+  color: var(--vscode-checkbox-foreground, #ffffff);
+}
+
+.flow-checkbox.checked {
+  background: var(--vscode-focusBorder, #007fd4);
+  border-color: var(--vscode-focusBorder, #007fd4);
+  color: #ffffff;
+}
+
+/* Inline indicator showing which flow steps are enabled */
+.sim-flow-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px 0 4px;
+  cursor: pointer;
+}
+
+.sim-flow-indicator.disabled {
+  cursor: default;
+}
+
+.sim-flow-indicator .flow-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground, #999999);
+  opacity: 0.35;
+}
+
+.sim-flow-indicator .flow-chip.active {
+  color: var(--vscode-focusBorder, #007fd4);
+  opacity: 1;
+}
+
 .toolbar-segmented {
   display: inline-flex;
   align-items: center;

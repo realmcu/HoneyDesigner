@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { SimulationRunner } from './SimulationRunner';
+import { SimulationRunner, SimulationFlow } from './SimulationRunner';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { StatusBarManager } from '../ui/StatusBarManager';
 
@@ -36,17 +36,24 @@ export class SimulationService {
      * 注册命令
      */
     registerCommands(): void {
-        // 启动编译仿真
+        // 启动编译仿真（可携带 flow 配置，缺省时三个阶段全部执行）
         this.context.subscriptions.push(
-            vscode.commands.registerCommand('honeygui.simulation', async () => {
-                await this.startSimulation();
+            vscode.commands.registerCommand('honeygui.simulation', async (options?: { flow?: SimulationFlow }) => {
+                await this.startSimulation(options);
             })
         );
 
-        // 调试仿真（跳过代码生成）
+        // 调试仿真（跳过代码生成，仅转换资源并运行）
         this.context.subscriptions.push(
             vscode.commands.registerCommand('honeygui.simulation.debug', async () => {
-                await this.startSimulation({ skipCodeGen: true });
+                await this.startSimulation({ flow: { convert: true, codegen: false, simulate: true } });
+            })
+        );
+
+        // 仅转换资源（独立流程，不生成代码、不编译运行）
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand('honeygui.convertResource', async () => {
+                await this.startSimulation({ flow: { convert: true, codegen: false, simulate: false } });
             })
         );
 
@@ -79,12 +86,22 @@ export class SimulationService {
     /**
      * 启动编译仿真
      */
-    async startSimulation(options?: { skipCodeGen?: boolean }): Promise<void> {
+    async startSimulation(options?: { flow?: SimulationFlow }): Promise<void> {
+        // 解析流程配置（缺省全部启用）
+        const flow = {
+            convert: options?.flow?.convert ?? true,
+            codegen: options?.flow?.codegen ?? true,
+            simulate: options?.flow?.simulate ?? true,
+        };
+        // 不含仿真阶段时，流程结束即完成，不进入"运行中"状态
+        const willSimulate = flow.simulate;
+
         try {
             // 获取项目根目录
             const projectRoot = await this.getProjectRoot();
             if (!projectRoot) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+                this.broadcastOperationComplete();
                 return;
             }
 
@@ -99,10 +116,19 @@ export class SimulationService {
 
             // 创建新的运行器（使用内置库路径）
             this.runner = new SimulationRunner(projectRoot, libSimPath, this.outputChannel);
-            this.setupRunnerListeners();
+            this.setupRunnerListeners(willSimulate);
 
-            // 启动仿真
-            await this.runner.start(options);
+            // 启动流程
+            await this.runner.start({ flow });
+
+            // 不含仿真：转换/生成完成，释放 runner 并通知前端解除忙碌
+            if (!willSimulate) {
+                this.runner.dispose();
+                this.runner = null;
+                this.isRunning = false;
+                vscode.window.showInformationMessage(vscode.l10n.t('Operation completed'));
+                this.broadcastOperationComplete();
+            }
 
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -112,6 +138,10 @@ export class SimulationService {
             }
             this.isRunning = false;
             this.notifyStatusChange(false);
+            // 非仿真流程不会触发 simulationStatus 清理忙碌态，需显式通知
+            if (!willSimulate) {
+                this.broadcastOperationComplete();
+            }
         }
     }
 
@@ -273,7 +303,7 @@ export class SimulationService {
     /**
      * 设置运行器监听器
      */
-    private setupRunnerListeners(): void {
+    private setupRunnerListeners(willSimulate: boolean): void {
         if (!this.runner) {
             return;
         }
@@ -282,8 +312,12 @@ export class SimulationService {
             onStart: () => {
                 this.outputChannel.clear();
                 this.outputChannel.show(true);
-                this.isRunning = true; // 启动中，立即禁用按钮防止重复点击
-                this.notifyStatusChange(true);
+                // 仅当流程包含仿真阶段时才进入"运行中"状态；
+                // 纯转换/生成流程不应让 UI 显示为仿真运行
+                if (willSimulate) {
+                    this.isRunning = true; // 启动中，立即禁用按钮防止重复点击
+                    this.notifyStatusChange(true);
+                }
             },
             
             onSuccess: () => {
@@ -342,6 +376,16 @@ export class SimulationService {
 
         // 通知 QUICK 面板刷新
         vscode.commands.executeCommand('_honeygui.updateQuickPanel');
+    }
+
+    /**
+     * 通知所有 Webview 当前操作已完成（用于非仿真流程解除工具栏忙碌态）
+     */
+    private broadcastOperationComplete(): void {
+        vscode.commands.executeCommand('_honeygui.broadcastToWebviews', {
+            command: 'operationComplete',
+            operation: 'simulation-flow'
+        });
     }
 
     /**

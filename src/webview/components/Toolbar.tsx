@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDesignerStore } from '../store';
-import { Save, Code, RotateCcw, RotateCw, ZoomIn, ZoomOut, Maximize2, GitBranch, Palette, AlignLeft, Grid, Download, Rocket, BrushCleaning, Square, Users, Info, ChevronDown, Bug } from 'lucide-react';
+import { Save, Code, RotateCcw, RotateCw, ZoomIn, ZoomOut, Maximize2, GitBranch, Palette, AlignLeft, Grid, Download, Rocket, BrushCleaning, Square, Users, Info, ChevronDown, Package, Check } from 'lucide-react';
 import { AlignType, DistributeType, ResizeType, getAlignmentConfigsByCategory } from '../utils/alignmentUtils';
 import { t } from '../i18n';
 import './Toolbar.css';
@@ -31,6 +31,8 @@ const Toolbar: React.FC<{
     isSimulationRunning,
     operationInProgress,
     setOperationInProgress,
+    simulationFlow,
+    setSimulationFlow,
     guiVersion,
   } = useDesignerStore();
 
@@ -60,6 +62,14 @@ const Toolbar: React.FC<{
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showColorPicker, showAlignMenu, showSimMenu]);
+
+  // 从 webview 持久化状态中恢复仿真流程配置（缺省全部启用）
+  React.useEffect(() => {
+    const saved = window.vscodeAPI?.getState?.()?.simulationFlow;
+    if (saved && typeof saved === 'object') {
+      setSimulationFlow(saved);
+    }
+  }, []);
 
   const handleZoomIn = () => {
     setZoom(Math.min(zoom * 1.2, 8));
@@ -115,6 +125,8 @@ const Toolbar: React.FC<{
   };
 
   const handleSimulation = () => {
+    // 操作仿真时收起流程配置菜单
+    setShowSimMenu(false);
     if (isSimulationRunning) {
       // 停止仿真始终允许
       window.vscodeAPI?.postMessage({
@@ -123,23 +135,40 @@ const Toolbar: React.FC<{
       });
     } else {
       if (isBusy) return;
+      // 至少需勾选一个流程
+      if (!simulationFlow.convert && !simulationFlow.codegen && !simulationFlow.simulate) return;
       setOperationInProgress('simulate');
       window.vscodeAPI?.postMessage({
         command: 'executeCommand',
         commandId: 'honeygui.simulation',
+        args: { flow: simulationFlow },
       });
     }
   };
 
-  const handleDebugSimulation = () => {
-    if (isBusy || isSimulationRunning) return;
-    setShowSimMenu(false);
-    setOperationInProgress('simulate');
+  // 独立的资源转换流程
+  const handleConvertResource = () => {
+    if (isBusy) return;
+    setOperationInProgress('convert');
     window.vscodeAPI?.postMessage({
       command: 'executeCommand',
-      commandId: 'honeygui.simulation.debug',
+      commandId: 'honeygui.convertResource',
     });
   };
+
+  // 切换某个流程阶段的勾选状态（在下拉中操作，不关闭菜单），并持久化到 webview 状态
+  const toggleFlowStep = (step: 'convert' | 'codegen' | 'simulate') => {
+    const next = { ...simulationFlow, [step]: !simulationFlow[step] };
+    setSimulationFlow({ [step]: !simulationFlow[step] });
+    const saved = window.vscodeAPI?.getState() || {};
+    window.vscodeAPI?.setState({ ...saved, simulationFlow: next });
+  };
+
+  const flowSteps: Array<{ key: 'convert' | 'codegen' | 'simulate'; label: string; Icon: typeof Code }> = [
+    { key: 'convert', label: t('Convert Resource'), Icon: Package },
+    { key: 'codegen', label: t('Generate Code'), Icon: Code },
+    { key: 'simulate', label: t('Simulate'), Icon: Rocket },
+  ];
 
   const handleClean = () => {
     if (isBusy) return;
@@ -384,6 +413,15 @@ const Toolbar: React.FC<{
 
       <div className="toolbar-section">
         <button
+          className={`toolbar-button primary ${operationInProgress === 'convert' ? 'running' : ''}`}
+          onClick={handleConvertResource}
+          title={t('Convert Resource Tooltip')}
+          disabled={isBusy && operationInProgress !== 'convert'}
+        >
+          <Package size={16} strokeWidth={1.4} />
+          <span>{operationInProgress === 'convert' ? t('Converting...') : t('Convert Resource')}</span>
+        </button>
+        <button
           className={`toolbar-button primary ${isBusy && operationInProgress === 'codegen' ? 'running' : ''}`}
           onClick={handleGenerateAllCode}
           title={t('Generate Code')}
@@ -393,6 +431,22 @@ const Toolbar: React.FC<{
           <span>{operationInProgress === 'codegen' ? t('Generating...') : t('Generate Code')}</span>
         </button>
         <div className="toolbar-split-button" ref={simMenuRef}>
+          {/* 显性展示已勾选的流程阶段：仿真期间仍显示，但不可点击 */}
+          <div
+            className={`sim-flow-indicator ${isBusy ? 'disabled' : ''}`}
+            onClick={() => !isBusy && setShowSimMenu(!showSimMenu)}
+            title={t('Configured simulation flow')}
+          >
+            {flowSteps.map(({ key, label, Icon }) => (
+              <span
+                key={key}
+                className={`flow-chip ${simulationFlow[key] ? 'active' : ''}`}
+                title={`${label}: ${simulationFlow[key] ? t('Enabled') : t('Disabled')}`}
+              >
+                <Icon size={11} strokeWidth={1.6} />
+              </span>
+            ))}
+          </div>
           <button
             className={`toolbar-button primary split-main ${isSimulationRunning ? 'running' : ''}`}
             onClick={handleSimulation}
@@ -407,21 +461,28 @@ const Toolbar: React.FC<{
               className="toolbar-button primary split-arrow"
               onClick={() => setShowSimMenu(!showSimMenu)}
               disabled={isBusy}
-              title={t('More simulation options')}
+              title={t('Configure simulation flow')}
             >
               <ChevronDown size={12} strokeWidth={2} />
             </button>
           )}
           {showSimMenu && (
             <div className="sim-dropdown-menu">
-              <button
-                className="sim-menu-item"
-                onClick={handleDebugSimulation}
-                title={t('Debug Simulate Tooltip')}
-              >
-                <Bug size={14} strokeWidth={1.4} />
-                <span>{t('Debug Simulate')}</span>
-              </button>
+              <div className="sim-menu-title">{t('Simulation Flow')}</div>
+              {flowSteps.map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  className="sim-menu-item"
+                  onClick={() => toggleFlowStep(key)}
+                >
+                  <span className={`flow-checkbox ${simulationFlow[key] ? 'checked' : ''}`}>
+                    {simulationFlow[key] && <Check size={12} strokeWidth={3} />}
+                  </span>
+                  <Icon size={14} strokeWidth={1.4} />
+                  <span>{label}</span>
+                </button>
+              ))}
+              <div className="sim-menu-hint">{t('Simulation Flow Hint')}</div>
             </div>
           )}
         </div>

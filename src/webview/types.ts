@@ -117,7 +117,8 @@ export interface DesignerState {
   projectConfig?: any; // Project configuration (resolution, etc.)
   assetCategory: 'all' | 'images' | 'svgs' | 'videos' | 'models' | 'fonts' | 'glass' | 'lottie' | 'trmap'; // 资源面板分类
   isSimulationRunning: boolean; // 仿真运行状态
-  operationInProgress: 'codegen' | 'simulate' | 'clean' | 'download' | null; // 当前正在执行的操作（互斥）
+  operationInProgress: 'codegen' | 'simulate' | 'clean' | 'download' | 'convert' | null; // 当前正在执行的操作（互斥）
+  simulationFlow: { convert: boolean; codegen: boolean; simulate: boolean }; // 仿真流程配置（可独立勾选）
   guiVersion: { engine: string; tag: string; branch: string; commit: string; buildDate: string } | null; // GUI 库版本信息
 }
 

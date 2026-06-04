@@ -173,7 +173,10 @@ export interface DesignerStore extends DesignerState {
 
   // Simulation status
   setSimulationRunning: (running: boolean) => void;
-  setOperationInProgress: (op: 'codegen' | 'simulate' | 'clean' | 'download' | null) => void;
+  setOperationInProgress: (op: 'codegen' | 'simulate' | 'clean' | 'download' | 'convert' | null) => void;
+  // 仿真流程配置（可独立勾选 convert / codegen / simulate，默认全部启用）
+  simulationFlow: { convert: boolean; codegen: boolean; simulate: boolean };
+  setSimulationFlow: (flow: Partial<{ convert: boolean; codegen: boolean; simulate: boolean }>) => void;
 
   // Assets
   setAssetCategory: (category: 'all' | 'images' | 'svgs' | 'videos' | 'models' | 'fonts' | 'glass' | 'lottie' | 'trmap') => void;
@@ -462,6 +465,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   clipboardMultiple: [], // 多选剪贴板
   isSimulationRunning: false, // 仿真运行状态
   operationInProgress: null, // 当前正在执行的操作
+  simulationFlow: { convert: true, codegen: true, simulate: true }, // 仿真流程配置，默认全部启用
   guiVersion: null, // GUI 库版本信息
   selectedAsset: null, // 选中的资源（文件夹或图片）
   conversionConfig: null, // 转换配置
@@ -1014,6 +1018,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   setAssetCategory: (category) => set({ assetCategory: category }),
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),
   setOperationInProgress: (op) => set({ operationInProgress: op }),
+  setSimulationFlow: (flow) => set((state) => ({ simulationFlow: { ...state.simulationFlow, ...flow } })),
   
   // 保存当前视图状态
   saveViewState: (uiState) => {
