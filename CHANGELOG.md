@@ -2,6 +2,19 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.13] - 2026-06-04
+
+### Added
+- 新增「转换资源」（Convert Resource）独立按钮：可单独执行资源转换，无需触发完整仿真流程
+- 新增仿真流程（Simulation Flow）配置菜单：支持自由勾选「转换资源 / 生成代码 / 启动仿真」三个阶段，点击仿真时按所配置的流程执行，默认全部启用
+- 工具栏显性展示已配置使能的仿真流程，便于直观确认当前将执行哪些阶段
+- LVGL 位图字体新增逐组件 MSB/LSB 像素顺序（pixel order）配置
+
+### Changed
+- 移除仿真下拉中的「调试仿真」（Debug Simulation），其行为由可配置的仿真流程统一覆盖
+- 仿真启动后流程示意区保持显示且不变灰，仅置为不可点击
+- 更新 LVGL 仿真库（liblvgl.a）
+
 ## [1.7.11] - 2026-06-03
 
 ### Added
