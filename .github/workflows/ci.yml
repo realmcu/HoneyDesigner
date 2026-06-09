@@ -54,6 +54,8 @@ jobs:
             repo: honeygui-template-rotary
           - name: settings
             repo: honeygui-template-settings
+          - name: lvgl-test
+            repo: lvgl-template-test
 
     name: e2e (${{ matrix.template.name }})
 
