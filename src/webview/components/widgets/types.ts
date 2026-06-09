@@ -21,11 +21,11 @@ export interface WidgetProps {
  *
  * 避免 widget 在无关状态变化时（如其他组件的移动、选中状态变化等）重新渲染。
  * 比较器检查影响视觉输出的关键字段：
- *   - component.id / position / visible / locked
- *   - 影响渲染的关键 data 字段（text, src）
- *   - style 中的 border/opacity（反映选中/悬浮状态变化）
+ *   - component.id / position / visible / locked / zIndex / name
+ *   - component.data / component.style 引用（任意字段变化都会触发重渲染）
+ *   - style prop 中的 border/opacity/transform（反映选中/悬浮/启用状态变化）
  *
- * 忽略始终是新引用的 handlers 对象和大部分 style 属性，
+ * 忽略始终是新引用的 handlers 对象和大部分 style prop 属性，
  * 因为它们的实际值变化已被上述字段覆盖。
  */
 export function widgetMemo<P extends WidgetProps>(Wrapped: React.ComponentType<P>): React.MemoExoticComponent<React.ComponentType<P>> {
@@ -51,16 +51,15 @@ export function widgetMemo<P extends WidgetProps>(Wrapped: React.ComponentType<P
     // 名称变化（影响标题显示）
     if (pc.name !== nc.name) return false;
 
-    // 组件样式变化
-    if (pc.style?.opacity !== nc.style?.opacity) return false;
-    if (pc.style?.borderRadius !== nc.style?.borderRadius) return false;
+    // 组件 data / style 任意字段变化 → 重新渲染。
+    // 按引用比较：updateComponent 仅在该组件自身被编辑时替换 data / style 引用
+    // （位置拖拽、其他组件更新都不会改变本组件的引用），
+    // 故能精确捕获 value / min / max、颜色、方向等所有影响视觉的字段，
+    // 又不会因无关变化而误触发重渲染。
+    if (pc.data !== nc.data) return false;
+    if (pc.style !== nc.style) return false;
 
-    // 关键数据字段变化
-    if (pc.data?.text !== nc.data?.text) return false;
-    if (pc.data?.src !== nc.data?.src) return false;
-    if (pc.data?.fontFile !== nc.data?.fontFile) return false;
-
-    // style prop 变化（反映选中/悬浮状态）
+    // style prop 变化（反映选中/悬浮/启用状态）
     if (prev.style.border !== next.style.border) return false;
     if (prev.style.opacity !== next.style.opacity) return false;
     if (prev.style.backgroundColor !== next.style.backgroundColor) return false;
@@ -74,5 +73,6 @@ export function widgetMemo<P extends WidgetProps>(Wrapped: React.ComponentType<P
   });
 }
 
-// @note 如果 widget 依赖其他 data 字段（如 iconImages、modelPath），
-// 需要在此比较器中添加对应检查，或在该 widget 组件内自行实现 memo。
+// @note data / style 已按引用整体比较，新增依赖字段无需再改本比较器。
+// 仅当 widget 依赖 component 上 data/style/position 之外的新顶层字段时，
+// 才需要在此补充对应检查，或在该 widget 组件内自行实现 memo。

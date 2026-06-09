@@ -15,10 +15,18 @@ export const ProgressBarWidget: React.FC<WidgetProps> = ({ component, style, han
   const ratio = max > min ? Math.max(0, Math.min(1, (value - min) / (max - min))) : 0;
   const trackRadius = (isVertical ? w : h) / 2;
 
+  // 最底层背景（calculateComponentStyle 把 component.style.backgroundColor=轨道色
+  // 映射为外层 div 的 background）默认无圆角，会在四角露出与轨道/进度不一致的直角色块。
+  // 这里让底层默认采用与轨道一致的圆角；若用户显式设置了 borderRadius 则尊重用户设置。
+  const outerStyle: React.CSSProperties = {
+    ...style,
+    borderRadius: style.borderRadius ?? trackRadius,
+  };
+
   if (isVertical) {
     const fillHeight = ratio * h;
     return (
-      <div key={component.id} style={style} {...handlers}>
+      <div key={component.id} style={outerStyle} {...handlers}>
         {/* Track */}
         <div style={{
           position: 'absolute',
@@ -46,7 +54,7 @@ export const ProgressBarWidget: React.FC<WidgetProps> = ({ component, style, han
   // Horizontal
   const fillWidth = ratio * w;
   return (
-    <div key={component.id} style={style} {...handlers}>
+    <div key={component.id} style={outerStyle} {...handlers}>
       {/* Track */}
       <div style={{
         position: 'absolute',
