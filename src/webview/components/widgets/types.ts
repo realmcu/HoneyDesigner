@@ -60,6 +60,11 @@ export function widgetMemo<P extends WidgetProps>(Wrapped: React.ComponentType<P
     if (pc.style !== nc.style) return false;
 
     // style prop 变化（反映选中/悬浮/启用状态）
+    // 样式/数据对象整体引用变化（避免逐字段遗漏，如 radius、color、gradientStops 等）
+    if (pc.style !== nc.style) return false;
+    if (pc.data !== nc.data) return false;
+
+    // style prop 变化（反映选中/悬浮状态）
     if (prev.style.border !== next.style.border) return false;
     if (prev.style.opacity !== next.style.opacity) return false;
     if (prev.style.backgroundColor !== next.style.backgroundColor) return false;
