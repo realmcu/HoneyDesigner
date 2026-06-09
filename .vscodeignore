@@ -36,6 +36,9 @@ docs/**
 tools/**
 !tools/mpcli_meta_tool_py_v4.0.0.4/**
 !tools/mkromfs_for_honeygui.py
+# LVGL 字体转换器（fork 版，带 pixel-order / extract-glyph-bitmap）
+# 缺失会导致 findFontConvTool() 返回 null，字体转换被静默跳过并 fallback
+!tools/lv-font-conv/**
 # 保留 video-converter-ts 的编译输出
 !tools/video-converter-ts/**
 tools/video-converter-ts/src/**/*.ts
@@ -100,6 +103,15 @@ node_modules/**
 !node_modules/pngjs/**
 !node_modules/jpeg-js/**
 !node_modules/bmp-js/**
+
+# LVGL 字体转换器（tools/lv-font-conv）的运行时依赖
+# 由独立 node 进程 require，必须随扩展一起打包，否则转换进程启动即报错
+!node_modules/argparse/**
+!node_modules/mkdirp/**
+!node_modules/make-error/**
+!node_modules/debug/**
+!node_modules/ms/**
+!node_modules/bit-buffer/**
 *.kiro
 rm-sdk.kiro
 AGENTS.md
