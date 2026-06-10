@@ -184,33 +184,22 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential p7zip-full
+          sudo apt-get install -y cmake build-essential
+          # Install MinGW cross-compiler (Linux → Win64)
+          # Try posix thread model variant first (matches local GCC 8.1.0 posix)
+          # g++-12-mingw-w64-x86-64-posix  → Ubuntu 24.04
+          # g++-10-mingw-w64-x86-64-posix  → Ubuntu 22.04 / 20.04
+          sudo apt-get install -y g++-12-mingw-w64-x86-64-posix \
+            || sudo apt-get install -y g++-10-mingw-w64-x86-64-posix \
+            || sudo apt-get install -y g++-mingw-w64-x86-64
 
-      # ── MinGW 8.1.0 posix/sjlj (match local environment) ───────────
-
-      - name: Restore cached MinGW 8.1.0
-        id: cache-mingw
-        uses: actions/cache@v4
-        with:
-          path: /opt/mingw810
-          key: mingw-8.1.0-posix-sjlj
-
-      - name: Download and extract MinGW 8.1.0 (posix, sjlj)
-        if: steps.cache-mingw.outputs.cache-hit != 'true'
-        run: |
-          sudo mkdir -p /opt/mingw810
-          wget -q "https://github.com/niXman/mingw-builds/releases/download/8.1.0/x86_64-8.1.0-release-posix-sjlj-rt_v6-rev0.7z" \
-            -O /tmp/mingw810.7z
-          sudo 7z x /tmp/mingw810.7z -o/opt/mingw810 -y > /dev/null
-
-      - name: Add MinGW to PATH
-        run: |
-          echo "/opt/mingw810/mingw64/bin" >> "$GITHUB_PATH"
-
-      - name: Verify MinGW compiler version
+      - name: Show MinGW compiler version
         run: |
           echo "=== x86_64-w64-mingw32-gcc version ==="
-          /opt/mingw810/mingw64/bin/x86_64-w64-mingw32-gcc -v 2>&1
+          x86_64-w64-mingw32-gcc -v 2>&1
+          echo ""
+          echo "=== Thread model ==="
+          x86_64-w64-mingw32-gcc -v 2>&1 | grep "Thread model"
 
       - name: Clone HoneyGUI SDK
         run: git clone --depth 1 https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
