@@ -128,7 +128,6 @@ export function useFontGlyphStats(
       clearTimeout(timeout);
       pendingRequests.delete(requestId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fontPath, text, charsetsKey, fontSize, bpp]);
 
   return result;
