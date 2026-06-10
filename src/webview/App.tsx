@@ -614,34 +614,6 @@ const App: React.FC = () => {
           break;
 
 
-        // 协作增量更新消息处理（避免闪烁）
-        case 'remoteAddComponent':
-          // 远程添加组件
-          if (message.component) {
-            const store = useDesignerStore.getState();
-            store.remoteAddComponent(message.component);
-            console.log('[Webview App] 远程添加组件:', message.component.id);
-          }
-          break;
-
-        case 'remoteUpdateComponent':
-          // 远程更新组件
-          if (message.componentId && message.updates) {
-            const store = useDesignerStore.getState();
-            store.remoteUpdateComponent(message.componentId, message.updates);
-            console.log('[Webview App] 远程更新组件:', message.componentId);
-          }
-          break;
-
-        case 'remoteDeleteComponent':
-          // 远程删除组件
-          if (message.componentId) {
-            const store = useDesignerStore.getState();
-            store.remoteDeleteComponent(message.componentId);
-            console.log('[Webview App] 远程删除组件:', message.componentId);
-          }
-          break;
-
         case 'undoRedoState':
           if (typeof message.canUndo === 'boolean') {
             useDesignerStore.setState({
