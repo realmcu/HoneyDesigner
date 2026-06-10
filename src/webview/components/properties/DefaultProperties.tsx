@@ -42,6 +42,43 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const targetEngine = projectConfig?.targetEngine || 'honeygui';
   const isLvglProject = targetEngine === 'lvgl';
 
+  // 生成时间标签的 placeholder 示例（当前系统时间 + 自动生成标注）
+  const getTimePlaceholder = (format: string): string => {
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const year = now.getFullYear();
+    const month = pad(now.getMonth() + 1);
+    const day = pad(now.getDate());
+    const hour = pad(now.getHours());
+    const minute = pad(now.getMinutes());
+    const second = pad(now.getSeconds());
+
+    let timeStr: string;
+    switch (format) {
+      case 'HH:mm:ss': timeStr = `${hour}:${minute}:${second}`; break;
+      case 'HH:mm': timeStr = `${hour}:${minute}`; break;
+      case 'HH': timeStr = `${hour}`; break;
+      case 'mm': timeStr = `${minute}`; break;
+      case 'HH:mm-split': timeStr = `${hour}:${minute}`; break;
+      case 'YYYY-MM-DD': timeStr = `${year}-${month}-${day}`; break;
+      case 'YYYY-MM-DD HH:mm:ss': timeStr = `${year}-${month}-${day} ${hour}:${minute}:${second}`; break;
+      case 'MM-DD HH:mm': timeStr = `${month}-${day} ${hour}:${minute}`; break;
+      default: timeStr = `${hour}:${minute}:${second}`; break;
+    }
+    return `${timeStr} // ${t('auto generated')}`;
+  };
+
+  // 生成计时器标签的 placeholder 示例
+  const getTimerPlaceholder = (format: string): string => {
+    switch (format) {
+      case 'HH:MM:SS': return `00:00:00 // ${t('auto generated')}`;
+      case 'MM:SS': return `00:00 // ${t('auto generated')}`;
+      case 'MM:SS:MS': return `00:00.00 // ${t('auto generated')}`;
+      case 'SS': return `00 // ${t('auto generated')}`;
+      default: return `00:00:00 // ${t('auto generated')}`;
+    }
+  };
+
   const handleStyleChange = (property: string, value: any) => {
     onUpdate({
       style: {
@@ -1152,18 +1189,24 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                       ) : property.name === 'initialExpression' && component.type === 'hg_claw_face' ? (
                         renderClawFaceExpressionSelector()
                       ) : property.name === 'text' && (component.type === 'hg_timer_label' || component.type === 'hg_time_label') ? (
-                        // 计时器标签和时间标签的文本是自动生成的，不显示输入框
-                        <div style={{
-                          padding: '6px 8px',
-                          backgroundColor: 'var(--vscode-input-background)',
-                          color: 'var(--vscode-descriptionForeground)',
-                          border: '1px solid var(--vscode-input-border)',
-                          borderRadius: '2px',
-                          fontSize: '12px',
-                          fontStyle: 'italic'
-                        }}>
-                          {component.type === 'hg_timer_label' ? t('Timer text is auto-generated') : t('Time text is auto-generated')}
-                        </div>
+                        <>
+                          <PropertyEditor
+                            type="string"
+                            value={(component.data as any)?.text || ''}
+                            onChange={(value) => handleDataChange('text', value)}
+                            placeholder={component.type === 'hg_time_label'
+                              ? getTimePlaceholder((component.data as any)?.timeFormat || 'HH:mm:ss')
+                              : getTimerPlaceholder((component.data as any)?.timerFormat || 'HH:MM:SS')}
+                          />
+                          <div style={{
+                            fontSize: '10px',
+                            color: 'var(--vscode-descriptionForeground)',
+                            marginTop: '4px',
+                            lineHeight: '1.4'
+                          }}>
+                            💡 {t('Text Preview Hint')}
+                          </div>
+                        </>
                       ) : property.name === 'text' && (component.type === 'hg_label' || component.type === 'hg_time_label') && (component.style as any)?.wordWrap ? (
                         // 自动换行开启时，文本输入框变成多行
                         <textarea

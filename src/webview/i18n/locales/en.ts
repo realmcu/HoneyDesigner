@@ -443,6 +443,8 @@ const en = {
   'Auto Start': 'Auto Start',
   'Start timer automatically on load': 'Start timer automatically on load',
   'Timer text is auto-generated': 'Timer text is auto-generated',
+  'Text Preview Hint': 'Enter text for preview, does not affect generated code',
+  'auto generated': 'auto generated',
 
   // DefaultProperties - Time section
   'Time Settings': 'Time Settings',

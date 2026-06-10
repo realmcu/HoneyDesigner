@@ -443,6 +443,8 @@ const zhCN = {
   'Auto Start': '自动启动',
   'Start timer automatically on load': '界面加载时自动启动计时器',
   'Timer text is auto-generated': '计时器文本自动生成',
+  'Text Preview Hint': '输入内容可预览，不影响真实生成',
+  'auto generated': '为组件自动生成',
 
   // DefaultProperties - Time section
   'Time Settings': '时间设置',

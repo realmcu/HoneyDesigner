@@ -11,7 +11,10 @@ import { useTextLayout, getTextLayoutParams } from '../../hooks/useTextLayout';
 export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
   const fontPath = component.data?.fontFile;
   const { fontFamily } = useFontLoader(fontPath);
-  
+
+  // 用户手动填写的文本优先展示（仅设计态预览，不影响 C 代码生成）
+  const userText = component.data?.text;
+
   const [displayText, setDisplayText] = React.useState<string>('00:00:00');
   const [timeCount, setTimeCount] = React.useState<number>(0);
 
@@ -48,9 +51,9 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
     setDisplayText(formatTime(initialValue));
   }, [initialValue, formatTime]);
 
-  // 模拟计时器更新
+  // 模拟计时器更新（有自定义文本时跳过）
   React.useEffect(() => {
-    if (!autoStart) {
+    if (userText || !autoStart) {
       return;
     }
 
@@ -75,7 +78,7 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
     }, 100);
 
     return () => clearInterval(interval);
-  }, [autoStart, timerType, formatTime]);
+  }, [userText, autoStart, timerType, formatTime]);
 
   // ========== 排版计算（共用逻辑） ==========
   const layoutParams = getTextLayoutParams(component, fontFamily);
@@ -84,7 +87,7 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
   return (
     <div key={component.id} style={containerStyle} {...handlers}>
       <div style={textBlockStyle}>
-        <span>{displayText}</span>
+        <span>{userText || displayText}</span>
       </div>
       {children}
     </div>

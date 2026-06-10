@@ -12,7 +12,20 @@ export const TimeLabelWidget: React.FC<WidgetProps> = ({ component, style, handl
   const { fontFamily } = useFontLoader(fontPath);
   const timeFormat = component.data?.timeFormat || 'HH:mm:ss';
   const isSplitTime = timeFormat === 'HH:mm-split';
-  
+
+  // 用户手动填写的文本优先展示（仅设计态预览，不影响 C 代码生成）
+  const userText = component.data?.text;
+
+  // 自动时间预览：根据格式决定刷新频率（有秒的每秒，无秒的每分钟）
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => {
+    if (userText) return;
+    const hasSeconds = /:ss|second/i.test(timeFormat);
+    const interval = hasSeconds ? 1000 : 60000;
+    const timer = setInterval(() => setTick(t => t + 1), interval);
+    return () => clearInterval(timer);
+  }, [userText, timeFormat]);
+
   // 根据时间格式生成预览文本
   const getPreviewText = (format: string): string => {
     const now = new Date();
@@ -37,7 +50,7 @@ export const TimeLabelWidget: React.FC<WidgetProps> = ({ component, style, handl
     }
   };
   
-  const text = getPreviewText(timeFormat);
+  const text = userText || getPreviewText(timeFormat);
 
   // ========== 排版计算（共用逻辑） ==========
   const layoutParams = getTextLayoutParams(component, fontFamily);
