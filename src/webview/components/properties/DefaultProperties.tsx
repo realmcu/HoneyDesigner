@@ -7,6 +7,7 @@ import { CollapsibleGroup } from './CollapsibleGroup';
 import { componentDefinitions } from '../ComponentLibrary';
 import { useDesignerStore } from '../../store';
 import { t } from '../../i18n';
+import { useFontGlyphStats } from '../../hooks/useFontGlyphStats';
 
 // 字体文件扩展名
 const FONT_EXTS = ['ttf', 'otf', 'woff', 'woff2', 'bin'];
@@ -41,6 +42,15 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const projectConfig = useDesignerStore((state) => state.projectConfig);
   const targetEngine = projectConfig?.targetEngine || 'honeygui';
   const isLvglProject = targetEngine === 'lvgl';
+
+  // 字体字符统计 + 缺字检测（文本 + 附加字符集，与字体转换时的合并逻辑一致）
+  const fontStats = useFontGlyphStats(
+    (component.data as any)?.fontFile,
+    (component.data as any)?.text,
+    (component.data as any)?.characterSets,
+    (component.data as any)?.fontSize ?? 16,
+    Number((component.data as any)?.renderMode) || 4
+  );
 
   // 生成时间标签的 placeholder 示例（当前系统时间 + 自动生成标注）
   const getTimePlaceholder = (format: string): string => {
@@ -775,6 +785,39 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
         }}>
           💡 {t('Additional character sets will be merged with text characters during font conversion')}
         </div>
+        {fontStats.charCount > 0 && (
+          <div style={{
+            fontSize: '10px',
+            color: 'var(--vscode-descriptionForeground)',
+            marginTop: '6px'
+          }}>
+            将包含 {fontStats.charCount.toLocaleString()} 个字符，预计约 {fontStats.estimatedSizeKB} KB
+          </div>
+        )}
+        {fontStats.missingChars.length > 0 && (
+          <div style={{
+            fontSize: '10px',
+            color: 'var(--vscode-editorWarning-foreground)',
+            marginTop: '4px',
+            lineHeight: '1.4',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {(() => {
+              const MAX_SHOW = 5;
+              const shown = fontStats.missingChars
+                .slice(0, MAX_SHOW)
+                .map((c) => '「' + c + '」')
+                .join('');
+              const rest = fontStats.missingChars.length - MAX_SHOW;
+              const charList = rest > 0 ? shown + '...等 ' + rest + ' 个' : shown;
+              const advice =
+                fontStats.missingChars.length > MAX_SHOW ? '\n建议缩小字符集范围或更换字体' : '';
+              return (
+                '⚠️ ' + fontStats.missingChars.length + ' 个字符在字体中不存在：' + charList + advice
+              );
+            })()}
+          </div>
+        )}
       </div>
     );
   };

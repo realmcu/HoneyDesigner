@@ -300,6 +300,18 @@ export class MessageHandler {
                 );
                 break;
 
+            case 'getGlyphStats':
+                this._assetManager.handleGetGlyphStats(
+                    message.fontPath,
+                    message.text,
+                    message.characterSets,
+                    message.fontSize,
+                    message.bpp,
+                    message.requestId,
+                    this._fileManager.currentFilePath
+                );
+                break;
+
             case 'confirmDeleteAsset':
                 {
                     const isFolder = message.isFolder;

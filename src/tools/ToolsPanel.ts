@@ -9,6 +9,10 @@ import { FontConverterService } from '../services/FontConverterService';
 import { GlassConverterService } from '../services/GlassConverterService';
 import { ConversionConfigService, ConversionConfig, TargetFormat, YuvBlur, ItemSettings } from '../services/ConversionConfigService';
 import { getToolsPanelHtml, getToolsPanelTranslations } from './ToolsPanelHtml';
+import { CharsetProcessor } from '../../tools/font-converter/src/charset-processor';
+import { CharacterSetSource } from '../../tools/font-converter/src/types/config';
+import { parseFontCmap } from '../utils/fontCmapParser';
+import * as os from 'os';
 
 interface FileItem {
     id: string;
@@ -145,7 +149,55 @@ export class ToolsPanel {
             case 'getVideoInfo':
                 await this.handleGetVideoInfo(message.id, message.name, message.relativePath);
                 break;
+            case 'getCharsetStats':
+                await this.handleGetCharsetStats(message.id, message.characterSets, message.fontSize, message.bpp);
+                break;
         }
+    }
+
+    private async handleGetCharsetStats(
+        id: string,
+        characterSets: CharacterSetSource[],
+        fontSize: number,
+        bpp: number
+    ): Promise<void> {
+        const effectiveFontSize = fontSize || 32;
+        const effectiveBpp = bpp || 4;
+
+        let codepoints: number[] = [];
+        try {
+            codepoints = CharsetProcessor.mergeCharacterSources(characterSets || [], '');
+        } catch {
+            // charset 解析失败时返回空
+        }
+        const charCount = codepoints.length;
+        const estimatedSizeKB = Math.round(
+            charCount * Math.ceil(effectiveFontSize * effectiveFontSize * effectiveBpp / 8) / 1024
+        );
+
+        let missingChars: string[] = [];
+        const file = this.files.get(id);
+        if (file?.type === 'font' && file.data?.length) {
+            const tempPath = path.join(os.tmpdir(), `hg_cmap_${id}_${Date.now()}_${file.name}`);
+            try {
+                fs.writeFileSync(tempPath, Buffer.from(file.data));
+                const cmapSet = parseFontCmap(tempPath);
+                missingChars = codepoints
+                    .filter(cp => !cmapSet.has(cp))
+                    .map(cp => String.fromCodePoint(cp));
+            } catch (error) {
+                logger.warn(`[字符集统计] cmap 解析失败: ${error}`);
+            } finally {
+                try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+            }
+        }
+
+        this.panel.webview.postMessage({
+            type: 'charsetStatsResult',
+            charCount,
+            estimatedSizeKB,
+            missingChars,
+        });
     }
 
     private async handleGetVideoInfo(id: string, name: string, relativePath: string): Promise<void> {

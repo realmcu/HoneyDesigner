@@ -334,6 +334,8 @@ h1{font-size:16px;margin-bottom:12px}
 .charset-item .browse-btn{padding:2px 8px;font-size:10px;flex:none}
 .charset-hint{font-size:9px;color:var(--vscode-descriptionForeground);padding-left:94px}
 .add-charset{margin-top:4px;font-size:10px;padding:3px 8px}
+.charset-stats{margin-top:6px;font-size:10px;color:var(--vscode-descriptionForeground)}
+.charset-stats-warn{margin-top:4px;font-size:10px;color:var(--vscode-editorWarning-foreground)}
 .output-section{display:flex;align-items:center;gap:10px;padding:10px 0;font-size:13px}
 .output-path{flex:1;padding:6px 10px;background:var(--vscode-textBlockQuote-background);border-radius:4px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .base-addr-label{margin-left:10px;white-space:nowrap}
@@ -783,6 +785,7 @@ function selectItem(id) {
     selectedFolder = null;
     renderGrid();
     renderProperties();
+    scheduleCharsetStats();
     // Request video info for proportional scale hints
     const file = files.get(id);
     if (file && file.type === 'video' && !videoInfoCache.has(id)) {
@@ -1203,6 +1206,8 @@ function renderProperties() {
             '<div class="prop-group-title" style="margin-top:8px">'+T.characterSet+'</div>' +
             '<div class="charset-list" id="fileCharsetList">' + renderCharsetItems(charsets, false) + '</div>' +
             '<button class="add-charset" onclick="addFileCharset()">'+T.addCharacterSet+'</button>' +
+            '<div id="fileCharsetStats" class="charset-stats"></div>' +
+            '<div id="fileCharsetWarn" class="charset-stats-warn"></div>' +
             '</div>';
     } else if (file.type === 'glass') {
         const igls = inherited.glass || {};
@@ -1508,6 +1513,9 @@ function updateSetting(key, value) {
     if (value === null) delete file.settings[key];
     else file.settings[key] = value;
     vscode.postMessage({type:'updateFileSettings', id:selectedId, settings: file.settings});
+    if (file.type === 'font' && (key === 'fontSize' || key === 'renderMode')) {
+        scheduleCharsetStats();
+    }
 }
 
 // 保存点阵字体设置的临时存储
@@ -1632,6 +1640,52 @@ function refreshCharsetList(isFolder) {
     const listId = isFolder ? 'folderCharsetList' : 'fileCharsetList';
     const list = document.getElementById(listId);
     if (list) list.innerHTML = renderCharsetItems(getCharsets(isFolder), isFolder);
+    if (!isFolder) scheduleCharsetStats();
+}
+
+let charsetStatsTimer = null;
+function scheduleCharsetStats() {
+    if (charsetStatsTimer) clearTimeout(charsetStatsTimer);
+    charsetStatsTimer = setTimeout(requestCharsetStats, 300);
+}
+
+function requestCharsetStats() {
+    if (!selectedId) return;
+    const file = files.get(selectedId);
+    if (!file || file.type !== 'font') return;
+    const inherited = getInheritedSettings(file);
+    const ifnt = inherited.font || {};
+    const fontSize = file.settings?.fontSize || ifnt.fontSize || 32;
+    const bpp = file.settings?.renderMode || ifnt.renderMode || 4;
+    vscode.postMessage({
+        type: 'getCharsetStats',
+        id: selectedId,
+        characterSets: getCharsets(false),
+        fontSize,
+        bpp
+    });
+}
+
+function renderCharsetStats(charCount, estimatedSizeKB, missingChars) {
+    const statsEl = document.getElementById('fileCharsetStats');
+    const warnEl = document.getElementById('fileCharsetWarn');
+    if (!statsEl || !warnEl) return;
+
+    statsEl.textContent = charCount > 0
+        ? '将包含 ' + charCount.toLocaleString() + ' 个字符，预计约 ' + estimatedSizeKB + ' KB'
+        : '';
+
+    if (!missingChars || missingChars.length === 0) {
+        warnEl.textContent = '';
+        return;
+    }
+
+    const MAX_SHOW = 5;
+    const shown = missingChars.slice(0, MAX_SHOW).map(c => '「' + c + '」').join('');
+    const rest = missingChars.length - MAX_SHOW;
+    const charList = rest > 0 ? shown + '...等 ' + rest + ' 个' : shown;
+    const advice = missingChars.length > MAX_SHOW ? '\n建议缩小字符集范围或更换字体' : '';
+    warnEl.textContent = '⚠️ ' + missingChars.length + ' 个字符在字体中不存在：' + charList + advice;
 }
 
 function updateCharsetType(idx, type, isFolder) {
@@ -1853,6 +1907,8 @@ window.addEventListener('message', e => {
     } else if (msg.type === 'videoInfoResult') {
         if (msg.info) videoInfoCache.set(msg.id, msg.info);
         if (selectedId === msg.id) renderProperties();
+    } else if (msg.type === 'charsetStatsResult') {
+        renderCharsetStats(msg.charCount, msg.estimatedSizeKB, msg.missingChars);
     } else if (msg.type === 'glassPreviewResult') {
         // 处理玻璃预览结果
         const img = document.getElementById('glassPreviewImage');
