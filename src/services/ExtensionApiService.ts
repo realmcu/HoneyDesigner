@@ -298,17 +298,6 @@ export class ExtensionApiService implements vscode.Disposable {
         //     return this.handleEnvironmentRefresh(req, res);
         // }
 
-        // // 协同相关
-        // if (method === 'POST' && url === '/api/collaboration/start-host') {
-        //     return this.handleCollaborationStartHost(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/collaboration/join') {
-        //     return this.handleCollaborationJoin(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/collaboration/stop') {
-        //     return this.handleCollaborationStop(req, res);
-        // }
-
         // 404 Not Found
         res.statusCode = 404;
         res.end(JSON.stringify({
@@ -639,41 +628,6 @@ export class ExtensionApiService implements vscode.Disposable {
      */
     private async handleEnvironmentRefresh(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         await this.executeCommand('honeygui.environment.refresh', res);
-    }
-
-    // ==================== 协同相关 ====================
-
-    /**
-     * POST /api/collaboration/start-host - 启动协同主机
-     * 复用命令: honeygui.collaboration.startHost
-     */
-    private async handleCollaborationStartHost(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-        await this.executeCommand('honeygui.collaboration.startHost', res);
-    }
-
-    /**
-     * POST /api/collaboration/join - 加入协同会话
-     * 复用命令: honeygui.collaboration.joinSession
-     *
-     * 请求体: { "address": "host:port" } (可选)
-     */
-    private async handleCollaborationJoin(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-        const body = await this.readBody(req);
-        const address = body.address;
-
-        if (address) {
-            await this.executeCommand('honeygui.collaboration.joinSession', res, [address]);
-        } else {
-            await this.executeCommand('honeygui.collaboration.joinSession', res);
-        }
-    }
-
-    /**
-     * POST /api/collaboration/stop - 停止协同
-     * 复用命令: honeygui.collaboration.stop
-     */
-    private async handleCollaborationStop(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-        await this.executeCommand('honeygui.collaboration.stop', res);
     }
 
     // ==================== 通用方法 ====================

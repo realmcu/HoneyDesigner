@@ -153,7 +153,6 @@ vscodeAPI.postMessage({
 - `loadHml` - Populate component tree
 - `save` - Persist to .hml file
 - `updateImagePath` - Asset dropped on canvas
-- `collaborationStateChanged` - Multi-user sync
 
 ## ANTI-PATTERNS
 
@@ -167,7 +166,6 @@ vscodeAPI.postMessage({
 ### Singleton Managers
 ```typescript
 StatusBarManager.getInstance()
-CollaborationService.getInstance()
 DesignerService.getInstance()
 ```
 

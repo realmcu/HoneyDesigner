@@ -121,7 +121,6 @@ export class DesignerPanel {
 
         // 处理面板关闭事件
         this._panel.onDidDispose(() => {
-            this._collaborationController.stop();
             this.dispose();
         }, null, this._disposables);
 
