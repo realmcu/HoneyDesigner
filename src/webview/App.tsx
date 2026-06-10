@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Users } from 'lucide-react';
 import { useDesignerStore } from './store';
 import DesignerCanvas from './components/DesignerCanvas';
 import ComponentLibrary, { componentDefinitions } from './components/ComponentLibrary';
@@ -7,7 +6,6 @@ import PropertiesPanel from './components/PropertiesPanel';
 import ConversionConfigPanel from './components/ConversionConfigPanel';
 import ComponentTree from './components/ComponentTree';
 import AssetsPanel from './components/AssetsPanel';
-import { CollaborationModal } from './components/CollaborationModal';
 import Toolbar from './components/Toolbar';
 import { ViewRelationModal } from './components/ViewRelationModal';
 import { CanvasEditorModal } from './components/CanvasEditorModal';
@@ -49,9 +47,6 @@ const App: React.FC = () => {
 
   // Tab 切换状态
   const [activeTab, setActiveTab] = React.useState<'components' | 'assets' | 'tree'>('components');
-  
-  // Collaboration 悬浮面板状态
-  const [showCollaborationPanel, setShowCollaborationPanel] = React.useState(false);
   
   // 文件加载状态（用于避免切换时的闪烁）
   const [isLoadingFile, setIsLoadingFile] = React.useState(false);
@@ -618,21 +613,6 @@ const App: React.FC = () => {
           }
           break;
 
-        case 'collaborationStateChanged':
-          // 更新协作状态
-          if (message.state) {
-            const store = useDesignerStore.getState();
-            store.setCollaborationState({
-              role: message.state.role,
-              status: message.state.status,
-              hostAddress: message.state.hostAddress,
-              hostPort: message.state.hostPort,
-              peerCount: message.state.peerCount,
-              error: message.state.error,
-            });
-            console.log('[Webview App] 协作状态已更新:', message.state);
-          }
-          break;
 
         // 协作增量更新消息处理（避免闪烁）
         case 'remoteAddComponent':
@@ -1549,10 +1529,7 @@ const App: React.FC = () => {
       )}
       
       {/* Toolbar */}
-      <Toolbar 
-        showCollaborationPanel={showCollaborationPanel}
-        onToggleCollaboration={() => setShowCollaborationPanel(!showCollaborationPanel)}
-      />
+      <Toolbar />
 
       {/* Main Content */}
       <div className="main-content" onContextMenu={(e) => e.preventDefault()}>
@@ -1682,11 +1659,6 @@ const App: React.FC = () => {
         onClose={() => setCanvasEditorOpen(false)}
       />
 
-      {/* Collaboration Modal */}
-      <CollaborationModal
-        visible={showCollaborationPanel}
-        onClose={() => setShowCollaborationPanel(false)}
-      />
     </div>
   );
 };

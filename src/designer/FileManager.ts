@@ -800,57 +800,5 @@ export class FileManager {
         });
     }
 
-    /**
-     * 发送协作同步的组件数据到前端
-     * 用于访客接收主机文档时，不依赖本地文件路径
-     */
-    public sendCollaborationUpdate(): void {
-        try {
-            const hmlDocument = this._hmlController.currentDocument;
-            if (!hmlDocument) {
-                logger.warn('[FileManager] sendCollaborationUpdate: 没有当前文档');
-                return;
-            }
-            
-            const frontendComponents = this._hmlController.prepareComponentsForFrontend(hmlDocument);
-            const hmlContent = this._hmlController.serializeDocument();
-            
-            logger.info(`[FileManager] 发送协作同步数据，组件数: ${frontendComponents.length}`);
-            
-            // 获取当前 VSCode 语言设置
-            const locale = vscode.env.language;
-            
-            // 尝试加载项目配置（如果是访客模式，会有 mock project.json）
-            let projectConfig = null;
-            let projectRoot = null;
-            if (this._filePath) {
-                projectConfig = ProjectConfigLoader.loadConfig(this._filePath);
-                projectRoot = ProjectUtils.findProjectRoot(this._filePath);
-            }
-
-            this._panel.webview.postMessage({
-                command: 'loadHml',
-                content: hmlContent,
-                document: {
-                    ...hmlDocument,
-                    view: {
-                        ...hmlDocument.view,
-                        components: frontendComponents
-                    }
-                },
-                components: frontendComponents,
-                projectConfig: projectConfig,
-                designerConfig: { canvasBackgroundColor: '#3c3c3c' },
-                projectRoot: projectRoot,
-                allViews: [],
-                allHmlFiles: [],
-                currentFilePath: this._filePath || 'collaboration',
-                locale: locale,
-                isSimulationRunning: false
-            });
-        } catch (error) {
-            logger.error(`[FileManager] sendCollaborationUpdate失败: ${error}`);
-        }
-    }
 
 }

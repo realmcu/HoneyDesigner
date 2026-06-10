@@ -15,7 +15,6 @@ import {
 } from './utils/alignmentUtils';
 import { generateComponentId } from './utils/componentNaming';
 import { findComponentsWithBrokenRefs, isDropTargetType } from './utils/componentUtils';
-import { createCollaborationSlice } from './store/collaboration';
 import { setVSCodeAPIInstance } from './store/vscodeAPI';
 
 // ============ 层级调整辅助函数 ============
@@ -246,31 +245,6 @@ export interface DesignerStore extends DesignerState {
    */
   updateAssetConfig: (path: string, settings: ItemSettings, changedField?: string) => void;
 
-  // Collaboration (多人协作)
-  collaborationRole: 'none' | 'host' | 'guest';
-  collaborationStatus: 'disconnected' | 'connecting' | 'connected' | 'hosting';
-  collaborationHostAddress: string;
-  collaborationHostPort: number;
-  collaborationPeerCount: number;
-  collaborationError: string | null;
-  setCollaborationState: (state: {
-    role?: 'none' | 'host' | 'guest';
-    status?: 'disconnected' | 'connecting' | 'connected' | 'hosting';
-    hostAddress?: string;
-    hostPort?: number;
-    peerCount?: number;
-    error?: string | null;
-  }) => void;
-  resetCollaborationState: () => void;
-  startHost: (port: number) => void;
-  stopHost: () => void;
-  joinSession: (address: string) => void;
-  leaveSession: () => void;
-  
-  // 远程增量更新（协作模式，不触发保存）
-  remoteAddComponent: (component: Component) => void;
-  remoteUpdateComponent: (id: string, updates: Partial<Component>) => void;
-  remoteDeleteComponent: (id: string) => void;
 }
 
 let vscodeAPI: VSCodeAPI | null = null;
@@ -2282,79 +2256,6 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     }
   },
 
-  ...createCollaborationSlice(set, get, api),
-
-  // 远程增量更新方法（协作模式，不触发保存和广播）
-  remoteAddComponent: (component: Component) => {
-    set((state) => {
-      const newComponents = [...state.components];
-      
-      // 检查是否已存在相同ID的组件
-      if (newComponents.some(c => c.id === component.id)) {
-        return state;
-      }
-      
-      // 如果组件有父组件引用，更新父组件的children数组
-      if (component.parent && typeof component.parent === 'string') {
-        const parentIndex = newComponents.findIndex(comp => comp.id === component.parent);
-        if (parentIndex !== -1) {
-          if (!newComponents[parentIndex].children) {
-            newComponents[parentIndex] = { ...newComponents[parentIndex], children: [] };
-          }
-          if (!newComponents[parentIndex].children!.includes(component.id)) {
-            newComponents[parentIndex] = {
-              ...newComponents[parentIndex],
-              children: [...newComponents[parentIndex].children!, component.id]
-            };
-          }
-        }
-      }
-      
-      newComponents.push(component);
-      return { components: newComponents };
-    });
-  },
-
-  remoteUpdateComponent: (id: string, updates: Partial<Component>) => {
-    set((state) => ({
-      components: state.components.map((comp) =>
-        comp.id === id ? { ...comp, ...updates } : comp
-      ),
-    }));
-  },
-
-  remoteDeleteComponent: (id: string) => {
-    set((state) => {
-      const component = state.components.find(c => c.id === id);
-      if (!component) return state;
-      
-      // 收集要删除的组件ID（包括子组件）
-      const idsToDelete = new Set<string>();
-      const collectIds = (compId: string) => {
-        idsToDelete.add(compId);
-        const comp = state.components.find(c => c.id === compId);
-        if (comp?.children) {
-          comp.children.forEach(childId => collectIds(childId));
-        }
-      };
-      collectIds(id);
-      
-      return {
-        components: state.components
-          .filter(c => !idsToDelete.has(c.id))
-          .map(c => {
-            // 更新父组件的 children 数组
-            if (c.children && c.children.includes(id)) {
-              return { ...c, children: c.children.filter(childId => childId !== id) };
-            }
-            return c;
-          }),
-        // 如果删除的是当前选中的组件，清除选中状态
-        selectedComponent: state.selectedComponent && idsToDelete.has(state.selectedComponent) ? null : state.selectedComponent,
-        selectedComponents: state.selectedComponents.filter(sid => !idsToDelete.has(sid)),
-      };
-    });
-  },
 };
 });
 

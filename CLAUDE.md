@@ -25,7 +25,6 @@ This project is a VS Code extension ("HoneyGUI Visual Designer") for embedded GU
   - **Core Logic**: `src/core/` manages extension lifecycle and providers.
     - `ExtensionManager`: Coordinates all extension subsystems (commands, HML editor, environment checks, simulation).
     - `CommandManager`: Registers all VSCode commands for the extension.
-    - `CollaborationService`: Manages real-time collaboration sessions via WebSockets (offline-capable).
   - **HML Handling**: `src/hml/` parses and processes the `.hml` (HoneyGUI Markup Language) files.
     - `HmlParser`: Converts HML (XML-like) to component objects.
     - `HmlSerializer`: Converts component objects back to HML.

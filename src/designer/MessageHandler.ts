@@ -7,12 +7,10 @@ import { CodeGenerator } from '../services/CodeGenerator';
 import { ComponentManager } from './ComponentManager';
 import { FileManager } from './FileManager';
 import { HmlController } from '../hml/HmlController';
-import { CollaborationService } from '../core/CollaborationService';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
 import { ConversionConfigService, ConversionConfig } from '../services/ConversionConfigService';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
-import { CollaborationController } from './CollaborationController';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -24,12 +22,9 @@ export class MessageHandler {
     private readonly _componentManager: ComponentManager;
     private readonly _fileManager: FileManager;
     private readonly _hmlController: HmlController;
-    private readonly _collaborationService: any; // 引用 CollaborationService
-    private _collaborationController?: CollaborationController; // Add reference
     private _autoCodeGenTimer: NodeJS.Timeout | null = null;
     private _isCodeGenerating: boolean = false;
     private _hasPendingCodeGeneration: boolean = false;
-    private _updateThrottles: Map<string, { timer: NodeJS.Timeout | null, pendingMessage: any, hasNew: boolean }> = new Map();
     private _userFuncWatcher: vscode.FileSystemWatcher | undefined;
 
     constructor(
@@ -46,62 +41,9 @@ export class MessageHandler {
         this._componentManager = componentManager;
         this._fileManager = fileManager;
         this._hmlController = hmlController;
-        this._collaborationService = require('../core/CollaborationService').CollaborationService.getInstance();
-
-        // 监听资源添加事件，用于协同同步
-        this._assetManager.on('assetAdded', (relativePath: string, content: Buffer) => {
-            if (this._collaborationService.isGuest) {
-                try {
-                    const base64 = content.toString('base64');
-                    this._collaborationService.broadcast({
-                        type: 'ASSET_DATA',
-                        content: relativePath,
-                        payload: base64
-                    });
-                    logger.info(`[MessageHandler] Synced added asset to host: ${relativePath}`);
-                } catch (e) {
-                    logger.error(`[MessageHandler] Failed to sync added asset: ${e}`);
-                }
-            }
-        });
     }
 
-    /**
-     * 设置 CollaborationController 引用
-     */
-    public setCollaborationController(controller: CollaborationController) {
-        this._collaborationController = controller;
-    }
-
-    /**
-     * 处理Webview消息
-     * @param message 消息对象
-     * @param fromRemote 是否来自远程（协同模式下），默认为 false
-     */
-    public async handleMessage(message: any, fromRemote: boolean = false): Promise<void> {
-        // 协同模式下的消息广播拦截
-        // 只有修改操作需要广播，查询类操作不需要
-        const broadcastCommands = [
-            'addComponent',
-            'updateComponent',
-            'deleteComponent',
-            'saveImageToAssets',
-            'createImageComponent',
-            'create3DComponent',
-            'createVideoComponent',
-            'createSvgComponent',
-            'createGlassComponent',
-            'save'  // 保存时也广播完整文档
-        ];
-
-        // 如果已连接协同，且是需要广播的命令，且该命令不是来自远程（即来自本地Webview操作）
-        if (this._collaborationService.isConnected && broadcastCommands.includes(message.command) && !fromRemote) {
-            // 无论 Host 还是 Guest，都先广播给对方
-            // Guest 发给 Host，Host 广播给所有 Guest
-            this.throttleBroadcast(message);
-            // 乐观更新：本地继续执行，不阻塞用户操作
-        }
-
+    public async handleMessage(message: any): Promise<void> {
         switch (message.command) {
             case 'ready':
                 logger.info('[MessageHandler] 收到前端ready消息');
@@ -120,49 +62,10 @@ export class MessageHandler {
                 } catch (error) {
                     logger.error(`[MessageHandler] reloadCurrentDocument失败: ${error}`);
                 }
-
-                // 如果是协作模式，重新发送协作状态
-                if (this._collaborationController && this._collaborationService.isConnected) {
-                    const service = this._collaborationService;
-                    this._panel.webview.postMessage({
-                        command: 'collaborationStateChanged',
-                        state: {
-                            role: service.role,
-                            status: service.isHost ? 'hosting' : 'connected',
-                            hostAddress: service.hostAddress || (service.peers ? Array.from(service.peers)[0] : ''),
-                            peerCount: service.peers?.size || 1
-                        }
-                    });
-                }
                 break;
 
             case 'save':
                 logger.debug(`[MessageHandler] 收到保存请求，组件数量: ${message?.content?.components?.length || 0}`);
-
-                // Collaboration: Guest sends update to Host instead of saving locally
-                if (this._collaborationService.isGuest) {
-                    if (message?.content?.components && Array.isArray(message.content.components)) {
-                        this._hmlController.updateFromFrontendComponents(message.content.components);
-                    }
-
-                    // 注意：这里不再发送 REMOTE_UPDATE 消息
-                    // 之前的实现中发送了 REMOTE_UPDATE，导致 Host 收到后触发全量刷新 (onUpdate)，
-                    // 进而导致 Host Webview 闪烁。
-                    // 现在改为依赖 OP_DELTA (save) 消息（已在 handleMessage 入口处广播），
-                    // Host 收到 OP_DELTA (save) 后会同步内存并保存文件，但不会刷新 Webview。
-                    // 这样既实现了保存，又避免了 Host 端闪烁。
-
-                    /*
-                    const serializedContent = this._hmlController.serializeDocument();
-                    this._collaborationService.broadcast({
-                        type: 'REMOTE_UPDATE',
-                        content: serializedContent
-                    });
-                    */
-
-                    // Guest 不执行本地保存，直接返回
-                    break;
-                }
 
                 try {
                     // 保存前记录当前状态到撤销栈（直接读文件，避免 VSCode buffer 不同步）
@@ -520,23 +423,6 @@ export class MessageHandler {
 
             case 'toggleSmartPacking':
                 this._handleToggleSmartPacking();
-                break;
-
-            // Collaboration commands
-            case 'startHost':
-                this._handleStartHost(message.port);
-                break;
-
-            case 'stopHost':
-                this._handleStopHost();
-                break;
-
-            case 'joinSession':
-                this._handleJoinSession(message.address);
-                break;
-
-            case 'leaveSession':
-                this._handleLeaveSession();
                 break;
 
             case 'getUserFunctions':
@@ -1159,186 +1045,6 @@ export class MessageHandler {
         }
     }
 
-    // ============ Collaboration Methods ============
-
-    /**
-     * 处理启动主机请求
-     */
-    private async _handleStartHost(port: number): Promise<void> {
-        try {
-            logger.info(`[MessageHandler] 启动协作主机，端口: ${port}`);
-            const address = await this._collaborationService.startHost(port);
-
-            // 通知前端更新状态
-            this._panel.webview.postMessage({
-                command: 'collaborationStateChanged',
-                state: {
-                    role: 'host',
-                    status: 'hosting',
-                    hostAddress: address,
-                    hostPort: port,
-                    peerCount: 0,
-                    error: null
-                }
-            });
-
-            vscode.window.showInformationMessage(
-                vscode.l10n.t('Collaboration service started, invite others to connect: {0}', address)
-            );
-        } catch (error) {
-            logger.error(`[MessageHandler] 启动协作主机失败: ${error}`);
-
-            // 通知前端更新错误状态
-            this._panel.webview.postMessage({
-                command: 'collaborationStateChanged',
-                state: {
-                    role: 'none',
-                    status: 'disconnected',
-                    error: error instanceof Error ? error.message : String(error)
-                }
-            });
-        }
-    }
-
-    /**
-     * 处理停止主机请求
-     */
-    private _handleStopHost(): void {
-        try {
-            logger.info('[MessageHandler] 停止协作主机');
-            this._collaborationService.stop();
-
-            // 通知前端更新状态
-            this._panel.webview.postMessage({
-                command: 'collaborationStateChanged',
-                state: {
-                    role: 'none',
-                    status: 'disconnected',
-                    hostAddress: '',
-                    peerCount: 0,
-                    error: null
-                }
-            });
-
-            vscode.window.showInformationMessage(vscode.l10n.t('Collaboration service stopped'));
-        } catch (error) {
-            logger.error(`[MessageHandler] 停止协作主机失败: ${error}`);
-        }
-    }
-
-    /**
-     * 处理加入会话请求
-     */
-    private async _handleJoinSession(address: string): Promise<void> {
-        try {
-            // 在加入前询问用户选择临时工作区目录
-            const options: vscode.OpenDialogOptions = {
-                canSelectFiles: false,
-                canSelectFolders: true,
-                canSelectMany: false,
-                openLabel: vscode.l10n.t('Select Workspace Folder'),
-                title: vscode.l10n.t('Select a folder for collaboration workspace')
-            };
-
-            const folderUri = await vscode.window.showOpenDialog(options);
-            if (!folderUri || folderUri.length === 0) {
-                logger.info('[MessageHandler] 用户取消了工作区选择');
-                // 通知前端取消连接状态
-                this._panel.webview.postMessage({
-                    command: 'collaborationStateChanged',
-                    state: {
-                        status: 'disconnected',
-                        error: null
-                    }
-                });
-                return;
-            }
-
-            const workspacePath = folderUri[0].fsPath;
-            logger.info(`[MessageHandler] 选定的工作区路径: ${workspacePath}`);
-
-            // 验证目录是否为空（可选，这里只打印日志）
-            if (fs.existsSync(workspacePath) && fs.readdirSync(workspacePath).length > 0) {
-                logger.warn(`[MessageHandler] Warning: Selected workspace is not empty: ${workspacePath}`);
-                const proceed = await vscode.window.showWarningMessage(
-                    vscode.l10n.t('The selected folder is not empty. Continue?'),
-                    vscode.l10n.t('Yes'),
-                    vscode.l10n.t('No')
-                );
-                if (proceed !== vscode.l10n.t('Yes')) {
-                    this._panel.webview.postMessage({
-                        command: 'collaborationStateChanged',
-                        state: {
-                            status: 'disconnected',
-                            error: null
-                        }
-                    });
-                    return;
-                }
-            }
-
-            // 设置 CollaborationController 的工作区路径
-            if (this._collaborationController) {
-                this._collaborationController.setGuestWorkspacePath(workspacePath);
-            } else {
-                logger.warn('[MessageHandler] CollaborationController not set');
-            }
-
-            logger.info(`[MessageHandler] 加入协作会话: ${address}`);
-            await this._collaborationService.joinSession(address);
-        } catch (error) {
-            logger.error(`[MessageHandler] 加入协作会话失败: ${error}`);
-        }
-    }
-
-    /**
-     * 处理离开会话请求
-     */
-    private _handleLeaveSession(): void {
-        try {
-            logger.info('[MessageHandler] 离开协作会话');
-            this._collaborationService.stop();
-
-            // 通知前端更新状态
-            this._panel.webview.postMessage({
-                command: 'collaborationStateChanged',
-                state: {
-                    role: 'none',
-                    status: 'disconnected',
-                    hostAddress: '',
-                    error: null
-                }
-            });
-
-            vscode.window.showInformationMessage(vscode.l10n.t('Disconnected from collaboration'));
-        } catch (error) {
-            logger.error(`[MessageHandler] 离开协作会话失败: ${error}`);
-        }
-    }
-
-    /**
-     * 发送协作状态到前端
-     */
-    public sendCollaborationState(): void {
-        const role = this._collaborationService.role;
-        let status: 'disconnected' | 'connecting' | 'connected' | 'hosting' = 'disconnected';
-
-        if (this._collaborationService.isHost) {
-            status = 'hosting';
-        } else if (this._collaborationService.isGuest) {
-            status = 'connected';
-        }
-
-        this._panel.webview.postMessage({
-            command: 'collaborationStateChanged',
-            state: {
-                role: role,
-                status: status,
-                error: null
-            }
-        });
-    }
-
     /**
      * 处理获取用户自定义函数列表
      * 解析 src/user/**_user.h 文件，提取函数声明
@@ -1454,75 +1160,10 @@ export class MessageHandler {
         }
     }
 
-    /**
-     * Clean up resources
-     */
     dispose(): void {
         if (this._userFuncWatcher) {
             this._userFuncWatcher.dispose();
             this._userFuncWatcher = undefined;
-        }
-    }
-
-    /**
-     * 对广播消息进行节流处理
-     * 特别是针对高频的 updateComponent 消息
-     */
-    private throttleBroadcast(message: any) {
-        const id = message.componentId;
-        const command = message.command;
-
-        // 如果是 updateComponent，使用组件 ID 作为节流 Key
-        // 如果是 save，使用 'global_save' 作为 Key
-        let throttleKey: string | null = null;
-
-        if (command === 'updateComponent' && id) {
-            throttleKey = id;
-        } else if (command === 'save') {
-            throttleKey = 'global_save';
-        }
-
-        // 如果不需要节流，直接广播
-        if (!throttleKey) {
-            this._collaborationService.broadcast({
-                type: 'OP_DELTA',
-                payload: message
-            });
-            return;
-        }
-
-        let record = this._updateThrottles.get(throttleKey);
-
-        if (!record) {
-            record = { timer: null, pendingMessage: null, hasNew: false };
-            this._updateThrottles.set(throttleKey, record);
-        }
-
-        // 更新待发送的消息为最新的一条
-        record.pendingMessage = message;
-        record.hasNew = true;
-
-        if (!record.timer) {
-            // 立即发送（前沿触发）
-            this._collaborationService.broadcast({
-                type: 'OP_DELTA',
-                payload: record.pendingMessage
-            });
-            record.hasNew = false;
-
-            // 启动冷却计时器 (30ms = ~33fps)
-            record.timer = setTimeout(() => {
-                if (record) {
-                    record.timer = null;
-                    if (record.hasNew && record.pendingMessage) {
-                        this._collaborationService.broadcast({
-                            type: 'OP_DELTA',
-                            payload: record.pendingMessage
-                        });
-                        record.hasNew = false;
-                    }
-                }
-            }, 30);
         }
     }
 }

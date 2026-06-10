@@ -113,21 +113,6 @@
       ],
       "view/title": [
         {
-          "command": "honeygui.collaboration.startHost",
-          "when": "view == honeygui.welcome",
-          "group": "navigation@2"
-        },
-        {
-          "command": "honeygui.collaboration.joinSession",
-          "when": "view == honeygui.welcome",
-          "group": "navigation@2"
-        },
-        {
-          "command": "honeygui.collaboration.stop",
-          "when": "view == honeygui.welcome",
-          "group": "navigation@2"
-        },
-        {
           "command": "honeygui.environment.refresh",
           "when": "view == honeygui.environment",
           "group": "navigation"
@@ -196,24 +181,6 @@
       {
         "command": "honeygui.simulation.stop",
         "title": "%command.simulationStop%",
-        "category": "HoneyGUI",
-        "icon": "$(debug-stop)"
-      },
-      {
-        "command": "honeygui.collaboration.startHost",
-        "title": "%command.startHost%",
-        "category": "HoneyGUI",
-        "icon": "$(broadcast)"
-      },
-      {
-        "command": "honeygui.collaboration.joinSession",
-        "title": "%command.joinSession%",
-        "category": "HoneyGUI",
-        "icon": "$(plug)"
-      },
-      {
-        "command": "honeygui.collaboration.stop",
-        "title": "%command.stopCollaboration%",
         "category": "HoneyGUI",
         "icon": "$(debug-stop)"
       },
@@ -317,7 +284,6 @@
     "@types/three": "^0.181.0",
     "@types/vscode": "^1.80.0",
     "@types/webpack": "^5.28.5",
-    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.1.1",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
@@ -371,7 +337,6 @@
     "pngjs": "^7.0.0",
     "qrcode-generator": "1.4.4",
     "three": "^0.181.2",
-    "ws": "^8.18.3",
     "xml-js": "^1.6.11",
     "zustand": "^5.0.8"
   }

@@ -146,32 +146,6 @@ export class ExtensionApiService implements vscode.Disposable {
             description: 'Refresh build environment check',
             needsUI: false
         },
-        // 协同相关
-        {
-            endpoint: 'POST /api/collaboration/start-host',
-            method: 'POST',
-            command: 'honeygui.collaboration.startHost',
-            title: 'Start Collaboration Host',
-            description: 'Start collaboration session as host',
-            needsUI: false
-        },
-        {
-            endpoint: 'POST /api/collaboration/join',
-            method: 'POST',
-            command: 'honeygui.collaboration.joinSession',
-            title: 'Join Collaboration Session',
-            description: 'Join a collaboration session',
-            args: ['address?: string'],
-            needsUI: true
-        },
-        {
-            endpoint: 'POST /api/collaboration/stop',
-            method: 'POST',
-            command: 'honeygui.collaboration.stop',
-            title: 'Stop Collaboration',
-            description: 'Stop collaboration session',
-            needsUI: false
-        },
         // HML 验证
         {
             endpoint: 'POST /api/validate-hml',

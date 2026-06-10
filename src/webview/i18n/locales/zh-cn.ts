@@ -801,25 +801,6 @@ const zhCN = {
   'jpegGrayscale': '灰度',
   'jpegRequiresFFmpeg': 'JPEG 压缩需要安装 FFmpeg 并添加到系统 PATH',
 
-  // Collaboration
-  'Collaboration': '多人协作',
-  'Disconnected': '未连接',
-  'Connecting...': '连接中...',
-  'Connected': '已连接',
-  'Hosting': '托管中',
-  'Unknown': '未知',
-  'connected': '已连接',
-  'Host Mode': '主机模式',
-  'Port': '端口',
-  'Start Host': '启动主机',
-  'Host Running': '主机运行中',
-  'Stop Host': '停止主机',
-  'Join Session': '加入会话',
-  'Address': '地址',
-  'Connect': '连接',
-  'Connected to Host': '已连接到主机',
-  'Disconnect': '断开连接',
-
   // Canvas Editor Tools
   'Pen': '画笔',
   'Triangle': '三角形',

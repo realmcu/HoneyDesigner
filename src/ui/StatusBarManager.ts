@@ -31,10 +31,6 @@ export class StatusBarManager {
         return StatusBarManager.instance;
     }
 
-    public updateCollaborationStatus(role: 'Host' | 'Guest' | 'None', info?: string) {
-        // 状态栏已移除，不再更新
-    }
-
     /**
      * 更新仿真状态显示
      * @param isRunning 是否正在运行

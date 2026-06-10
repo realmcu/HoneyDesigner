@@ -10,10 +10,8 @@ import { MessageHandler } from './MessageHandler';
 import { CodeGenOptions } from '../codegen/ICodeGenerator';
 import { WebviewContentProvider } from './WebviewContentProvider';
 import { DesignerService } from './DesignerService';
-import { CollaborationService } from '../core/CollaborationService';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
-import { CollaborationController } from './CollaborationController';
 
 /**
  * 设计器Webview面板管理类
@@ -39,18 +37,6 @@ export class DesignerPanel {
     private readonly _fileManager: FileManager;
     private readonly _messageHandler: MessageHandler;
     private readonly _webviewContentProvider: WebviewContentProvider;
-    private readonly _collaborationService: CollaborationService;
-    private readonly _collaborationController: CollaborationController;
-    private _peerCountListener?: (count: number) => void;
-    private _statusListener?: (status: any) => void;
-
-    /**
-     * 设置访客工作区路径
-     */
-    public setGuestWorkspacePath(path: string): void {
-        this._collaborationController.setGuestWorkspacePath(path);
-    }
-
     /**
      * 获取当前的保存事务ID
      * @returns 当前事务ID（0表示没有正在进行的保存操作）
@@ -120,22 +106,6 @@ export class DesignerPanel {
         // Initialize WebviewContentProvider
         this._webviewContentProvider = new WebviewContentProvider(context.extensionUri);
         
-        // Initialize Collaboration Service
-        this._collaborationService = CollaborationService.getInstance();
-        
-        // Initialize Collaboration Controller
-        this._collaborationController = new CollaborationController(
-            this._collaborationService,
-            this._hmlController,
-            this._fileManager,
-            this._messageHandler,
-            () => this._fileManager.sendCollaborationUpdate(),  // 发送协作同步数据到前端
-            this._panel  // 传递 panel 用于增量更新
-        );
-        
-        // 设置 MessageHandler 的 CollaborationController 引用
-        this._messageHandler.setCollaborationController(this._collaborationController);
-
         // 如果有文档，设置文件路径
         if (document) {
             this._fileManager.currentFilePath = document.uri.fsPath;
@@ -145,41 +115,6 @@ export class DesignerPanel {
         this._fileManager.onDidUpdateTitle(title => {
             this._panel.title = title;
         });
-
-        // 监听协同消息
-        this._collaborationController.start();
-
-        // 监听对等方数量变化
-        this._peerCountListener = (count: number) => {
-            this._panel.webview.postMessage({
-                command: 'collaborationStateChanged',
-                state: {
-                    peerCount: count
-                }
-            });
-        };
-        this._collaborationService.on('peerCountChanged', this._peerCountListener);
-
-        // 监听状态变更
-        this._statusListener = (status: any) => {
-            this._panel.webview.postMessage({
-                command: 'collaborationStateChanged',
-                state: status
-            });
-        };
-        this._collaborationService.on('statusChanged', this._statusListener);
-
-        // 如果当前已经连接，立即发送状态
-        if (this._collaborationService.isConnected) {
-            this._panel.webview.postMessage({
-                command: 'collaborationStateChanged',
-                state: {
-                    role: this._collaborationService.role,
-                    status: this._collaborationService.isHost ? 'hosting' : 'connected',
-                    peerCount: 0 // 这个值可能不准确，但在初始化时可以接受
-                }
-            });
-        }
 
         // 设置Webview内容
         this._update();
@@ -286,17 +221,6 @@ export class DesignerPanel {
 
         // 清理 project.json watcher
         this._fileManager.disposeProjectConfigWatcher();
-
-        // 停止协同监听
-        this._collaborationController.stop();
-
-        // 移除 CollaborationService 监听器
-        if (this._peerCountListener) {
-            this._collaborationService.off('peerCountChanged', this._peerCountListener);
-        }
-        if (this._statusListener) {
-            this._collaborationService.off('statusChanged', this._statusListener);
-        }
 
         // 清理所有监听器
         this._disposables.forEach(d => d.dispose());
