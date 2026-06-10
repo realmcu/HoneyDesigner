@@ -91,12 +91,14 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
                 </div>
               </div>
               <div className="property-item" style={{ opacity: 0.4, pointerEvents: 'none' }} title="Coming soon">
-                <label>{t('Resident Memory')}</label>
-                <PropertyEditor
-                  type="boolean"
-                  value={component.data?.residentMemory || false}
-                  onChange={(value) => handleDataChange('residentMemory', value)}
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label>{t('Resident Memory')}</label>
+                  <PropertyEditor
+                    type="boolean"
+                    value={component.data?.residentMemory || false}
+                    onChange={(value) => handleDataChange('residentMemory', value)}
+                  />
+                </div>
               </div>
               <div className="property-item" title={t('Snapshot Cache Tooltip')}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
