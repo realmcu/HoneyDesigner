@@ -185,21 +185,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential
-          # Install Linux→Win64 MinGW cross-compiler.
-          # Prefer posix thread model (matches local GCC 8.1.0 posix).
-          # Note: Ubuntu 22.04 provides GCC 10, not GCC 8. For C libraries
-          # this is ABI-compatible with GCC 8.
-          sudo apt-get install -y g++-12-mingw-w64-x86-64-posix \
-            || sudo apt-get install -y g++-10-mingw-w64-x86-64-posix \
-            || sudo apt-get install -y g++-mingw-w64-x86-64
-
-      - name: Show MinGW compiler version
-        run: |
-          echo "=== x86_64-w64-mingw32-gcc version ==="
-          x86_64-w64-mingw32-gcc -v 2>&1
-          echo ""
-          echo "=== Thread model ==="
-          x86_64-w64-mingw32-gcc -v 2>&1 | grep "Thread model"
 
       - name: Clone HoneyGUI SDK
         run: git clone --depth 1 https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
@@ -228,44 +213,14 @@ jobs:
           make -j$(nproc)
           make install
 
-      # ── Win32 cross-compile (MinGW) ─────────────────────────
-
-      - name: Cache Win32 libgui.a
-        id: cache-win32
-        uses: actions/cache@v4
-        with:
-          path: /tmp/HoneyGUI/lib/gcc/install-win32
-          key: libgui-win32-${{ steps.sdk-info.outputs.sha }}
-
-      - name: Cross-compile libgui.a for Win32
-        if: steps.cache-win32.outputs.cache-hit != 'true'
-        continue-on-error: true
-        run: |
-          cd /tmp/HoneyGUI/lib/gcc
-          mkdir -p build-win32 && cd build-win32
-          cmake .. \
-            -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
-            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
-            -DCMAKE_BUILD_TYPE=Release
-          make -j$(nproc)
-          mkdir -p ../install-win32/lib
-          [ -f lib/libgui.a ] && cp lib/libgui.a ../install-win32/lib/
-
       # ── Copy built files into repo ──────────────────────────
 
-      - name: Update lib/sim with freshly built libraries
+      - name: Update lib/sim with freshly built library
         run: |
           # Linux lib
           if [ -f /tmp/HoneyGUI/lib/gcc/install/lib/libgui.a ]; then
             cp /tmp/HoneyGUI/lib/gcc/install/lib/libgui.a lib/sim/linux/libgui.a
             echo "✅ Linux libgui.a updated"
-          fi
-
-          # Win32 lib
-          if [ -f /tmp/HoneyGUI/lib/gcc/install-win32/lib/libgui.a ]; then
-            cp /tmp/HoneyGUI/lib/gcc/install-win32/lib/libgui.a lib/sim/win32/libgui.a
-            echo "✅ Win32 libgui.a updated"
           fi
 
           # Headers
