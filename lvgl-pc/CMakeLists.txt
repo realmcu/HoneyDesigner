@@ -57,30 +57,43 @@ if(LVGL_THORVG_LIBRARY)
 endif()
 
 # ============================================================
-# SDL2 static library
+# SDL2
 # ============================================================
-find_library(SDL2_LIBRARY
-    NAMES SDL2
-    PATHS "${SDL2_ROOT}/lib"
-    NO_DEFAULT_PATH)
-find_library(SDL2MAIN_LIBRARY
-    NAMES SDL2main
-    PATHS "${SDL2_ROOT}/lib"
-    NO_DEFAULT_PATH)
+if(WIN32)
+    # Bundled static SDL2 for Windows (MinGW)
+    find_library(SDL2_LIBRARY
+        NAMES SDL2
+        PATHS "${SDL2_ROOT}/lib"
+        NO_DEFAULT_PATH)
+    find_library(SDL2MAIN_LIBRARY
+        NAMES SDL2main
+        PATHS "${SDL2_ROOT}/lib"
+        NO_DEFAULT_PATH)
 
-if(NOT SDL2_LIBRARY)
-    message(FATAL_ERROR "SDL2 static library not found in ${SDL2_ROOT}/lib")
-endif()
+    if(NOT SDL2_LIBRARY)
+        message(FATAL_ERROR "SDL2 static library not found in ${SDL2_ROOT}/lib")
+    endif()
 
-add_library(SDL2 STATIC IMPORTED GLOBAL)
-set_target_properties(SDL2 PROPERTIES
-    IMPORTED_LOCATION "${SDL2_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${SDL2_ROOT}/include")
+    add_library(SDL2 STATIC IMPORTED GLOBAL)
+    set_target_properties(SDL2 PROPERTIES
+        IMPORTED_LOCATION "${SDL2_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${SDL2_ROOT}/include")
 
-if(SDL2MAIN_LIBRARY)
-    add_library(SDL2main STATIC IMPORTED GLOBAL)
-    set_target_properties(SDL2main PROPERTIES
-        IMPORTED_LOCATION "${SDL2MAIN_LIBRARY}")
+    if(SDL2MAIN_LIBRARY)
+        add_library(SDL2main STATIC IMPORTED GLOBAL)
+        set_target_properties(SDL2main PROPERTIES
+            IMPORTED_LOCATION "${SDL2MAIN_LIBRARY}")
+    endif()
+else()
+    # System SDL2 for Linux/macOS (apt install libsdl2-dev)
+    find_package(PkgConfig REQUIRED)
+    # IMPORTED_TARGET 生成 PkgConfig::SDL2_PKG，携带 -lSDL2 / 头路径 / 库目录
+    pkg_check_modules(SDL2_PKG REQUIRED IMPORTED_TARGET sdl2)
+
+    # 转发到 PkgConfig::SDL2_PKG。不能用 ${SDL2_PKG_LIBRARIES}（值为 "SDL2"），
+    # 它与本 INTERFACE target 同名会自引用，使 -lSDL2 从链接行丢失。
+    add_library(SDL2 INTERFACE)
+    target_link_libraries(SDL2 INTERFACE PkgConfig::SDL2_PKG)
 endif()
 
 # ============================================================
@@ -98,10 +111,13 @@ add_executable(lvgl_pc
 set_target_properties(lvgl_pc PROPERTIES LINKER_LANGUAGE CXX)
 
 target_include_directories(lvgl_pc PRIVATE
-    "${CMAKE_CURRENT_LIST_DIR}/src"
-    "${SDL2_ROOT}/include"
-    "${SDL2_ROOT}/include/SDL2"
-)
+    "${CMAKE_CURRENT_LIST_DIR}/src")
+
+if(WIN32)
+    target_include_directories(lvgl_pc PRIVATE
+        "${SDL2_ROOT}/include"
+        "${SDL2_ROOT}/include/SDL2")
+endif()
 
 # Glob generated UI / callback / image / font sources
 file(GLOB LVGL_GENERATED_UI_SOURCES
