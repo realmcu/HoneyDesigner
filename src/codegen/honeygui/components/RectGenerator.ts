@@ -3,6 +3,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { convertColor, convertColorWithOpacity, convertColorToRgba } from '../utils';
 
 export class RectGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -32,14 +33,14 @@ export class RectGenerator implements ComponentCodeGenerator {
       const offColor = component.data?.buttonStateOffColor || '#FF0000';
       const stateColor = initialState ? onColor : offColor;
       
-      fillColor = opacity < 255 
-        ? this.convertColorWithOpacity(stateColor, opacity)
-        : this.convertColor(stateColor);
+      fillColor = opacity < 255
+        ? convertColorWithOpacity(stateColor, opacity)
+        : convertColor(stateColor);
     } else {
       // Plain rect uses fillColor
-      fillColor = opacity < 255 
-        ? this.convertColorWithOpacity(component.style?.fillColor, opacity)
-        : this.convertColor(component.style?.fillColor);
+      fillColor = opacity < 255
+        ? convertColorWithOpacity(component.style?.fillColor, opacity)
+        : convertColor(component.style?.fillColor);
     }
 
     return `${indentStr}${component.id} = gui_rect_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height}, ${borderRadius}, ${fillColor});\n`;
@@ -71,7 +72,7 @@ export class RectGenerator implements ComponentCodeGenerator {
         code += `${indentStr}gui_rect_set_linear_gradient(${component.id}, ${sdkDirection});\n`;
         
         stops.forEach(stop => {
-          const color = this.convertColorToRgba(stop.color);
+          const color = convertColorToRgba(stop.color);
           // Ensure position is float format (e.g. 0.0f not 0f)
           const position = Number.isInteger(stop.position) 
             ? `${stop.position}.0f` 
@@ -140,8 +141,8 @@ export class RectGenerator implements ComponentCodeGenerator {
     const offColor = component.data?.buttonStateOffColor || '#FF0000';
     const initialState = component.data?.buttonInitialState === 'on';
 
-    const onColorRgba = this.convertColorToRgba(onColor);
-    const offColorRgba = this.convertColorToRgba(offColor);
+    const onColorRgba = convertColorToRgba(onColor);
+    const offColorRgba = convertColorToRgba(offColor);
 
     return `
 // ${component.id} dual-state button callback
@@ -215,55 +216,4 @@ void ${component.id}_button_release_cb(void *obj, gui_event_t *e)
 `;
   }
 
-  /**
-   * Convert color value to gui_rgb() format
-   */
-  private convertColor(color?: string): string {
-    if (!color) return 'APP_COLOR_WHITE';
-    
-    if (color.startsWith('#')) {
-      const hex = color.substring(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return `gui_rgb(${r}, ${g}, ${b})`;
-    }
-    
-    return color;
-  }
-
-  /**
-   * Convert color value to gui_rgba() format (with opacity)
-   */
-  private convertColorWithOpacity(color: string | undefined, opacity: number): string {
-    if (!color) {
-      return `gui_rgba(255, 255, 255, ${opacity})`;
-    }
-    
-    if (color.startsWith('#')) {
-      const hex = color.substring(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return `gui_rgba(${r}, ${g}, ${b}, ${opacity})`;
-    }
-    
-    return `gui_rgba(255, 255, 255, ${opacity})`;
-  }
-
-  /**
-   * Convert color value to gui_rgba() format (for gradient stops)
-   */
-  private convertColorToRgba(color: string): string {
-    if (color.startsWith('#')) {
-      const hex = color.substring(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      // Default fully opaque
-      return `gui_rgba(${r}, ${g}, ${b}, 255)`;
-    }
-    
-    return `gui_rgba(255, 255, 255, 255)`;
-  }
 }

@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { convertColor } from '../utils';
 
 export class InputGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -39,7 +40,7 @@ export class InputGenerator implements ComponentCodeGenerator {
     
     // Text color
     if (component.style?.color) {
-      const color = this.convertColor(component.style.color);
+      const color = convertColor(component.style.color, 'APP_COLOR_BLACK');
       code += `${indentStr}gui_text_color_set(${component.id}, ${color});\n`;
     }
 
@@ -64,20 +65,4 @@ export class InputGenerator implements ComponentCodeGenerator {
       .replace(/\0/g, '\\0');   // Null character
   }
 
-  /**
-   * Convert color value to gui_rgb() format
-   */
-  private convertColor(color?: string): string {
-    if (!color) return 'APP_COLOR_BLACK';
-    
-    if (color.startsWith('#')) {
-      const hex = color.substring(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return `gui_rgb(${r}, ${g}, ${b})`;
-    }
-    
-    return color;
-  }
 }

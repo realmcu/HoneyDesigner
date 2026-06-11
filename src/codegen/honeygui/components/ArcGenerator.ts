@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { convertColor, convertColorWithOpacity, convertColorToRgba } from '../utils';
 
 /**
  * Arc group information
@@ -89,7 +90,7 @@ export class ArcGenerator implements ComponentCodeGenerator {
       const endAngle = arc.style?.endAngle || 270;
       const strokeWidth = arc.style?.strokeWidth || 8;
       const opacity = arc.style?.opacity ?? arc.data?.opacity ?? 255;
-      const color = ArcGenerator.convertColorWithOpacity(arc.style?.color, opacity);
+      const color = convertColorWithOpacity(arc.style?.color, opacity);
       
       // Calculate arc center position relative to group
       const arcCenterX = (arcX + arcW / 2) - x;
@@ -123,9 +124,9 @@ export class ArcGenerator implements ComponentCodeGenerator {
     const opacity = component.style?.opacity ?? component.data?.opacity ?? 255;
     
     // Select color format based on opacity
-    const color = opacity < 255 
-      ? ArcGenerator.convertColorWithOpacity(component.style?.color, opacity)
-      : this.convertColor(component.style?.color);
+    const color = opacity < 255
+      ? convertColorWithOpacity(component.style?.color, opacity)
+      : convertColor(component.style?.color);
 
     // Important: gui_arc_create x, y parameters are center coordinates, not bounding box top-left
     const centerX = x + width / 2;
@@ -154,7 +155,7 @@ export class ArcGenerator implements ComponentCodeGenerator {
         code += `${indentStr}gui_arc_set_angular_gradient(${component.id}, ${gradientStartAngle}, ${gradientEndAngle});\n`;
         
         stops.forEach(stop => {
-          const color = ArcGenerator.convertColorToRgba(stop.color);
+          const color = convertColorToRgba(stop.color);
           const position = Number.isInteger(stop.position) 
             ? `${stop.position}.0f` 
             : `${stop.position}f`;
@@ -171,54 +172,4 @@ export class ArcGenerator implements ComponentCodeGenerator {
     return code;
   }
 
-  /**
-   * Convert color value to gui_rgb() format
-   */
-  private convertColor(color?: string): string {
-    if (!color) return 'APP_COLOR_WHITE';
-    
-    if (color.startsWith('#')) {
-      const hex = color.substring(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return `gui_rgb(${r}, ${g}, ${b})`;
-    }
-    
-    return color;
-  }
-
-  /**
-   * Convert color value to gui_rgba() format (with opacity)
-   */
-  static convertColorWithOpacity(color: string | undefined, opacity: number): string {
-    if (!color) {
-      return `gui_rgba(255, 255, 255, ${opacity})`;
-    }
-    
-    if (color.startsWith('#')) {
-      const hex = color.substring(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return `gui_rgba(${r}, ${g}, ${b}, ${opacity})`;
-    }
-    
-    return `gui_rgba(255, 255, 255, ${opacity})`;
-  }
-
-  /**
-   * Convert color value to gui_rgba() format (for gradient stops)
-   */
-  static convertColorToRgba(color: string): string {
-    if (color.startsWith('#')) {
-      const hex = color.substring(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return `gui_rgba(${r}, ${g}, ${b}, 255)`;
-    }
-    
-    return `gui_rgba(255, 255, 255, 255)`;
-  }
 }

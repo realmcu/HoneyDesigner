@@ -19,54 +19,50 @@ export class HmlSerializer {
      * @param filePath 目标文件路径
      * @returns Promise
      */
-    public serializeToFile(document: HmlDocument, filePath: string): Promise<void> {
-        return new Promise((resolve, reject) => {
+    public async serializeToFile(document: HmlDocument, filePath: string): Promise<void> {
+        try {
+            // 保存当前 HML 路径，用于生成 SVG 文件路径
+            this.currentHmlPath = filePath;
+
+            // 先保存所有 Canvas 的 SVG 文件
+            this._saveCanvasSvgFiles(document, filePath);
+
+            const content = this.serialize(document);
+
+            // 1) 生成临时路径
+            const dir = path.dirname(filePath);
+            const base = path.basename(filePath);
+            const tempPath = path.join(dir, `.${base}.tmp`);
+
+            // 2) 写入临时文件
+            fs.writeFileSync(tempPath, content, 'utf8');
+
+            // 3) 完整性校验（解析检查）
             try {
-                // 保存当前 HML 路径，用于生成 SVG 文件路径
-                this.currentHmlPath = filePath;
-
-                // 先保存所有 Canvas 的 SVG 文件
-                this._saveCanvasSvgFiles(document, filePath);
-
-                const content = this.serialize(document);
-
-                // 1) 生成临时路径
-                const dir = path.dirname(filePath);
-                const base = path.basename(filePath);
-                const tempPath = path.join(dir, `.${base}.tmp`);
-
-                // 2) 写入临时文件
-                fs.writeFileSync(tempPath, content, 'utf8');
-
-                // 3) 完整性校验（解析检查）
-                try {
-                    const parser = new HmlParser();
-                    const parsed = parser.parse(content);
-                    if (!parsed || !parsed.view) {
-                        throw new Error('序列化结果校验失败：view 结构缺失');
-                    }
-                } catch (verifyErr) {
-                    // 校验失败，删除临时文件并报错
-                    try { fs.unlinkSync(tempPath); } catch {}
-                    throw verifyErr;
+                const parser = new HmlParser();
+                const parsed = parser.parse(content);
+                if (!parsed || !parsed.view) {
+                    throw new Error('序列化结果校验失败：view 结构缺失');
                 }
-
-                // 不创建 .bak 备份文件，直接进行原子替换
-
-                // 5) 原子替换：重命名临时文件到目标文件（带重试机制）
-                this._renameWithRetry(tempPath, filePath, 5, 100);
-
-                // 6) 再次快速读取并校验（保障落盘内容）
-                const written = fs.readFileSync(filePath, 'utf8');
-                if (!written || written.length === 0) {
-                    throw new Error('写入后文件为空');
-                }
-
-                resolve();
-            } catch (error) {
-                reject(new Error(`保存HML文件失败: ${error instanceof Error ? error.message : '未知错误'}`));
+            } catch (verifyErr) {
+                // 校验失败，删除临时文件并报错
+                try { fs.unlinkSync(tempPath); } catch {}
+                throw verifyErr;
             }
-        });
+
+            // 不创建 .bak 备份文件，直接进行原子替换
+
+            // 5) 原子替换：重命名临时文件到目标文件（带重试机制）
+            await this._renameWithRetry(tempPath, filePath, 5, 100);
+
+            // 6) 再次快速读取并校验（保障落盘内容）
+            const written = fs.readFileSync(filePath, 'utf8');
+            if (!written || written.length === 0) {
+                throw new Error('写入后文件为空');
+            }
+        } catch (error) {
+            throw new Error(`保存HML文件失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
     }
 
     /**
@@ -484,7 +480,7 @@ export class HmlSerializer {
      * @param maxRetries 最大重试次数
      * @param delayMs 每次重试的延迟（毫秒）
      */
-    private _renameWithRetry(sourcePath: string, targetPath: string, maxRetries: number, delayMs: number): void {
+    private async _renameWithRetry(sourcePath: string, targetPath: string, maxRetries: number, delayMs: number): Promise<void> {
         let lastError: Error | null = null;
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -517,7 +513,7 @@ export class HmlSerializer {
                 
                 // 等待后重试
                 console.warn(`[HmlSerializer] 文件重命名失败（第 ${attempt} 次尝试），${delayMs}ms 后重试...`);
-                this._sleep(delayMs);
+                await this._sleep(delayMs);
                 
                 // 指数退避：每次重试延迟翻倍
                 delayMs *= 2;
@@ -529,7 +525,7 @@ export class HmlSerializer {
             console.warn('[HmlSerializer] 尝试备用方案：先删除目标文件');
             if (fs.existsSync(targetPath)) {
                 fs.unlinkSync(targetPath);
-                this._sleep(50); // 短暂等待文件系统释放
+                await this._sleep(50); // 短暂等待文件系统释放
             }
             fs.renameSync(sourcePath, targetPath);
             console.log('[HmlSerializer] 备用方案成功');
@@ -555,13 +551,10 @@ export class HmlSerializer {
     }
 
     /**
-     * 同步睡眠（阻塞）
+     * 异步睡眠（非阻塞）
      * @param ms 睡眠时间（毫秒）
      */
-    private _sleep(ms: number): void {
-        const start = Date.now();
-        while (Date.now() - start < ms) {
-            // 忙等待
-        }
+    private _sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }

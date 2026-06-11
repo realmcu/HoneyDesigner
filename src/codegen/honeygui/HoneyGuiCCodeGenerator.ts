@@ -705,26 +705,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
   }
 
   /**
-   * Generate event binding code (retained for backward compatibility)
-   */
-  private generateEventBindings(component: Component, indent: number): string {
-    let code = '';
-    const indentStr = '    '.repeat(indent);
-    const mapping = this.apiMapper.getMapping(component.type);
-
-    if (!mapping || !component.events) return code;
-
-    mapping.eventHandlers.forEach(handler => {
-      if (component.events && component.events[handler.event]) {
-        const callbackName = component.events[handler.event] || `on_${component.id}_${handler.event}`;
-        code += `${indentStr}${handler.apiFunction}(${component.id}, ${callbackName});\n`;
-      }
-    });
-
-    return code;
-  }
-
-  /**
    * Create generator context
    */
   private createGeneratorContext(): GeneratorContext {
@@ -813,28 +793,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
   }
 
   /**
-   * Generate callback header file
-   */
-  private generateCallbackHeader(baseName: string): string {
-    const guardName = `${baseName.toUpperCase()}_CALLBACKS_H`;
-    let code = `#ifndef ${guardName}
-#define ${guardName}
-
-#include "gui_api.h"
-
-// Event callback function declarations
-`;
-
-    // No longer generate callback declarations (view switching handled by SDK automatically)
-
-    code += `
-#endif // ${guardName}
-`;
-
-    return code;
-  }
-
-  /**
    * Generate callback implementation file
    */
   private generateCallbackImplementation(baseName: string): string {
@@ -879,33 +837,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     });
 
     return Array.from(functions).sort();
-  }
-
-  /**
-   * Merge protected area code
-   */
-  private mergeProtectedAreas(existing: string, generated: string): string {
-    const protectedAreas = new Map<string, string>();
-
-    // Extract protected areas from existing file
-    const regex = /\/\* @protected start (\w+) \*\/([\s\S]*?)\/\* @protected end \1 \*\//g;
-    let match;
-
-    while ((match = regex.exec(existing)) !== null) {
-      protectedAreas.set(match[1], match[2]);
-    }
-
-    // Replace protected areas in generated code
-    let result = generated;
-    protectedAreas.forEach((content, id) => {
-      const pattern = new RegExp(
-        `\\/\\* @protected start ${id} \\*\\/[\\s\\S]*?\\/\\* @protected end ${id} \\*\\/`,
-        'g'
-      );
-      result = result.replace(pattern, `/* @protected start ${id} */${content}/* @protected end ${id} */`);
-    });
-
-    return result;
   }
 
   /**
