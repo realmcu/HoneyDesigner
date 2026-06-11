@@ -232,16 +232,55 @@ jobs:
             echo "✅ Headers updated"
           fi
 
+      # ── LVGL Linux build ───────────────────────────────────────
+
+      - name: Clone LVGL source
+        run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git /tmp/lvgl-src
+
+      - name: Get LVGL commit hash
+        id: lvgl-info
+        run: echo "sha=$(git -C /tmp/lvgl-src rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Linux liblvgl.a
+        id: cache-lvgl-linux
+        uses: actions/cache@v4
+        with:
+          path: lvgl-pc/lvgl-lib-linux
+          key: liblvgl-linux-${{ steps.lvgl-info.outputs.sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
+
+      - name: Build liblvgl.a for Linux
+        if: steps.cache-lvgl-linux.outputs.cache-hit != 'true'
+        run: |
+          LVGL_PC_ROOT=$(pwd)/lvgl-pc
+          LVGL_SRC=/tmp/lvgl-src
+          BUILD_DIR=/tmp/lvgl-build
+          INSTALL_DIR=$(pwd)/lvgl-pc/lvgl-lib-linux
+
+          cmake -S "$LVGL_SRC" -B "$BUILD_DIR" \
+            -DCMAKE_C_FLAGS="-I$LVGL_PC_ROOT" \
+            -DCMAKE_CXX_FLAGS="-I$LVGL_PC_ROOT -D__STDC_FORMAT_MACROS" \
+            -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLV_CONF_BUILD_DISABLE_DEMOS=ON \
+            -DLV_CONF_BUILD_DISABLE_EXAMPLES=ON
+
+          cp "$LVGL_PC_ROOT/lv_conf.h" "$LVGL_SRC/lv_conf.h"
+          cmake --build "$BUILD_DIR" --target install --parallel $(nproc)
+          rm -f "$LVGL_SRC/lv_conf.h"
+
+          cp "$LVGL_SRC/lvgl_private.h" "$INSTALL_DIR/include/lvgl/" 2>/dev/null || true
+
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet -- lib/sim/; then
+          changes=$(git status --porcelain -- lib/sim/ lvgl-pc/lvgl-lib-linux/)
+          if [ -z "$changes" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  No changes detected in lib/sim/"
+            echo "ℹ️  No changes detected"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "🔔 Changes detected in lib/sim/"
-            git diff --stat -- lib/sim/
+            echo "🔔 Changes detected"
+            echo "$changes"
           fi
 
       - name: Commit and push if changed
@@ -251,10 +290,12 @@ jobs:
           git config user.email "bot@honeygui.dev"
 
           git add -A lib/sim/
+          git add -A lvgl-pc/lvgl-lib-linux/
           git commit -m "chore: update simulation libraries
 
           SDK commit: ${{ steps.sdk-info.outputs.sha }}
           SDK message: ${{ steps.sdk-info.outputs.message }}
+          LVGL commit: ${{ steps.lvgl-info.outputs.sha }}
 
           [skip ci]"
 
