@@ -406,7 +406,9 @@ export class SimulationRunner {
         this.log('配置 LVGL PC CMake 工程...');
         const cmakeArgs = [`-DLCD_WIDTH=${width}`, `-DLCD_HEIGHT=${height}`, '-S', '.', '-B', 'build'];
         if (process.platform === 'win32') {
-            cmakeArgs.unshift('-G', 'MinGW Makefiles');
+            // 显式固定为 MinGW 的 gcc/g++，避免 cmake 默认探测到 PATH 上其它工具链的
+            // cc.exe（如 runner 预装的不同版本 GCC），导致 C/C++ 编译器版本不一致而链接失败
+            cmakeArgs.unshift('-G', 'MinGW Makefiles', '-DCMAKE_C_COMPILER=gcc', '-DCMAKE_CXX_COMPILER=g++');
         }
         // 传递 FFmpeg 路径（从环境变量 FFMPEG_ROOT 获取）
         const ffmpegRoot = process.env.FFMPEG_ROOT;
