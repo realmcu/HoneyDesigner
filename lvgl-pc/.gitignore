@@ -19,8 +19,7 @@ src/generated/
 !lvgl-lib/**
 !lvgl-lib-linux/
 !lvgl-lib-linux/**
-!lvgl-lib-win32/
-!lvgl-lib-win32/**
+
 _lvgl_build/
 # Common IDE/temp files
 .vscode/

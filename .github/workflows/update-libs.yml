@@ -217,7 +217,7 @@ jobs:
         if: steps.lvgl-info.outputs.sha != ''
         uses: actions/cache@v4
         with:
-          path: lvgl-pc/lvgl-lib-win32
+          path: lvgl-pc/lvgl-lib
           key: liblvgl-win32-${{ steps.lvgl-info.outputs.sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
 
       - name: Clone LVGL source
@@ -230,7 +230,7 @@ jobs:
         run: |
           $env:PATH = "C:\msys64\mingw64\bin;" + $env:PATH
           $lvglPcRoot = (Resolve-Path "lvgl-pc").Path
-          $installDir = (Resolve-Path ".").Path + "\lvgl-pc\lvgl-lib-win32"
+          $installDir = (Resolve-Path ".").Path + "\lvgl-pc\lvgl-lib"
           $lvglSrc = "C:/tmp/lvgl-src"
           $buildDir = "C:/tmp/lvgl-build"
 
@@ -258,11 +258,11 @@ jobs:
         id: diff
         shell: pwsh
         run: |
-          $changed = git diff --quiet -- lib/sim/win32/ lvgl-pc/lvgl-lib-win32/
+          $changed = git diff --quiet -- lib/sim/win32/ lvgl-pc/lvgl-lib/
           if ($LASTEXITCODE -ne 0) {
             echo "changed=true" >> $env:GITHUB_OUTPUT
             Write-Output "🔔 Changes detected in Win32 libs"
-            git diff --stat -- lib/sim/win32/ lvgl-pc/lvgl-lib-win32/
+            git diff --stat -- lib/sim/win32/ lvgl-pc/lvgl-lib/
           } else {
             echo "changed=false" >> $env:GITHUB_OUTPUT
             Write-Output "ℹ️  No changes in Win32 libs"
@@ -276,7 +276,7 @@ jobs:
           git config user.email "bot@honeygui.dev"
 
           git add -A lib/sim/win32/
-          git add -A lvgl-pc/lvgl-lib-win32/
+          git add -A lvgl-pc/lvgl-lib/
           git commit -m "chore: update Win32 simulation libraries
 
           SDK commit: ${{ steps.sdk-info.outputs.sha }}
