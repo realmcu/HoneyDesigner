@@ -2,6 +2,36 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.7.17] - 2026-06-11
+
+### Added
+- 字体属性面板新增字符统计与缺字检测：显示当前字符集的字符数、预估 bin 大小，并标注 cmap 中缺失的字符
+- hg_time_label / hg_timer_label 支持在属性面板自定义 text 内容，设计态画布实时预览
+
+### Changed
+- 移除协作（Collaboration）功能：删除 CollaborationService、CollaborationPanel 及全部相关命令和 UI 组件
+
+### Fixed
+- 修复 hg_view 高级栏「常驻内存」checkbox 另起一行的布局问题
+
+### Internal
+- CI 新增 Win32 仿真库自动构建 job：自动编译并提交 `lib/sim/win32/libgui.a` 和 `lvgl-pc/lvgl-lib-win32/`
+- CI `update-libs` job 补充 Linux LVGL 库自动构建，输出至 `lvgl-pc/lvgl-lib-linux/`
+- 修复 `update-libs` job 因 `GITHUB_TOKEN` 缺少写权限导致 push 403 的问题
+- 优化 CI LVGL clone 策略：改用 `git ls-remote` 获取 hash，cache hit 时跳过 clone
+
+## [1.7.15] - 2026-06-09
+
+### Fixed
+- 修复 arc 组件参数改变后画布不立即刷新的问题（widgetMemo 比较器改为按引用比较 style/data 对象，覆盖 radius、color、strokeWidth、渐变等所有字段）
+- 修复 progressbar/slider 等控件属性变更后画布不更新、与仿真器显示不一致的问题
+- 修复进度条底层背景（轨道色）默认无圆角、四角露出直角色块的问题
+- 修复市场版打包遗漏 lv-font-conv 工具及运行时依赖，导致 LVGL 字体转换静默失败的问题
+
+### Changed
+- 更新仿真器 GUI 库（libgui.a）
+- 修正 quick_slide 中文翻译
+
 ## [1.7.13] - 2026-06-04
 
 ### Added
