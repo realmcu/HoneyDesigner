@@ -117,8 +117,41 @@ suite('HoneyGUI Extension E2E', function () {
             assert.ok(ext, 'Extension should be found');
 
             const exeName = process.platform === 'win32' ? 'lvgl_pc.exe' : 'lvgl_pc';
-            const exePath = path.join(ext!.extensionPath, 'lvgl-pc', 'build', exeName);
-            assert.ok(fs.existsSync(exePath), `lvgl_pc executable should exist at ${exePath}`);
+            const lvglPcRoot = path.join(ext!.extensionPath, 'lvgl-pc');
+            const exePath = path.join(lvglPcRoot, 'build', exeName);
+
+            // The simulation command swallows cmake errors into the OutputChannel
+            // (see SimulationService.startSimulation catch block), so a failed build
+            // surfaces here only as a missing executable with zero diagnostics. When
+            // that happens, re-run the exact cmake configure+build to capture the real
+            // error and report whether a clean rebuild succeeds or fails.
+            if (!fs.existsSync(exePath)) {
+                let diag = '';
+                try {
+                    const config = JSON.parse(fs.readFileSync(path.join(workspacePath, 'project.json'), 'utf8'));
+                    const res = String(config.resolution || '480X272').split('X');
+                    const width = parseInt(res[0]) || 480;
+                    const height = parseInt(res[1]) || 272;
+                    const generator = process.platform === 'win32' ? '-G "MinGW Makefiles" ' : '';
+
+                    diag += '\n--- cmake configure ---\n';
+                    diag += execSync(
+                        `cmake ${generator}-DLCD_WIDTH=${width} -DLCD_HEIGHT=${height} -S . -B build`,
+                        { cwd: lvglPcRoot, encoding: 'utf8', timeout: 120000, maxBuffer: 10 * 1024 * 1024 }
+                    );
+                    diag += '\n--- cmake build ---\n';
+                    diag += execSync('cmake --build build -j4', {
+                        cwd: lvglPcRoot, encoding: 'utf8', timeout: 150000, maxBuffer: 10 * 1024 * 1024
+                    });
+                } catch (err: any) {
+                    diag += `\n[exit ${err.status}]\nSTDOUT:\n${(err.stdout || '').slice(-4000)}\nSTDERR:\n${(err.stderr || '').slice(-4000)}\n`;
+                }
+
+                const verdict = fs.existsSync(exePath)
+                    ? 'Manual cmake rebuild SUCCEEDED — the simulation command never ran the build (timing or a swallowed pre-build error).'
+                    : 'Manual cmake rebuild also FAILED — the cmake output above is the real error.';
+                assert.fail(`lvgl_pc missing at ${exePath} after simulation command.\n${verdict}\n${diag}`);
+            }
 
             const stats = fs.statSync(exePath);
             assert.ok(stats.size > 0, 'lvgl_pc executable should have non-zero size');
