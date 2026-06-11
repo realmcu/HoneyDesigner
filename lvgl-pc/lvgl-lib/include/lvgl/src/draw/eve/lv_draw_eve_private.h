@@ -48,25 +48,22 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef struct
-{
+typedef struct {
     uintptr_t key;
     uint32_t addr;
 } lv_draw_eve_ramg_hash_table_cell_t;
 
-typedef struct
-{
+typedef struct {
     uint32_t ramg_addr_end;
     uint32_t hash_table_cell_count;
     uint32_t hash_table_cells_occupied;
-    lv_draw_eve_ramg_hash_table_cell_t *hash_table;
+    lv_draw_eve_ramg_hash_table_cell_t * hash_table;
 } lv_draw_eve_ramg_t;
 
-struct _lv_draw_eve_unit_t
-{
+struct _lv_draw_eve_unit_t {
     lv_draw_unit_t base_unit;
-    lv_draw_task_t *task_act;
-    lv_display_t *disp;
+    lv_draw_task_t * task_act;
+    lv_display_t * disp;
     lv_draw_eve_ramg_t ramg;
     lv_draw_eve_parameters_t params;
     lv_draw_eve_operation_cb_t op_cb;
@@ -80,27 +77,27 @@ struct _lv_draw_eve_unit_t
  * GLOBAL PROTOTYPES
  **********************/
 
-void lv_draw_eve_image(lv_draw_task_t *t, const lv_draw_image_dsc_t *draw_dsc,
-                       const lv_area_t *coords);
-bool lv_draw_eve_image_src_check(const void *src);
-uint32_t lv_draw_eve_image_upload_image(bool burst_is_active, const lv_image_dsc_t *img_dsc);
+void lv_draw_eve_image(lv_draw_task_t * t, const lv_draw_image_dsc_t * draw_dsc,
+                       const lv_area_t * coords);
+bool lv_draw_eve_image_src_check(const void * src);
+uint32_t lv_draw_eve_image_upload_image(bool burst_is_active, const lv_image_dsc_t * img_dsc);
 
-void lv_draw_eve_fill(lv_draw_task_t *t, const lv_draw_fill_dsc_t *dsc, const lv_area_t *coords);
+void lv_draw_eve_fill(lv_draw_task_t * t, const lv_draw_fill_dsc_t * dsc, const lv_area_t * coords);
 
-void lv_draw_eve_border(lv_draw_task_t *t, const lv_draw_border_dsc_t *dsc,
-                        const lv_area_t *coords);
+void lv_draw_eve_border(lv_draw_task_t * t, const lv_draw_border_dsc_t * dsc,
+                        const lv_area_t * coords);
 
-void lv_draw_eve_line(lv_draw_task_t *t, const lv_draw_line_dsc_t *dsc);
+void lv_draw_eve_line(lv_draw_task_t * t, const lv_draw_line_dsc_t * dsc);
 
-void lv_draw_eve_label(lv_draw_task_t *t, const lv_draw_label_dsc_t *dsc,
-                       const lv_area_t *coords);
-bool lv_draw_eve_label_font_check(const lv_font_t *font);
-uint32_t lv_draw_eve_label_upload_glyph(bool burst_is_active, const lv_font_fmt_txt_dsc_t *font_dsc,
+void lv_draw_eve_label(lv_draw_task_t * t, const lv_draw_label_dsc_t * dsc,
+                       const lv_area_t * coords);
+bool lv_draw_eve_label_font_check(const lv_font_t * font);
+uint32_t lv_draw_eve_label_upload_glyph(bool burst_is_active, const lv_font_fmt_txt_dsc_t * font_dsc,
                                         uint32_t gid_index);
 
-void lv_draw_eve_arc(lv_draw_task_t *t, const lv_draw_arc_dsc_t *dsc, const lv_area_t *coords);
+void lv_draw_eve_arc(lv_draw_task_t * t, const lv_draw_arc_dsc_t * dsc, const lv_area_t * coords);
 
-void lv_draw_eve_triangle(lv_draw_task_t *t, const lv_draw_triangle_dsc_t *dsc);
+void lv_draw_eve_triangle(lv_draw_task_t * t, const lv_draw_triangle_dsc_t * dsc);
 
 /**********************
  *      MACROS

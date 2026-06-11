@@ -36,14 +36,14 @@ extern "C" {
  * @param str_out store the result here. Has the be `strlen(str_in)` length
  * @param base_dir `LV_BASE_DIR_LTR` or `LV_BASE_DIR_RTL`
  */
-void lv_bidi_process(const char *str_in, char *str_out, lv_base_dir_t base_dir);
+void lv_bidi_process(const char * str_in, char * str_out, lv_base_dir_t base_dir);
 
 /**
  * Auto-detect the direction of a text based on the first strong character
  * @param txt the text to process
  * @return `LV_BASE_DIR_LTR` or `LV_BASE_DIR_RTL`
  */
-lv_base_dir_t lv_bidi_detect_base_dir(const char *txt);
+lv_base_dir_t lv_bidi_detect_base_dir(const char * txt);
 
 /**
  * Get the logical position of a character in a line
@@ -57,9 +57,8 @@ lv_base_dir_t lv_bidi_detect_base_dir(const char *txt);
  * @param is_rtl tell the char at `visual_pos` is RTL or LTR context
  * @return the logical character position
  */
-uint16_t lv_bidi_get_logical_pos(const char *str_in, char **bidi_txt, uint32_t len,
-                                 lv_base_dir_t base_dir,
-                                 uint32_t visual_pos, bool *is_rtl);
+uint16_t lv_bidi_get_logical_pos(const char * str_in, char ** bidi_txt, uint32_t len, lv_base_dir_t base_dir,
+                                 uint32_t visual_pos, bool * is_rtl);
 
 /**
  * Get the visual position of a character in a line
@@ -73,9 +72,8 @@ uint16_t lv_bidi_get_logical_pos(const char *str_in, char **bidi_txt, uint32_t l
  * @param is_rtl tell the char at `logical_pos` is RTL or LTR context
  * @return the visual character position
  */
-uint16_t lv_bidi_get_visual_pos(const char *str_in, char **bidi_txt, uint16_t len,
-                                lv_base_dir_t base_dir,
-                                uint32_t logical_pos, bool *is_rtl);
+uint16_t lv_bidi_get_visual_pos(const char * str_in, char ** bidi_txt, uint16_t len, lv_base_dir_t base_dir,
+                                uint32_t logical_pos, bool * is_rtl);
 
 /**
  * Bidi process a paragraph of text
@@ -87,9 +85,8 @@ uint16_t lv_bidi_get_visual_pos(const char *str_in, char **bidi_txt, uint16_t le
  * Can be `NULL` is unused
  * @param pos_conv_len length of `pos_conv_out` in element count
  */
-void lv_bidi_process_paragraph(const char *str_in, char *str_out, uint32_t len,
-                               lv_base_dir_t base_dir,
-                               uint16_t *pos_conv_out, uint16_t pos_conv_len);
+void lv_bidi_process_paragraph(const char * str_in, char * str_out, uint32_t len, lv_base_dir_t base_dir,
+                               uint16_t * pos_conv_out, uint16_t pos_conv_len);
 
 /**********************
  *      MACROS

@@ -33,7 +33,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_tabview_class;
  * @param parent    pointer to a parent widget
  * @return          the created tabview
  */
-lv_obj_t *lv_tabview_create(lv_obj_t *parent);
+lv_obj_t * lv_tabview_create(lv_obj_t * parent);
 
 /**
  * Add a tab to the tabview
@@ -41,7 +41,7 @@ lv_obj_t *lv_tabview_create(lv_obj_t *parent);
  * @param name      the name of the tab, it will be displayed on the tab bar
  * @return          the widget where the content of the tab can be created
  */
-lv_obj_t *lv_tabview_add_tab(lv_obj_t *obj, const char *name);
+lv_obj_t * lv_tabview_add_tab(lv_obj_t * obj, const char * name);
 
 /**
  * Change the name of the tab
@@ -49,7 +49,7 @@ lv_obj_t *lv_tabview_add_tab(lv_obj_t *obj, const char *name);
  * @param idx       the index of the tab to rename
  * @param new_name  the new name as a string
  */
-void lv_tabview_rename_tab(lv_obj_t *obj, uint32_t idx, const char *new_name);
+void lv_tabview_rename_tab(lv_obj_t * obj, uint32_t idx, const char * new_name);
 
 /**
  * Show a tab
@@ -57,14 +57,14 @@ void lv_tabview_rename_tab(lv_obj_t *obj, uint32_t idx, const char *new_name);
  * @param idx       the index of the tab to show
  * @param anim_en   LV_ANIM_ON/OFF
  */
-void lv_tabview_set_active(lv_obj_t *obj, uint32_t idx, lv_anim_enable_t anim_en);
+void lv_tabview_set_active(lv_obj_t * obj, uint32_t idx, lv_anim_enable_t anim_en);
 
 /**
  * Set the position of the tab bar
  * @param obj       pointer to a tabview widget
  * @param dir       LV_DIR_TOP/BOTTOM/LEFT/RIGHT
  */
-void lv_tabview_set_tab_bar_position(lv_obj_t *obj, lv_dir_t dir);
+void lv_tabview_set_tab_bar_position(lv_obj_t * obj, lv_dir_t dir);
 
 /**
  * Set the width or height of the tab bar
@@ -72,21 +72,21 @@ void lv_tabview_set_tab_bar_position(lv_obj_t *obj, lv_dir_t dir);
  * @param size      size of the tab bar in pixels or percentage.
  *                  will be used as width or height based on the position of the tab bar)
  */
-void lv_tabview_set_tab_bar_size(lv_obj_t *obj, int32_t size);
+void lv_tabview_set_tab_bar_size(lv_obj_t * obj, int32_t size);
 
 /**
  * Get the number of tabs
  * @param obj       pointer to a tabview widget
  * @return          the number of tabs
  */
-uint32_t lv_tabview_get_tab_count(lv_obj_t *obj);
+uint32_t lv_tabview_get_tab_count(lv_obj_t * obj);
 
 /**
  * Get the current tab's index
  * @param obj       pointer to a tabview widget
  * @return          the zero based index of the current tab
  */
-uint32_t lv_tabview_get_tab_active(lv_obj_t *obj);
+uint32_t lv_tabview_get_tab_active(lv_obj_t * obj);
 
 /**
  * Get a given tab button by index
@@ -95,21 +95,21 @@ uint32_t lv_tabview_get_tab_active(lv_obj_t *obj);
  *                  < 0 means start counting tab button from the back (-1 is the last tab button)
  * @return          pointer to the tab button, or NULL if the index was out of range
  */
-lv_obj_t *lv_tabview_get_tab_button(lv_obj_t *obj, int32_t idx);
+lv_obj_t * lv_tabview_get_tab_button(lv_obj_t * obj, int32_t idx);
 
 /**
  * Get the widget where the container of each tab is created
  * @param obj       pointer to a tabview widget
  * @return          the main container widget
  */
-lv_obj_t *lv_tabview_get_content(lv_obj_t *obj);
+lv_obj_t * lv_tabview_get_content(lv_obj_t * obj);
 
 /**
  * Get the tab bar where the buttons are created
  * @param obj       pointer to a tabview widget
  * @return          the tab bar
  */
-lv_obj_t *lv_tabview_get_tab_bar(lv_obj_t *obj);
+lv_obj_t * lv_tabview_get_tab_bar(lv_obj_t * obj);
 
 /**********************
  *      MACROS

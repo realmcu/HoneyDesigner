@@ -71,8 +71,8 @@ typedef HWND    EGLNativeWindowType;
 #elif defined(__QNX__)
 
 typedef khronos_uintptr_t      EGLNativeDisplayType;
-typedef struct _screen_pixmap *EGLNativePixmapType;  /* screen_pixmap_t */
-typedef struct _screen_window *EGLNativeWindowType;  /* screen_window_t */
+typedef struct _screen_pixmap* EGLNativePixmapType;  /* screen_pixmap_t */
+typedef struct _screen_window* EGLNativeWindowType;  /* screen_window_t */
 
 #elif defined(__EMSCRIPTEN__)
 
@@ -103,9 +103,9 @@ typedef void               *EGLNativeWindowType;
 struct ANativeWindow;
 struct egl_native_pixmap_t;
 
-typedef void                           *EGLNativeDisplayType;
-typedef struct egl_native_pixmap_t     *EGLNativePixmapType;
-typedef struct ANativeWindow           *EGLNativeWindowType;
+typedef void*                           EGLNativeDisplayType;
+typedef struct egl_native_pixmap_t*     EGLNativePixmapType;
+typedef struct ANativeWindow*           EGLNativeWindowType;
 
 #elif defined(USE_OZONE)
 

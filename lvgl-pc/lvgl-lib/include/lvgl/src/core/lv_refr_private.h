@@ -44,19 +44,19 @@ void lv_refr_deinit(void);
  * @param disp pointer to display where the area should be invalidated (NULL can be used if there is
  * only one display)
  */
-void lv_inv_area(lv_display_t *disp, const lv_area_t *area_p);
+void lv_inv_area(lv_display_t * disp, const lv_area_t * area_p);
 
 /**
  * Get the display which is being refreshed
  * @return the display being refreshed
  */
-lv_display_t *lv_refr_get_disp_refreshing(void);
+lv_display_t * lv_refr_get_disp_refreshing(void);
 
 /**
  * Set the display which is being refreshed
  * @param disp the display being refreshed
  */
-void lv_refr_set_disp_refreshing(lv_display_t *disp);
+void lv_refr_set_disp_refreshing(lv_display_t * disp);
 
 /**
  * Search the most top object which fully covers an area
@@ -64,14 +64,14 @@ void lv_refr_set_disp_refreshing(lv_display_t *disp);
  * @param obj the first object to start the searching (typically a screen)
  * @return
  */
-lv_obj_t *lv_refr_get_top_obj(const lv_area_t *area_p, lv_obj_t *obj);
+lv_obj_t * lv_refr_get_top_obj(const lv_area_t * area_p, lv_obj_t * obj);
 
 /**
  * Render an object to a layer
  * @param layer target drawing layer
  * @param obj   object to render
  */
-void lv_obj_refr(lv_layer_t *layer, lv_obj_t *obj);
+void lv_obj_refr(lv_layer_t * layer, lv_obj_t * obj);
 
 /**********************
  *      MACROS

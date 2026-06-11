@@ -28,16 +28,15 @@ extern "C" {
  * Special, rarely used attributes.
  * They are allocated automatically if any elements is set.
  */
-struct _lv_obj_spec_attr_t
-{
-    lv_obj_t **children;            /**< Store the pointer of the children in an array.*/
-    lv_group_t *group_p;
+struct _lv_obj_spec_attr_t {
+    lv_obj_t ** children;           /**< Store the pointer of the children in an array.*/
+    lv_group_t * group_p;
 #if LV_DRAW_TRANSFORM_USE_MATRIX
-    lv_matrix_t *matrix;            /**< The transform matrix*/
+    lv_matrix_t * matrix;           /**< The transform matrix*/
 #endif
     lv_event_list_t event_list;
 #if LV_USE_OBJ_NAME
-    const char *name;               /**< Pointer to the name */
+    const char * name;              /**< Pointer to the name */
 #endif
     lv_point_t scroll;              /**< The current X/Y scroll offset*/
 
@@ -46,28 +45,25 @@ struct _lv_obj_spec_attr_t
 
     uint16_t child_cnt;             /**< Number of children*/
     uint16_t scrollbar_mode : 2;    /**< How to display scrollbars, see `lv_scrollbar_mode_t`*/
-uint16_t scroll_snap_x :
-    2;     /**< Where to align the snappable children horizontally, see `lv_scroll_snap_t`*/
+    uint16_t scroll_snap_x : 2;     /**< Where to align the snappable children horizontally, see `lv_scroll_snap_t`*/
     uint16_t scroll_snap_y : 2;     /**< Where to align the snappable children vertically*/
     uint16_t scroll_dir : 4;        /**< The allowed scroll direction(s), see `lv_dir_t`*/
-uint16_t layer_type :
-    2;        /**< Cache the layer type here. Element of lv_intermediate_layer_type_t */
+    uint16_t layer_type : 2;        /**< Cache the layer type here. Element of lv_intermediate_layer_type_t */
     uint16_t name_static : 1;        /**< 1: `name` was not dynamically allocated */
 };
 
-struct _lv_obj_t
-{
-    const lv_obj_class_t *class_p;
-    lv_obj_t *parent;
-    lv_obj_spec_attr_t *spec_attr;
-    lv_obj_style_t *styles;
+struct _lv_obj_t {
+    const lv_obj_class_t * class_p;
+    lv_obj_t * parent;
+    lv_obj_spec_attr_t * spec_attr;
+    lv_obj_style_t * styles;
 #if LV_OBJ_STYLE_CACHE
     uint32_t style_main_prop_is_set;
     uint32_t style_other_prop_is_set;
 #endif
-    void *user_data;
+    void * user_data;
 #if LV_USE_OBJ_ID
-    void *id;
+    void * id;
 #endif
     lv_area_t coords;
     lv_obj_flag_t flags;

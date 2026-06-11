@@ -31,14 +31,13 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef struct
-{
+typedef struct {
     lv_image_t img;
-    ad_AVI *avi;
-    lv_timer_t *timer;
+    ad_AVI * avi;
+    lv_timer_t * timer;
     lv_image_dsc_t imgdsc;
     uint32_t last_call;
-} lv_avi_t;
+}lv_avi_t;
 
 /**********************
  * GLOBAL PROTOTYPES

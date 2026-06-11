@@ -34,14 +34,14 @@ extern "C" {
  * @param recycle_cache_size number of fonts that were recently deleted from the cache.
  * @return pointer to main font manager.
  */
-lv_font_manager_t *lv_font_manager_create(uint32_t recycle_cache_size);
+lv_font_manager_t * lv_font_manager_create(uint32_t recycle_cache_size);
 
 /**
  * Delete main font manager.
  * @param manager pointer to main font manager.
  * @return return true if the deletion was successful.
  */
-bool lv_font_manager_delete(lv_font_manager_t *manager);
+bool lv_font_manager_delete(lv_font_manager_t * manager);
 
 /**
  * Add font resource.
@@ -51,10 +51,10 @@ bool lv_font_manager_delete(lv_font_manager_t *manager);
  * @param class_p font class. eg. lv_freetype_font_class, lv_builtin_font_class.
  * @return return true if the add was successful.
  */
-bool lv_font_manager_add_src(lv_font_manager_t *manager,
-                             const char *name,
-                             const void *src,
-                             const lv_font_class_t *class_p);
+bool lv_font_manager_add_src(lv_font_manager_t * manager,
+                             const char * name,
+                             const void * src,
+                             const lv_font_class_t * class_p);
 
 /**
  * Add font resource with static memory.
@@ -64,10 +64,10 @@ bool lv_font_manager_add_src(lv_font_manager_t *manager,
  * @param class_p font class. E.g. lv_freetype_font_class, lv_builtin_font_class.
  * @return return true if the add was successful.
  */
-bool lv_font_manager_add_src_static(lv_font_manager_t *manager,
-                                    const char *name,
-                                    const void *src,
-                                    const lv_font_class_t *class_p);
+bool lv_font_manager_add_src_static(lv_font_manager_t * manager,
+                                    const char * name,
+                                    const void * src,
+                                    const lv_font_class_t * class_p);
 
 /**
  * Remove font resource.
@@ -75,7 +75,7 @@ bool lv_font_manager_add_src_static(lv_font_manager_t *manager,
  * @param name font name.
  * @return return true if the remove was successful.
  */
-bool lv_font_manager_remove_src(lv_font_manager_t *manager, const char *name);
+bool lv_font_manager_remove_src(lv_font_manager_t * manager, const char * name);
 
 /**
  * Create font.
@@ -87,12 +87,12 @@ bool lv_font_manager_remove_src(lv_font_manager_t *manager, const char *name);
  * @param kerning kerning mode. see `lv_font_kerning_t`.
  * @return point to the created font.
  */
-lv_font_t *lv_font_manager_create_font(lv_font_manager_t *manager,
-                                       const char *font_family,
-                                       uint32_t render_mode,
-                                       uint32_t size,
-                                       uint32_t style,
-                                       lv_font_kerning_t kerning);
+lv_font_t * lv_font_manager_create_font(lv_font_manager_t * manager,
+                                        const char * font_family,
+                                        uint32_t render_mode,
+                                        uint32_t size,
+                                        uint32_t style,
+                                        lv_font_kerning_t kerning);
 
 /**
  * Delete font.
@@ -100,7 +100,7 @@ lv_font_t *lv_font_manager_create_font(lv_font_manager_t *manager,
  * @param font point to the font.
  * @return return true if the deletion was successful.
  */
-void lv_font_manager_delete_font(lv_font_manager_t *manager, lv_font_t *font);
+void lv_font_manager_delete_font(lv_font_manager_t * manager, lv_font_t * font);
 
 /**********************
  *      MACROS

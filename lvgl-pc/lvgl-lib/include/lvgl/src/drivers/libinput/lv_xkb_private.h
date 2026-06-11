@@ -30,10 +30,9 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_xkb_t
-{
-    struct xkb_keymap *keymap;
-    struct xkb_state *state;
+struct _lv_xkb_t {
+    struct xkb_keymap * keymap;
+    struct xkb_state * state;
 };
 
 

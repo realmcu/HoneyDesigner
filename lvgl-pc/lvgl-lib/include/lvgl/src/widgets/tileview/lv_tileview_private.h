@@ -30,14 +30,12 @@ extern "C" {
 /**********************
  *      TYPEDEFS
  **********************/
-struct _lv_tileview_t
-{
+struct _lv_tileview_t {
     lv_obj_t obj;
-    lv_obj_t *tile_act;
+    lv_obj_t * tile_act;
 };
 
-struct _lv_tileview_tile_t
-{
+struct _lv_tileview_tile_t {
     lv_obj_t obj;
     lv_dir_t dir;
 };

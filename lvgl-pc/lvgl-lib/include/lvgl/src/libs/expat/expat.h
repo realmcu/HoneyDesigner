@@ -74,86 +74,82 @@ typedef unsigned char XML_Bool;
    Otherwise, the #define hackery is quite ugly and would have been
    dropped.
 */
-enum XML_Status
-{
-    XML_STATUS_ERROR = 0,
+enum XML_Status {
+  XML_STATUS_ERROR = 0,
 #define XML_STATUS_ERROR XML_STATUS_ERROR
-    XML_STATUS_OK = 1,
+  XML_STATUS_OK = 1,
 #define XML_STATUS_OK XML_STATUS_OK
-    XML_STATUS_SUSPENDED = 2
+  XML_STATUS_SUSPENDED = 2
 #define XML_STATUS_SUSPENDED XML_STATUS_SUSPENDED
 };
 
-enum XML_Error
-{
-    XML_ERROR_NONE,
-    XML_ERROR_NO_MEMORY,
-    XML_ERROR_SYNTAX,
-    XML_ERROR_NO_ELEMENTS,
-    XML_ERROR_INVALID_TOKEN,
-    XML_ERROR_UNCLOSED_TOKEN,
-    XML_ERROR_PARTIAL_CHAR,
-    XML_ERROR_TAG_MISMATCH,
-    XML_ERROR_DUPLICATE_ATTRIBUTE,
-    XML_ERROR_JUNK_AFTER_DOC_ELEMENT,
-    XML_ERROR_PARAM_ENTITY_REF,
-    XML_ERROR_UNDEFINED_ENTITY,
-    XML_ERROR_RECURSIVE_ENTITY_REF,
-    XML_ERROR_ASYNC_ENTITY,
-    XML_ERROR_BAD_CHAR_REF,
-    XML_ERROR_BINARY_ENTITY_REF,
-    XML_ERROR_ATTRIBUTE_EXTERNAL_ENTITY_REF,
-    XML_ERROR_MISPLACED_XML_PI,
-    XML_ERROR_UNKNOWN_ENCODING,
-    XML_ERROR_INCORRECT_ENCODING,
-    XML_ERROR_UNCLOSED_CDATA_SECTION,
-    XML_ERROR_EXTERNAL_ENTITY_HANDLING,
-    XML_ERROR_NOT_STANDALONE,
-    XML_ERROR_UNEXPECTED_STATE,
-    XML_ERROR_ENTITY_DECLARED_IN_PE,
-    XML_ERROR_FEATURE_REQUIRES_XML_DTD,
-    XML_ERROR_CANT_CHANGE_FEATURE_ONCE_PARSING,
-    /* Added in 1.95.7. */
-    XML_ERROR_UNBOUND_PREFIX,
-    /* Added in 1.95.8. */
-    XML_ERROR_UNDECLARING_PREFIX,
-    XML_ERROR_INCOMPLETE_PE,
-    XML_ERROR_XML_DECL,
-    XML_ERROR_TEXT_DECL,
-    XML_ERROR_PUBLICID,
-    XML_ERROR_SUSPENDED,
-    XML_ERROR_NOT_SUSPENDED,
-    XML_ERROR_ABORTED,
-    XML_ERROR_FINISHED,
-    XML_ERROR_SUSPEND_PE,
-    /* Added in 2.0. */
-    XML_ERROR_RESERVED_PREFIX_XML,
-    XML_ERROR_RESERVED_PREFIX_XMLNS,
-    XML_ERROR_RESERVED_NAMESPACE_URI,
-    /* Added in 2.2.1. */
-    XML_ERROR_INVALID_ARGUMENT,
-    /* Added in 2.3.0. */
-    XML_ERROR_NO_BUFFER,
-    /* Added in 2.4.0. */
-    XML_ERROR_AMPLIFICATION_LIMIT_BREACH
+enum XML_Error {
+  XML_ERROR_NONE,
+  XML_ERROR_NO_MEMORY,
+  XML_ERROR_SYNTAX,
+  XML_ERROR_NO_ELEMENTS,
+  XML_ERROR_INVALID_TOKEN,
+  XML_ERROR_UNCLOSED_TOKEN,
+  XML_ERROR_PARTIAL_CHAR,
+  XML_ERROR_TAG_MISMATCH,
+  XML_ERROR_DUPLICATE_ATTRIBUTE,
+  XML_ERROR_JUNK_AFTER_DOC_ELEMENT,
+  XML_ERROR_PARAM_ENTITY_REF,
+  XML_ERROR_UNDEFINED_ENTITY,
+  XML_ERROR_RECURSIVE_ENTITY_REF,
+  XML_ERROR_ASYNC_ENTITY,
+  XML_ERROR_BAD_CHAR_REF,
+  XML_ERROR_BINARY_ENTITY_REF,
+  XML_ERROR_ATTRIBUTE_EXTERNAL_ENTITY_REF,
+  XML_ERROR_MISPLACED_XML_PI,
+  XML_ERROR_UNKNOWN_ENCODING,
+  XML_ERROR_INCORRECT_ENCODING,
+  XML_ERROR_UNCLOSED_CDATA_SECTION,
+  XML_ERROR_EXTERNAL_ENTITY_HANDLING,
+  XML_ERROR_NOT_STANDALONE,
+  XML_ERROR_UNEXPECTED_STATE,
+  XML_ERROR_ENTITY_DECLARED_IN_PE,
+  XML_ERROR_FEATURE_REQUIRES_XML_DTD,
+  XML_ERROR_CANT_CHANGE_FEATURE_ONCE_PARSING,
+  /* Added in 1.95.7. */
+  XML_ERROR_UNBOUND_PREFIX,
+  /* Added in 1.95.8. */
+  XML_ERROR_UNDECLARING_PREFIX,
+  XML_ERROR_INCOMPLETE_PE,
+  XML_ERROR_XML_DECL,
+  XML_ERROR_TEXT_DECL,
+  XML_ERROR_PUBLICID,
+  XML_ERROR_SUSPENDED,
+  XML_ERROR_NOT_SUSPENDED,
+  XML_ERROR_ABORTED,
+  XML_ERROR_FINISHED,
+  XML_ERROR_SUSPEND_PE,
+  /* Added in 2.0. */
+  XML_ERROR_RESERVED_PREFIX_XML,
+  XML_ERROR_RESERVED_PREFIX_XMLNS,
+  XML_ERROR_RESERVED_NAMESPACE_URI,
+  /* Added in 2.2.1. */
+  XML_ERROR_INVALID_ARGUMENT,
+  /* Added in 2.3.0. */
+  XML_ERROR_NO_BUFFER,
+  /* Added in 2.4.0. */
+  XML_ERROR_AMPLIFICATION_LIMIT_BREACH
 };
 
-enum XML_Content_Type
-{
-    XML_CTYPE_EMPTY = 1,
-    XML_CTYPE_ANY,
-    XML_CTYPE_MIXED,
-    XML_CTYPE_NAME,
-    XML_CTYPE_CHOICE,
-    XML_CTYPE_SEQ
+enum XML_Content_Type {
+  XML_CTYPE_EMPTY = 1,
+  XML_CTYPE_ANY,
+  XML_CTYPE_MIXED,
+  XML_CTYPE_NAME,
+  XML_CTYPE_CHOICE,
+  XML_CTYPE_SEQ
 };
 
-enum XML_Content_Quant
-{
-    XML_CQUANT_NONE,
-    XML_CQUANT_OPT,
-    XML_CQUANT_REP,
-    XML_CQUANT_PLUS
+enum XML_Content_Quant {
+  XML_CQUANT_NONE,
+  XML_CQUANT_OPT,
+  XML_CQUANT_REP,
+  XML_CQUANT_PLUS
 };
 
 /* If type == XML_CTYPE_EMPTY or XML_CTYPE_ANY, then quant will be
@@ -176,13 +172,12 @@ enum XML_Content_Quant
 
 typedef struct XML_cp XML_Content;
 
-struct XML_cp
-{
-    enum XML_Content_Type type;
-    enum XML_Content_Quant quant;
-    XML_Char *name;
-    unsigned int numchildren;
-    XML_Content *children;
+struct XML_cp {
+  enum XML_Content_Type type;
+  enum XML_Content_Quant quant;
+  XML_Char *name;
+  unsigned int numchildren;
+  XML_Content *children;
 };
 
 /* This is called for an element declaration. See above for
@@ -229,11 +224,10 @@ typedef void(XMLCALL *XML_XmlDeclHandler)(void *userData,
 XMLPARSEAPI(void)
 XML_SetXmlDeclHandler(XML_Parser parser, XML_XmlDeclHandler xmldecl);
 
-typedef struct
-{
-    void *(*malloc_fcn)(size_t size);
-    void *(*realloc_fcn)(void *ptr, size_t size);
-    void (*free_fcn)(void *ptr);
+typedef struct {
+  void *(*malloc_fcn)(size_t size);
+  void *(*realloc_fcn)(void *ptr, size_t size);
+  void (*free_fcn)(void *ptr);
 } XML_Memory_Handling_Suite;
 
 /* Constructs a new parser; encoding is the encoding specified by the
@@ -530,12 +524,11 @@ typedef void(XMLCALL *XML_SkippedEntityHandler)(void *userData,
    4. No Unicode character may be encoded by more than one distinct
       sequence of bytes.
 */
-typedef struct
-{
-    int map[256];
-    void *data;
-    int(XMLCALL *convert)(void *data, const char *s);
-    void(XMLCALL *release)(void *data);
+typedef struct {
+  int map[256];
+  void *data;
+  int(XMLCALL *convert)(void *data, const char *s);
+  void(XMLCALL *release)(void *data);
 } XML_Encoding;
 
 /* This is called for an encoding that is unknown to the parser.
@@ -766,12 +759,11 @@ XML_GetIdAttributeIndex(XML_Parser parser);
    file an attribute value of "blah" will yield:
    info->valueEnd - info->valueStart = 4 bytes.
 */
-typedef struct
-{
-    XML_Index nameStart;  /* Offset to beginning of the attribute name. */
-    XML_Index nameEnd;    /* Offset after the attribute name's last byte. */
-    XML_Index valueStart; /* Offset to beginning of the attribute value. */
-    XML_Index valueEnd;   /* Offset after the attribute value's last byte. */
+typedef struct {
+  XML_Index nameStart;  /* Offset to beginning of the attribute name. */
+  XML_Index nameEnd;    /* Offset after the attribute name's last byte. */
+  XML_Index valueStart; /* Offset to beginning of the attribute value. */
+  XML_Index valueEnd;   /* Offset after the attribute value's last byte. */
 } XML_AttrInfo;
 
 /* Returns an array of XML_AttrInfo structures for the attribute/value pairs
@@ -853,10 +845,9 @@ XML_ResumeParser(XML_Parser parser);
 
 enum XML_Parsing { XML_INITIALIZED, XML_PARSING, XML_FINISHED, XML_SUSPENDED };
 
-typedef struct
-{
-    enum XML_Parsing parsing;
-    XML_Bool finalBuffer;
+typedef struct {
+  enum XML_Parsing parsing;
+  XML_Bool finalBuffer;
 } XML_ParsingStatus;
 
 /* Returns status of parser with respect to being initialized, parsing,
@@ -887,11 +878,10 @@ XMLPARSEAPI(XML_Parser)
 XML_ExternalEntityParserCreate(XML_Parser parser, const XML_Char *context,
                                const XML_Char *encoding);
 
-enum XML_ParamEntityParsing
-{
-    XML_PARAM_ENTITY_PARSING_NEVER,
-    XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE,
-    XML_PARAM_ENTITY_PARSING_ALWAYS
+enum XML_ParamEntityParsing {
+  XML_PARAM_ENTITY_PARSING_NEVER,
+  XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE,
+  XML_PARAM_ENTITY_PARSING_ALWAYS
 };
 
 /* Controls parsing of parameter entities (including the external DTD
@@ -1014,11 +1004,10 @@ XML_ErrorString(enum XML_Error code);
 XMLPARSEAPI(const XML_LChar *)
 XML_ExpatVersion(void);
 
-typedef struct
-{
-    int major;
-    int minor;
-    int micro;
+typedef struct {
+  int major;
+  int minor;
+  int micro;
 } XML_Expat_Version;
 
 /* Return an XML_Expat_Version structure containing numeric version
@@ -1028,32 +1017,30 @@ XMLPARSEAPI(XML_Expat_Version)
 XML_ExpatVersionInfo(void);
 
 /* Added in Expat 1.95.5. */
-enum XML_FeatureEnum
-{
-    XML_FEATURE_END = 0,
-    XML_FEATURE_UNICODE,
-    XML_FEATURE_UNICODE_WCHAR_T,
-    XML_FEATURE_DTD,
-    XML_FEATURE_CONTEXT_BYTES,
-    XML_FEATURE_MIN_SIZE,
-    XML_FEATURE_SIZEOF_XML_CHAR,
-    XML_FEATURE_SIZEOF_XML_LCHAR,
-    XML_FEATURE_NS,
-    XML_FEATURE_LARGE_SIZE,
-    XML_FEATURE_ATTR_INFO,
-    /* Added in Expat 2.4.0. */
-    XML_FEATURE_BILLION_LAUGHS_ATTACK_PROTECTION_MAXIMUM_AMPLIFICATION_DEFAULT,
-    XML_FEATURE_BILLION_LAUGHS_ATTACK_PROTECTION_ACTIVATION_THRESHOLD_DEFAULT,
-    /* Added in Expat 2.6.0. */
-    XML_FEATURE_GE
-    /* Additional features must be added to the end of this enum. */
+enum XML_FeatureEnum {
+  XML_FEATURE_END = 0,
+  XML_FEATURE_UNICODE,
+  XML_FEATURE_UNICODE_WCHAR_T,
+  XML_FEATURE_DTD,
+  XML_FEATURE_CONTEXT_BYTES,
+  XML_FEATURE_MIN_SIZE,
+  XML_FEATURE_SIZEOF_XML_CHAR,
+  XML_FEATURE_SIZEOF_XML_LCHAR,
+  XML_FEATURE_NS,
+  XML_FEATURE_LARGE_SIZE,
+  XML_FEATURE_ATTR_INFO,
+  /* Added in Expat 2.4.0. */
+  XML_FEATURE_BILLION_LAUGHS_ATTACK_PROTECTION_MAXIMUM_AMPLIFICATION_DEFAULT,
+  XML_FEATURE_BILLION_LAUGHS_ATTACK_PROTECTION_ACTIVATION_THRESHOLD_DEFAULT,
+  /* Added in Expat 2.6.0. */
+  XML_FEATURE_GE
+  /* Additional features must be added to the end of this enum. */
 };
 
-typedef struct
-{
-    enum XML_FeatureEnum feature;
-    const XML_LChar *name;
-    long int value;
+typedef struct {
+  enum XML_FeatureEnum feature;
+  const XML_LChar *name;
+  long int value;
 } XML_Feature;
 
 XMLPARSEAPI(const XML_Feature *)

@@ -31,8 +31,7 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_button_t
-{
+struct _lv_button_t {
     lv_obj_t obj;
 };
 

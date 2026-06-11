@@ -41,13 +41,13 @@ typedef struct _lv_font_manager_recycle_t lv_font_manager_recycle_t;
  * @param max_size recycle size.
  * @return pointer to font recycle manager.
  */
-lv_font_manager_recycle_t *lv_font_manager_recycle_create(uint32_t max_size);
+lv_font_manager_recycle_t * lv_font_manager_recycle_create(uint32_t max_size);
 
 /**
  * Delete font recycle manager.
  * @param manager pointer to font recycle manager.
  */
-void lv_font_manager_recycle_delete(lv_font_manager_recycle_t *manager);
+void lv_font_manager_recycle_delete(lv_font_manager_recycle_t * manager);
 
 /**
  * Get a reusable font.
@@ -55,23 +55,22 @@ void lv_font_manager_recycle_delete(lv_font_manager_recycle_t *manager);
  * @param ft_info font info.
  * @return returns true on success.
  */
-lv_font_t *lv_font_manager_recycle_get_reuse(lv_font_manager_recycle_t *manager,
-                                             const lv_font_info_t *ft_info);
+lv_font_t * lv_font_manager_recycle_get_reuse(lv_font_manager_recycle_t * manager, const lv_font_info_t * ft_info);
 
 /**
  * Set fonts to be reused.
  * @param manager pointer to font recycle manager.
  * @param ft_info font info.
  */
-void lv_font_manager_recycle_set_reuse(lv_font_manager_recycle_t *manager, lv_font_t *font,
-                                       const lv_font_info_t *ft_info);
+void lv_font_manager_recycle_set_reuse(lv_font_manager_recycle_t * manager, lv_font_t * font,
+                                       const lv_font_info_t * ft_info);
 
 /**
  * Remove fonts with name from recycle manager.
  * @param manager pointer to font recycle manager.
  * @param name font name.
  */
-void lv_font_recycle_remove_fonts(lv_font_manager_recycle_t *manager, const char *name);
+void lv_font_recycle_remove_fonts(lv_font_manager_recycle_t * manager, const char * name);
 
 /**********************
  *      MACROS

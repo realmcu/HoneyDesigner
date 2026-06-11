@@ -40,8 +40,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_image_class;
 /**
  * Image size mode, when image size and object size is different
  */
-typedef enum
-{
+typedef enum {
     LV_IMAGE_ALIGN_DEFAULT = 0,
     LV_IMAGE_ALIGN_TOP_LEFT,
     LV_IMAGE_ALIGN_TOP_MID,
@@ -60,8 +59,7 @@ typedef enum
 } lv_image_align_t;
 
 #if LV_USE_OBJ_PROPERTY
-enum _lv_property_image_id_t
-{
+enum _lv_property_image_id_t {
     LV_PROPERTY_ID(IMAGE, SRC,          LV_PROPERTY_TYPE_IMGSRC,    0),
     LV_PROPERTY_ID(IMAGE, OFFSET_X,     LV_PROPERTY_TYPE_INT,       1),
     LV_PROPERTY_ID(IMAGE, OFFSET_Y,     LV_PROPERTY_TYPE_INT,       2),
@@ -86,7 +84,7 @@ enum _lv_property_image_id_t
  * @param parent pointer to an object, it will be the parent of the new image
  * @return pointer to the created image
  */
-lv_obj_t *lv_image_create(lv_obj_t *parent);
+lv_obj_t * lv_image_create(lv_obj_t * parent);
 
 /*=====================
  * Setter functions
@@ -99,14 +97,14 @@ lv_obj_t *lv_image_create(lv_obj_t *parent);
  *                  2) path to an image file (e.g. "S:/dir/img.bin")or
  *                  3) a SYMBOL (e.g. LV_SYMBOL_OK)
  */
-void lv_image_set_src(lv_obj_t *obj, const void *src);
+void lv_image_set_src(lv_obj_t * obj, const void * src);
 
 /**
  * Set an offset for the source of an image so the image will be displayed from the new origin.
  * @param obj       pointer to an image
  * @param x         the new offset along x axis.
  */
-void lv_image_set_offset_x(lv_obj_t *obj, int32_t x);
+void lv_image_set_offset_x(lv_obj_t * obj, int32_t x);
 
 /**
  * Set an offset for the source of an image.
@@ -114,7 +112,7 @@ void lv_image_set_offset_x(lv_obj_t *obj, int32_t x);
  * @param obj       pointer to an image
  * @param y         the new offset along y axis.
  */
-void lv_image_set_offset_y(lv_obj_t *obj, int32_t y);
+void lv_image_set_offset_y(lv_obj_t * obj, int32_t y);
 
 /**
  * Set the rotation angle of the image.
@@ -126,7 +124,7 @@ void lv_image_set_offset_y(lv_obj_t *obj, int32_t y);
  *                  rotation will be set to 0 automatically.
  *
  */
-void lv_image_set_rotation(lv_obj_t *obj, int32_t angle);
+void lv_image_set_rotation(lv_obj_t * obj, int32_t angle);
 
 /**
  * Set the rotation center of the image.
@@ -136,21 +134,21 @@ void lv_image_set_rotation(lv_obj_t *obj, int32_t angle);
  * @param x         rotation center x of the image
  * @param y         rotation center y of the image
  */
-void lv_image_set_pivot(lv_obj_t *obj, int32_t x, int32_t y);
+void lv_image_set_pivot(lv_obj_t * obj, int32_t x, int32_t y);
 
 /**
  * Set the rotation horizontal center of the image.
  * @param obj       pointer to an image object
  * @param x         rotation center x of the image, or lv_pct()
  */
-void lv_image_set_pivot_x(lv_obj_t *obj, int32_t x);
+void lv_image_set_pivot_x(lv_obj_t * obj, int32_t x);
 
 /**
  * Set the rotation vertical center of the image.
  * @param obj       pointer to an image object
  * @param y         rotation center y of the image, or lv_pct()
  */
-void lv_image_set_pivot_y(lv_obj_t *obj, int32_t y);
+void lv_image_set_pivot_y(lv_obj_t * obj, int32_t y);
 
 /**
  * Set the zoom factor of the image.
@@ -163,7 +161,7 @@ void lv_image_set_pivot_y(lv_obj_t *obj, int32_t y);
  *                      - 128:  half size
  *                      - 512:  double size
  */
-void lv_image_set_scale(lv_obj_t *obj, uint32_t zoom);
+void lv_image_set_scale(lv_obj_t * obj, uint32_t zoom);
 
 /**
  * Set the horizontal zoom factor of the image.
@@ -176,7 +174,7 @@ void lv_image_set_scale(lv_obj_t *obj, uint32_t zoom);
  *                      - 128:  half size
  *                      - 512:  double size
  */
-void lv_image_set_scale_x(lv_obj_t *obj, uint32_t zoom);
+void lv_image_set_scale_x(lv_obj_t * obj, uint32_t zoom);
 
 /**
  * Set the vertical zoom factor of the image.
@@ -189,14 +187,14 @@ void lv_image_set_scale_x(lv_obj_t *obj, uint32_t zoom);
  *                      - 128:  half size
  *                      - 512:  double size
  */
-void lv_image_set_scale_y(lv_obj_t *obj, uint32_t zoom);
+void lv_image_set_scale_y(lv_obj_t * obj, uint32_t zoom);
 
 /**
  * Set the blend mode of an image.
  * @param obj           pointer to an image object
  * @param blend_mode    the new blend mode
  */
-void lv_image_set_blend_mode(lv_obj_t *obj, lv_blend_mode_t blend_mode);
+void lv_image_set_blend_mode(lv_obj_t * obj, lv_blend_mode_t blend_mode);
 
 /**
  * Enable/disable anti-aliasing for the transformations (rotate, zoom) or not.
@@ -204,7 +202,7 @@ void lv_image_set_blend_mode(lv_obj_t *obj, lv_blend_mode_t blend_mode);
  * @param obj       pointer to an image object
  * @param antialias true: anti-aliased; false: not anti-aliased
  */
-void lv_image_set_antialias(lv_obj_t *obj, bool antialias);
+void lv_image_set_antialias(lv_obj_t * obj, bool antialias);
 
 /**
  * Set the image object size mode.
@@ -213,14 +211,14 @@ void lv_image_set_antialias(lv_obj_t *obj, bool antialias);
  * @note            if image_align is `LV_IMAGE_ALIGN_STRETCH` or `LV_IMAGE_ALIGN_FIT`
  *                  rotation, scale and pivot will be overwritten and controlled internally.
  */
-void lv_image_set_inner_align(lv_obj_t *obj, lv_image_align_t align);
+void lv_image_set_inner_align(lv_obj_t * obj, lv_image_align_t align);
 
 /**
  * Set an A8 bitmap mask for the image.
  * @param obj       pointer to an image object
  * @param src       an lv_image_dsc_t bitmap mask source.
  */
-void lv_image_set_bitmap_map_src(lv_obj_t *obj, const lv_image_dsc_t *src);
+void lv_image_set_bitmap_map_src(lv_obj_t * obj, const lv_image_dsc_t * src);
 
 /*=====================
  * Getter functions
@@ -231,21 +229,21 @@ void lv_image_set_bitmap_map_src(lv_obj_t *obj, const lv_image_dsc_t *src);
  * @param obj       pointer to an image object
  * @return          the image source (symbol, file name or ::lv-img_dsc_t for C arrays)
  */
-const void *lv_image_get_src(lv_obj_t *obj);
+const void * lv_image_get_src(lv_obj_t * obj);
 
 /**
  * Get the offset's x attribute of the image object.
  * @param obj       pointer to an image
  * @return          offset X value.
  */
-int32_t lv_image_get_offset_x(lv_obj_t *obj);
+int32_t lv_image_get_offset_x(lv_obj_t * obj);
 
 /**
  * Get the offset's y attribute of the image object.
  * @param obj       pointer to an image
  * @return          offset Y value.
  */
-int32_t lv_image_get_offset_y(lv_obj_t *obj);
+int32_t lv_image_get_offset_y(lv_obj_t * obj);
 
 /**
  * Get the rotation of the image.
@@ -254,7 +252,7 @@ int32_t lv_image_get_offset_y(lv_obj_t *obj);
  * @note            if image_align is `LV_IMAGE_ALIGN_STRETCH` or  `LV_IMAGE_ALIGN_FIT`
  *                  rotation will be set to 0 automatically.
  */
-int32_t lv_image_get_rotation(lv_obj_t *obj);
+int32_t lv_image_get_rotation(lv_obj_t * obj);
 
 /**
  * Get the pivot (rotation center) of the image.
@@ -262,84 +260,84 @@ int32_t lv_image_get_rotation(lv_obj_t *obj);
  * @param obj       pointer to an image object
  * @param pivot     store the rotation center here
  */
-void lv_image_get_pivot(lv_obj_t *obj, lv_point_t *pivot);
+void lv_image_get_pivot(lv_obj_t * obj, lv_point_t * pivot);
 
 /**
  * Get the zoom factor of the image.
  * @param obj       pointer to an image object
  * @return          zoom factor (256: no zoom)
  */
-int32_t lv_image_get_scale(lv_obj_t *obj);
+int32_t lv_image_get_scale(lv_obj_t * obj);
 
 /**
  * Get the horizontal zoom factor of the image.
  * @param obj       pointer to an image object
  * @return          zoom factor (256: no zoom)
  */
-int32_t lv_image_get_scale_x(lv_obj_t *obj);
+int32_t lv_image_get_scale_x(lv_obj_t * obj);
 
 /**
  * Get the vertical zoom factor of the image.
  * @param obj       pointer to an image object
  * @return          zoom factor (256: no zoom)
  */
-int32_t lv_image_get_scale_y(lv_obj_t *obj);
+int32_t lv_image_get_scale_y(lv_obj_t * obj);
 
 /**
  * Get the width of an image before any transformations.
  * @param obj Pointer to an image object.
  * @return The width of the image.
  */
-int32_t lv_image_get_src_width(lv_obj_t *obj);
+int32_t lv_image_get_src_width(lv_obj_t * obj);
 
 /**
  * Get the height of an image before any transformations.
  * @param obj Pointer to an image object.
  * @return The height of the image.
  */
-int32_t lv_image_get_src_height(lv_obj_t *obj);
+int32_t lv_image_get_src_height(lv_obj_t * obj);
 
 /**
  * Get the transformed width of an image object.
  * @param obj Pointer to an image object.
  * @return The transformed width of the image.
  */
-int32_t lv_image_get_transformed_width(lv_obj_t *obj);
+int32_t lv_image_get_transformed_width(lv_obj_t * obj);
 
 /**
  * Get the transformed height of an image object.
  * @param obj Pointer to an image object.
  * @return The transformed height of the image.
  */
-int32_t lv_image_get_transformed_height(lv_obj_t *obj);
+int32_t lv_image_get_transformed_height(lv_obj_t * obj);
 
 /**
  * Get the current blend mode of the image
  * @param obj       pointer to an image object
  * @return          the current blend mode
  */
-lv_blend_mode_t lv_image_get_blend_mode(lv_obj_t *obj);
+lv_blend_mode_t lv_image_get_blend_mode(lv_obj_t * obj);
 
 /**
  * Get whether the transformations (rotate, zoom) are anti-aliased or not
  * @param obj       pointer to an image object
  * @return          true: anti-aliased; false: not anti-aliased
  */
-bool lv_image_get_antialias(lv_obj_t *obj);
+bool lv_image_get_antialias(lv_obj_t * obj);
 
 /**
  * Get the size mode of the image
  * @param obj       pointer to an image object
  * @return          element of `lv_image_align_t`
  */
-lv_image_align_t lv_image_get_inner_align(lv_obj_t *obj);
+lv_image_align_t lv_image_get_inner_align(lv_obj_t * obj);
 
 /**
  * Get the bitmap mask source.
  * @param obj       pointer to an image object
  * @return          an lv_image_dsc_t bitmap mask source.
  */
-const lv_image_dsc_t *lv_image_get_bitmap_map_src(lv_obj_t *obj);
+const lv_image_dsc_t * lv_image_get_bitmap_map_src(lv_obj_t * obj);
 
 
 #if LV_USE_OBSERVER
@@ -349,7 +347,7 @@ const lv_image_dsc_t *lv_image_get_bitmap_map_src(lv_obj_t *obj);
  * @param subject   pointer to Subject
  * @return          pointer to newly-created Observer
  */
-lv_observer_t *lv_image_bind_src(lv_obj_t *obj, lv_subject_t *subject);
+lv_observer_t * lv_image_bind_src(lv_obj_t * obj, lv_subject_t * subject);
 #endif
 
 /**********************

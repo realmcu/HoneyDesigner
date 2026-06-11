@@ -31,8 +31,7 @@ extern "C" {
  * @param attrs     attributes of the widget
  * @return
  */
-lv_obj_t *lv_xml_component_process(lv_xml_parser_state_t *state, const char *name,
-                                   const char **attrs);
+lv_obj_t * lv_xml_component_process(lv_xml_parser_state_t * state, const char * name, const char ** attrs);
 
 /**
  * Load the styles, constants, and other data of the Component. It needs to be called only once for each Component.
@@ -40,14 +39,14 @@ lv_obj_t *lv_xml_component_process(lv_xml_parser_state_t *state, const char *nam
  * @param xml_def   The XML definition of the component as a NULL terminated string
  * @return          LV_RESULT_OK: loaded successfully, LV_RES_INVALID: otherwise
  */
-lv_result_t lv_xml_register_component_from_data(const char *name, const char *xml_def);
+lv_result_t lv_xml_register_component_from_data(const char * name, const char * xml_def);
 
 /**
  * Load the styles, constants, and other data of the Component. It needs to be called only once for each Component.
  * @param path      Path to an XML file
  * @return          LV_RESULT_OK: loaded successfully, LV_RES_INVALID: otherwise
  */
-lv_result_t lv_xml_register_component_from_file(const char *path);
+lv_result_t lv_xml_register_component_from_file(const char * path);
 
 /**
  * Get the scope of a Component which was registered by
@@ -55,14 +54,14 @@ lv_result_t lv_xml_register_component_from_file(const char *path);
  * @param component_name    Name of the Component
  * @return                  Pointer to the scope or NULL if not found
  */
-lv_xml_component_scope_t *lv_xml_component_get_scope(const char *component_name);
+lv_xml_component_scope_t * lv_xml_component_get_scope(const char * component_name);
 
 /**
  * Remove a component from from the list.
  * @param name      the name of the component (used during registration)
  * @return          LV_RESULT_OK on successful  unregistration, LV_RESULT_INVALID otherwise.
  */
-lv_result_t lv_xml_component_unregister(const char *name);
+lv_result_t lv_xml_component_unregister(const char * name);
 
 /**********************
  *      MACROS

@@ -50,8 +50,8 @@ void lv_translation_deinit(void);
  * @param translations  List of translations. E.g. `{"Dog", "Cat", "Hund", "Katze"}`
  * @return              The created pack
  */
-lv_translation_pack_t *lv_translation_add_static(const char *languages[], const char *tags[],
-                                                 const char *translations[]);
+lv_translation_pack_t * lv_translation_add_static(const char * languages[], const char * tags[],
+                                                  const char * translations[]);
 
 /**
  * Add a pack to which translations can be added dynamically.
@@ -61,20 +61,20 @@ lv_translation_pack_t *lv_translation_add_static(const char *languages[], const 
  * with malloc-ed array for each element.
  * @return      the created pack to which data can be added manually.
  */
-lv_translation_pack_t *lv_translation_add_dynamic(void);
+lv_translation_pack_t * lv_translation_add_dynamic(void);
 
 /**
  * Select the current language
  * The `LV_EVENT_TRANSLATION_LANGUAGE_CHANGED` event will be sent to every widget
  * @param lang      a string from the defined languages. E.g. "en" or "de"
  */
-void lv_translation_set_language(const char *lang);
+void lv_translation_set_language(const char * lang);
 
 /**
  * Get the current selected language
  * @return the current selected language
  */
-const char *lv_translation_get_language(void);
+const char * lv_translation_get_language(void);
 
 /**
  * Get the translated version of a tag on the selected language
@@ -85,14 +85,14 @@ const char *lv_translation_get_language(void);
  *                      - if the tag is not found on the selected language, use the fist language
  *                      - if the tag is not found on the first language, return the tag
  */
-const char *lv_translation_get(const char *tag);
+const char * lv_translation_get(const char * tag);
 
 /**
  * Shorthand of lv_translation_set_language
  * @param tag       the tag to translate
  * @return          the translation
  */
-static inline const char *lv_tr(const char *tag)
+static inline const char * lv_tr(const char * tag)
 {
     return lv_translation_get(tag);
 }
@@ -104,7 +104,7 @@ static inline const char *lv_tr(const char *tag)
  * @param lang      language to add, e.g. "en", or "de"
  * @return          LV_RESULT_OK: success, LV_RESULT_INVALID: failed
  */
-lv_result_t lv_translation_add_language(lv_translation_pack_t *pack, const char *lang);
+lv_result_t lv_translation_add_language(lv_translation_pack_t * pack, const char * lang);
 
 /**
  * Get the index of a language in a pack.
@@ -112,7 +112,7 @@ lv_result_t lv_translation_add_language(lv_translation_pack_t *pack, const char 
  * @param lang_name name of the language to find
  * @return          index of the language or -1 if not found.
  */
-int32_t lv_translation_get_language_index(lv_translation_pack_t *pack, const char *lang_name);
+int32_t lv_translation_get_language_index(lv_translation_pack_t * pack, const char * lang_name);
 
 /**
  * Add a new tag to a dynamic language pack.
@@ -122,7 +122,7 @@ int32_t lv_translation_get_language_index(lv_translation_pack_t *pack, const cha
  * @param tag_name  name of the tag, e.g. "dog", or "house"
  * @return          pointer to the allocated tag descriptor
  */
-lv_translation_tag_dsc_t *lv_translation_add_tag(lv_translation_pack_t *pack, const char *tag_name);
+lv_translation_tag_dsc_t * lv_translation_add_tag(lv_translation_pack_t * pack, const char * tag_name);
 
 /**
  * Add a translation to a tag in a dynamic translation pack
@@ -132,9 +132,8 @@ lv_translation_tag_dsc_t *lv_translation_add_tag(lv_translation_pack_t *pack, co
  * @param trans     the translation on the given language
  * @return          LV_RESULT_OK: success, LV_RESULT_INVALID: failed
  */
-lv_result_t lv_translation_set_tag_translation(lv_translation_pack_t *pack,
-                                               lv_translation_tag_dsc_t *tag,
-                                               uint32_t lang_idx, const char *trans);
+lv_result_t lv_translation_set_tag_translation(lv_translation_pack_t * pack, lv_translation_tag_dsc_t * tag,
+                                               uint32_t lang_idx, const char * trans);
 
 /**********************
  *      MACROS

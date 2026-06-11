@@ -79,14 +79,14 @@ void lv_fs_frogfs_deinit(void);
  * @param path_prefix  a prefix that will be used to refer to this blob when accessing it.
  * @return             LV_RESULT_OK or LV_RESULT_INVALID if there was an issue with the blob
  */
-lv_result_t lv_fs_frogfs_register_blob(const void *blob, const char *path_prefix);
+lv_result_t lv_fs_frogfs_register_blob(const void * blob, const char * path_prefix);
 
 /**
  * Unmount a frogfs blob that was previously mounted by `lv_fs_frogfs_register_blob`.
  * All files and dirs should be closed before calling this.
  * @param path_prefix  the path prefix that the blob was registered with
  */
-void lv_fs_frogfs_unregister_blob(const char *path_prefix);
+void lv_fs_frogfs_unregister_blob(const char * path_prefix);
 
 #endif /*LV_USE_FS_FROGFS*/
 

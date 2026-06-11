@@ -59,15 +59,14 @@ g2d_format_t g2d_get_buf_format(lv_color_format_t cf);
 
 uint32_t g2d_rgba_to_u32(lv_color_t color);
 
-int32_t g2d_get_buf_fd(const lv_draw_buf_t *draw_buf);
+int32_t g2d_get_buf_fd(const lv_draw_buf_t * draw_buf);
 
-void g2d_set_handle(void *handle);
+void g2d_set_handle(void * handle);
 
-void *g2d_get_handle(void);
+void * g2d_get_handle(void);
 
 #if LV_USE_ROTATE_G2D
-void g2d_rotate(lv_draw_buf_t *buf1, lv_draw_buf_t *buf2, int32_t width, int32_t height,
-                uint32_t rotation,
+void g2d_rotate(lv_draw_buf_t * buf1, lv_draw_buf_t * buf2, int32_t width, int32_t height, uint32_t rotation,
                 lv_color_format_t cf);
 #endif
 /**********************

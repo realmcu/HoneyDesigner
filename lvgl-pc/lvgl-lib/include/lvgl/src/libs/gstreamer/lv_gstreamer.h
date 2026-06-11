@@ -70,8 +70,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_gstreamer_class;
  *      TYPEDEFS
  **********************/
 
-typedef enum
-{
+typedef enum {
     LV_GSTREAMER_STATE_NULL,
     LV_GSTREAMER_STATE_READY,
     LV_GSTREAMER_STATE_PAUSED,
@@ -87,7 +86,7 @@ typedef enum
  * @param parent    pointer to an object, it will be the parent of the new gstreamer
  * @return          pointer to the created gstreamer
  */
-lv_obj_t *lv_gstreamer_create(lv_obj_t *parent);
+lv_obj_t * lv_gstreamer_create(lv_obj_t * parent);
 
 /**
  * Add a source to this gstreamer object
@@ -101,68 +100,67 @@ lv_obj_t *lv_gstreamer_create(lv_obj_t *parent);
  *                      Passing NULL will create the source object but not set its source
  * @return LV_RESULT_OK if the source was correctly set else LV_RESULT_INVALID
  */
-lv_result_t lv_gstreamer_set_src(lv_obj_t *gstreamer, const char *factory_name,
-                                 const char *property,
-                                 const char *source);
+lv_result_t lv_gstreamer_set_src(lv_obj_t * gstreamer, const char * factory_name, const char * property,
+                                 const char * source);
 
 /**
  * Play this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  */
-void lv_gstreamer_play(lv_obj_t *gstreamer);
+void lv_gstreamer_play(lv_obj_t * gstreamer);
 
 /**
  * Pause this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  */
-void lv_gstreamer_pause(lv_obj_t *gstreamer);
+void lv_gstreamer_pause(lv_obj_t * gstreamer);
 
 /**
  * Stop this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  */
-void lv_gstreamer_stop(lv_obj_t *gstreamer);
+void lv_gstreamer_stop(lv_obj_t * gstreamer);
 
 /**
  * Seek a position in this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  * @param position      position to seek to
  */
-void lv_gstreamer_set_position(lv_obj_t *gstreamer, uint32_t position);
+void lv_gstreamer_set_position(lv_obj_t * gstreamer, uint32_t position);
 
 /**
  * Get the duration of this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  * @return              the duration (in ms) of the gstreamer object
  */
-uint32_t lv_gstreamer_get_duration(lv_obj_t *gstreamer);
+uint32_t lv_gstreamer_get_duration(lv_obj_t * gstreamer);
 
 /**
  * Get the position of this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  * @return              the position (in ms) of the gstreamer object
  */
-uint32_t lv_gstreamer_get_position(lv_obj_t *gstreamer);
+uint32_t lv_gstreamer_get_position(lv_obj_t * gstreamer);
 
 /**
  * Get the state of this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  */
-lv_gstreamer_state_t lv_gstreamer_get_state(lv_obj_t *gstreamer);
+lv_gstreamer_state_t lv_gstreamer_get_state(lv_obj_t * gstreamer);
 
 /**
  * Set the volume of this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  * @param volume         the value to set in the range [0..100]. Higher values are clamped
  */
-void lv_gstreamer_set_volume(lv_obj_t *gstreamer, uint8_t volume);
+void lv_gstreamer_set_volume(lv_obj_t * gstreamer, uint8_t volume);
 
 /**
  * Get the volume of this gstreamer
  * @param gstreamer     pointer to a gstreamer object
  * @return      the volume for this gstreamer
  */
-uint8_t lv_gstreamer_get_volume(lv_obj_t *gstreamer);
+uint8_t lv_gstreamer_get_volume(lv_obj_t * gstreamer);
 
 /**
  * Set the speed rate of this gstreamer
@@ -174,7 +172,7 @@ uint8_t lv_gstreamer_get_volume(lv_obj_t *gstreamer);
  *                      - 128:   0.5x
  *                      - 512:   2x
  */
-void lv_gstreamer_set_rate(lv_obj_t *gstreamer, uint32_t rate);
+void lv_gstreamer_set_rate(lv_obj_t * gstreamer, uint32_t rate);
 
 
 /**********************

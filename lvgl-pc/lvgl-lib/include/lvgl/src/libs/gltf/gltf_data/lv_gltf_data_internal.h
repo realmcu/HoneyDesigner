@@ -7,8 +7,7 @@
 #include "../../../draw/lv_image_dsc.h"
 #include "../../../misc/lv_types.h"
 
-typedef struct
-{
+typedef struct {
     GLuint count;
     GLuint instanceCount;
     GLuint firstIndex;
@@ -16,8 +15,7 @@ typedef struct
     GLuint baseInstance;
 } IndirectDrawCommand;
 
-typedef struct
-{
+typedef struct {
     IndirectDrawCommand draw;
     GLenum primitiveType;
     GLenum indexType;
@@ -64,8 +62,7 @@ typedef struct
 
 } lv_gltf_primitive_t;
 
-typedef struct
-{
+typedef struct {
     GLint camera;
     GLint view_projection_matrix;
     GLint model_matrix;
@@ -175,23 +172,20 @@ typedef struct
 
 lv_gltf_uniform_locations_t lv_gltf_uniform_locations_create(GLuint program);
 
-typedef struct
-{
+typedef struct {
     GLuint program;
     uint32_t bg_program;
     uint32_t vert;
     uint32_t frag;
 } lv_gltf_shaderset_t;
 
-typedef struct
-{
+typedef struct {
     lv_gltf_uniform_locations_t uniforms;
     lv_gltf_shaderset_t shaderset;
 } lv_gltf_compiled_shader_t;
 
-void lv_gltf_store_compiled_shader(lv_gltf_model_t *data, size_t identifier,
-                                   lv_gltf_compiled_shader_t *shader);
-lv_gltf_compiled_shader_t *lv_gltf_get_compiled_shader(lv_gltf_model_t *data, size_t identifier);
+void lv_gltf_store_compiled_shader(lv_gltf_model_t * data, size_t identifier, lv_gltf_compiled_shader_t * shader);
+lv_gltf_compiled_shader_t * lv_gltf_get_compiled_shader(lv_gltf_model_t * data, size_t identifier);
 
 /**
  * @brief Load the gltf file at the specified filepath
@@ -201,8 +195,8 @@ lv_gltf_compiled_shader_t *lv_gltf_get_compiled_shader(lv_gltf_model_t *data, si
  * @param shaders Pointer to the shader cache object this file uses.
  */
 lv_gltf_model_t *
-lv_gltf_data_load_from_file(const char *file_path,
-                            lv_opengl_shader_manager_t *shader_manager);
+lv_gltf_data_load_from_file(const char * file_path,
+                            lv_opengl_shader_manager_t * shader_manager);
 
 /**
  * @brief Load the gltf file encoded within the supplied byte array
@@ -214,8 +208,8 @@ lv_gltf_data_load_from_file(const char *file_path,
  */
 
 lv_gltf_model_t *
-lv_gltf_data_load_from_bytes(const uint8_t *data, size_t data_size,
-                             lv_opengl_shader_manager_t *shader_manager);
+lv_gltf_data_load_from_bytes(const uint8_t * data, size_t data_size,
+                             lv_opengl_shader_manager_t * shader_manager);
 
 
 /**
@@ -224,7 +218,7 @@ lv_gltf_data_load_from_bytes(const uint8_t *data, size_t data_size,
  * @param D Pointer to the lv_gltf_data_t object from which to get the radius.
  * @return The radius of the GLTF data object.
  */
-double lv_gltf_data_get_radius(lv_gltf_model_t *D);
+double lv_gltf_data_get_radius(lv_gltf_model_t * D);
 
 
 /**
@@ -232,7 +226,7 @@ double lv_gltf_data_get_radius(lv_gltf_model_t *D);
  *
  * @param _data Pointer to the lv_gltf_data_t object to be destroyed.
  */
-void lv_gltf_data_destroy(lv_gltf_model_t *_data);
+void lv_gltf_data_destroy(lv_gltf_model_t * _data);
 
 /**
  * @brief Copy the bounds information from one GLTF data object to another.
@@ -240,7 +234,7 @@ void lv_gltf_data_destroy(lv_gltf_model_t *_data);
  * @param to Pointer to the destination lv_gltf_data_t object.
  * @param from Pointer to the source lv_gltf_data_t object.
  */
-void lv_gltf_data_copy_bounds_info(lv_gltf_model_t *to, lv_gltf_model_t *from);
+void lv_gltf_data_copy_bounds_info(lv_gltf_model_t * to, lv_gltf_model_t * from);
 
 /**
  * @brief Swap the red and blue channels in a pixel buffer.
@@ -249,7 +243,7 @@ void lv_gltf_data_copy_bounds_info(lv_gltf_model_t *to, lv_gltf_model_t *from);
  * @param byte_total_count The total number of bytes in the pixel buffer.
  * @param has_alpha Flag indicating whether the pixel buffer includes an alpha channel.
  */
-void lv_gltf_data_rgb_to_bgr(uint8_t *pixel_buffer,
+void lv_gltf_data_rgb_to_bgr(uint8_t * pixel_buffer,
                              size_t byte_total_count,
                              bool has_alpha);
 

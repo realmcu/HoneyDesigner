@@ -1,4 +1,4 @@
-prefix="G:/gitee/honeygui-design/lvgl-pc/lvgl-lib"
+prefix="D:/a/honeygui-design/honeygui-design/lvgl-pc/lvgl-lib"
 includedir="${prefix}/include/lvgl"
 libdir=${prefix}/lib
 

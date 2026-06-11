@@ -28,19 +28,17 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_translation_tag_dsc_t
-{
-    const char *tag;
-    const char **translations;  /**< Translations for each language*/
+struct _lv_translation_tag_dsc_t {
+    const char * tag;
+    const char ** translations; /**< Translations for each language*/
 };
 
-struct _lv_translation_pack_t
-{
-    const char **languages;
+struct _lv_translation_pack_t {
+    const char ** languages;
     uint32_t language_cnt;
     uint32_t is_static; /*In the union translations_p is used*/
-    const char **tag_p;
-    const char **translation_p;  /*E.g. {{"a", "b"}, {"c", "d"}}*/
+    const char ** tag_p;
+    const char ** translation_p; /*E.g. {{"a", "b"}, {"c", "d"}}*/
     lv_array_t translation_array;
 };
 

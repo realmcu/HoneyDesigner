@@ -26,11 +26,10 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_arclabel_t
-{
+struct _lv_arclabel_t {
     lv_obj_t obj;
 
-    char *text;
+    char * text;
     char dot[LV_ARCLABEL_DOT_NUM + 1]; /**< Bytes that have been replaced with dots */
     uint32_t dot_begin;                 /**< Offset where bytes have been replaced with dots */
 

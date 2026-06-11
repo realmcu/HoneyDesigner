@@ -24,10 +24,10 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 
-void *lv_xml_dropdown_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_dropdown_apply(lv_xml_parser_state_t *state, const char **attrs);
-void *lv_xml_dropdown_list_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_dropdown_list_apply(lv_xml_parser_state_t *state, const char **attrs);
+void * lv_xml_dropdown_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_dropdown_apply(lv_xml_parser_state_t * state, const char ** attrs);
+void * lv_xml_dropdown_list_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_dropdown_list_apply(lv_xml_parser_state_t * state, const char ** attrs);
 
 /**********************
  *      MACROS

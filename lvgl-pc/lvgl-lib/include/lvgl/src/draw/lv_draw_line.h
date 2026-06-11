@@ -25,8 +25,7 @@ extern "C" {
 /**********************
  *      TYPEDEFS
  **********************/
-typedef struct
-{
+typedef struct {
     lv_draw_dsc_base_t base;
 
     /**The first point of the line. If `LV_USE_FLOAT` is enabled float number can be also used*/
@@ -69,21 +68,21 @@ typedef struct
  * Initialize a line draw descriptor
  * @param dsc       pointer to a draw descriptor
  */
-void lv_draw_line_dsc_init(lv_draw_line_dsc_t *dsc);
+void lv_draw_line_dsc_init(lv_draw_line_dsc_t * dsc);
 
 /**
  * Try to get a line draw descriptor from a draw task.
  * @param task      draw task
  * @return          the task's draw descriptor or NULL if the task is not of type LV_DRAW_TASK_TYPE_LINE
  */
-lv_draw_line_dsc_t *lv_draw_task_get_line_dsc(lv_draw_task_t *task);
+lv_draw_line_dsc_t * lv_draw_task_get_line_dsc(lv_draw_task_t * task);
 
 /**
  * Create a line draw task
  * @param layer     pointer to a layer
  * @param dsc       pointer to an initialized `lv_draw_line_dsc_t` variable
  */
-void lv_draw_line(lv_layer_t *layer, const lv_draw_line_dsc_t *dsc);
+void lv_draw_line(lv_layer_t * layer, const lv_draw_line_dsc_t * dsc);
 
 /**********************
  *      MACROS

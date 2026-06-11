@@ -30,10 +30,9 @@ extern "C" {
 /**
  * Descriptor a chart series
  */
-struct _lv_chart_series_t
-{
-    int32_t *x_points;
-    int32_t *y_points;
+struct _lv_chart_series_t {
+    int32_t * x_points;
+    int32_t * y_points;
     lv_color_t color;
     uint32_t start_point;
     uint32_t hidden : 1;
@@ -43,18 +42,16 @@ struct _lv_chart_series_t
     uint32_t y_axis_sec : 1;
 };
 
-struct _lv_chart_cursor_t
-{
+struct _lv_chart_cursor_t {
     lv_point_t pos;
     int32_t point_id;
     lv_color_t color;
-    lv_chart_series_t *ser;
+    lv_chart_series_t * ser;
     lv_dir_t dir;
     uint32_t pos_set: 1;        /**< 1: pos is set; 0: point_id is set */
 };
 
-struct _lv_chart_t
-{
+struct _lv_chart_t {
     lv_obj_t obj;
     lv_ll_t series_ll;          /**< Linked list for series (stores lv_chart_series_t) */
     lv_ll_t cursor_ll;          /**< Linked list for cursors (stores lv_chart_cursor_t) */

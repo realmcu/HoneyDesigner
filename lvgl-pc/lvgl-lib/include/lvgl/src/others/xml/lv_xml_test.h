@@ -20,8 +20,7 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef enum
-{
+typedef enum {
     LV_XML_TEST_STEP_TYPE_NONE,
     LV_XML_TEST_STEP_TYPE_MOVE_TO,
     LV_XML_TEST_STEP_TYPE_PRESS,
@@ -46,7 +45,7 @@ typedef enum
  * @param ref_image_path_prefix     prefix for the path of reference images
  * @return          LV_RESULT_OK: loaded successfully, LV_RES_INVALID: otherwise
  */
-lv_result_t lv_xml_test_register_from_data(const char *xml_def, const char *ref_image_path_prefix);
+lv_result_t lv_xml_test_register_from_data(const char * xml_def, const char * ref_image_path_prefix);
 
 /**
  * Load the styles, constants, another data of the test. It needs to be called only once for each test.
@@ -54,7 +53,7 @@ lv_result_t lv_xml_test_register_from_data(const char *xml_def, const char *ref_
  * @param ref_image_path_prefix     prefix for the path of reference images
  * @return                          LV_RESULT_OK: loaded successfully, LV_RES_INVALID: otherwise
  */
-lv_result_t lv_xml_test_register_from_file(const char *path, const char *ref_image_path_prefix);
+lv_result_t lv_xml_test_register_from_file(const char * path, const char * ref_image_path_prefix);
 
 /**
  * Free resources allocated for testing.

@@ -26,8 +26,7 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef struct
-{
+typedef struct {
     lv_draw_dsc_base_t base;
 
     /**The color of the arc*/
@@ -47,7 +46,7 @@ typedef struct
     lv_point_t center;
 
     /**An image source to be used instead of `color`. `NULL` if unused*/
-    const void *img_src;
+    const void * img_src;
 
     /**The outer radius of the arc*/
     uint16_t radius;
@@ -68,21 +67,21 @@ typedef struct
  * Initialize an arc draw descriptor.
  * @param dsc       pointer to a draw descriptor
  */
-void lv_draw_arc_dsc_init(lv_draw_arc_dsc_t *dsc);
+void lv_draw_arc_dsc_init(lv_draw_arc_dsc_t * dsc);
 
 /**
  * Try to get an arc draw descriptor from a draw task.
  * @param task      draw task
  * @return          the task's draw descriptor or NULL if the task is not of type LV_DRAW_TASK_TYPE_ARC
  */
-lv_draw_arc_dsc_t *lv_draw_task_get_arc_dsc(lv_draw_task_t *task);
+lv_draw_arc_dsc_t * lv_draw_task_get_arc_dsc(lv_draw_task_t * task);
 
 /**
  * Create an arc draw task.
  * @param layer         pointer to a layer
  * @param dsc           pointer to an initialized draw descriptor variable
  */
-void lv_draw_arc(lv_layer_t *layer, const lv_draw_arc_dsc_t *dsc);
+void lv_draw_arc(lv_layer_t * layer, const lv_draw_arc_dsc_t * dsc);
 
 /**
  * Get an area the should be invalidated when the arcs angle changed between start_angle and end_ange
@@ -97,7 +96,7 @@ void lv_draw_arc(lv_layer_t *layer, const lv_draw_arc_dsc_t *dsc);
  */
 void lv_draw_arc_get_area(int32_t x, int32_t y, uint16_t radius,  lv_value_precise_t start_angle,
                           lv_value_precise_t end_angle,
-                          int32_t w, bool rounded, lv_area_t *area);
+                          int32_t w, bool rounded, lv_area_t * area);
 
 /**********************
  *      MACROS

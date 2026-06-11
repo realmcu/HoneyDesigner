@@ -27,8 +27,7 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef struct
-{
+typedef struct {
 #if LV_USE_OS
     lv_mutex_t mutex;
 #endif

@@ -40,7 +40,7 @@ extern "C" {
  *                  using `lv_display_set_resolution`
  *                  The color format can be freely changed later using `lv_display_set_color_format`
  */
-lv_display_t *lv_test_display_create(int32_t hor_res, int32_t ver_res);
+lv_display_t * lv_test_display_create(int32_t hor_res, int32_t ver_res);
 
 /**********************
  *      MACROS

@@ -72,14 +72,12 @@ typedef struct
 } CardViewData;
 
 /*Data of cardviewate*/
-typedef struct
-{
+typedef struct {
     lv_obj_t obj;
     CardViewData data;
 } lv_cardview_t;
 
-typedef struct
-{
+typedef struct {
     lv_obj_t obj;
     CardData data;
 } lv_card_t;
@@ -96,7 +94,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_cardview_class;
  * @param parent    pointer to an object, it will be the parent of the new cardview
  * @return          pointer to the created bar
  */
-lv_obj_t *lv_cardview_create(lv_obj_t *parent);
+lv_obj_t * lv_cardview_create(lv_obj_t * parent);
 
 /**
  * @brief Custom card view widget which custom card widget nested in
@@ -125,7 +123,7 @@ lv_obj_t *lv_card_view_create(lv_obj_t *parent,
  * @param parent    pointer to an object, it will be the parent of the new cardview
  * @return          pointer to the created bar
  */
-lv_obj_t *lv_card_create(lv_obj_t *parent);
+lv_obj_t * lv_card_create(lv_obj_t * parent);
 
 /**
  * @brief Custom card view widget which custom card widget nested in.

@@ -24,10 +24,9 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef void (*lv_layout_update_cb_t)(lv_obj_t *, void *user_data);
+typedef void (*lv_layout_update_cb_t)(lv_obj_t *, void * user_data);
 
-typedef enum
-{
+typedef enum {
     LV_LAYOUT_NONE = 0,
 
 #if LV_USE_FLEX
@@ -47,7 +46,7 @@ typedef enum
  * @param user_data custom data that will be passed to `cb`
  * @return          the ID of the new layout
  */
-uint32_t lv_layout_register(lv_layout_update_cb_t cb, void *user_data);
+uint32_t lv_layout_register(lv_layout_update_cb_t cb, void * user_data);
 
 /**********************
  *      MACROS

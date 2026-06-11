@@ -145,9 +145,9 @@
               please file a bug report with libexpat.  Thank you!
 */
 #define EXPAT_BILLION_LAUGHS_ATTACK_PROTECTION_MAXIMUM_AMPLIFICATION_DEFAULT   \
-    100.0f
+  100.0f
 #define EXPAT_BILLION_LAUGHS_ATTACK_PROTECTION_ACTIVATION_THRESHOLD_DEFAULT    \
-    8388608 // 8 MiB, 2^23
+  8388608 // 8 MiB, 2^23
 /* NOTE END */
 
 #include "expat.h" // so we can use type XML_Parser below
@@ -167,9 +167,9 @@ const char *unsignedCharToPrintable(unsigned char c);
 
 extern
 #if ! defined(XML_TESTING)
-const
+    const
 #endif
-XML_Bool g_reparseDeferralEnabledDefault; // written ONLY in runtests.c
+    XML_Bool g_reparseDeferralEnabledDefault; // written ONLY in runtests.c
 #if defined(XML_TESTING)
 extern unsigned int g_bytesScanned; // used for testing only
 #endif

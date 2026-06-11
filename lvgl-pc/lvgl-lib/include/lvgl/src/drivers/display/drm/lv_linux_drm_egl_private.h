@@ -33,24 +33,23 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef struct
-{
+typedef struct {
     lv_opengles_texture_t texture;
-    lv_display_t *display;
-    lv_opengles_egl_t *egl_ctx;
+    lv_display_t * display;
+    lv_opengles_egl_t * egl_ctx;
     lv_egl_interface_t egl_interface;
 
-    drmModeRes *drm_resources;
-    drmModeConnector *drm_connector;
-    drmModeEncoder *drm_encoder;
-    drmModeCrtc *drm_crtc;
-    drmModeModeInfo *drm_mode;
+    drmModeRes * drm_resources;
+    drmModeConnector * drm_connector;
+    drmModeEncoder * drm_encoder;
+    drmModeCrtc * drm_crtc;
+    drmModeModeInfo * drm_mode;
 
-    struct gbm_device *gbm_dev;
-    struct gbm_surface *gbm_surface;
-    struct gbm_bo *gbm_bo_pending;
-    struct gbm_bo *gbm_bo_flipped;
-    struct gbm_bo *gbm_bo_presented;
+    struct gbm_device * gbm_dev;
+    struct gbm_surface * gbm_surface;
+    struct gbm_bo * gbm_bo_pending;
+    struct gbm_bo * gbm_bo_flipped;
+    struct gbm_bo * gbm_bo_presented;
 
     lv_linux_drm_select_mode_cb_t mode_select_cb;
     int fd;

@@ -9,8 +9,7 @@
 extern "C" {
 #endif
 
-typedef enum
-{
+typedef enum {
     LV_GLTF_BIND_PROP_VISIBILITY,
     LV_GLTF_BIND_PROP_POSITION,
     LV_GLTF_BIND_PROP_ROTATION,
@@ -29,9 +28,8 @@ typedef enum
 
 typedef enum { LV_GLTF_BIND_DIR_READ, LV_GLTF_BIND_DIR_WRITE } lv_gltf_bind_dir_t;
 
-struct _lv_gltf_bind
-{
-    struct _lv_gltf_bind *next_bind;
+struct _lv_gltf_bind {
+    struct _lv_gltf_bind * next_bind;
     lv_gltf_bind_prop_t prop;
     lv_gltf_bind_dir_t dir;
     uint32_t id;
@@ -42,15 +40,15 @@ struct _lv_gltf_bind
 
 typedef struct _lv_gltf_bind lv_gltf_bind_t;
 
-void lv_gltf_bind_set(lv_gltf_bind_t *bind, uint8_t channel, float data);
-float lv_gltf_bind_get(lv_gltf_bind_t *bind, uint8_t channel);
+void lv_gltf_bind_set(lv_gltf_bind_t * bind, uint8_t channel, float data);
+float lv_gltf_bind_get(lv_gltf_bind_t * bind, uint8_t channel);
 
 /**
  * @brief Reset the dirty flag for a given bind.
  *
  * @param bind Pointer to the lv_gltf_bind_t to reset the dirty flag for.
  */
-void lv_gltf_bind_bind_clean(lv_gltf_bind_t *bind);
+void lv_gltf_bind_bind_clean(lv_gltf_bind_t * bind);
 
 /**
  * @brief Add an bind to a GLTF data object by node index.
@@ -61,10 +59,9 @@ void lv_gltf_bind_bind_clean(lv_gltf_bind_t *bind);
  * @param data_mask A mask indicating which data fields to bind.
  * @return Pointer to the newly created lv_gltf_bind_t object, or NULL if the operation failed.
  */
-lv_gltf_bind_t *lv_gltf_bind_add_by_index(lv_gltf_model_t *data, size_t index,
-                                          lv_gltf_bind_prop_t which_prop,
-                                          uint32_t data_mask,
-                                          lv_gltf_bind_dir_t dir);
+lv_gltf_bind_t * lv_gltf_bind_add_by_index(lv_gltf_model_t * data, size_t index, lv_gltf_bind_prop_t which_prop,
+                                           uint32_t data_mask,
+                                           lv_gltf_bind_dir_t dir);
 
 /**
  * @brief Add an bind to a GLTF data object by node IP address.
@@ -75,9 +72,8 @@ lv_gltf_bind_t *lv_gltf_bind_add_by_index(lv_gltf_model_t *data, size_t index,
  * @param data_mask A mask indicating which data fields to bind.
  * @return Pointer to the newly created lv_gltf_bind_t object, or NULL if the operation failed.
  */
-lv_gltf_bind_t *lv_gltf_bind_add_by_ip(lv_gltf_model_t *data, const char *node_ip,
-                                       lv_gltf_bind_prop_t which_prop,
-                                       uint32_t data_mask, lv_gltf_bind_dir_t dir);
+lv_gltf_bind_t * lv_gltf_bind_add_by_ip(lv_gltf_model_t * data, const char * node_ip, lv_gltf_bind_prop_t which_prop,
+                                        uint32_t data_mask, lv_gltf_bind_dir_t dir);
 
 /**
  * @brief Add an bind to a GLTF data object by node ID.
@@ -88,9 +84,8 @@ lv_gltf_bind_t *lv_gltf_bind_add_by_ip(lv_gltf_model_t *data, const char *node_i
  * @param data_mask A mask indicating which data fields to bind.
  * @return Pointer to the newly created lv_gltf_bind_t object, or NULL if the operation failed.
  */
-lv_gltf_bind_t *lv_gltf_bind_add_by_path(lv_gltf_model_t *data, const char *path,
-                                         lv_gltf_bind_prop_t which_prop,
-                                         uint32_t data_mask, lv_gltf_bind_dir_t dir);
+lv_gltf_bind_t * lv_gltf_bind_add_by_path(lv_gltf_model_t * data, const char * path, lv_gltf_bind_prop_t which_prop,
+                                          uint32_t data_mask, lv_gltf_bind_dir_t dir);
 
 /**
  * @brief Remove an bind from a GLTF data object.
@@ -101,7 +96,7 @@ lv_gltf_bind_t *lv_gltf_bind_add_by_path(lv_gltf_model_t *data, const char *path
  * @param data_mask A mask indicating which data fields to bind.
  * @return True on success, False on failure.
  */
-lv_result_t lv_gltf_bind_remove(lv_gltf_model_t *_data, lv_gltf_bind_t *bind);
+lv_result_t lv_gltf_bind_remove(lv_gltf_model_t * _data, lv_gltf_bind_t * bind);
 
 #ifdef __cplusplus
 } /*extern "C"*/

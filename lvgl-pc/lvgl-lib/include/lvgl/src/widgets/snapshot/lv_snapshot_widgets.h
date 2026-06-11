@@ -38,8 +38,7 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 /*Data of snapshot_widgetsate*/
-typedef struct
-{
+typedef struct {
     lv_obj_t obj;
     lv_obj_t *snapshot;
     lv_color_t bg_color;
@@ -61,7 +60,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_snapshot_widgets_class;
  * @param parent pointer to an object, it will be the parent of the new snapshot_widgets
  * @return pointer to the created snapshot_widgets
  */
-lv_obj_t *lv_snapshot_widgets_create(lv_obj_t *parent);
+lv_obj_t * lv_snapshot_widgets_create(lv_obj_t * parent);
 
 /**
  * @brief Trigger an immediate snapshot refresh.

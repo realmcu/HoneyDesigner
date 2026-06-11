@@ -28,8 +28,7 @@ extern "C" {
  **********************/
 
 /*Data of 3dtexture*/
-struct _lv_3dtexture_t
-{
+struct _lv_3dtexture_t {
     lv_obj_t obj;
     lv_3dtexture_id_t id;
     bool h_flip;

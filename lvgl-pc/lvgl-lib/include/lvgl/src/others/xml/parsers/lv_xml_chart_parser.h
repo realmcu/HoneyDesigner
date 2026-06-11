@@ -24,14 +24,14 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 
-void *lv_xml_chart_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_chart_apply(lv_xml_parser_state_t *state, const char **attrs);
-void *lv_xml_chart_series_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_chart_series_apply(lv_xml_parser_state_t *state, const char **attrs);
-void *lv_xml_chart_cursor_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_chart_cursor_apply(lv_xml_parser_state_t *state, const char **attrs);
-void *lv_xml_chart_axis_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_chart_axis_apply(lv_xml_parser_state_t *state, const char **attrs);
+void * lv_xml_chart_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_chart_apply(lv_xml_parser_state_t * state, const char ** attrs);
+void * lv_xml_chart_series_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_chart_series_apply(lv_xml_parser_state_t * state, const char ** attrs);
+void * lv_xml_chart_cursor_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_chart_cursor_apply(lv_xml_parser_state_t * state, const char ** attrs);
+void * lv_xml_chart_axis_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_chart_axis_apply(lv_xml_parser_state_t * state, const char ** attrs);
 
 /**********************
  *      MACROS

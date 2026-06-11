@@ -13,7 +13,7 @@ extern "C" {
 #include <stdint.h>
 
 #pragma pack(1)
-typedef struct
+typedef struct 
 {
     uint32_t usec_per_frame;
     uint32_t max_byte_rate;
@@ -25,9 +25,9 @@ typedef struct
     uint32_t buffer_size;
     uint32_t width;
     uint32_t height;
-} MainAVIHeader_t;
+}MainAVIHeader_t;
 
-typedef struct
+typedef struct 
 {
     uint32_t type;              // "vids"
     uint32_t handler;           /* Optionally, contains a FOURCC for a specific data handler. */
@@ -44,9 +44,9 @@ typedef struct
     uint16_t frame[4];             /* The left, top, right, bottom coordinates in 16 bit values. */
     uint32_t stream_format;     /* The letters "strf" indicate that this is a stream format. */
     uint32_t length_format;     /* This size of the format. */
-} AVIStreamHeader_t;
+}AVIStreamHeader_t;
 
-typedef struct
+typedef struct 
 {
     uint32_t size;              /*  */
     uint32_t width;             /*  */
@@ -59,29 +59,28 @@ typedef struct
     uint32_t y_pels_per_meter;  /*  */
     uint32_t colors_used;       /*  */
     uint32_t colors_important;  /*  */
-} BitMapInfoHeader_t;
+}BitMapInfoHeader_t;
 
-typedef struct
+typedef struct 
 {
     uint32_t indexID;              /*  */
     uint32_t index_size;           /*  */
-} IndexList_t;
+}IndexList_t;
 
-typedef struct
+typedef struct 
 {
     uint32_t chunk_ID;         /*  */
     uint32_t flags;            /*  */
     uint32_t offset;           /*  */
     uint32_t size;             /*  */
-} IndexItem_t;
+}IndexItem_t;
 
 #pragma pack()
 
 
-typedef struct _ad_AVI
-{
+typedef struct _ad_AVI {
     lv_fs_file_t fd;
-    const char *data;
+    const char * data;
     uint8_t is_file;
     uint32_t f_rw_p;
     int32_t anim_start;
@@ -106,16 +105,16 @@ typedef struct _ad_AVI
 } ad_AVI;
 
 
-ad_AVI *ad_open_avi_file(const char *fname);
+ad_AVI * ad_open_avi_file(const char * fname);
 
-ad_AVI *ad_open_avi_data(const void *data);
+ad_AVI * ad_open_avi_data(const void * data);
 
-void ad_render_frame(ad_AVI *avi);
+void ad_render_frame(ad_AVI * avi);
 
-int ad_get_frame(ad_AVI *avi);
-void ad_release_frame(ad_AVI *avi);
-void ad_rewind(ad_AVI *avi);
-void ad_close_avi(ad_AVI *avi);
+int ad_get_frame(ad_AVI * avi);
+void ad_release_frame(ad_AVI * avi);
+void ad_rewind(ad_AVI * avi);
+void ad_close_avi(ad_AVI * avi);
 
 #endif /*LV_USE_AVI*/
 

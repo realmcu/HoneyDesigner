@@ -23,10 +23,9 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef struct _lv_xml_style_t
-{
-    const char *name;
-    const char *long_name;
+typedef struct _lv_xml_style_t {
+    const char * name;
+    const char * long_name;
     lv_style_t style;
 } lv_xml_style_t;
 
@@ -39,7 +38,7 @@ typedef struct _lv_xml_style_t
  * @param scope     add styles here. (Constants should be already added as style properties might use them)
  * @param attrs     list of attribute names and values
  */
-lv_result_t lv_xml_register_style(lv_xml_component_scope_t *scope, const char **attrs);
+lv_result_t lv_xml_register_style(lv_xml_component_scope_t * scope, const char ** attrs);
 
 /**
  * Decompose a string like `"style1:pressed:checked:knob"` to style name and selector
@@ -47,7 +46,7 @@ lv_result_t lv_xml_register_style(lv_xml_component_scope_t *scope, const char **
  * @param selector      store the selectors here
  * @return              the style name or `NULL` on any error
  */
-const char *lv_xml_style_string_process(char *txt, lv_style_selector_t *selector);
+const char * lv_xml_style_string_process(char * txt, lv_style_selector_t * selector);
 
 /**
  * Find a style by name which was added by `lv_xml_register_style`
@@ -55,7 +54,7 @@ const char *lv_xml_style_string_process(char *txt, lv_style_selector_t *selector
  * @param name      the name of the style. Can start with a component name prefix (e.g. `my_button.blue`) to overwrite the ctx
  * @return          the style structure
  */
-lv_xml_style_t *lv_xml_get_style_by_name(lv_xml_component_scope_t *scope, const char *name);
+lv_xml_style_t * lv_xml_get_style_by_name(lv_xml_component_scope_t * scope, const char * name);
 
 /**
  * Get a gradient descriptor defined for a component
@@ -63,7 +62,7 @@ lv_xml_style_t *lv_xml_get_style_by_name(lv_xml_component_scope_t *scope, const 
  * @param name  name of the gradient
  * @return      a gradient descriptor
  */
-lv_grad_dsc_t *lv_xml_component_get_grad(lv_xml_component_scope_t *scope, const char *name);
+lv_grad_dsc_t * lv_xml_component_get_grad(lv_xml_component_scope_t * scope, const char * name);
 
 /**********************
  *      MACROS

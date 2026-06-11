@@ -34,15 +34,13 @@ extern "C" {
  **********************/
 
 /** State machine for text renderer. */
-typedef enum
-{
+typedef enum {
     LV_TEXT_CMD_STATE_WAIT, /**< Waiting for command*/
     LV_TEXT_CMD_STATE_PAR,  /**< Processing the parameter*/
     LV_TEXT_CMD_STATE_IN,   /**< Processing the command*/
 } lv_text_cmd_state_t;
 
-typedef struct
-{
+typedef struct {
     int32_t letter_space;   /**< Letter space between letters*/
     int32_t line_space;     /**< Space between lines of text*/
     int32_t max_width;      /**< Max width of the text (break the lines to fit this size). Set COORD_MAX to avoid*/
@@ -58,7 +56,7 @@ typedef struct
  * Initialize the text attributes descriptor
  * @param attributes the text attributes descriptor to initialize
  */
-void lv_text_attributes_init(lv_text_attributes_t *attributes);
+void lv_text_attributes_init(lv_text_attributes_t * attributes);
 
 /**
  * Get size of a text
@@ -67,8 +65,8 @@ void lv_text_attributes_init(lv_text_attributes_t *attributes);
  * @param font pointer to font of the text
  * @param attributes the text attributes, flags for line break behaviour, spacing etc
  */
-void lv_text_get_size_attributes(lv_point_t *size_res, const char *text, const lv_font_t *font,
-                                 lv_text_attributes_t *attributes);
+void lv_text_get_size_attributes(lv_point_t * size_res, const char * text, const lv_font_t * font,
+                                 lv_text_attributes_t * attributes);
 /**
  * Give the length of a text with a given font with text flags
  * @param txt a '\0' terminate string
@@ -78,8 +76,8 @@ void lv_text_get_size_attributes(lv_point_t *size_res, const char *text, const l
  * @param attributes the text attributes, flags for line break behaviour, spacing etc
  * @return length of a char_num long text
  */
-int32_t lv_text_get_width(const char *txt, uint32_t length, const lv_font_t *font,
-                          const lv_text_attributes_t *attributes);
+int32_t lv_text_get_width(const char * txt, uint32_t length, const lv_font_t * font,
+                          const lv_text_attributes_t * attributes);
 
 /**
  * Check if c is command state
@@ -87,7 +85,7 @@ int32_t lv_text_get_width(const char *txt, uint32_t length, const lv_font_t *fon
  * @param c
  * @return True if c is state
  */
-bool lv_text_is_cmd(lv_text_cmd_state_t *state, uint32_t c);
+bool lv_text_is_cmd(lv_text_cmd_state_t * state, uint32_t c);
 
 /**
  * Get the next line of text. Check line length and break chars too.
@@ -100,9 +98,8 @@ bool lv_text_is_cmd(lv_text_cmd_state_t *state, uint32_t c);
  * @return the index of the first char of the new line
  *         (in byte index not letter index. With UTF-8  they are different)
  */
-uint32_t lv_text_get_next_line(const char *txt, uint32_t len, const lv_font_t *font,
-                               int32_t *used_width,
-                               lv_text_attributes_t *attributes);
+uint32_t lv_text_get_next_line(const char * txt, uint32_t len, const lv_font_t * font, int32_t * used_width,
+                               lv_text_attributes_t * attributes);
 
 /**
  * Insert a string into another
@@ -110,7 +107,7 @@ uint32_t lv_text_get_next_line(const char *txt, uint32_t len, const lv_font_t *f
  * @param pos position to insert (0: before the original text, 1: after the first char etc.)
  * @param ins_txt text to insert, must be '\0' terminated
  */
-void lv_text_ins(char *txt_buf, uint32_t pos, const char *ins_txt);
+void lv_text_ins(char * txt_buf, uint32_t pos, const char * ins_txt);
 
 /**
  * Delete a part of a string
@@ -119,7 +116,7 @@ void lv_text_ins(char *txt_buf, uint32_t pos, const char *ins_txt);
  * char etc.)
  * @param len number of characters to delete
  */
-void lv_text_cut(char *txt, uint32_t pos, uint32_t len);
+void lv_text_cut(char * txt, uint32_t pos, uint32_t len);
 
 /**
  * Return a new formatted text. Memory will be allocated to store the text.
@@ -128,7 +125,7 @@ void lv_text_cut(char *txt, uint32_t pos, uint32_t len);
 
  * @return pointer to the allocated text string.
  */
-char *lv_text_set_text_vfmt(const char *fmt, va_list ap) LV_FORMAT_ATTRIBUTE(1, 0);
+char * lv_text_set_text_vfmt(const char * fmt, va_list ap) LV_FORMAT_ATTRIBUTE(1, 0);
 
 /**
  * Decode two encoded character from a string.
@@ -139,8 +136,7 @@ char *lv_text_set_text_vfmt(const char *fmt, va_list ap) LV_FORMAT_ATTRIBUTE(1, 
  *                After the call it will point to the next encoded char in 'txt'.
  *                NULL to use txt[0] as index
  */
-void lv_text_encoded_letter_next_2(const char *txt, uint32_t *letter, uint32_t *letter_next,
-                                   uint32_t *ofs);
+void lv_text_encoded_letter_next_2(const char * txt, uint32_t * letter, uint32_t * letter_next, uint32_t * ofs);
 
 /**
  * Test if char is break char or not (a text can broken here or not)
@@ -153,10 +149,8 @@ static inline bool lv_text_is_break_char(uint32_t letter)
     bool ret = false;
 
     /*Compare the letter to TXT_BREAK_CHARS*/
-    for (i = 0; LV_TXT_BREAK_CHARS[i] != '\0'; i++)
-    {
-        if (letter == (uint32_t)LV_TXT_BREAK_CHARS[i])
-        {
+    for(i = 0; LV_TXT_BREAK_CHARS[i] != '\0'; i++) {
+        if(letter == (uint32_t)LV_TXT_BREAK_CHARS[i]) {
             ret = true; /*If match then it is break char*/
             break;
         }
@@ -173,53 +167,45 @@ static inline bool lv_text_is_break_char(uint32_t letter)
 static inline bool lv_text_is_a_word(uint32_t letter)
 {
     /*Cheap check on invalid letter*/
-    if (letter == 0) { return false; }
+    if(letter == 0) return false;
 
     /*CJK Unified Ideographs*/
-    if (letter >= 0x4E00 && letter <= 0x9FFF)
-    {
+    if(letter >= 0x4E00 && letter <= 0x9FFF) {
         return true;
     }
 
     /*Fullwidth ASCII variants*/
-    if (letter >= 0xFF01 && letter <= 0xFF5E)
-    {
+    if(letter >= 0xFF01 && letter <= 0xFF5E) {
         return true;
     }
 
     /*CJK symbols and punctuation*/
-    if (letter >= 0x3000 && letter <= 0x303F)
-    {
+    if(letter >= 0x3000 && letter <= 0x303F) {
         return true;
     }
 
     /*CJK Radicals Supplement*/
-    if (letter >= 0x2E80 && letter <= 0x2EFF)
-    {
+    if(letter >= 0x2E80 && letter <= 0x2EFF) {
         return true;
     }
 
     /*CJK Strokes*/
-    if (letter >= 0x31C0 && letter <= 0x31EF)
-    {
+    if(letter >= 0x31C0 && letter <= 0x31EF) {
         return true;
     }
 
     /*Hiragana and Katakana*/
-    if (letter >= 0x3040 && letter <= 0x30FF)
-    {
+    if(letter >= 0x3040 && letter <= 0x30FF) {
         return true;
     }
 
     /*Chinese Vertical Forms*/
-    if (letter >= 0xFE10 && letter <= 0xFE1F)
-    {
+    if(letter >= 0xFE10 && letter <= 0xFE1F) {
         return true;
     }
 
     /*CJK Compatibility Forms*/
-    if (letter >= 0xFE30 && letter <= 0xFE4F)
-    {
+    if(letter >= 0xFE30 && letter <= 0xFE4F) {
         return true;
     }
 
@@ -235,28 +221,28 @@ static inline bool lv_text_is_a_word(uint32_t letter)
  */
 static inline bool lv_text_is_marker(uint32_t letter)
 {
-    if (letter < 0x20) { return true; }
+    if(letter < 0x20) return true;
 
     /*U+061C ARABIC LETTER MARK, see https://www.compart.com/en/unicode/block/U+0600*/
-    if (letter == 0x061C) { return true; }
+    if(letter == 0x061C) return true;
 
     /*U+115F HANGUL CHOSEONG FILLER, See https://www.compart.com/en/unicode/block/U+1100*/
-    if (letter == 0x115F) { return true; }
+    if(letter == 0x115F) return true;
     /*U+1160 HANGUL JUNGSEONG FILLER*/
-    if (letter == 0x1160) { return true; }
+    if(letter == 0x1160) return true;
 
     /*See https://www.compart.com/en/unicode/block/U+1800*/
-    if (letter >= 0x180B && letter <= 0x180E) { return true; }
+    if(letter >= 0x180B && letter <= 0x180E) return true;
 
     /*See https://www.compart.com/en/unicode/block/U+2000*/
-    if (letter >= 0x200B && letter <= 0x200F) { return true; }
-    if (letter >= 0x2028 && letter <= 0x202F) { return true; }
-    if (letter >= 0x205F && letter <= 0x206F) { return true; }
+    if(letter >= 0x200B && letter <= 0x200F) return true;
+    if(letter >= 0x2028 && letter <= 0x202F) return true;
+    if(letter >= 0x205F && letter <= 0x206F) return true;
 
     /*U+FEFF ZERO WIDTH NO-BREAK SPACE, see https://www.compart.com/en/unicode/block/U+FE70*/
-    if (letter == 0xFEFF) { return true; }
+    if(letter == 0xFEFF) return true;
 
-    if (letter == 0xF8FF) { return true; } /*LV_SYMBOL_DUMMY*/
+    if(letter == 0xF8FF) return true; /*LV_SYMBOL_DUMMY*/
 
     return false;
 }
@@ -270,7 +256,7 @@ static inline bool lv_text_is_marker(uint32_t letter)
  * @param txt  pointer to a character in a string
  * @return length of the encoded character (1,2,3 ...). O in invalid
  */
-extern uint8_t (*const lv_text_encoded_size)(const char *txt);
+extern uint8_t (*const lv_text_encoded_size)(const char * txt);
 
 /**
  * Convert a Unicode letter to encoded
@@ -294,7 +280,7 @@ extern uint32_t (*const lv_text_encoded_conv_wc)(uint32_t c);
  *                 NULL to use txt[0] as index
  * @return the decoded Unicode character or 0 on invalid data code
  */
-extern uint32_t (*const lv_text_encoded_next)(const char *txt, uint32_t *i_start);
+extern uint32_t (*const lv_text_encoded_next)(const char * txt, uint32_t * i_start);
 
 /**
  * Get the previous encoded character form a string.
@@ -305,7 +291,7 @@ extern uint32_t (*const lv_text_encoded_next)(const char *txt, uint32_t *i_start
  *
  * @return the decoded Unicode character or 0 on invalid data
  */
-extern uint32_t (*const lv_text_encoded_prev)(const char *txt, uint32_t *i_start);
+extern uint32_t (*const lv_text_encoded_prev)(const char * txt, uint32_t * i_start);
 
 /**
  * Convert a letter index (in the encoded text) to byte index.
@@ -314,7 +300,7 @@ extern uint32_t (*const lv_text_encoded_prev)(const char *txt, uint32_t *i_start
  * @param utf8_id character index
  * @return byte index of the 'enc_id'th letter
  */
-extern uint32_t (*const lv_text_encoded_get_byte_id)(const char *txt, uint32_t utf8_id);
+extern uint32_t (*const lv_text_encoded_get_byte_id)(const char * txt, uint32_t utf8_id);
 
 /**
  * Convert a byte index (in an encoded text) to character index.
@@ -323,7 +309,7 @@ extern uint32_t (*const lv_text_encoded_get_byte_id)(const char *txt, uint32_t u
  * @param byte_id byte index
  * @return character index of the letter at 'byte_id'th position
  */
-extern uint32_t (*const lv_text_encoded_get_char_id)(const char *txt, uint32_t byte_id);
+extern uint32_t (*const lv_text_encoded_get_char_id)(const char * txt, uint32_t byte_id);
 
 /**
  * Get the number of characters (and NOT bytes) in a string.
@@ -331,7 +317,7 @@ extern uint32_t (*const lv_text_encoded_get_char_id)(const char *txt, uint32_t b
  * @param txt a '\0' terminated char string
  * @return number of characters
  */
-extern uint32_t (*const lv_text_get_encoded_length)(const char *txt);
+extern uint32_t (*const lv_text_get_encoded_length)(const char * txt);
 
 /**********************
  *      MACROS

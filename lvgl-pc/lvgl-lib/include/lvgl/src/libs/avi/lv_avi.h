@@ -44,7 +44,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_avi_class;
  * @param parent    pointer to an object, it will be the parent of the new avi.
  * @return          pointer to the avi obj
  */
-lv_obj_t *lv_avi_create(lv_obj_t *parent);
+lv_obj_t * lv_avi_create(lv_obj_t * parent);
 
 /**
  * Set the avi data to display on the object
@@ -52,57 +52,57 @@ lv_obj_t *lv_avi_create(lv_obj_t *parent);
  * @param src       1) pointer to an ::lv_image_dsc_t descriptor (which contains avi raw data) or
  *                  2) path to a avi file (e.g. "S:/dir/anim.avi")
  */
-void lv_avi_set_src(lv_obj_t *obj, const void *src);
+void lv_avi_set_src(lv_obj_t * obj, const void * src);
 
 /**
  * Restart a avi animation.
  * @param obj pointer to a avi obj
  */
-void lv_avi_restart(lv_obj_t *obj);
+void lv_avi_restart(lv_obj_t * obj);
 
 /**
  * Pause a avi animation.
  * @param obj pointer to a avi obj
  */
-void lv_avi_pause(lv_obj_t *obj);
+void lv_avi_pause(lv_obj_t * obj);
 
 /**
  * Resume a avi animation.
  * @param obj pointer to a avi obj
  */
-void lv_avi_resume(lv_obj_t *obj);
+void lv_avi_resume(lv_obj_t * obj);
 
 /**
  * Checks if the AVI was loaded correctly.
  * @param obj pointer to a avi obj
  */
-bool lv_avi_is_loaded(lv_obj_t *obj);
+bool lv_avi_is_loaded(lv_obj_t * obj);
 
 /**
  * Get the frame time for the AVI.
  * @param obj pointer to a avi obj
  */
-uint32_t lv_avi_get_frame_time(lv_obj_t *obj);
+uint32_t lv_avi_get_frame_time(lv_obj_t * obj);
 
 /**
  * Get the loop count for the AVI.
  * @param obj pointer to a avi obj
  */
-int32_t lv_avi_get_loop_count(lv_obj_t *obj);
+int32_t lv_avi_get_loop_count(lv_obj_t * obj);
 
 /**
  * Set the frame time for the AVI.
  * @param obj   pointer to a avi obj
  * @param time_ms the frame time to set
  */
-void lv_avi_set_frame_time(lv_obj_t *obj, uint32_t time_ms);
+void lv_avi_set_frame_time(lv_obj_t * obj, uint32_t time_ms);
 
 /**
  * Set the loop count for the AVI.
  * @param obj   pointer to a avi obj
  * @param count the loop count to set
  */
-void lv_avi_set_loop_count(lv_obj_t *obj, int32_t count);
+void lv_avi_set_loop_count(lv_obj_t * obj, int32_t count);
 
 /**********************
  *      MACROS

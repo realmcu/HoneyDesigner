@@ -35,15 +35,13 @@ extern "C" {
 #endif/* __cplusplus*/
 
 
-typedef struct
-{
+typedef struct {
     uint32_t texture;
     uint32_t renderbuffer;
     unsigned framebuffer;
 } lv_gltf_renwin_state_t;
 
-typedef struct
-{
+typedef struct  {
     lv_gltf_renwin_state_t render_state;
     lv_gltf_renwin_state_t opaque_render_state;
 
@@ -54,8 +52,7 @@ typedef struct
     bool render_opaque_buffer;
 } lv_gltf_view_state_t;
 
-typedef struct
-{
+typedef struct {
     float pitch;
     float yaw;
     float distance;
@@ -74,8 +71,7 @@ typedef struct
     float exposure;             /** Image exposure level, 1.0 default */
 } lv_gltf_view_desc_t;
 
-typedef struct
-{
+typedef struct {
     GLboolean blend_enabled;
     GLint blend_src;
     GLint blend_dst;
@@ -84,8 +80,7 @@ typedef struct
     GLfloat clear_color[4];
 } lv_opengl_state_t;
 
-typedef struct
-{
+typedef struct {
     uint32_t diffuse;
     uint32_t specular;
     uint32_t sheen;
@@ -104,8 +99,7 @@ typedef struct
 #include <fastgltf/types.hpp>
 #include <map>
 
-struct _lv_gltf_t
-{
+struct _lv_gltf_t {
     lv_3dtexture_t texture;
     lv_array_t models;
     lv_gltf_view_state_t state;
@@ -126,13 +120,12 @@ struct _lv_gltf_t
  * GLOBAL PROTOTYPES
  **********************/
 
-GLuint lv_gltf_view_render(lv_gltf_t *viewer);
-lv_result_t lv_gltf_view_shader_injest_discover_defines(lv_array_t *result, lv_gltf_model_t *data,
-                                                        fastgltf::Node *node,
-                                                        fastgltf::Primitive *prim);
+GLuint lv_gltf_view_render(lv_gltf_t * viewer);
+lv_result_t lv_gltf_view_shader_injest_discover_defines(lv_array_t * result, lv_gltf_model_t * data,
+                                                        fastgltf::Node * node,
+                                                        fastgltf::Primitive * prim);
 
-lv_gltf_shaderset_t lv_gltf_view_shader_compile_program(lv_gltf_t *view,
-                                                        const lv_opengl_shader_define_t *defines,
+lv_gltf_shaderset_t lv_gltf_view_shader_compile_program(lv_gltf_t * view, const lv_opengl_shader_define_t * defines,
                                                         size_t n);
 
 /**********************

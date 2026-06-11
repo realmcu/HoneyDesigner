@@ -24,9 +24,8 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_cache_entry_t
-{
-    const lv_cache_t *cache;
+struct _lv_cache_entry_t {
+    const lv_cache_t * cache;
     int32_t ref_cnt;
     uint32_t node_size;
 #define LV_CACHE_ENTRY_FLAG_INVALID (1 << 0) /** Flag indicating if the entry is invalid and can be released */
@@ -38,16 +37,16 @@ struct _lv_cache_entry_t
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-void   lv_cache_entry_reset_ref(lv_cache_entry_t *entry);
-void   lv_cache_entry_inc_ref(lv_cache_entry_t *entry);
-void   lv_cache_entry_dec_ref(lv_cache_entry_t *entry);
-void   lv_cache_entry_set_node_size(lv_cache_entry_t *entry, uint32_t node_size);
-void   lv_cache_entry_set_cache(lv_cache_entry_t *entry, const lv_cache_t *cache);
-void *lv_cache_entry_acquire_data(lv_cache_entry_t *entry);
-void   lv_cache_entry_release_data(lv_cache_entry_t *entry, void *user_data);
-void   lv_cache_entry_set_flag(lv_cache_entry_t *entry, uint8_t flags);
-void   lv_cache_entry_remove_flag(lv_cache_entry_t *entry, uint8_t flags);
-bool   lv_cache_entry_has_flag(lv_cache_entry_t *entry, uint8_t flags);
+void   lv_cache_entry_reset_ref(lv_cache_entry_t * entry);
+void   lv_cache_entry_inc_ref(lv_cache_entry_t * entry);
+void   lv_cache_entry_dec_ref(lv_cache_entry_t * entry);
+void   lv_cache_entry_set_node_size(lv_cache_entry_t * entry, uint32_t node_size);
+void   lv_cache_entry_set_cache(lv_cache_entry_t * entry, const lv_cache_t * cache);
+void * lv_cache_entry_acquire_data(lv_cache_entry_t * entry);
+void   lv_cache_entry_release_data(lv_cache_entry_t * entry, void * user_data);
+void   lv_cache_entry_set_flag(lv_cache_entry_t * entry, uint8_t flags);
+void   lv_cache_entry_remove_flag(lv_cache_entry_t * entry, uint8_t flags);
+bool   lv_cache_entry_has_flag(lv_cache_entry_t * entry, uint8_t flags);
 /*************************
  *    GLOBAL VARIABLES
  *************************/

@@ -47,7 +47,7 @@ void lv_test_indev_delete_all(void);
  * @param type  type of the indev to get
  * @return      the indev
  */
-lv_indev_t *lv_test_indev_get_indev(lv_indev_type_t type);
+lv_indev_t * lv_test_indev_get_indev(lv_indev_type_t type);
 
 /**
  * Move the mouse to the given coordinates.
@@ -62,7 +62,7 @@ void lv_test_mouse_move_to(int32_t x, int32_t y);
  * This function doesn't wait, but just changes the state and returns immediately.
  * @param obj   pointer to an widget
  */
-void lv_test_mouse_move_to_obj(lv_obj_t *obj);
+void lv_test_mouse_move_to_obj(lv_obj_t * obj);
 
 /**
  * Move the mouse cursor. Keep the pressed or released state

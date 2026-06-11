@@ -24,21 +24,19 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_event_dsc_t
-{
+struct _lv_event_dsc_t {
     lv_event_cb_t cb;
-    void *user_data;
+    void * user_data;
     uint32_t filter;
 };
 
-struct _lv_event_t
-{
-    void *current_target;
-    void *original_target;
+struct _lv_event_t {
+    void * current_target;
+    void * original_target;
     lv_event_code_t code;
-    void *user_data;
-    void *param;
-    lv_event_t *prev;
+    void * user_data;
+    void * param;
+    lv_event_t * prev;
     uint8_t deleted : 1;
     uint8_t stop_processing : 1;
     uint8_t stop_bubbling : 1;
@@ -54,21 +52,20 @@ struct _lv_event_t
  * GLOBAL PROTOTYPES
  **********************/
 
-void lv_event_push(lv_event_t *e);
+void lv_event_push(lv_event_t * e);
 
-void lv_event_pop(lv_event_t *e);
+void lv_event_pop(lv_event_t * e);
 
 
-lv_result_t lv_event_push_and_send(lv_event_list_t *event_list, lv_event_code_t code,
-                                   void *original_target,
-                                   void *param);
+lv_result_t lv_event_push_and_send(lv_event_list_t * event_list, lv_event_code_t code, void * original_target,
+                                   void * param);
 
 /**
  * Nested events can be called and one of them might belong to an object that is being deleted.
  * Mark this object's `event_temp_data` deleted to know that its `lv_obj_send_event` should return `LV_RESULT_INVALID`
  * @param target     pointer to an event target which was deleted
  */
-void lv_event_mark_deleted(void *target);
+void lv_event_mark_deleted(void * target);
 
 /**********************
  *      MACROS

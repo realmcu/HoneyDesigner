@@ -61,8 +61,7 @@ extern "C" {
 /**
  * LVGL error codes.
  */
-typedef enum
-{
+typedef enum {
     LV_RESULT_INVALID = 0, /*Typically indicates that the object is deleted (become invalid) in the action
                       function or an operation was failed*/
     LV_RESULT_OK,      /*The object is valid (no deleted) after the action*/
@@ -105,7 +104,7 @@ typedef unsigned int lv_3dtexture_id_t;
 
 typedef struct _lv_obj_t lv_obj_t;
 
-typedef lv_obj_t *(*lv_screen_create_cb_t)(void);
+typedef lv_obj_t * (*lv_screen_create_cb_t)(void);
 
 typedef uint8_t lv_opa_t;
 

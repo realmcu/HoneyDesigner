@@ -24,10 +24,10 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 
-void *lv_xml_scale_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_scale_apply(lv_xml_parser_state_t *state, const char **attrs);
-void *lv_xml_scale_section_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_scale_section_apply(lv_xml_parser_state_t *state, const char **attrs);
+void * lv_xml_scale_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_scale_apply(lv_xml_parser_state_t * state, const char ** attrs);
+void * lv_xml_scale_section_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_scale_section_apply(lv_xml_parser_state_t * state, const char ** attrs);
 
 /**********************
  *      MACROS

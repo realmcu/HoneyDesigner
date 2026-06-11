@@ -24,11 +24,11 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 
-void *lv_xml_image_create(lv_xml_parser_state_t *state, const char **attrs);
+void * lv_xml_image_create(lv_xml_parser_state_t * state, const char ** attrs);
 
-void lv_xml_image_apply(lv_xml_parser_state_t *state, const char **attrs);
+void lv_xml_image_apply(lv_xml_parser_state_t * state, const char ** attrs);
 
-void lv_xml_check_file(const char *filepath);
+void lv_xml_check_file(const char * filepath);
 
 /**********************
  *      MACROS

@@ -47,7 +47,7 @@ void lv_test_indev_gesture_delete(void);
  * @param type  type of the indev to get
  * @return      the indev
  */
-lv_indev_t *lv_test_indev_get_gesture_indev(lv_indev_type_t type);
+lv_indev_t * lv_test_indev_get_gesture_indev(lv_indev_type_t type);
 
 /**
  * Set two touch points data for pinch gesture

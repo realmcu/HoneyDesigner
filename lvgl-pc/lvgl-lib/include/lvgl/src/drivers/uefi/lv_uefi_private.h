@@ -39,15 +39,15 @@ extern EFI_HANDLE gLvEfiImageHandle;
 /**
  * Internal cache for the system table (source: application entry point)
  */
-extern EFI_SYSTEM_TABLE *gLvEfiST;
+extern EFI_SYSTEM_TABLE * gLvEfiST;
 /**
  * Internal cache for the boot services table (source: gLvEfiST)
  */
-extern EFI_BOOT_SERVICES *gLvEfiBS;
+extern EFI_BOOT_SERVICES * gLvEfiBS;
 /**
  * Internal cache for the boot runtime service table (source: gLvEfiST)
  */
-extern EFI_RUNTIME_SERVICES *gLvEfiRT;
+extern EFI_RUNTIME_SERVICES * gLvEfiRT;
 
 /**
  * @brief Test if a protocol is installed at a handle.
@@ -55,7 +55,7 @@ extern EFI_RUNTIME_SERVICES *gLvEfiRT;
  * @param protocol The guid of the protocol.
  * @return TRUE if the protocol is installed, FALSE if not.
 */
-bool lv_uefi_protocol_test(EFI_HANDLE handle, EFI_GUID *protocol);
+bool lv_uefi_protocol_test(EFI_HANDLE handle, EFI_GUID * protocol);
 
 /**
  * @brief Open a protocol.
@@ -63,14 +63,14 @@ bool lv_uefi_protocol_test(EFI_HANDLE handle, EFI_GUID *protocol);
  * @param protocol The guid of the protocol.
  * @return A pointer to the interface, NULL if the protocol couldn't be opened.
 */
-void *lv_uefi_protocol_open(EFI_HANDLE handle, EFI_GUID *protocol);
+void * lv_uefi_protocol_open(EFI_HANDLE handle, EFI_GUID * protocol);
 
 /**
  * @brief Close a protocol.
  * @param handle The handle on which the protocol is installed.
  * @param protocol The guid of the protocol.
 */
-void lv_uefi_protocol_close(EFI_HANDLE handle, EFI_GUID *protocol);
+void lv_uefi_protocol_close(EFI_HANDLE handle, EFI_GUID * protocol);
 
 /**
  * @brief Convert an UCS-2 string to an ASCII string.
@@ -81,7 +81,7 @@ void lv_uefi_protocol_close(EFI_HANDLE handle, EFI_GUID *protocol);
  * @return The number of characters written to the buffer or 0 if
  * there was an error.
 */
-size_t lv_uefi_ucs2_to_ascii(const CHAR16 *ucs2, char *ascii, size_t ascii_len);
+size_t lv_uefi_ucs2_to_ascii(const CHAR16 * ucs2, char * ascii, size_t ascii_len);
 
 /**
  * @brief Convert an ASCII string to an UCS-2 string.
@@ -92,7 +92,7 @@ size_t lv_uefi_ucs2_to_ascii(const CHAR16 *ucs2, char *ascii, size_t ascii_len);
  * @return The number of bytes written to the buffer or 0 if
  * there was an error.
 */
-size_t lv_uefi_ascii_to_ucs2(const char *ascii, CHAR16 *ucs2, size_t ucs2_len);
+size_t lv_uefi_ascii_to_ucs2(const char * ascii, CHAR16 * ucs2, size_t ucs2_len);
 
 /**********************
  *      MACROS

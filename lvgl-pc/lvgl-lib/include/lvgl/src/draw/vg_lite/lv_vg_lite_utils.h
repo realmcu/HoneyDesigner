@@ -84,21 +84,21 @@ void lv_vg_lite_dump_info(void);
 
 void lv_vg_lite_error_dump_info(vg_lite_error_t error);
 
-const char *lv_vg_lite_error_string(vg_lite_error_t error);
+const char * lv_vg_lite_error_string(vg_lite_error_t error);
 
-const char *lv_vg_lite_feature_string(vg_lite_feature_t feature);
+const char * lv_vg_lite_feature_string(vg_lite_feature_t feature);
 
-const char *lv_vg_lite_buffer_format_string(vg_lite_buffer_format_t format);
+const char * lv_vg_lite_buffer_format_string(vg_lite_buffer_format_t format);
 
-const char *lv_vg_lite_vlc_op_string(uint8_t vlc_op);
+const char * lv_vg_lite_vlc_op_string(uint8_t vlc_op);
 
-void lv_vg_lite_path_dump_info(const vg_lite_path_t *path);
+void lv_vg_lite_path_dump_info(const vg_lite_path_t * path);
 
-void lv_vg_lite_stroke_dump_info(const vg_lite_stroke_t *stroke);
+void lv_vg_lite_stroke_dump_info(const vg_lite_stroke_t * stroke);
 
-void lv_vg_lite_buffer_dump_info(const vg_lite_buffer_t *buffer);
+void lv_vg_lite_buffer_dump_info(const vg_lite_buffer_t * buffer);
 
-void lv_vg_lite_matrix_dump_info(const vg_lite_matrix_t *matrix);
+void lv_vg_lite_matrix_dump_info(const vg_lite_matrix_t * matrix);
 
 void lv_vg_lite_color_dump_info(const vg_lite_color_t color);
 
@@ -112,35 +112,33 @@ vg_lite_buffer_format_t lv_vg_lite_vg_fmt(lv_color_format_t cf);
 
 void lv_vg_lite_buffer_format_bytes(
     vg_lite_buffer_format_t format,
-    uint32_t *mul,
-    uint32_t *div,
-    uint32_t *bytes_align);
+    uint32_t * mul,
+    uint32_t * div,
+    uint32_t * bytes_align);
 
 uint32_t lv_vg_lite_width_to_stride(uint32_t w, vg_lite_buffer_format_t color_format);
 
 void lv_vg_lite_buffer_init(
-    vg_lite_buffer_t *buffer,
-    const void *ptr,
+    vg_lite_buffer_t * buffer,
+    const void * ptr,
     int32_t width,
     int32_t height,
     uint32_t stride,
     vg_lite_buffer_format_t format,
     bool tiled);
 
-void lv_vg_lite_buffer_from_draw_buf(vg_lite_buffer_t *buffer, const lv_draw_buf_t *draw_buf);
+void lv_vg_lite_buffer_from_draw_buf(vg_lite_buffer_t * buffer, const lv_draw_buf_t * draw_buf);
 
-void lv_vg_lite_image_matrix(vg_lite_matrix_t *matrix, int32_t x, int32_t y,
-                             const lv_draw_image_dsc_t *dsc);
+void lv_vg_lite_image_matrix(vg_lite_matrix_t * matrix, int32_t x, int32_t y, const lv_draw_image_dsc_t * dsc);
 
-vg_lite_color_t lv_vg_lite_image_recolor(vg_lite_buffer_t *buffer, const lv_draw_image_dsc_t *dsc);
+vg_lite_color_t lv_vg_lite_image_recolor(vg_lite_buffer_t * buffer, const lv_draw_image_dsc_t * dsc);
 
-bool lv_vg_lite_buffer_open_image(vg_lite_buffer_t *buffer, lv_image_decoder_dsc_t *decoder_dsc,
-                                  const void *src,
+bool lv_vg_lite_buffer_open_image(vg_lite_buffer_t * buffer, lv_image_decoder_dsc_t * decoder_dsc, const void * src,
                                   bool no_cache, bool premultiply);
 
-void lv_vg_lite_image_dsc_init(struct _lv_draw_vg_lite_unit_t *unit);
+void lv_vg_lite_image_dsc_init(struct _lv_draw_vg_lite_unit_t * unit);
 
-void lv_vg_lite_image_dsc_deinit(struct _lv_draw_vg_lite_unit_t *unit);
+void lv_vg_lite_image_dsc_deinit(struct _lv_draw_vg_lite_unit_t * unit);
 
 vg_lite_blend_t lv_vg_lite_blend_mode(lv_blend_mode_t blend_mode, bool has_pre_mul);
 
@@ -148,44 +146,43 @@ uint32_t lv_vg_lite_get_palette_size(vg_lite_buffer_format_t format);
 
 vg_lite_color_t lv_vg_lite_color(lv_color_t color, lv_opa_t opa, bool pre_mul);
 
-void lv_vg_lite_rect(vg_lite_rectangle_t *rect, const lv_area_t *area);
+void lv_vg_lite_rect(vg_lite_rectangle_t * rect, const lv_area_t * area);
 
-static inline void lv_vg_lite_matrix(vg_lite_matrix_t *dest, const lv_matrix_t *src)
+static inline void lv_vg_lite_matrix(vg_lite_matrix_t * dest, const lv_matrix_t * src)
 {
     *(lv_matrix_t *)dest = *src;
 }
 
 /* Param checker */
 
-bool lv_vg_lite_buffer_check(const vg_lite_buffer_t *buffer, bool is_src);
+bool lv_vg_lite_buffer_check(const vg_lite_buffer_t * buffer, bool is_src);
 
-bool lv_vg_lite_path_check(const vg_lite_path_t *path);
+bool lv_vg_lite_path_check(const vg_lite_path_t * path);
 
-bool lv_vg_lite_matrix_check(const vg_lite_matrix_t *matrix);
+bool lv_vg_lite_matrix_check(const vg_lite_matrix_t * matrix);
 
 /* Wrapper */
 
 bool lv_vg_lite_support_blend_normal(void);
 
-void lv_vg_lite_matrix_multiply(vg_lite_matrix_t *matrix, const vg_lite_matrix_t *mult);
+void lv_vg_lite_matrix_multiply(vg_lite_matrix_t * matrix, const vg_lite_matrix_t * mult);
 
-bool lv_vg_lite_matrix_inverse(vg_lite_matrix_t *result, const vg_lite_matrix_t *matrix);
+bool lv_vg_lite_matrix_inverse(vg_lite_matrix_t * result, const vg_lite_matrix_t * matrix);
 
-lv_point_precise_t lv_vg_lite_matrix_transform_point(const vg_lite_matrix_t *matrix,
-                                                     const lv_point_precise_t *point);
+lv_point_precise_t lv_vg_lite_matrix_transform_point(const vg_lite_matrix_t * matrix, const lv_point_precise_t * point);
 
-void lv_vg_lite_set_scissor_area(struct _lv_draw_vg_lite_unit_t *u, const lv_area_t *area);
+void lv_vg_lite_set_scissor_area(struct _lv_draw_vg_lite_unit_t * u, const lv_area_t * area);
 
 void lv_vg_lite_disable_scissor(void);
 
-void lv_vg_lite_flush(struct _lv_draw_vg_lite_unit_t *u);
+void lv_vg_lite_flush(struct _lv_draw_vg_lite_unit_t * u);
 
-void lv_vg_lite_finish(struct _lv_draw_vg_lite_unit_t *u);
+void lv_vg_lite_finish(struct _lv_draw_vg_lite_unit_t * u);
 
-static inline void lv_vg_lite_draw(vg_lite_buffer_t *target,
-                                   vg_lite_path_t *path,
+static inline void lv_vg_lite_draw(vg_lite_buffer_t * target,
+                                   vg_lite_path_t * path,
                                    vg_lite_fill_t fill_rule,
-                                   vg_lite_matrix_t *matrix,
+                                   vg_lite_matrix_t * matrix,
                                    vg_lite_blend_t blend,
                                    vg_lite_color_t color)
 {
@@ -213,12 +210,12 @@ static inline void lv_vg_lite_draw(vg_lite_buffer_t *target,
     LV_PROFILER_DRAW_END_TAG("vg_lite_draw");
 }
 
-static inline void lv_vg_lite_draw_pattern(vg_lite_buffer_t *target,
-                                           vg_lite_path_t *path,
+static inline void lv_vg_lite_draw_pattern(vg_lite_buffer_t * target,
+                                           vg_lite_path_t * path,
                                            vg_lite_fill_t fill_rule,
-                                           vg_lite_matrix_t *path_matrix,
-                                           vg_lite_buffer_t *pattern_image,
-                                           vg_lite_matrix_t *pattern_matrix,
+                                           vg_lite_matrix_t * path_matrix,
+                                           vg_lite_buffer_t * pattern_image,
+                                           vg_lite_matrix_t * pattern_matrix,
                                            vg_lite_blend_t blend,
                                            vg_lite_pattern_mode_t pattern_mode,
                                            vg_lite_color_t pattern_color,
@@ -261,10 +258,10 @@ static inline void lv_vg_lite_draw_pattern(vg_lite_buffer_t *target,
     LV_PROFILER_DRAW_END_TAG("vg_lite_draw_pattern");
 }
 
-static inline void lv_vg_lite_blit_rect(vg_lite_buffer_t *target,
-                                        vg_lite_buffer_t *source,
-                                        vg_lite_rectangle_t *rect,
-                                        vg_lite_matrix_t *matrix,
+static inline void lv_vg_lite_blit_rect(vg_lite_buffer_t * target,
+                                        vg_lite_buffer_t * source,
+                                        vg_lite_rectangle_t * rect,
+                                        vg_lite_matrix_t * matrix,
                                         vg_lite_blend_t blend,
                                         vg_lite_color_t color,
                                         vg_lite_filter_t filter)
@@ -295,16 +292,14 @@ static inline void lv_vg_lite_blit_rect(vg_lite_buffer_t *target,
     });
     LV_PROFILER_DRAW_END_TAG("vg_lite_blit_rect");
 }
-void lv_vg_lite_set_color_key(const lv_image_colorkey_t *colorkey);
+void lv_vg_lite_set_color_key(const lv_image_colorkey_t * colorkey);
 
-static inline void lv_vg_lite_clear(vg_lite_buffer_t *target, const lv_area_t *area,
-                                    vg_lite_color_t color)
+static inline void lv_vg_lite_clear(vg_lite_buffer_t * target, const lv_area_t * area, vg_lite_color_t color)
 {
     vg_lite_rectangle_t rect;
     lv_vg_lite_rect(&rect, area);
     LV_PROFILER_DRAW_BEGIN_TAG("vg_lite_clear");
-    LV_VG_LITE_CHECK_ERROR(vg_lite_clear(target, &rect, color),
-    {
+    LV_VG_LITE_CHECK_ERROR(vg_lite_clear(target, &rect, color), {
         lv_vg_lite_buffer_dump_info(target);
         LV_LOG_ERROR("rect: X%d Y%d W%d H%d", rect.x, rect.y, rect.width, rect.height);
         lv_vg_lite_color_dump_info(color);

@@ -37,8 +37,7 @@ extern "C" {
  **********************/
 
 /* Represent the motion of a finger */
-struct lv_indev_gesture_motion
-{
+struct lv_indev_gesture_motion {
     int8_t finger;                      /* The ID of the tracked finger */
     lv_point_t start_point;             /* The coordinates where the DOWN event occurred */
     lv_point_t point;                   /* The current coordinates */
@@ -49,8 +48,7 @@ typedef struct lv_indev_gesture_motion lv_indev_gesture_motion_t;
 
 /* General descriptor for a gesture, used by recognizer state machines to track
  * the scale, rotation, and translation NOTE: (this will likely become private) */
-struct lv_indev_gesture
-{
+struct lv_indev_gesture {
 
     /* Motion descriptor, stores the coordinates and velocity of a contact point */
     lv_indev_gesture_motion_t motions[LV_GESTURE_MAX_POINTS];
@@ -74,8 +72,7 @@ struct lv_indev_gesture
 /* Recognizer configuration. It stores the thresholds needed to detect the gestures and
  * consider them as recognized. Once recognized, indev start sending LV_GESTURE event
  */
-struct lv_indev_gesture_configuration
-{
+struct lv_indev_gesture_configuration {
 
     float pinch_up_threshold;           /* Threshold for the pinch up gesture to be recognized - in pixels */
     float pinch_down_threshold;         /* Threshold for the pinch down gesture to be recognized - in pixels */

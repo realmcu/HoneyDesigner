@@ -33,9 +33,9 @@ extern "C" {
  * @param obj       pointer to an object
  * @return          the size extended draw area around the real coordinates
  */
-int32_t lv_obj_get_ext_draw_size(const lv_obj_t *obj);
+int32_t lv_obj_get_ext_draw_size(const lv_obj_t * obj);
 
-lv_layer_type_t lv_obj_get_layer_type(const lv_obj_t *obj);
+lv_layer_type_t lv_obj_get_layer_type(const lv_obj_t * obj);
 
 /**********************
  *      MACROS

@@ -22,16 +22,14 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef  void *(*lv_xml_widget_create_cb_t)(lv_xml_parser_state_t *state,
-                                            const char **parent_attrs);
-typedef  void (*lv_xml_widget_apply_cb_t)(lv_xml_parser_state_t *state, const char **parent_attrs);
+typedef  void * (*lv_xml_widget_create_cb_t)(lv_xml_parser_state_t * state, const char ** parent_attrs);
+typedef  void (*lv_xml_widget_apply_cb_t)(lv_xml_parser_state_t * state, const char ** parent_attrs);
 
-typedef struct _lv_widget_processor_t
-{
-    const char *name;
+typedef struct _lv_widget_processor_t {
+    const char * name;
     lv_xml_widget_create_cb_t create_cb;
     lv_xml_widget_apply_cb_t apply_cb;
-    struct _lv_widget_processor_t *next;
+    struct _lv_widget_processor_t * next;
 } lv_widget_processor_t;
 
 /**********************
@@ -49,7 +47,7 @@ typedef struct _lv_widget_processor_t
  * @note                E.g. Chart series, are also considered Widgets although
  *                      they don't have `lv_obj_t *` type.
  */
-lv_result_t lv_xml_register_widget(const char *name, lv_xml_widget_create_cb_t create_cb,
+lv_result_t lv_xml_register_widget(const char * name, lv_xml_widget_create_cb_t create_cb,
                                    lv_xml_widget_apply_cb_t apply_cb);
 
 /**
@@ -57,7 +55,7 @@ lv_result_t lv_xml_register_widget(const char *name, lv_xml_widget_create_cb_t c
  * @param name      The name that was used when the Widget was registered
  * @return          The descriptor of the Widget
  */
-lv_widget_processor_t *lv_xml_widget_get_processor(const char *name);
+lv_widget_processor_t * lv_xml_widget_get_processor(const char * name);
 
 /**
  * Get the descriptor of the Widget that is extended by a given Widget, Component, or Screen.
@@ -67,7 +65,7 @@ lv_widget_processor_t *lv_xml_widget_get_processor(const char *name);
  * @note            If a component extends an other component which based on `lv_slider`
  *                  lv_slider's descriptor will be returned.
  */
-lv_widget_processor_t *lv_xml_widget_get_extended_widget_processor(const char *extends);
+lv_widget_processor_t * lv_xml_widget_get_extended_widget_processor(const char * extends);
 
 /**********************
  *      MACROS

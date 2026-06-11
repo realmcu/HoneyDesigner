@@ -86,8 +86,7 @@ LV_EXPORT_CONST_INT(LV_SCALE_NONE);
 /**
  * Possible options for blending opaque drawings
  */
-typedef enum
-{
+typedef enum {
     LV_BLEND_MODE_NORMAL,     /**< Simply mix according to the opacity value*/
     LV_BLEND_MODE_ADDITIVE,   /**< Add the respective color channels*/
     LV_BLEND_MODE_SUBTRACTIVE,/**< Subtract the foreground from the background*/
@@ -99,8 +98,7 @@ typedef enum
  * Some options to apply decorations on texts.
  * 'OR'ed values can be used.
  */
-typedef enum
-{
+typedef enum {
     LV_TEXT_DECOR_NONE          = 0x00,
     LV_TEXT_DECOR_UNDERLINE     = 0x01,
     LV_TEXT_DECOR_STRIKETHROUGH = 0x02,
@@ -110,8 +108,7 @@ typedef enum
  * Selects on which sides border should be drawn
  * 'OR'ed values can be used.
  */
-typedef enum
-{
+typedef enum {
     LV_BORDER_SIDE_NONE     = 0x00,
     LV_BORDER_SIDE_BOTTOM   = 0x01,
     LV_BORDER_SIDE_TOP      = 0x02,
@@ -124,8 +121,7 @@ typedef enum
 /** A image colorkey definition.
  *  The transparency within the color range of [low, high] will be set to LV_OPA_TRANSP If the "enable" flag is set to true.
  */
-typedef struct
-{
+typedef struct {
     lv_color_t low;
     lv_color_t high;
 } lv_image_colorkey_t;
@@ -133,10 +129,9 @@ typedef struct
 /**
  * A common type to handle all the property types in the same way.
  */
-typedef union
-{
+typedef union {
     int32_t num;         /**< Number integer number (opacity, enums, booleans or "normal" numbers)*/
-    const void *ptr;     /**< Constant pointers  (font, cone text, etc)*/
+    const void * ptr;    /**< Constant pointers  (font, cone text, etc)*/
     lv_color_t color;    /**< Colors*/
 } lv_style_value_t;
 
@@ -145,8 +140,7 @@ typedef union
  *
  * Props are split into groups of 16. When adding a new prop to a group, ensure it does not overflow into the next one.
  */
-enum _lv_style_id_t
-{
+enum _lv_style_id_t {
     LV_STYLE_PROP_INV               = 0,
 
     /*Group 0*/
@@ -307,8 +301,7 @@ enum _lv_style_id_t
     LV_STYLE_PROP_CONST             = 0xFF /* magic value for const styles */
 };
 
-typedef enum
-{
+typedef enum {
     LV_STYLE_RES_NOT_FOUND,
     LV_STYLE_RES_FOUND,
 } lv_style_res_t;
@@ -316,10 +309,9 @@ typedef enum
 /**
  * Descriptor for style transitions
  */
-typedef struct
-{
-    const lv_style_prop_t *props;  /**< An array with the properties to animate.*/
-    void *user_data;               /**< A custom user data that will be passed to the animation's user_data */
+typedef struct {
+    const lv_style_prop_t * props; /**< An array with the properties to animate.*/
+    void * user_data;              /**< A custom user data that will be passed to the animation's user_data */
     lv_anim_path_cb_t path_xcb;    /**< A path for the animation.*/
     uint32_t time;                 /**< Duration of the transition in [ms]*/
     uint32_t delay;                /**< Delay before the transition in [ms]*/
@@ -328,8 +320,7 @@ typedef struct
 /**
  * Descriptor of a constant style property.
  */
-typedef struct
-{
+typedef struct {
     lv_style_prop_t prop;
     lv_style_value_t value;
 } lv_style_const_prop_t;
@@ -337,14 +328,13 @@ typedef struct
 /**
  * Descriptor of a style (a collection of properties and values).
  */
-typedef struct
-{
+typedef struct {
 
 #if LV_USE_ASSERT_STYLE
     uint32_t sentinel;
 #endif
 
-    void *values_and_props;
+    void * values_and_props;
 
     uint32_t has_group;
     uint8_t prop_cnt;   /**< 255 means it's a constant style*/
@@ -361,13 +351,13 @@ typedef struct
  *       because this function won't free the used memory, just sets a default state for the style.
  *       In other words be sure to initialize styles only once!
  */
-void lv_style_init(lv_style_t *style);
+void lv_style_init(lv_style_t * style);
 
 /**
  * Clear all properties from a style and free all allocated memories.
  * @param style pointer to a style
  */
-void lv_style_reset(lv_style_t *style);
+void lv_style_reset(lv_style_t * style);
 
 /**
  * Copy all properties of a style to an other.
@@ -380,7 +370,7 @@ void lv_style_reset(lv_style_t *style);
  * @param dst   the destination to copy into (can not the a constant style)
  * @param src   the source style to copy from.
  */
-void lv_style_copy(lv_style_t *dst, const lv_style_t *src);
+void lv_style_copy(lv_style_t * dst, const lv_style_t * src);
 
 /**
  * Copy all properties of a style to an other without resetting the dst style.
@@ -393,7 +383,7 @@ void lv_style_copy(lv_style_t *dst, const lv_style_t *src);
  * @param dst   the destination to copy into (cannot be a constant style)
  * @param src   the source style to copy from.
  */
-void lv_style_merge(lv_style_t *dst, const lv_style_t *src);
+void lv_style_merge(lv_style_t * dst, const lv_style_t * src);
 
 
 /**
@@ -401,9 +391,9 @@ void lv_style_merge(lv_style_t *dst, const lv_style_t *src);
  * @param style     pointer to a style
  * @return          true: the style is constant
  */
-static inline bool lv_style_is_const(const lv_style_t *style)
+static inline bool lv_style_is_const(const lv_style_t * style)
 {
-    if (style->prop_cnt == 255) { return true; }
+    if(style->prop_cnt == 255) return true;
     return false;
 }
 
@@ -437,7 +427,7 @@ lv_style_prop_t lv_style_get_num_custom_props(void);
  * @param prop  a style property ORed with a state.
  * @return true: the property was found and removed; false: the property wasn't found
  */
-bool lv_style_remove_prop(lv_style_t *style, lv_style_prop_t prop);
+bool lv_style_remove_prop(lv_style_t * style, lv_style_prop_t prop);
 
 /**
  * Set the value of property in a style.
@@ -447,7 +437,7 @@ bool lv_style_remove_prop(lv_style_t *style, lv_style_prop_t prop);
  * @param prop the ID of a property (e.g. `LV_STYLE_BG_COLOR`)
  * @param value `lv_style_value_t` variable in which a field is set according to the type of `prop`
  */
-void lv_style_set_prop(lv_style_t *style, lv_style_prop_t prop, lv_style_value_t value);
+void lv_style_set_prop(lv_style_t * style, lv_style_prop_t prop, lv_style_value_t value);
 
 /**
  * Get the value of a property
@@ -458,8 +448,7 @@ void lv_style_set_prop(lv_style_t *style, lv_style_prop_t prop, lv_style_value_t
  *         LV_RESULT_OK: the property was fond, and `value` is set accordingly
  * @note For performance reasons there are no sanity check on `style`
  */
-lv_style_res_t lv_style_get_prop(const lv_style_t *style, lv_style_prop_t prop,
-                                 lv_style_value_t *value);
+lv_style_res_t lv_style_get_prop(const lv_style_t * style, lv_style_prop_t prop, lv_style_value_t * value);
 
 /**
  * Initialize a transition descriptor.
@@ -477,8 +466,8 @@ lv_style_res_t lv_style_get_prop(const lv_style_t *style, lv_style_prop_t prop,
  * lv_style_transition_dsc_init(&trans1, trans_props, NULL, 300, 0, NULL);
  * @endcode
  */
-void lv_style_transition_dsc_init(lv_style_transition_dsc_t *tr, const lv_style_prop_t props[],
-                                  lv_anim_path_cb_t path_cb, uint32_t time, uint32_t delay, void *user_data);
+void lv_style_transition_dsc_init(lv_style_transition_dsc_t * tr, const lv_style_prop_t props[],
+                                  lv_anim_path_cb_t path_cb, uint32_t time, uint32_t delay, void * user_data);
 
 /**
  * Get the default value of a property
@@ -497,33 +486,25 @@ lv_style_value_t lv_style_prop_get_default(lv_style_prop_t prop);
  * @note For performance reasons there are no sanity check on `style`
  * @note This function is the same as ::lv_style_get_prop but inlined. Use it only on performance critical places
  */
-static inline lv_style_res_t lv_style_get_prop_inlined(const lv_style_t *style,
-                                                       lv_style_prop_t prop,
-                                                       lv_style_value_t *value)
+static inline lv_style_res_t lv_style_get_prop_inlined(const lv_style_t * style, lv_style_prop_t prop,
+                                                       lv_style_value_t * value)
 {
-    if (lv_style_is_const(style))
-    {
-        lv_style_const_prop_t *props = (lv_style_const_prop_t *)style->values_and_props;
+    if(lv_style_is_const(style)) {
+        lv_style_const_prop_t * props = (lv_style_const_prop_t *)style->values_and_props;
         uint32_t i;
-        for (i = 0; props[i].prop != LV_STYLE_PROP_INV; i++)
-        {
-            if (props[i].prop == prop)
-            {
+        for(i = 0; props[i].prop != LV_STYLE_PROP_INV; i++) {
+            if(props[i].prop == prop) {
                 *value = props[i].value;
                 return LV_STYLE_RES_FOUND;
             }
         }
     }
-    else
-    {
-        lv_style_prop_t *props = (lv_style_prop_t *)style->values_and_props + style->prop_cnt * sizeof(
-                                     lv_style_value_t);
+    else {
+        lv_style_prop_t * props = (lv_style_prop_t *)style->values_and_props + style->prop_cnt * sizeof(lv_style_value_t);
         uint32_t i;
-        for (i = 0; i < style->prop_cnt; i++)
-        {
-            if (props[i] == prop)
-            {
-                lv_style_value_t *values = (lv_style_value_t *)style->values_and_props;
+        for(i = 0; i < style->prop_cnt; i++) {
+            if(props[i] == prop) {
+                lv_style_value_t * values = (lv_style_value_t *)style->values_and_props;
                 *value = values[i];
                 return LV_STYLE_RES_FOUND;
             }
@@ -537,7 +518,7 @@ static inline lv_style_res_t lv_style_get_prop_inlined(const lv_style_t *style,
  * @param style pointer to a style
  * @return true if the style is empty
  */
-bool lv_style_is_empty(const lv_style_t *style);
+bool lv_style_is_empty(const lv_style_t * style);
 
 /**
  * Tell the group of a property. If the a property from a group is set in a style the (1 << group) bit of style->has_group is set.
@@ -548,7 +529,7 @@ bool lv_style_is_empty(const lv_style_t *style);
 static inline uint32_t lv_style_get_prop_group(lv_style_prop_t prop)
 {
     uint32_t group = prop >> 2;
-    if (group > 30) { group = 31; }   /*The MSB marks all the custom properties*/
+    if(group > 30) group = 31;    /*The MSB marks all the custom properties*/
     return group;
 
 }
@@ -563,13 +544,13 @@ uint8_t lv_style_prop_lookup_flags(lv_style_prop_t prop);
 
 #include "lv_style_gen.h"
 
-static inline void lv_style_set_size(lv_style_t *style, int32_t width, int32_t height)
+static inline void lv_style_set_size(lv_style_t * style, int32_t width, int32_t height)
 {
     lv_style_set_width(style, width);
     lv_style_set_height(style, height);
 }
 
-static inline void lv_style_set_pad_all(lv_style_t *style, int32_t value)
+static inline void lv_style_set_pad_all(lv_style_t * style, int32_t value)
 {
     lv_style_set_pad_left(style, value);
     lv_style_set_pad_right(style, value);
@@ -577,37 +558,37 @@ static inline void lv_style_set_pad_all(lv_style_t *style, int32_t value)
     lv_style_set_pad_bottom(style, value);
 }
 
-static inline void lv_style_set_pad_hor(lv_style_t *style, int32_t value)
+static inline void lv_style_set_pad_hor(lv_style_t * style, int32_t value)
 {
     lv_style_set_pad_left(style, value);
     lv_style_set_pad_right(style, value);
 }
 
-static inline void lv_style_set_pad_ver(lv_style_t *style, int32_t value)
+static inline void lv_style_set_pad_ver(lv_style_t * style, int32_t value)
 {
     lv_style_set_pad_top(style, value);
     lv_style_set_pad_bottom(style, value);
 }
 
-static inline void lv_style_set_pad_gap(lv_style_t *style, int32_t value)
+static inline void lv_style_set_pad_gap(lv_style_t * style, int32_t value)
 {
     lv_style_set_pad_row(style, value);
     lv_style_set_pad_column(style, value);
 }
 
-static inline void lv_style_set_margin_hor(lv_style_t *style, int32_t value)
+static inline void lv_style_set_margin_hor(lv_style_t * style, int32_t value)
 {
     lv_style_set_margin_left(style, value);
     lv_style_set_margin_right(style, value);
 }
 
-static inline void lv_style_set_margin_ver(lv_style_t *style, int32_t value)
+static inline void lv_style_set_margin_ver(lv_style_t * style, int32_t value)
 {
     lv_style_set_margin_top(style, value);
     lv_style_set_margin_bottom(style, value);
 }
 
-static inline void lv_style_set_margin_all(lv_style_t *style, int32_t value)
+static inline void lv_style_set_margin_all(lv_style_t * style, int32_t value)
 {
     lv_style_set_margin_left(style, value);
     lv_style_set_margin_right(style, value);
@@ -615,7 +596,7 @@ static inline void lv_style_set_margin_all(lv_style_t *style, int32_t value)
     lv_style_set_margin_bottom(style, value);
 }
 
-static inline void lv_style_set_transform_scale(lv_style_t *style, int32_t value)
+static inline void lv_style_set_transform_scale(lv_style_t * style, int32_t value)
 {
     lv_style_set_transform_scale_x(style, value);
     lv_style_set_transform_scale_y(style, value);

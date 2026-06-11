@@ -27,19 +27,18 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_scale_section_t
-{
+struct _lv_scale_section_t {
     /** Style to use for MAIN part(s) of scale
       * when it falls within this section's range */
-    const lv_style_t *main_style;
+    const lv_style_t * main_style;
 
     /** Style to use for INDICATOR part(s) of scale
       * when it falls within this section's range */
-    const lv_style_t *indicator_style;
+    const lv_style_t * indicator_style;
 
     /** Style to use for ITEMS part(s) of scale
       * when it falls within this section's range */
-    const lv_style_t *items_style;
+    const lv_style_t * items_style;
 
     int32_t range_min;                     /**< Scale parts with value >= this value will be drawn using applicable style. */
     int32_t range_max;                     /**< Scale parts with value <= this value will be drawn using applicable style. */
@@ -57,11 +56,10 @@ struct _lv_scale_section_t
                                             * `last_tick_idx_in_section` represents a major tick. */
 };
 
-struct _lv_scale_t
-{
+struct _lv_scale_t {
     lv_obj_t obj;                      /**< Base Widget part of Scale */
     lv_ll_t section_ll;                /**< Linked list for the sections (stores lv_scale_section_t)*/
-    const char **txt_src;             /**< Optional list of text strings for major ticks
+    const char ** txt_src;             /**< Optional list of text strings for major ticks
                                         *   when custom labels are provided. */
     lv_scale_mode_t mode;              /**< Orientation and layout of scale. */
     int32_t range_min;                 /**< Scale's minimum value */

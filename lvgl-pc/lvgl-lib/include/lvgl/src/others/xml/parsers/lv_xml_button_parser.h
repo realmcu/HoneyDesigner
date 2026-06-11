@@ -24,8 +24,8 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 
-void *lv_xml_button_create(lv_xml_parser_state_t *state, const char **attrs);
-void lv_xml_button_apply(lv_xml_parser_state_t *state, const char **attrs);
+void * lv_xml_button_create(lv_xml_parser_state_t * state, const char ** attrs);
+void lv_xml_button_apply(lv_xml_parser_state_t * state, const char ** attrs);
 
 
 /**********************

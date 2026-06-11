@@ -27,7 +27,7 @@ extern "C" {
  **********************/
 
 void lv_nuttx_profiler_init(void);
-void lv_nuttx_profiler_set_file(const char *file);
+void lv_nuttx_profiler_set_file(const char * file);
 void lv_nuttx_profiler_deinit(void);
 
 /**********************

@@ -28,11 +28,9 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 
-void /* LV_ATTRIBUTE_FAST_MEM */ lv_draw_sw_blend_color_to_argb8888_premultiplied(
-    lv_draw_sw_blend_fill_dsc_t *dsc);
+void /* LV_ATTRIBUTE_FAST_MEM */ lv_draw_sw_blend_color_to_argb8888_premultiplied(lv_draw_sw_blend_fill_dsc_t * dsc);
 
-void /* LV_ATTRIBUTE_FAST_MEM */ lv_draw_sw_blend_image_to_argb8888_premultiplied(
-    lv_draw_sw_blend_image_dsc_t *dsc);
+void /* LV_ATTRIBUTE_FAST_MEM */ lv_draw_sw_blend_image_to_argb8888_premultiplied(lv_draw_sw_blend_image_dsc_t * dsc);
 
 /**********************
  *      MACROS

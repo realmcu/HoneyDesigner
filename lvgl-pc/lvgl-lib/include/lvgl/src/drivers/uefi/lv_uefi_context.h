@@ -40,7 +40,7 @@ extern "C" {
 */
 void lv_uefi_init(
     EFI_HANDLE image_handle,
-    EFI_SYSTEM_TABLE *system_table);
+    EFI_SYSTEM_TABLE * system_table);
 
 /**
  * @brief Initialize the LVGL UEFI backend.

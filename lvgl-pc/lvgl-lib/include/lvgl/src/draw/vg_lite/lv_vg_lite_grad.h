@@ -37,26 +37,25 @@ extern "C" {
  * @param cache_cnt number of cache entries
  * @param unit the draw unit
  */
-struct _lv_vg_lite_grad_ctx_t *lv_vg_lite_grad_ctx_create(uint32_t cache_cnt,
-                                                          struct _lv_draw_vg_lite_unit_t *unit);
+struct _lv_vg_lite_grad_ctx_t * lv_vg_lite_grad_ctx_create(uint32_t cache_cnt, struct _lv_draw_vg_lite_unit_t * unit);
 
 /**
  * @brief Delete a gradient context
  * @param ctx the gradient context to delete
  */
-void lv_vg_lite_grad_ctx_delete(struct _lv_vg_lite_grad_ctx_t *ctx);
+void lv_vg_lite_grad_ctx_delete(struct _lv_vg_lite_grad_ctx_t * ctx);
 
 /**
  * @brief Get the pending list of gradient items
  * @param ctx the gradient context
  */
-struct _lv_vg_lite_pending_t *lv_vg_lite_grad_ctx_get_pending(struct _lv_vg_lite_grad_ctx_t *ctx);
+struct _lv_vg_lite_pending_t * lv_vg_lite_grad_ctx_get_pending(struct _lv_vg_lite_grad_ctx_t * ctx);
 
 /**
  * @brief Get the cache of gradient items
  * @param ctx the gradient context
  */
-struct _lv_cache_t *lv_vg_lite_grad_ctx_get_cache(struct _lv_vg_lite_grad_ctx_t *ctx);
+struct _lv_cache_t * lv_vg_lite_grad_ctx_get_cache(struct _lv_vg_lite_grad_ctx_t * ctx);
 
 /**
  * @brief Draw a gradient
@@ -71,12 +70,12 @@ struct _lv_cache_t *lv_vg_lite_grad_ctx_get_cache(struct _lv_vg_lite_grad_ctx_t 
  * @return true: success, false: failed
  */
 bool lv_vg_lite_draw_grad(
-    struct _lv_vg_lite_grad_ctx_t *ctx,
-    vg_lite_buffer_t *buffer,
-    vg_lite_path_t *path,
-    const lv_vector_gradient_t *grad,
-    const vg_lite_matrix_t *grad_matrix,
-    const vg_lite_matrix_t *matrix,
+    struct _lv_vg_lite_grad_ctx_t * ctx,
+    vg_lite_buffer_t * buffer,
+    vg_lite_path_t * path,
+    const lv_vector_gradient_t * grad,
+    const vg_lite_matrix_t * grad_matrix,
+    const vg_lite_matrix_t * matrix,
     vg_lite_fill_t fill,
     vg_lite_blend_t blend);
 
@@ -93,12 +92,12 @@ bool lv_vg_lite_draw_grad(
  * @return true: success, false: failed
  */
 bool lv_vg_lite_draw_grad_helper(
-    struct _lv_vg_lite_grad_ctx_t *ctx,
-    vg_lite_buffer_t *buffer,
-    vg_lite_path_t *path,
-    const lv_area_t *area,
-    const lv_grad_dsc_t *grad_dsc,
-    const vg_lite_matrix_t *matrix,
+    struct _lv_vg_lite_grad_ctx_t * ctx,
+    vg_lite_buffer_t * buffer,
+    vg_lite_path_t * path,
+    const lv_area_t * area,
+    const lv_grad_dsc_t * grad_dsc,
+    const vg_lite_matrix_t * matrix,
     vg_lite_fill_t fill,
     vg_lite_blend_t blend);
 

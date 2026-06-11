@@ -28,8 +28,7 @@ extern "C" {
 /**********************
  *      TYPEDEFS
  **********************/
-struct _lv_draw_mask_rect_dsc_t
-{
+struct _lv_draw_mask_rect_dsc_t {
     lv_draw_dsc_base_t base;
 
     /**The area t mask.*/

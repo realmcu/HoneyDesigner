@@ -28,8 +28,7 @@ extern "C" {
  **********************/
 
 /** Data of spinbox */
-struct _lv_spinbox_t
-{
+struct _lv_spinbox_t {
     lv_textarea_t ta;             /**< Ext. of ancestor */
     /*New data for this type*/
     int32_t value;
@@ -39,8 +38,7 @@ struct _lv_spinbox_t
     uint32_t digit_count : 4;
     uint32_t dec_point_pos : 4;   /**< if 0, there is no separator and the number is an integer */
     uint32_t rollover : 1;        /**< Set to true for rollover functionality */
-uint32_t digit_step_dir :
-    2;  /**< the direction the digit will step on encoder button press when editing */
+    uint32_t digit_step_dir : 2;  /**< the direction the digit will step on encoder button press when editing */
 };
 
 

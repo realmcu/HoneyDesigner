@@ -33,24 +33,22 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_gstreamer_t
-{
+struct _lv_gstreamer_t {
     lv_image_t image;
     lv_image_dsc_t frame;
     GstVideoInfo video_info;
-    GstElement *pipeline;
-    GstElement *audio_convert;
-    GstElement *video_convert;
-    GstElement *audio_volume;
-    GstSample *last_sample;
-    lv_timer_t *gstreamer_timer;
-    GAsyncQueue *frame_queue;
+    GstElement * pipeline;
+    GstElement * audio_convert;
+    GstElement * video_convert;
+    GstElement * audio_volume;
+    GstSample * last_sample;
+    lv_timer_t * gstreamer_timer;
+    GAsyncQueue * frame_queue;
     bool is_video_info_valid;
 };
 
-typedef struct
-{
-    uint8_t *frame_data;
+typedef struct {
+    uint8_t * frame_data;
     uint32_t width;
     uint32_t height;
     uint32_t stride;

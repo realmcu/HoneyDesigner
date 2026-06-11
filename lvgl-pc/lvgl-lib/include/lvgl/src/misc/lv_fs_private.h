@@ -24,12 +24,11 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_fs_file_cache_t
-{
+struct _lv_fs_file_cache_t {
     uint32_t start;
     uint32_t end;
     uint32_t file_position;
-    void *buffer;
+    void * buffer;
 };
 
 /**********************

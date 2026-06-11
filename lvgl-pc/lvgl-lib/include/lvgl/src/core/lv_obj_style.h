@@ -29,8 +29,7 @@ extern "C" {
  * Possible states of a widget.
  * OR-ed values are possible
  */
-typedef enum
-{
+typedef enum {
     LV_STATE_DEFAULT     = 0x0000,
     LV_STATE_CHECKED     = 0x0001,
     LV_STATE_FOCUSED     = 0x0002,
@@ -55,8 +54,7 @@ typedef enum
  * Not all parts are used by every widget
  */
 
-typedef enum
-{
+typedef enum {
     LV_PART_MAIN         = 0x000000,  /**< A background like rectangle*/
     LV_PART_SCROLLBAR    = 0x010000,  /**< The scrollbar(s)*/
     LV_PART_INDICATOR    = 0x020000,  /**< Indicator, e.g. for slider, bar, switch, or the tick box of the checkbox*/
@@ -70,8 +68,7 @@ typedef enum
     LV_PART_ANY          = 0x0F0000,  /**< Special value can be used in some functions to target all parts*/
 } lv_part_t;
 
-typedef enum
-{
+typedef enum {
     LV_STYLE_STATE_CMP_SAME,           /**< The style properties in the 2 states are identical */
     LV_STYLE_STATE_CMP_DIFF_REDRAW,    /**< The differences can be shown with a simple redraw */
     LV_STYLE_STATE_CMP_DIFF_DRAW_PAD,  /**< The differences can be shown with a simple redraw */
@@ -104,7 +101,7 @@ typedef uint32_t lv_style_selector_t;
  * lv_obj_add_style(btn, &btn_red, LV_STATE_PRESSED); //Overwrite only some colors to red when pressed
  * @endcode
  */
-void lv_obj_add_style(lv_obj_t *obj, const lv_style_t *style, lv_style_selector_t selector);
+void lv_obj_add_style(lv_obj_t * obj, const lv_style_t * style, lv_style_selector_t selector);
 
 /**
  * Replaces a style of an object, preserving the order of the style stack (local styles and transitions are ignored).
@@ -120,7 +117,7 @@ void lv_obj_add_style(lv_obj_t *obj, const lv_style_t *style, lv_style_selector_
  * lv_obj_replace_style(obj, &yellow_style, &blue_style, LV_PART_MAIN | LV_STATE_PRESSED); //Replace a specific style assigned to the main part when it is pressed
  * @endcode
  */
-bool lv_obj_replace_style(lv_obj_t *obj, const lv_style_t *old_style, const lv_style_t *new_style,
+bool lv_obj_replace_style(lv_obj_t * obj, const lv_style_t * old_style, const lv_style_t * new_style,
                           lv_style_selector_t selector);
 
 /**
@@ -138,20 +135,20 @@ bool lv_obj_replace_style(lv_obj_t *obj, const lv_style_t *old_style, const lv_s
  * lv_obj_remove_style(obj, NULL, LV_PART_ANY | LV_STATE_ANY); //Remove all styles
  * @endcode
  */
-void lv_obj_remove_style(lv_obj_t *obj, const lv_style_t *style, lv_style_selector_t selector);
+void lv_obj_remove_style(lv_obj_t * obj, const lv_style_t * style, lv_style_selector_t selector);
 
 /**
  * Remove all styles from an object
  * @param obj       pointer to an object
  */
-void lv_obj_remove_style_all(lv_obj_t *obj);
+void lv_obj_remove_style_all(lv_obj_t * obj);
 
 /**
  * Notify all object if a style is modified
  * @param style     pointer to a style. Only the objects with this style will be notified
  *                  (NULL to notify all objects)
  */
-void lv_obj_report_style_change(lv_style_t *style);
+void lv_obj_report_style_change(lv_style_t * style);
 
 /**
  * Notify an object and its children about its style is modified.
@@ -161,7 +158,7 @@ void lv_obj_report_style_change(lv_style_t *style);
  *                  It is used to optimize what needs to be refreshed.
  *                  `LV_STYLE_PROP_INV` to perform only a style cache update
  */
-void lv_obj_refresh_style(lv_obj_t *obj, lv_part_t part, lv_style_prop_t prop);
+void lv_obj_refresh_style(lv_obj_t * obj, lv_part_t part, lv_style_prop_t prop);
 
 /**
  * Temporary disable a style for a selector. It will look like is the style wasn't added
@@ -170,8 +167,7 @@ void lv_obj_refresh_style(lv_obj_t *obj, lv_part_t part, lv_style_prop_t prop);
  * @param selector  the selector of a style (e.g. LV_STATE_PRESSED | LV_PART_KNOB)
  * @param dis       true: disable the style, false: enable the style
  */
-void lv_obj_style_set_disabled(lv_obj_t *obj, const lv_style_t *style, lv_style_selector_t selector,
-                               bool dis);
+void lv_obj_style_set_disabled(lv_obj_t * obj, const lv_style_t * style, lv_style_selector_t selector, bool dis);
 
 /**
  * Get if a given style is disabled on an object.
@@ -180,8 +176,7 @@ void lv_obj_style_set_disabled(lv_obj_t *obj, const lv_style_t *style, lv_style_
  * @param selector  the selector of a style (e.g. LV_STATE_PRESSED | LV_PART_KNOB)
  * @return          true: disable the style, false: enable the style
  */
-bool lv_obj_style_get_disabled(lv_obj_t *obj, const lv_style_t *style,
-                               lv_style_selector_t selector);
+bool lv_obj_style_get_disabled(lv_obj_t * obj, const lv_style_t * style, lv_style_selector_t selector);
 
 /**
  * Enable or disable automatic style refreshing when a new style is added/removed to/from an object
@@ -200,7 +195,7 @@ void lv_obj_enable_style_refresh(bool en);
  * @return          the value of the property.
  *                  Should be read from the correct field of the `lv_style_value_t` according to the type of the property.
  */
-lv_style_value_t lv_obj_get_style_prop(const lv_obj_t *obj, lv_part_t part, lv_style_prop_t prop);
+lv_style_value_t lv_obj_get_style_prop(const lv_obj_t * obj, lv_part_t part, lv_style_prop_t prop);
 
 /**
  * Check if an object has a specified style property for a given style selector.
@@ -209,7 +204,7 @@ lv_style_value_t lv_obj_get_style_prop(const lv_obj_t *obj, lv_part_t part, lv_s
  * @param prop      the property to be checked.
  * @return          true if the object has the specified selector and property, false otherwise.
  */
-bool lv_obj_has_style_prop(const lv_obj_t *obj, lv_style_selector_t selector, lv_style_prop_t prop);
+bool lv_obj_has_style_prop(const lv_obj_t * obj, lv_style_selector_t selector, lv_style_prop_t prop);
 
 /**
  * Set local style property on an object's part and state.
@@ -218,11 +213,10 @@ bool lv_obj_has_style_prop(const lv_obj_t *obj, lv_style_selector_t selector, lv
  * @param value     value of the property. The correct element should be set according to the type of the property
  * @param selector  OR-ed value of parts and state for which the style should be set
  */
-void lv_obj_set_local_style_prop(lv_obj_t *obj, lv_style_prop_t prop, lv_style_value_t value,
+void lv_obj_set_local_style_prop(lv_obj_t * obj, lv_style_prop_t prop, lv_style_value_t value,
                                  lv_style_selector_t selector);
 
-lv_style_res_t lv_obj_get_local_style_prop(lv_obj_t *obj, lv_style_prop_t prop,
-                                           lv_style_value_t *value,
+lv_style_res_t lv_obj_get_local_style_prop(lv_obj_t * obj, lv_style_prop_t prop, lv_style_value_t * value,
                                            lv_style_selector_t selector);
 
 /**
@@ -232,14 +226,12 @@ lv_style_res_t lv_obj_get_local_style_prop(lv_obj_t *obj, lv_style_prop_t prop,
  * @param selector  OR-ed value of parts and state for which the style should be removed
  * @return true     the property was found and removed; false: the property was not found
  */
-bool lv_obj_remove_local_style_prop(lv_obj_t *obj, lv_style_prop_t prop,
-                                    lv_style_selector_t selector);
+bool lv_obj_remove_local_style_prop(lv_obj_t * obj, lv_style_prop_t prop, lv_style_selector_t selector);
 
 /**
  * Used internally for color filtering
  */
-lv_style_value_t lv_obj_style_apply_color_filter(const lv_obj_t *obj, lv_part_t part,
-                                                 lv_style_value_t v);
+lv_style_value_t lv_obj_style_apply_color_filter(const lv_obj_t * obj, lv_part_t part, lv_style_value_t v);
 
 /**
  * Fade in an an object and all its children.
@@ -247,7 +239,7 @@ lv_style_value_t lv_obj_style_apply_color_filter(const lv_obj_t *obj, lv_part_t 
  * @param time      time of fade
  * @param delay     delay to start the animation
  */
-void lv_obj_fade_in(lv_obj_t *obj, uint32_t time, uint32_t delay);
+void lv_obj_fade_in(lv_obj_t * obj, uint32_t time, uint32_t delay);
 
 /**
  * Fade out an an object and all its children.
@@ -255,7 +247,7 @@ void lv_obj_fade_in(lv_obj_t *obj, uint32_t time, uint32_t delay);
  * @param time      time of fade
  * @param delay     delay to start the animation
  */
-void lv_obj_fade_out(lv_obj_t *obj, uint32_t time, uint32_t delay);
+void lv_obj_fade_out(lv_obj_t * obj, uint32_t time, uint32_t delay);
 
 static inline lv_state_t lv_obj_style_get_selector_state(lv_style_selector_t selector)
 {
@@ -269,8 +261,7 @@ static inline lv_part_t lv_obj_style_get_selector_part(lv_style_selector_t selec
 
 #include "lv_obj_style_gen.h"
 
-static inline void lv_obj_set_style_pad_all(lv_obj_t *obj, int32_t value,
-                                            lv_style_selector_t selector)
+static inline void lv_obj_set_style_pad_all(lv_obj_t * obj, int32_t value, lv_style_selector_t selector)
 {
     lv_obj_set_style_pad_left(obj, value, selector);
     lv_obj_set_style_pad_right(obj, value, selector);
@@ -278,22 +269,19 @@ static inline void lv_obj_set_style_pad_all(lv_obj_t *obj, int32_t value,
     lv_obj_set_style_pad_bottom(obj, value, selector);
 }
 
-static inline void lv_obj_set_style_pad_hor(lv_obj_t *obj, int32_t value,
-                                            lv_style_selector_t selector)
+static inline void lv_obj_set_style_pad_hor(lv_obj_t * obj, int32_t value, lv_style_selector_t selector)
 {
     lv_obj_set_style_pad_left(obj, value, selector);
     lv_obj_set_style_pad_right(obj, value, selector);
 }
 
-static inline void lv_obj_set_style_pad_ver(lv_obj_t *obj, int32_t value,
-                                            lv_style_selector_t selector)
+static inline void lv_obj_set_style_pad_ver(lv_obj_t * obj, int32_t value, lv_style_selector_t selector)
 {
     lv_obj_set_style_pad_top(obj, value, selector);
     lv_obj_set_style_pad_bottom(obj, value, selector);
 }
 
-static inline void lv_obj_set_style_margin_all(lv_obj_t *obj, int32_t value,
-                                               lv_style_selector_t selector)
+static inline void lv_obj_set_style_margin_all(lv_obj_t * obj, int32_t value, lv_style_selector_t selector)
 {
     lv_obj_set_style_margin_left(obj, value, selector);
     lv_obj_set_style_margin_right(obj, value, selector);
@@ -301,42 +289,39 @@ static inline void lv_obj_set_style_margin_all(lv_obj_t *obj, int32_t value,
     lv_obj_set_style_margin_bottom(obj, value, selector);
 }
 
-static inline void lv_obj_set_style_margin_hor(lv_obj_t *obj, int32_t value,
-                                               lv_style_selector_t selector)
+static inline void lv_obj_set_style_margin_hor(lv_obj_t * obj, int32_t value, lv_style_selector_t selector)
 {
     lv_obj_set_style_margin_left(obj, value, selector);
     lv_obj_set_style_margin_right(obj, value, selector);
 }
 
-static inline void lv_obj_set_style_margin_ver(lv_obj_t *obj, int32_t value,
-                                               lv_style_selector_t selector)
+static inline void lv_obj_set_style_margin_ver(lv_obj_t * obj, int32_t value, lv_style_selector_t selector)
 {
     lv_obj_set_style_margin_top(obj, value, selector);
     lv_obj_set_style_margin_bottom(obj, value, selector);
 }
 
-static inline void lv_obj_set_style_pad_gap(lv_obj_t *obj, int32_t value,
-                                            lv_style_selector_t selector)
+static inline void lv_obj_set_style_pad_gap(lv_obj_t * obj, int32_t value, lv_style_selector_t selector)
 {
     lv_obj_set_style_pad_row(obj, value, selector);
     lv_obj_set_style_pad_column(obj, value, selector);
 }
 
-static inline void lv_obj_set_style_size(lv_obj_t *obj, int32_t width, int32_t height,
+static inline void lv_obj_set_style_size(lv_obj_t * obj, int32_t width, int32_t height,
                                          lv_style_selector_t selector)
 {
     lv_obj_set_style_width(obj, width, selector);
     lv_obj_set_style_height(obj, height, selector);
 }
 
-static inline void lv_obj_set_style_transform_scale(lv_obj_t *obj, int32_t value,
+static inline void lv_obj_set_style_transform_scale(lv_obj_t * obj, int32_t value,
                                                     lv_style_selector_t selector)
 {
     lv_obj_set_style_transform_scale_x(obj, value, selector);
     lv_obj_set_style_transform_scale_y(obj, value, selector);
 }
 
-static inline int32_t lv_obj_get_style_space_left(const lv_obj_t *obj, lv_part_t part)
+static inline int32_t lv_obj_get_style_space_left(const lv_obj_t * obj, lv_part_t part)
 {
     int32_t padding = lv_obj_get_style_pad_left(obj, part);
     int32_t border_width = lv_obj_get_style_border_width(obj, part);
@@ -344,7 +329,7 @@ static inline int32_t lv_obj_get_style_space_left(const lv_obj_t *obj, lv_part_t
     return (border_side & LV_BORDER_SIDE_LEFT) ? padding + border_width : padding;
 }
 
-static inline int32_t lv_obj_get_style_space_right(const lv_obj_t *obj, lv_part_t part)
+static inline int32_t lv_obj_get_style_space_right(const lv_obj_t * obj, lv_part_t part)
 {
     int32_t padding = lv_obj_get_style_pad_right(obj, part);
     int32_t border_width = lv_obj_get_style_border_width(obj, part);
@@ -352,7 +337,7 @@ static inline int32_t lv_obj_get_style_space_right(const lv_obj_t *obj, lv_part_
     return (border_side & LV_BORDER_SIDE_RIGHT) ? padding + border_width : padding;
 }
 
-static inline int32_t lv_obj_get_style_space_top(const lv_obj_t *obj, lv_part_t part)
+static inline int32_t lv_obj_get_style_space_top(const lv_obj_t * obj, lv_part_t part)
 {
     int32_t padding = lv_obj_get_style_pad_top(obj, part);
     int32_t border_width = lv_obj_get_style_border_width(obj, part);
@@ -360,7 +345,7 @@ static inline int32_t lv_obj_get_style_space_top(const lv_obj_t *obj, lv_part_t 
     return (border_side & LV_BORDER_SIDE_TOP) ? padding + border_width : padding;
 }
 
-static inline int32_t lv_obj_get_style_space_bottom(const lv_obj_t *obj, lv_part_t part)
+static inline int32_t lv_obj_get_style_space_bottom(const lv_obj_t * obj, lv_part_t part)
 {
     int32_t padding = lv_obj_get_style_pad_bottom(obj, part);
     int32_t border_width = lv_obj_get_style_border_width(obj, part);
@@ -368,16 +353,15 @@ static inline int32_t lv_obj_get_style_space_bottom(const lv_obj_t *obj, lv_part
     return (border_side & LV_BORDER_SIDE_BOTTOM) ? padding + border_width : padding;
 }
 
-lv_text_align_t lv_obj_calculate_style_text_align(const lv_obj_t *obj, lv_part_t part,
-                                                  const char *txt);
+lv_text_align_t lv_obj_calculate_style_text_align(const lv_obj_t * obj, lv_part_t part, const char * txt);
 
-static inline int32_t lv_obj_get_style_transform_scale_x_safe(const lv_obj_t *obj, lv_part_t part)
+static inline int32_t lv_obj_get_style_transform_scale_x_safe(const lv_obj_t * obj, lv_part_t part)
 {
     int32_t scale = lv_obj_get_style_transform_scale_x(obj, part);
     return scale > 0 ? scale : 1;
 }
 
-static inline int32_t lv_obj_get_style_transform_scale_y_safe(const lv_obj_t *obj, lv_part_t part)
+static inline int32_t lv_obj_get_style_transform_scale_y_safe(const lv_obj_t * obj, lv_part_t part)
 {
     int32_t scale = lv_obj_get_style_transform_scale_y(obj, part);
     return scale > 0 ? scale : 1;
@@ -389,7 +373,7 @@ static inline int32_t lv_obj_get_style_transform_scale_y_safe(const lv_obj_t *ob
  * @param part      the part whose opacity should be get. Non-MAIN parts will consider the `opa` of the MAIN part too
  * @return          the final opacity considering the parents' opacity too
  */
-lv_opa_t lv_obj_get_style_opa_recursive(const lv_obj_t *obj, lv_part_t part);
+lv_opa_t lv_obj_get_style_opa_recursive(const lv_obj_t * obj, lv_part_t part);
 
 
 /**
@@ -399,7 +383,7 @@ lv_opa_t lv_obj_get_style_opa_recursive(const lv_obj_t *obj, lv_part_t part);
  * @param color     the original color to be modified
  * @return          the blended color after applying recolor and opacity
  */
-lv_color32_t lv_obj_style_apply_recolor(const lv_obj_t *obj, lv_part_t part, lv_color32_t color);
+lv_color32_t lv_obj_style_apply_recolor(const lv_obj_t * obj, lv_part_t part, lv_color32_t color);
 
 /**
  * Get the `recolor` style property from all parents and blend them recursively.
@@ -408,7 +392,7 @@ lv_color32_t lv_obj_style_apply_recolor(const lv_obj_t *obj, lv_part_t part, lv_
  *                  the `recolor` value from the MAIN part during calculation
  * @return          the final blended recolor value combining all parent's recolor values
  */
-lv_color32_t lv_obj_get_style_recolor_recursive(const lv_obj_t *obj, lv_part_t part);
+lv_color32_t lv_obj_get_style_recolor_recursive(const lv_obj_t * obj, lv_part_t part);
 
 /**********************
  *      MACROS

@@ -33,15 +33,13 @@ extern "C" {
  *
  * `lv_vector_path_ctx_t` is also required to describe how to fill and stroke the path.
  */
-struct _lv_vector_path_t
-{
+struct _lv_vector_path_t {
     lv_vector_path_quality_t quality;
     lv_array_t ops;
     lv_array_t points;
 };
 
-struct _lv_vector_gradient_t
-{
+struct _lv_vector_gradient_t {
     lv_vector_gradient_style_t style;
     lv_grad_stop_t   stops[LV_GRADIENT_MAX_STOPS];  /**< A gradient stop array */
     uint16_t         stops_count;                   /**< The number of used stops in the array */
@@ -55,8 +53,7 @@ struct _lv_vector_gradient_t
     lv_vector_gradient_spread_t spread;
 };
 
-struct _lv_vector_fill_dsc_t
-{
+struct _lv_vector_fill_dsc_t {
     lv_vector_draw_style_t style;
     lv_color32_t color;
     lv_opa_t opa;
@@ -67,8 +64,7 @@ struct _lv_vector_fill_dsc_t
     lv_matrix_t matrix;
 };
 
-struct _lv_vector_stroke_dsc_t
-{
+struct _lv_vector_stroke_dsc_t {
     lv_vector_draw_style_t style;
     lv_color32_t color;
     lv_opa_t opa;
@@ -84,8 +80,7 @@ struct _lv_vector_stroke_dsc_t
 /**
  * Stores how to fill, stroke, transform etc a given path
  */
-struct _lv_vector_path_ctx_t
-{
+struct _lv_vector_path_ctx_t {
     lv_vector_fill_dsc_t fill_dsc;
     lv_vector_stroke_dsc_t stroke_dsc;
     lv_matrix_t matrix;
@@ -93,18 +88,17 @@ struct _lv_vector_path_ctx_t
     lv_area_t scissor_area;
 };
 
-struct _lv_draw_vector_dsc_t
-{
+struct _lv_draw_vector_dsc_t {
     lv_draw_dsc_base_t base;
 
     /** The current colors, opacities, matrix, etc for the next task to be added
      * by */
-    lv_vector_path_ctx_t *ctx;
+    lv_vector_path_ctx_t * ctx;
 
     /**
      * Store path shapes and their attributes
      * in a list as `lv_draw_vector_subtask_t`. */
-    lv_ll_t *task_list;
+    lv_ll_t * task_list;
 };
 
 
@@ -113,9 +107,8 @@ struct _lv_draw_vector_dsc_t
  * It's a task that will be passed to the vector rendering engine.
  * It's used in the `task_list` of `lv_draw_vector_dsc_t`.
  */
-typedef struct
-{
-    lv_vector_path_t *path;
+typedef struct {
+    lv_vector_path_t * path;
     lv_vector_path_ctx_t ctx;
 } lv_draw_vector_subtask_t;
 
@@ -133,7 +126,7 @@ typedef struct
  * @param cb            the callback used to iterate through the task
  * @param user_data     a custom pointer that will be passed to the callback
  */
-void lv_vector_for_each_destroy_tasks(lv_ll_t *task_list, vector_draw_task_cb cb, void *used_data);
+void lv_vector_for_each_destroy_tasks(lv_ll_t * task_list, vector_draw_task_cb cb, void * used_data);
 
 /**********************
  *      MACROS

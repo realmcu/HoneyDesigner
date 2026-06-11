@@ -40,7 +40,7 @@ extern "C" {
  * @note            This function assumes that the default display is the test display that was created by
  *                  `lv_test_display_create()`
  */
-bool lv_test_screenshot_compare(const char *fn_ref);
+bool lv_test_screenshot_compare(const char * fn_ref);
 
 /**********************
  *      MACROS

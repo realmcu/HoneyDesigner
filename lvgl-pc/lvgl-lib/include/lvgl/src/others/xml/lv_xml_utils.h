@@ -22,9 +22,9 @@ extern "C" {
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-const char *lv_xml_get_value_of(const char **attrs, const char *name);
+const char * lv_xml_get_value_of(const char ** attrs, const char * name);
 
-int32_t lv_xml_atoi(const char *str);
+int32_t lv_xml_atoi(const char * str);
 
 /**
  * Convert sections of a string to int.
@@ -33,10 +33,10 @@ int32_t lv_xml_atoi(const char *str);
  * @param delimiter a character to indicate the end of the int
  * @return          the int before the next delimiter
  */
-int32_t lv_xml_atoi_split(const char **str, char delimiter);
+int32_t lv_xml_atoi_split(const char ** str, char delimiter);
 
 #if LV_USE_FLOAT
-float lv_xml_atof(const char *str);
+float lv_xml_atof(const char * str);
 
 /**
  * Convert sections of a string to float.
@@ -45,21 +45,21 @@ float lv_xml_atof(const char *str);
  * @param delimiter a character to indicate the end of the float
  * @return          the float before the next delimiter
  */
-float lv_xml_atof_split(const char **str, char delimiter);
+float lv_xml_atof_split(const char ** str, char delimiter);
 #endif
 
-lv_color_t lv_xml_to_color(const char *str);
+lv_color_t lv_xml_to_color(const char * str);
 
 /**
  * Concert percentage or integer opacity value from string to integer.
  * @param str   e.g. "70%" or 180
  * @return      0..255
  */
-lv_opa_t lv_xml_to_opa(const char *str);
+lv_opa_t lv_xml_to_opa(const char * str);
 
-bool lv_xml_to_bool(const char *str);
+bool lv_xml_to_bool(const char * str);
 
-int32_t lv_xml_strtol(const char *str, char **endptr, int32_t base);
+int32_t lv_xml_strtol(const char * str, char ** endptr, int32_t base);
 
 /**
  * Find a delimiter in a string, terminate the string on the delimiter and
@@ -68,7 +68,7 @@ int32_t lv_xml_strtol(const char *str, char **endptr, int32_t base);
  * @param delimiter     a delimiter character, e.g. ':'
  * @return              the beginning of next section in the string closed at the delimiter
  */
-char *lv_xml_split_str(char **src, char delimiter);
+char * lv_xml_split_str(char ** src, char delimiter);
 
 #endif /* LV_USE_XML */
 

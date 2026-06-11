@@ -58,7 +58,7 @@ void lv_xml_deinit(void);
  *                  - `name`="bind_flag_if_eq",
  *                    `attrs`={"subject", "subject1", "flag", "hidden", "ref_value", "1", NULL, NULL}
  */
-void *lv_xml_create(lv_obj_t *parent, const char *name, const char **attrs);
+void * lv_xml_create(lv_obj_t * parent, const char * name, const char ** attrs);
 
 /**
  * Create a Screen from XML.
@@ -66,11 +66,11 @@ void *lv_xml_create(lv_obj_t *parent, const char *name, const char **attrs);
  * @return      Pointer to the created Screen
  * @note        If required, can be loaded with `lv_screen_load()`.
  */
-lv_obj_t *lv_xml_create_screen(const char *name);
+lv_obj_t * lv_xml_create_screen(const char * name);
 
-void *lv_xml_create_in_scope(lv_obj_t *parent, lv_xml_component_scope_t *parent_ctx,
-                             lv_xml_component_scope_t *scope,
-                             const char **attrs);
+void * lv_xml_create_in_scope(lv_obj_t * parent, lv_xml_component_scope_t * parent_ctx,
+                              lv_xml_component_scope_t * scope,
+                              const char ** attrs);
 
 /**
  * Set a path to prefix the image and font file source paths.
@@ -81,17 +81,15 @@ void *lv_xml_create_in_scope(lv_obj_t *parent, lv_xml_component_scope_t *parent_
  *
  * @param path_prefix   the path to be used as prefix
  */
-void lv_xml_set_default_asset_path(const char *path_prefix);
+void lv_xml_set_default_asset_path(const char * path_prefix);
 
-lv_result_t lv_xml_register_font(lv_xml_component_scope_t *scope, const char *name,
-                                 const lv_font_t  *font);
+lv_result_t lv_xml_register_font(lv_xml_component_scope_t * scope, const char * name, const lv_font_t * font);
 
-const lv_font_t *lv_xml_get_font(lv_xml_component_scope_t *scope, const char *name);
+const lv_font_t * lv_xml_get_font(lv_xml_component_scope_t * scope, const char * name);
 
-lv_result_t lv_xml_register_image(lv_xml_component_scope_t *scope, const char *name,
-                                  const void *src);
+lv_result_t lv_xml_register_image(lv_xml_component_scope_t * scope, const char * name, const void * src);
 
-const void *lv_xml_get_image(lv_xml_component_scope_t *scope, const char *name);
+const void * lv_xml_get_image(lv_xml_component_scope_t * scope, const char * name);
 
 /**
  * Map globally available subject name to an actual subject variable
@@ -99,8 +97,7 @@ const void *lv_xml_get_image(lv_xml_component_scope_t *scope, const char *name);
  * @param subject   pointer to a subject
  * @return          `LV_RESULT_OK`: success
  */
-lv_result_t lv_xml_register_subject(lv_xml_component_scope_t *scope, const char *name,
-                                    lv_subject_t  *subject);
+lv_result_t lv_xml_register_subject(lv_xml_component_scope_t * scope, const char * name, lv_subject_t * subject);
 
 /**
  * Get a subject by name.
@@ -110,21 +107,19 @@ lv_result_t lv_xml_register_subject(lv_xml_component_scope_t *scope, const char 
  * @param name      Name of the subject to find.
  * @return          Pointer to the subject or NULL if not found.
  */
-lv_subject_t *lv_xml_get_subject(lv_xml_component_scope_t *scope, const char *name);
+lv_subject_t * lv_xml_get_subject(lv_xml_component_scope_t * scope, const char * name);
 
-lv_result_t lv_xml_register_const(lv_xml_component_scope_t *scope, const char *name,
-                                  const char *value);
+lv_result_t lv_xml_register_const(lv_xml_component_scope_t * scope, const char * name, const char * value);
 
-const char *lv_xml_get_const(lv_xml_component_scope_t *scope, const char *name);
+const char * lv_xml_get_const(lv_xml_component_scope_t * scope, const char * name);
 
-lv_result_t lv_xml_register_event_cb(lv_xml_component_scope_t *scope, const char *name,
-                                     lv_event_cb_t cb);
+lv_result_t lv_xml_register_event_cb(lv_xml_component_scope_t * scope, const char * name, lv_event_cb_t cb);
 
-lv_event_cb_t lv_xml_get_event_cb(lv_xml_component_scope_t *scope, const char *name);
+lv_event_cb_t lv_xml_get_event_cb(lv_xml_component_scope_t * scope, const char * name);
 
-lv_result_t lv_xml_register_timeline(lv_xml_component_scope_t *scope, const char *name);
+lv_result_t lv_xml_register_timeline(lv_xml_component_scope_t * scope, const char * name);
 
-void *lv_xml_get_timeline(lv_xml_component_scope_t *scope, const char *name);
+void * lv_xml_get_timeline(lv_xml_component_scope_t * scope, const char * name);
 
 /**********************
  *      MACROS

@@ -53,8 +53,7 @@ typedef struct
 } ImgData;
 
 /*Data of cellularate*/
-typedef struct
-{
+typedef struct {
     lv_obj_t obj;
     CellularData data;
 } lv_cellular_t;
@@ -70,7 +69,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_cellular_class;
  * @param parent    pointer to an object, it will be the parent of the new cellular
  * @return          pointer to the created bar
  */
-lv_obj_t *lv_cellular_create(lv_obj_t *parent);
+lv_obj_t * lv_cellular_create(lv_obj_t * parent);
 
 /**
  * @brief Set the vertical offset of the cellular object.
@@ -95,10 +94,10 @@ void lv_cellular_set_offset(lv_obj_t *cellular, int32_t ver_offset);
  * - Clicking icons triggers LV_EVENT_SHORT_CLICKED
  */
 lv_obj_t *lv_cellular_create_with_icon(lv_obj_t             *parent,
-                                       int                   icon_size,
-                                       lv_image_dsc_t const *icon_array[],
-                                       int                   array_size,
-                                       lv_event_cb_t         cb_array[]);
+                                        int                   icon_size,
+                                        lv_image_dsc_t const *icon_array[],
+                                        int                   array_size,
+                                        lv_event_cb_t         cb_array[]);
 
 /*======================
  * Add/remove functions

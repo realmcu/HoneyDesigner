@@ -26,10 +26,9 @@ extern "C" {
 struct _lv_anim_timeline_dsc_t;
 
 /*Data of anim_timeline*/
-struct _lv_anim_timeline_t
-{
+struct _lv_anim_timeline_t {
     /** Dynamically allocated anim dsc array*/
-    struct _lv_anim_timeline_dsc_t *anim_dsc;
+    struct _lv_anim_timeline_dsc_t * anim_dsc;
 
     /** The length of anim dsc array*/
     uint32_t anim_dsc_cnt;
@@ -50,7 +49,7 @@ struct _lv_anim_timeline_t
     uint32_t repeat_delay;
 
     /** For any custom data*/
-    void *user_data;
+    void * user_data;
 };
 
 /**********************

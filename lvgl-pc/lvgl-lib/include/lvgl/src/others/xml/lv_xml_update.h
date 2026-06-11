@@ -31,7 +31,7 @@ extern "C" {
  * @param xml_def   the XML to process as a string
  * @return          LV_RESULT_OK: loaded successfully, LV_RES_INVALID: otherwise
  */
-lv_result_t lv_xml_update_from_data(const char *xml_def);
+lv_result_t lv_xml_update_from_data(const char * xml_def);
 
 /**********************
  *      MACROS

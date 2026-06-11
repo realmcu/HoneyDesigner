@@ -36,7 +36,7 @@ extern "C" {
  * @return       `LV_RESULT_OK` if there were no issues or
  *               `LV_RESULT_INVALID` otherwise.
  */
-lv_result_t lv_xml_load_all_from_path(const char *path);
+lv_result_t lv_xml_load_all_from_path(const char * path);
 
 #if LV_USE_FS_FROGFS
 /**
@@ -46,7 +46,7 @@ lv_result_t lv_xml_load_all_from_path(const char *path);
  * @param buf_size  the size of the data blob
  * @return          a handle that can be used to unload it later
  */
-lv_xml_load_t *lv_xml_load_all_from_data(const void *buf, uint32_t buf_size);
+lv_xml_load_t * lv_xml_load_all_from_data(const void * buf, uint32_t buf_size);
 
 /**
  * Mount a data blob located at `file_path` in a filesystem and recurse through it,
@@ -54,14 +54,14 @@ lv_xml_load_t *lv_xml_load_all_from_data(const void *buf, uint32_t buf_size);
  * @param file_path   the path of the data blob
  * @return            a handle that can be used to unload it later
  */
-lv_xml_load_t *lv_xml_load_all_from_file(const char *file_path);
+lv_xml_load_t * lv_xml_load_all_from_file(const char * file_path);
 
 /**
  * Unload XML data that was loaded by a function that returned `lv_xml_load_t *`.
  * Any assets in the loaded data will not be accessible anymore.
  * @param load       a loaded XML data handle, or `NULL` to unload all.
  */
-void lv_xml_unload(lv_xml_load_t *load);
+void lv_xml_unload(lv_xml_load_t * load);
 #endif /*LV_USE_FS_FROGFS*/
 
 /**********************

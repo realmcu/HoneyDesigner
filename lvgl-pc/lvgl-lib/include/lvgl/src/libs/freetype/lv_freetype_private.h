@@ -61,20 +61,17 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-struct _lv_freetype_outline_vector_t
-{
+struct _lv_freetype_outline_vector_t {
     int32_t x;
     int32_t y;
 };
 
-typedef struct
-{
+typedef struct {
     int32_t segments_size;
     int32_t data_size;
 } lv_freetype_outline_sizes_t;
 
-struct _lv_freetype_outline_event_param_t
-{
+struct _lv_freetype_outline_event_param_t {
     lv_freetype_outline_t outline;
     lv_freetype_outline_type_t type;
     lv_freetype_outline_vector_t to;
@@ -86,9 +83,8 @@ struct _lv_freetype_outline_event_param_t
 
 typedef struct _lv_freetype_cache_node_t lv_freetype_cache_node_t;
 
-struct _lv_freetype_cache_node_t
-{
-    const char *pathname;
+struct _lv_freetype_cache_node_t {
+    const char * pathname;
     lv_freetype_font_style_t style;
     lv_freetype_font_render_mode_t render_mode;
 
@@ -99,33 +95,31 @@ struct _lv_freetype_cache_node_t
     bool face_has_kerning;
 
     /*glyph cache*/
-    lv_cache_t *glyph_cache;
+    lv_cache_t * glyph_cache;
 
     /*draw data cache*/
-    lv_cache_t *draw_data_cache;
+    lv_cache_t * draw_data_cache;
 };
 
-typedef struct _lv_freetype_context_t
-{
+typedef struct _lv_freetype_context_t {
     FT_Library library;
     lv_ll_t face_id_ll;
     lv_event_cb_t event_cb;
 
     uint32_t max_glyph_cnt;
 
-    lv_cache_t *cache_node_cache;
+    lv_cache_t * cache_node_cache;
 } lv_freetype_context_t;
 
-typedef struct _lv_freetype_font_dsc_t
-{
+typedef struct _lv_freetype_font_dsc_t {
     uint32_t magic_num;
     lv_font_t font;
     uint32_t size;
     lv_freetype_font_style_t style;
     lv_freetype_font_render_mode_t render_mode;
-    lv_freetype_context_t *context;
-    lv_freetype_cache_node_t *cache_node;
-    lv_cache_entry_t *cache_node_entry;
+    lv_freetype_context_t * context;
+    lv_freetype_cache_node_t * cache_node;
+    lv_cache_entry_t * cache_node_entry;
     FTC_FaceID face_id;
     uint32_t outline_stroke_width;
     lv_font_kerning_t kerning;
@@ -140,19 +134,19 @@ typedef struct _lv_freetype_font_dsc_t
  *
  * @return A pointer to the FreeType context used by LittlevGL.
  */
-lv_freetype_context_t *lv_freetype_get_context(void);
+lv_freetype_context_t * lv_freetype_get_context(void);
 
 void lv_freetype_italic_transform(FT_Face face);
 int32_t lv_freetype_italic_transform_on_pos(lv_point_t point);
 
-lv_cache_t *lv_freetype_create_glyph_cache(uint32_t cache_size);
-void lv_freetype_set_cbs_glyph(lv_freetype_font_dsc_t *dsc);
+lv_cache_t * lv_freetype_create_glyph_cache(uint32_t cache_size);
+void lv_freetype_set_cbs_glyph(lv_freetype_font_dsc_t * dsc);
 
-lv_cache_t *lv_freetype_create_draw_data_image(uint32_t cache_size);
-void lv_freetype_set_cbs_image_font(lv_freetype_font_dsc_t *dsc);
+lv_cache_t * lv_freetype_create_draw_data_image(uint32_t cache_size);
+void lv_freetype_set_cbs_image_font(lv_freetype_font_dsc_t * dsc);
 
-lv_cache_t *lv_freetype_create_draw_data_outline(uint32_t cache_size);
-void lv_freetype_set_cbs_outline_font(lv_freetype_font_dsc_t *dsc);
+lv_cache_t * lv_freetype_create_draw_data_outline(uint32_t cache_size);
+void lv_freetype_set_cbs_outline_font(lv_freetype_font_dsc_t * dsc);
 
 /**********************
  *      MACROS

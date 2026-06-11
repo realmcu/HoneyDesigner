@@ -45,8 +45,7 @@ extern "C" {
  * Note: update obj flags corresponding properties below
  * whenever add/remove flags or change bit definition of flags.
  */
-typedef enum
-{
+typedef enum {
     LV_OBJ_FLAG_HIDDEN          = (1L << 0),  /**< Make the object hidden. (Like it wasn't there at all)*/
     LV_OBJ_FLAG_CLICKABLE       = (1L << 1),  /**< Make the object clickable by the input devices*/
     LV_OBJ_FLAG_CLICK_FOCUSABLE = (1L << 2),  /**< Add focused state to the object when clicked*/
@@ -87,8 +86,7 @@ typedef enum
 } lv_obj_flag_t;
 
 #if LV_USE_OBJ_PROPERTY
-enum _lv_signed_prop_id_t
-{
+enum _lv_signed_prop_id_t {
     /*OBJ flag properties */
     LV_PROPERTY_ID(OBJ, FLAG_START,                 LV_PROPERTY_TYPE_INT,       0),
     LV_PROPERTY_ID(OBJ, FLAG_HIDDEN,                LV_PROPERTY_TYPE_INT,       0),
@@ -188,7 +186,7 @@ LV_ATTRIBUTE_EXTERN_DATA extern const lv_obj_class_t lv_obj_class;
  * @param parent    pointer to a parent object. If NULL then a screen will be created.
  * @return          pointer to the new object
  */
-lv_obj_t *lv_obj_create(lv_obj_t *parent);
+lv_obj_t * lv_obj_create(lv_obj_t * parent);
 
 /*=====================
  * Setter functions
@@ -199,14 +197,14 @@ lv_obj_t *lv_obj_create(lv_obj_t *parent);
  * @param obj   pointer to an object
  * @param f     OR-ed values from `lv_obj_flag_t` to set.
  */
-void lv_obj_add_flag(lv_obj_t *obj, lv_obj_flag_t f);
+void lv_obj_add_flag(lv_obj_t * obj, lv_obj_flag_t f);
 
 /**
  * Remove one or more flags
  * @param obj   pointer to an object
  * @param f     OR-ed values from `lv_obj_flag_t` to clear.
  */
-void lv_obj_remove_flag(lv_obj_t *obj, lv_obj_flag_t f);
+void lv_obj_remove_flag(lv_obj_t * obj, lv_obj_flag_t f);
 
 /**
  * Set add or remove one or more flags.
@@ -214,7 +212,7 @@ void lv_obj_remove_flag(lv_obj_t *obj, lv_obj_flag_t f);
  * @param f     OR-ed values from `lv_obj_flag_t` to update.
  * @param v     true: add the flags; false: remove the flags
  */
-void lv_obj_set_flag(lv_obj_t *obj, lv_obj_flag_t f, bool v);
+void lv_obj_set_flag(lv_obj_t * obj, lv_obj_flag_t f, bool v);
 
 /**
  * Add one or more states to the object. The other state bits will remain unchanged.
@@ -222,7 +220,7 @@ void lv_obj_set_flag(lv_obj_t *obj, lv_obj_flag_t f, bool v);
  * @param obj       pointer to an object
  * @param state     the states to add. E.g `LV_STATE_PRESSED | LV_STATE_FOCUSED`
  */
-void lv_obj_add_state(lv_obj_t *obj, lv_state_t state);
+void lv_obj_add_state(lv_obj_t * obj, lv_state_t state);
 
 /**
  * Remove one or more states to the object. The other state bits will remain unchanged.
@@ -230,7 +228,7 @@ void lv_obj_add_state(lv_obj_t *obj, lv_state_t state);
  * @param obj       pointer to an object
  * @param state     the states to add. E.g `LV_STATE_PRESSED | LV_STATE_FOCUSED`
  */
-void lv_obj_remove_state(lv_obj_t *obj, lv_state_t state);
+void lv_obj_remove_state(lv_obj_t * obj, lv_state_t state);
 
 /**
  * Add or remove one or more states to the object. The other state bits will remain unchanged.
@@ -238,14 +236,14 @@ void lv_obj_remove_state(lv_obj_t *obj, lv_state_t state);
  * @param state     the states to add. E.g `LV_STATE_PRESSED | LV_STATE_FOCUSED`
  * @param v         true: add the states; false: remove the states
  */
-void lv_obj_set_state(lv_obj_t *obj, lv_state_t state, bool v);
+void lv_obj_set_state(lv_obj_t * obj, lv_state_t state, bool v);
 
 /**
  * Set the user_data field of the object
  * @param obj   pointer to an object
  * @param user_data   pointer to the new user_data.
  */
-void lv_obj_set_user_data(lv_obj_t *obj, void *user_data);
+void lv_obj_set_user_data(lv_obj_t * obj, void * user_data);
 
 /*=======================
  * Getter functions
@@ -257,7 +255,7 @@ void lv_obj_set_user_data(lv_obj_t *obj, void *user_data);
  * @param f     the flag(s) to check (OR-ed values can be used)
  * @return      true: all flags are set; false: not all flags are set
  */
-bool lv_obj_has_flag(const lv_obj_t *obj, lv_obj_flag_t f);
+bool lv_obj_has_flag(const lv_obj_t * obj, lv_obj_flag_t f);
 
 /**
  * Check if a given flag or any of the flags are set on an object.
@@ -265,14 +263,14 @@ bool lv_obj_has_flag(const lv_obj_t *obj, lv_obj_flag_t f);
  * @param f     the flag(s) to check (OR-ed values can be used)
  * @return      true: at least one flag is set; false: none of the flags are set
  */
-bool lv_obj_has_flag_any(const lv_obj_t *obj, lv_obj_flag_t f);
+bool lv_obj_has_flag_any(const lv_obj_t * obj, lv_obj_flag_t f);
 
 /**
  * Get the state of an object
  * @param obj   pointer to an object
  * @return      the state (OR-ed values from `lv_state_t`)
  */
-lv_state_t lv_obj_get_state(const lv_obj_t *obj);
+lv_state_t lv_obj_get_state(const lv_obj_t * obj);
 
 /**
  * Check if the object is in a given state or not.
@@ -280,21 +278,21 @@ lv_state_t lv_obj_get_state(const lv_obj_t *obj);
  * @param state     a state or combination of states to check
  * @return          true: `obj` is in `state`; false: `obj` is not in `state`
  */
-bool lv_obj_has_state(const lv_obj_t *obj, lv_state_t state);
+bool lv_obj_has_state(const lv_obj_t * obj, lv_state_t state);
 
 /**
  * Get the group of the object
  * @param       obj pointer to an object
  * @return      the pointer to group of the object
  */
-lv_group_t *lv_obj_get_group(const lv_obj_t *obj);
+lv_group_t * lv_obj_get_group(const lv_obj_t * obj);
 
 /**
  * Get the user_data field of the object
  * @param obj   pointer to an object
  * @return      the pointer to the user_data of the object
  */
-void *lv_obj_get_user_data(lv_obj_t *obj);
+void * lv_obj_get_user_data(lv_obj_t * obj);
 
 /*=======================
  * Other functions
@@ -304,7 +302,7 @@ void *lv_obj_get_user_data(lv_obj_t *obj);
  * Allocate special data for an object if not allocated yet.
  * @param obj   pointer to an object
  */
-void lv_obj_allocate_spec_attr(lv_obj_t *obj);
+void lv_obj_allocate_spec_attr(lv_obj_t * obj);
 
 /**
  * Check the type of obj.
@@ -312,7 +310,7 @@ void lv_obj_allocate_spec_attr(lv_obj_t *obj);
  * @param class_p   a class to check (e.g. `lv_slider_class`)
  * @return          true: `class_p` is the `obj` class.
  */
-bool lv_obj_check_type(const lv_obj_t *obj, const lv_obj_class_t *class_p);
+bool lv_obj_check_type(const lv_obj_t * obj, const lv_obj_class_t * class_p);
 
 /**
  * Check if any object has a given class (type).
@@ -321,21 +319,21 @@ bool lv_obj_check_type(const lv_obj_t *obj, const lv_obj_class_t *class_p);
  * @param class_p   a class to check (e.g. `lv_slider_class`)
  * @return          true: `obj` has the given class
  */
-bool lv_obj_has_class(const lv_obj_t *obj, const lv_obj_class_t *class_p);
+bool lv_obj_has_class(const lv_obj_t * obj, const lv_obj_class_t * class_p);
 
 /**
  * Get the class (type) of the object
  * @param obj   pointer to an object
  * @return      the class (type) of the object
  */
-const lv_obj_class_t *lv_obj_get_class(const lv_obj_t *obj);
+const lv_obj_class_t * lv_obj_get_class(const lv_obj_t * obj);
 
 /**
  * Check if any object is still "alive".
  * @param obj       pointer to an object
  * @return          true: valid
  */
-bool lv_obj_is_valid(const lv_obj_t *obj);
+bool lv_obj_is_valid(const lv_obj_t * obj);
 
 /**
  * Utility to set an object reference to NULL when it gets deleted.
@@ -343,7 +341,7 @@ bool lv_obj_is_valid(const lv_obj_t *obj);
  * during the object's lifetime, i.e. static or allocated.
  * @param obj_ptr   a pointer to a pointer to an object
  */
-void lv_obj_null_on_delete(lv_obj_t **obj_ptr);
+void lv_obj_null_on_delete(lv_obj_t ** obj_ptr);
 
 /**
  * Add an event handler to a widget that will load a screen on a trigger.
@@ -354,7 +352,7 @@ void lv_obj_null_on_delete(lv_obj_t **obj_ptr);
  * @param duration      duration of the animation in milliseconds
  * @param delay         delay before the screen load in milliseconds
  */
-void lv_obj_add_screen_load_event(lv_obj_t *obj, lv_event_code_t trigger, lv_obj_t *screen,
+void lv_obj_add_screen_load_event(lv_obj_t * obj, lv_event_code_t trigger, lv_obj_t * screen,
                                   lv_screen_load_anim_t anim_type, uint32_t duration, uint32_t delay);
 
 /**
@@ -367,8 +365,7 @@ void lv_obj_add_screen_load_event(lv_obj_t *obj, lv_event_code_t trigger, lv_obj
  * @param duration          duration of the animation in milliseconds
  * @param delay             delay before the screen load in milliseconds
  */
-void lv_obj_add_screen_create_event(lv_obj_t *obj, lv_event_code_t trigger,
-                                    lv_screen_create_cb_t screen_create_cb,
+void lv_obj_add_screen_create_event(lv_obj_t * obj, lv_event_code_t trigger, lv_screen_create_cb_t screen_create_cb,
                                     lv_screen_load_anim_t anim_type, uint32_t duration, uint32_t delay);
 
 
@@ -380,8 +377,7 @@ void lv_obj_add_screen_create_event(lv_obj_t *obj, lv_event_code_t trigger,
  * @param delay             wait time before starting the animation
  * @param reverse           true: play in reverse
  */
-void lv_obj_add_play_timeline_event(lv_obj_t *obj, lv_event_code_t trigger, lv_anim_timeline_t *at,
-                                    uint32_t delay,
+void lv_obj_add_play_timeline_event(lv_obj_t * obj, lv_event_code_t trigger, lv_anim_timeline_t * at, uint32_t delay,
                                     bool reverse);
 
 #if LV_USE_OBJ_ID
@@ -390,14 +386,14 @@ void lv_obj_add_play_timeline_event(lv_obj_t *obj, lv_event_code_t trigger, lv_a
  * @param obj   pointer to an object
  * @param id    the id of the object
  */
-void lv_obj_set_id(lv_obj_t *obj, void *id);
+void lv_obj_set_id(lv_obj_t * obj, void * id);
 
 /**
  * Get the id of an object.
  * @param obj   pointer to an object
  * @return      the id of the object
  */
-void *lv_obj_get_id(const lv_obj_t *obj);
+void * lv_obj_get_id(const lv_obj_t * obj);
 
 /**
  * DEPRECATED IDs are used only to print the widget trees.
@@ -411,7 +407,7 @@ void *lv_obj_get_id(const lv_obj_t *obj);
  * @param id        the id of the child object
  * @return          pointer to the child object or NULL if not found
  */
-lv_obj_t *lv_obj_find_by_id(const lv_obj_t *obj, const void *id);
+lv_obj_t * lv_obj_find_by_id(const lv_obj_t * obj, const void * id);
 
 /**
  * Assign id to object if not previously assigned.
@@ -424,14 +420,14 @@ lv_obj_t *lv_obj_find_by_id(const lv_obj_t *obj, const void *id);
  * @param class_p   the class this obj belongs to. Note obj->class_p is the class currently being constructed.
  * @param obj   pointer to an object
  */
-void lv_obj_assign_id(const lv_obj_class_t *class_p, lv_obj_t *obj);
+void lv_obj_assign_id(const lv_obj_class_t * class_p, lv_obj_t * obj);
 
 /**
  * Free resources allocated by `lv_obj_assign_id` or `lv_obj_set_id`.
  * This function is also called automatically when object is deleted.
  * @param obj   pointer to an object
  */
-void lv_obj_free_id(lv_obj_t *obj);
+void lv_obj_free_id(lv_obj_t * obj);
 
 /**
  * Compare two obj id, return 0 if they are equal.
@@ -443,7 +439,7 @@ void lv_obj_free_id(lv_obj_t *obj);
  * @param id2: the second id
  * @return     0 if they are equal, non-zero otherwise.
  */
-int lv_obj_id_compare(const void *id1, const void *id2);
+int lv_obj_id_compare(const void * id1, const void * id2);
 
 /**
  * Format an object's id into a string.
@@ -451,7 +447,7 @@ int lv_obj_id_compare(const void *id1, const void *id2);
  * @param buf   buffer to write the string into
  * @param len   length of the buffer
  */
-const char *lv_obj_stringify_id(lv_obj_t *obj, char *buf, uint32_t len);
+const char * lv_obj_stringify_id(lv_obj_t * obj, char * buf, uint32_t len);
 
 #if LV_USE_OBJ_ID_BUILTIN
 /**
