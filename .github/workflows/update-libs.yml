@@ -43,7 +43,7 @@ jobs:
         run: |
           cd /tmp/HoneyGUI/lib/gcc
           mkdir -p build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake ..
           make -j$(nproc)
           make install
 
@@ -205,7 +205,7 @@ jobs:
           Set-Location C:/tmp/HoneyGUI/lib/gcc
           New-Item -ItemType Directory -Force build | Out-Null
           Set-Location build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
+          cmake .. -G "MinGW Makefiles" `
             -DCMAKE_C_COMPILER="C:/mingw810/mingw64/bin/gcc.exe" `
             -DCMAKE_CXX_COMPILER="C:/mingw810/mingw64/bin/g++.exe" `
             -DCMAKE_MAKE_PROGRAM="C:/mingw810/mingw64/bin/mingw32-make.exe"
