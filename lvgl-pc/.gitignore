@@ -17,6 +17,8 @@ src/generated/
 # Keep prebuilt LVGL artifacts if you choose to vendor them
 !lvgl-lib/
 !lvgl-lib/**
+!lvgl-lib-win32/
+!lvgl-lib-win32/**
 _lvgl_build/
 # Common IDE/temp files
 .vscode/
