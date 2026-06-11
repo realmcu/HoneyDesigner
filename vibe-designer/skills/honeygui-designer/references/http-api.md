@@ -26,7 +26,7 @@ curl http://localhost:38912/health
 
 ---
 
-## 核心端点
+## 可用端点
 
 ### 1. GET /health
 
@@ -163,29 +163,7 @@ curl -X POST http://localhost:38912/api/validate-hml \
 
 ---
 
-### 4. POST /api/new-project
-
-创建新的 HoneyGUI 项目。
-
-**请求**：
-```bash
-curl -X POST http://localhost:38912/api/new-project
-```
-
-**响应**：
-```json
-{
-  "success": true,
-  "command": "honeygui.newProject",
-  "data": {
-    "message": "Project created successfully"
-  }
-}
-```
-
----
-
-### 5. POST /api/codegen
+### 4. POST /api/codegen
 
 为当前项目生成 C 代码。
 
@@ -210,9 +188,11 @@ curl -X POST http://localhost:38912/api/codegen
 }
 ```
 
+**注意**：需要在 VS Code 中打开 HoneyGUI 项目工作区，且项目中存在 HML 文件。
+
 ---
 
-### 6. POST /api/simulation/run
+### 5. POST /api/simulation/run
 
 运行 GUI 仿真。
 
@@ -234,7 +214,7 @@ curl -X POST http://localhost:38912/api/simulation/run
 
 ---
 
-### 7. POST /api/simulation/stop
+### 6. POST /api/simulation/stop
 
 停止运行中的仿真。
 
@@ -253,6 +233,29 @@ curl -X POST http://localhost:38912/api/simulation/stop
   }
 }
 ```
+
+---
+
+## 全部端点一览
+
+| 端点 | 用途 | 需要UI |
+|------|------|--------|
+| `GET /health` | 健康检查 | 否 |
+| `GET /api/version` | 版本信息 | 否 |
+| `GET /api/commands` | 列出所有可用命令 | 否 |
+| `POST /api/new-project` | 创建新项目 | 是（弹出对话框）|
+| `POST /api/open-project` | 打开项目 | 是（弹出对话框）|
+| `POST /api/create-hml` | 创建新 HML 文件 | 否 |
+| `POST /api/open-designer` | 在设计器中打开 HML | 否（需 filePath）|
+| `POST /api/open-text-editor` | 在文本编辑器中打开 HML | 否（需 filePath）|
+| `POST /api/codegen` | 生成 C 代码 | 否 |
+| `POST /api/simulation/run` | 运行仿真 | 否 |
+| `POST /api/simulation/debug` | 调试仿真 | 否 |
+| `POST /api/simulation/stop` | 停止仿真 | 否 |
+| `POST /api/tools` | 打开资源转换工具 | 是（弹出面板）|
+| `POST /api/map-tools` | 打开地图工具 | 是（弹出面板）|
+| `POST /api/environment/refresh` | 刷新环境检查 | 否 |
+| `POST /api/validate-hml` | 验证 HML | 否 |
 
 ---
 
@@ -276,14 +279,16 @@ curl -X POST http://localhost:38912/api/simulation/stop
 |--------|-------------|------|
 | `INVALID_PARAMETER` | 400 | 缺少必需参数或参数格式错误 |
 | `FILE_NOT_FOUND` | 404 | 文件路径不存在 |
-| `COMMAND_EXECUTION_ERROR` | 500 | VSCode 命令执行失败 |
+| `NOT_FOUND` | 404 | 端点不存在 |
 | `VALIDATION_ERROR` | 500 | 验证服务内部错误 |
+| `COMMAND_EXECUTION_ERROR` | 500 | VSCode 命令执行失败 |
+| `INTERNAL_ERROR` | 500 | 服务器内部错误 |
 
 ---
 
 ## 使用示例
 
-### 完整工作流：生成并验证 HML
+### AI 工作流：生成、验证、编译 HML
 
 ```bash
 # 1. 检查服务是否运行
@@ -295,7 +300,7 @@ HML_CONTENT='<?xml version="1.0" encoding="UTF-8"?>
   <meta><title>My App</title></meta>
   <view>
     <hg_view id="view_main" entry="true" x="0" y="0" w="454" h="454">
-      <hg_label id="lbl_title" x="100" y="50" width="254" height="40" 
+      <hg_label id="lbl_title" x="100" y="50" width="254" height="40"
                 text="Hello World" fontFile="/NotoSansSC-Bold.ttf" />
     </hg_view>
   </view>
@@ -306,7 +311,7 @@ curl -X POST http://localhost:38912/api/validate-hml \
   -H "Content-Type: application/json" \
   -d "{\"hmlContent\":\"$HML_CONTENT\"}"
 
-# 4. 如果验证通过，保存文件并生成代码
+# 4. 如果验证通过，保存文件到项目
 # （保存文件由 AI 使用 Write tool 完成）
 
 # 5. 生成 C 代码
@@ -321,15 +326,7 @@ curl -X POST http://localhost:38912/api/simulation/run
 ## 注意事项
 
 1. **Extension 必须运行**：所有 API 调用前应先检查 `/health` 端点
-2. **工作区要求**：某些命令（如 codegen）需要打开 HoneyGUI 项目工作区
+2. **工作区要求**：大多数命令（codegen、simulation 等）需要在 VSCode 中打开 HoneyGUI 项目工作区
 3. **验证优先**：生成 HML 后应始终调用 `/api/validate-hml` 验证
 4. **文件路径**：`filePath` 参数支持相对路径（相对于 VSCode 工作区根目录）和绝对路径
 5. **错误处理**：始终检查 `success` 字段，并处理错误情况
-
----
-
-## 相关文档
-
-- **HML 规范**：`docs/HML-Spec-zh.md`
-- **验证规则**：参见 SKILL.md 的"关键约束"章节
-- **组件文档**：`references/components.md`

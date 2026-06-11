@@ -245,58 +245,58 @@ export class ExtensionApiService implements vscode.Disposable {
             return this.handleValidateHml(req, res);
         }
 
-        // 其他端点暂时禁用
-        // if (method === 'GET' && url === '/api/commands') {
-        //     return this.handleListCommands(req, res);
-        // }
+        // 命令列表
+        if (method === 'GET' && url === '/api/commands') {
+            return this.handleListCommands(req, res);
+        }
 
-        // // 项目相关
-        // if (method === 'POST' && url === '/api/new-project') {
-        //     return this.handleNewProject(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/open-project') {
-        //     return this.handleOpenProject(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/create-hml') {
-        //     return this.handleCreateHml(req, res);
-        // }
+        // 项目相关
+        if (method === 'POST' && url === '/api/new-project') {
+            return this.handleNewProject(req, res);
+        }
+        if (method === 'POST' && url === '/api/open-project') {
+            return this.handleOpenProject(req, res);
+        }
+        if (method === 'POST' && url === '/api/create-hml') {
+            return this.handleCreateHml(req, res);
+        }
 
-        // // 设计器相关
-        // if (method === 'POST' && url === '/api/open-designer') {
-        //     return this.handleOpenDesigner(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/open-text-editor') {
-        //     return this.handleOpenTextEditor(req, res);
-        // }
+        // 设计器相关
+        if (method === 'POST' && url === '/api/open-designer') {
+            return this.handleOpenDesigner(req, res);
+        }
+        if (method === 'POST' && url === '/api/open-text-editor') {
+            return this.handleOpenTextEditor(req, res);
+        }
 
-        // // 代码生成
-        // if (method === 'POST' && url === '/api/codegen') {
-        //     return this.handleCodegen(req, res);
-        // }
+        // 代码生成
+        if (method === 'POST' && url === '/api/codegen') {
+            return this.handleCodegen(req, res);
+        }
 
-        // // 仿真相关
-        // if (method === 'POST' && url === '/api/simulation/run') {
-        //     return this.handleSimulationRun(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/simulation/debug') {
-        //     return this.handleSimulationDebug(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/simulation/stop') {
-        //     return this.handleSimulationStop(req, res);
-        // }
+        // 仿真相关
+        if (method === 'POST' && url === '/api/simulation/run') {
+            return this.handleSimulationRun(req, res);
+        }
+        if (method === 'POST' && url === '/api/simulation/debug') {
+            return this.handleSimulationDebug(req, res);
+        }
+        if (method === 'POST' && url === '/api/simulation/stop') {
+            return this.handleSimulationStop(req, res);
+        }
 
-        // // 工具
-        // if (method === 'POST' && url === '/api/tools') {
-        //     return this.handleTools(req, res);
-        // }
-        // if (method === 'POST' && url === '/api/map-tools') {
-        //     return this.handleMapTools(req, res);
-        // }
+        // 工具
+        if (method === 'POST' && url === '/api/tools') {
+            return this.handleTools(req, res);
+        }
+        if (method === 'POST' && url === '/api/map-tools') {
+            return this.handleMapTools(req, res);
+        }
 
-        // // 环境
-        // if (method === 'POST' && url === '/api/environment/refresh') {
-        //     return this.handleEnvironmentRefresh(req, res);
-        // }
+        // 环境
+        if (method === 'POST' && url === '/api/environment/refresh') {
+            return this.handleEnvironmentRefresh(req, res);
+        }
 
         // 404 Not Found
         res.statusCode = 404;
