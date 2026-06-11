@@ -234,12 +234,11 @@ jobs:
 
       # ── LVGL Linux build ───────────────────────────────────────
 
-      - name: Clone LVGL source
-        run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git /tmp/lvgl-src
-
       - name: Get LVGL commit hash
         id: lvgl-info
-        run: echo "sha=$(git -C /tmp/lvgl-src rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          sha=$(git ls-remote https://gitee.com/realmcu/lvgl.git refs/heads/lvgl_v9 | cut -f1)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Cache Linux liblvgl.a
         id: cache-lvgl-linux
@@ -247,6 +246,10 @@ jobs:
         with:
           path: lvgl-pc/lvgl-lib-linux
           key: liblvgl-linux-${{ steps.lvgl-info.outputs.sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
+
+      - name: Clone LVGL source
+        if: steps.cache-lvgl-linux.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git /tmp/lvgl-src
 
       - name: Build liblvgl.a for Linux
         if: steps.cache-lvgl-linux.outputs.cache-hit != 'true'
@@ -367,13 +370,12 @@ jobs:
 
       # ── LVGL Win32 build ────────────────────────────────────────────────
 
-      - name: Clone LVGL source
-        run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git C:/tmp/lvgl-src
-
       - name: Get LVGL commit hash
         id: lvgl-info
         shell: pwsh
-        run: echo "sha=$(git -C C:/tmp/lvgl-src rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+        run: |
+          $sha = (git ls-remote https://gitee.com/realmcu/lvgl.git refs/heads/lvgl_v9) -split '\s+' | Select-Object -First 1
+          echo "sha=$sha" >> $env:GITHUB_OUTPUT
 
       - name: Cache Win32 liblvgl.a
         id: cache-lvgl-win32
@@ -381,6 +383,10 @@ jobs:
         with:
           path: lvgl-pc/lvgl-lib-win32
           key: liblvgl-win32-${{ steps.lvgl-info.outputs.sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
+
+      - name: Clone LVGL source
+        if: steps.cache-lvgl-win32.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git C:/tmp/lvgl-src
 
       - name: Build liblvgl.a for Win32
         if: steps.cache-lvgl-win32.outputs.cache-hit != 'true'
