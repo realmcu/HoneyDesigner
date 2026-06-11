@@ -237,22 +237,31 @@ jobs:
       - name: Get LVGL commit hash
         id: lvgl-info
         run: |
-          sha=$(git ls-remote https://gitee.com/realmcu/lvgl.git refs/heads/lvgl_v9 | cut -f1)
+          for i in 1 2 3; do
+            sha=$(git ls-remote https://gitee.com/realmcu/lvgl.git refs/heads/lvgl_v9 | cut -f1)
+            [ -n "$sha" ] && break
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          if [ -z "$sha" ]; then
+            echo "⚠️ Failed to get LVGL sha after 3 attempts, skipping LVGL update"
+          fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Cache Linux liblvgl.a
         id: cache-lvgl-linux
+        if: steps.lvgl-info.outputs.sha != ''
         uses: actions/cache@v4
         with:
           path: lvgl-pc/lvgl-lib-linux
           key: liblvgl-linux-${{ steps.lvgl-info.outputs.sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
 
       - name: Clone LVGL source
-        if: steps.cache-lvgl-linux.outputs.cache-hit != 'true'
+        if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-linux.outputs.cache-hit != 'true'
         run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git /tmp/lvgl-src
 
       - name: Build liblvgl.a for Linux
-        if: steps.cache-lvgl-linux.outputs.cache-hit != 'true'
+        if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-linux.outputs.cache-hit != 'true'
         run: |
           LVGL_PC_ROOT=$(pwd)/lvgl-pc
           LVGL_SRC=/tmp/lvgl-src
@@ -374,22 +383,30 @@ jobs:
         id: lvgl-info
         shell: pwsh
         run: |
-          $sha = (git ls-remote https://gitee.com/realmcu/lvgl.git refs/heads/lvgl_v9) -split '\s+' | Select-Object -First 1
+          $sha = ""
+          for ($i = 1; $i -le 3; $i++) {
+            $result = git ls-remote https://gitee.com/realmcu/lvgl.git refs/heads/lvgl_v9
+            if ($result) { $sha = ($result -split '\s+')[0]; break }
+            Write-Output "Attempt $i failed, retrying in 5s..."
+            Start-Sleep -Seconds 5
+          }
+          if (-not $sha) { Write-Output "⚠️ Failed to get LVGL sha after 3 attempts, skipping LVGL update" }
           echo "sha=$sha" >> $env:GITHUB_OUTPUT
 
       - name: Cache Win32 liblvgl.a
         id: cache-lvgl-win32
+        if: steps.lvgl-info.outputs.sha != ''
         uses: actions/cache@v4
         with:
           path: lvgl-pc/lvgl-lib-win32
           key: liblvgl-win32-${{ steps.lvgl-info.outputs.sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
 
       - name: Clone LVGL source
-        if: steps.cache-lvgl-win32.outputs.cache-hit != 'true'
+        if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-win32.outputs.cache-hit != 'true'
         run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git C:/tmp/lvgl-src
 
       - name: Build liblvgl.a for Win32
-        if: steps.cache-lvgl-win32.outputs.cache-hit != 'true'
+        if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-win32.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           $env:PATH = "C:\msys64\mingw64\bin;" + $env:PATH
