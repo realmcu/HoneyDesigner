@@ -12,8 +12,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # ============================================================
 # Paths
 # ============================================================
-set(LVGL_PREBUILT_DIR "${CMAKE_CURRENT_LIST_DIR}/lvgl-lib"
-    CACHE PATH "Path to prebuilt LVGL install prefix")
+if(WIN32)
+    set(LVGL_PREBUILT_DIR "${CMAKE_CURRENT_LIST_DIR}/lvgl-lib"
+        CACHE PATH "Path to prebuilt LVGL install prefix")
+else()
+    set(LVGL_PREBUILT_DIR "${CMAKE_CURRENT_LIST_DIR}/lvgl-lib-linux"
+        CACHE PATH "Path to prebuilt LVGL install prefix")
+endif()
 set(LVGL_PREBUILT_INCLUDE_DIR "${LVGL_PREBUILT_DIR}/include/lvgl")
 
 # SDL2 static library bundled with the extension
