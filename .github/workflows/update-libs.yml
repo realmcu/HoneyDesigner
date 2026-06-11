@@ -83,7 +83,14 @@ jobs:
 
       - name: Clone LVGL source
         if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-linux.outputs.cache-hit != 'true'
-        run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git /tmp/lvgl-src
+        run: |
+          for i in 1 2 3; do
+            git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git /tmp/lvgl-src && break
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+            rm -rf /tmp/lvgl-src
+          done
+          [ -d /tmp/lvgl-src/.git ] || exit 1
 
       - name: Build liblvgl.a for Linux
         if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-linux.outputs.cache-hit != 'true'
@@ -220,7 +227,16 @@ jobs:
 
       - name: Clone LVGL source
         if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-win32.outputs.cache-hit != 'true'
-        run: git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git C:/tmp/lvgl-src
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 3; $i++) {
+            git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git C:/tmp/lvgl-src
+            if ($LASTEXITCODE -eq 0) { break }
+            Write-Output "Attempt $i failed, retrying in 5s..."
+            Start-Sleep -Seconds 5
+            Remove-Item -Recurse -Force C:/tmp/lvgl-src -ErrorAction SilentlyContinue
+          }
+          if (-not (Test-Path "C:/tmp/lvgl-src/.git")) { exit 1 }
 
       - name: Build liblvgl.a for Win32
         if: steps.lvgl-info.outputs.sha != '' && steps.cache-lvgl-win32.outputs.cache-hit != 'true'
