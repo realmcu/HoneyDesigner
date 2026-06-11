@@ -132,9 +132,7 @@ jobs:
 
           SDK commit: ${{ steps.sdk-info.outputs.sha }}
           SDK message: ${{ steps.sdk-info.outputs.message }}
-          LVGL commit: ${{ steps.lvgl-info.outputs.sha }}
-
-          [skip ci]"
+          LVGL commit: ${{ steps.lvgl-info.outputs.sha }}"
 
           git push origin HEAD:master
 
@@ -281,9 +279,7 @@ jobs:
 
           SDK commit: ${{ steps.sdk-info.outputs.sha }}
           SDK message: ${{ steps.sdk-info.outputs.message }}
-          LVGL commit: ${{ steps.lvgl-info.outputs.sha }}
-
-          [skip ci]"
+          LVGL commit: ${{ steps.lvgl-info.outputs.sha }}"
 
           git pull --rebase origin master
           git push origin HEAD:master
