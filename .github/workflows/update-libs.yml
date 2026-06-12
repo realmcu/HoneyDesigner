@@ -2,7 +2,7 @@ name: Update Simulation Libraries
 
 on:
   schedule:
-    - cron: '0 2 * * *'      # 每天 UTC 02:00
+    - cron: '0 20 * * *'     # 每天 UTC 20:00（北京时间次日 04:00）
   workflow_dispatch:           # 手动触发
   repository_dispatch:         # 联动触发（HoneyGUI 仓库 push 时可发送此事件）
     types: [honeygui-sdk-updated]
