@@ -9,8 +9,8 @@
 
 #define VERSION_TAG "0.0.0"
 #define VERSION_BRANCH "master"
-#define VERSION_COMMIT "cac4209"
-#define VERSION_BUILD_DATE "2026-06-11 09:51:12"
+#define VERSION_COMMIT "daa623d"
+#define VERSION_BUILD_DATE "2026-06-15 08:46:09"
 #define VERSION_REPO_STATUS "clean"
 
 #endif // GUI_VERSION_H
