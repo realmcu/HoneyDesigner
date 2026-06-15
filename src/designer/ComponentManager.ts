@@ -19,21 +19,20 @@ export class ComponentManager {
      * 处理添加组件的请求
      * 注意：前端已经在 store 中添加了组件并随后发送 save 命令持久化，
      * 此处不再重复添加到 HML 模型（避免产生不同 ID 的重复组件）。
-     * 协作广播已在 MessageHandler.handleMessage 入口处处理。
      */
     public handleAddComponent(_parentId: string, _componentData: Omit<Component, 'id' | 'children'>): void {
         // 前端的 addComponent → saveToFile 流程已经处理了持久化，
         // 这里不再操作 HML 模型，避免竞态条件导致的重复组件问题。
         logger.debug('[ComponentManager] handleAddComponent: 跳过（由 save 命令统一处理）');
     }
-    
+
     /**
      * 处理更新组件的请求
      */
     public handleUpdateComponent(componentId: string, updates: any): void {
         try {
             const updatedComponent = this._hmlController.updateComponent(componentId, updates);
-            
+
             if (updatedComponent) {
                 // 通知Webview组件已更新成功
                 this._panel.webview.postMessage({
@@ -57,14 +56,14 @@ export class ComponentManager {
             });
         }
     }
-    
+
     /**
      * 处理删除组件的请求
      */
     public handleDeleteComponent(componentId: string): void {
         try {
             const success = this._hmlController.deleteComponent(componentId);
-            
+
             if (success) {
                 // 通知Webview组件已删除成功
                 this._panel.webview.postMessage({
@@ -101,7 +100,7 @@ export class ComponentManager {
             updates.data[propertyName] = value;
 
             const updatedComponent = this._hmlController.updateComponent(componentId, updates);
-            
+
             if (updatedComponent) {
                 // 通知Webview组件属性已更新
                 this._panel.webview.postMessage({

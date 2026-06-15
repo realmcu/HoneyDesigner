@@ -5,9 +5,9 @@
 
 import { create } from 'zustand';
 import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings } from './types';
-import { 
-  alignComponents, 
-  distributeComponents, 
+import {
+  alignComponents,
+  distributeComponents,
   resizeComponents,
   AlignType,
   DistributeType,
@@ -53,13 +53,13 @@ function rebuildComponentsArray(
 ): Component[] {
   const siblingIds = new Set(reorderedSiblings.map(s => s.id));
   const newChildrenOrder = reorderedSiblings.map(s => s.id);
-  
+
   // 更新重排后的同级组件的 zIndex（按新顺序分配 zIndex）
   const reorderedSiblingsWithZIndex = reorderedSiblings.map((sibling, index) => ({
     ...sibling,
     zIndex: index
   }));
-  
+
   const result: Component[] = [];
   let siblingsInserted = false;
 
@@ -111,7 +111,7 @@ function collectTree(components: Component[], root: Component): Component[] {
  */
 function cloneComponentTree(components: Component[], rootComponent: Component, allComponents: Component[], extraIds?: string[]): Component[] {
   const toClone = collectTree(components, rootComponent);
-  
+
   // 第一步：为所有组件生成新 ID，并建立映射
   const idMap = new Map<string, string>();
   let trackingComponents = [...allComponents];
@@ -120,7 +120,7 @@ function cloneComponentTree(components: Component[], rootComponent: Component, a
     idMap.set(comp.id, newId);
     trackingComponents.push({ ...comp, id: newId } as Component);
   }
-  
+
   // 第二步：用映射后的 ID 创建克隆组件
   return toClone.map(comp => ({
     ...comp,
@@ -159,13 +159,13 @@ export interface DesignerStore extends DesignerState {
   saveViewState: (uiState?: { leftPanelTab?: 'components' | 'assets' | 'tree'; leftPanelVisible?: boolean; rightPanelVisible?: boolean; leftPanelWidth?: number; rightPanelWidth?: number }) => void;
   flushSaveViewState: () => void;
   restoreViewState: (filePath: string) => { restored: boolean; state?: ViewState };
-  
+
   // View connections
   showViewConnections: boolean;
   setShowViewConnections: (show: boolean) => void;
   showViewRelationModal: boolean;
   setShowViewRelationModal: (show: boolean) => void;
-  
+
   // Alignment guides
   showAlignmentGuides: boolean;
   setShowAlignmentGuides: (show: boolean) => void;
@@ -205,7 +205,7 @@ export interface DesignerStore extends DesignerState {
   reorderSiblings: (componentId: string, parentId: string | null | undefined, newIndex: number) => void;
   moveComponentToPosition: (componentId: string, newParentId: string | null | undefined, targetId: string, position: 'before' | 'after') => void;
   moveComponentLayer: (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => void;
-  
+
   // Clipboard operations
   clipboard: Component | null;
   clipboardMultiple: Component[];
@@ -336,7 +336,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   /**
    * 内部共享删除实现：执行实际的组件删除、清理和消息发送
    */
-  const removeComponentsImpl = (ids: string[], options?: { sendCoopMessage?: boolean }) => {
+  const removeComponentsImpl = (ids: string[]) => {
     if (!ids || ids.length === 0) return;
 
     const state = get();
@@ -396,11 +396,6 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     }));
 
     if (vscodeAPI) {
-      // 协同消息（单个删除时需要广播）
-      if (options?.sendCoopMessage && ids.length === 1) {
-        vscodeAPI.postMessage({ command: 'deleteComponent', componentId: ids[0] });
-      }
-
       vscodeAPI.postMessage({ command: 'delete', content: { ids, components: get().components } });
     }
 
@@ -449,7 +444,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     // 确保至少有一个 entry view
     let newComponents = components;
     const hasEntry = components.some(c => c.type === 'hg_view' && (c.data?.entry === true || c.data?.entry === 'true'));
-    
+
     if (!hasEntry && components.some(c => c.type === 'hg_view')) {
       const firstViewIndex = components.findIndex(c => c.type === 'hg_view');
       if (firstViewIndex !== -1) {
@@ -504,22 +499,13 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
 
       return { components: newComponents };
     });
-    
+
     // 如果是 list 控件，自动初始化 list_item 子组件
     if (component.type === 'hg_list') {
       // 使用 setTimeout 确保组件已经添加到 state 中
       setTimeout(() => {
         get().syncListItems(component.id);
       }, 0);
-    }
-    
-    // 发送添加组件消息给后端广播（用于协同）
-    if (vscodeAPI) {
-      vscodeAPI.postMessage({
-        command: 'addComponent',
-        parentId: component.parent,
-        component: component
-      });
     }
 
     // 根据选项决定是否保存
@@ -532,10 +518,10 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     const state = get();
     const before = state.components.find(c => c.id === id);
     if (!before) return;
-    
+
     // 对于 list 控件，验证属性值
     let finalUpdates = { ...updates };
-    
+
     // hg_view entry 互斥逻辑
     if (before.type === 'hg_view' && finalUpdates.data && 'entry' in finalUpdates.data) {
       const newEntry = finalUpdates.data.entry;
@@ -559,12 +545,12 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         }
       }
     }
-    
+
     if (before.type === 'hg_list') {
       // 验证 data 属性
       if (updates.data) {
         const validatedData = { ...updates.data };
-        
+
         // 验证 noteNum >= 1
         if ('noteNum' in validatedData) {
           const noteNum = validatedData.noteNum as number;
@@ -578,14 +564,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             }
           }
         }
-        
+
         finalUpdates.data = validatedData;
       }
-      
+
       // 验证 style 属性
       if (updates.style) {
         const validatedStyle = { ...updates.style };
-        
+
         // 验证 itemWidth >= 1
         if ('itemWidth' in validatedStyle) {
           const itemWidth = validatedStyle.itemWidth as number;
@@ -599,7 +585,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             }
           }
         }
-        
+
         // 验证 itemHeight >= 1
         if ('itemHeight' in validatedStyle) {
           const itemHeight = validatedStyle.itemHeight as number;
@@ -613,7 +599,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             }
           }
         }
-        
+
         // 验证 space >= 0
         if ('space' in validatedStyle) {
           const space = validatedStyle.space as number;
@@ -627,21 +613,21 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             }
           }
         }
-        
+
         finalUpdates.style = validatedStyle;
       }
     }
-    
+
     // 对于几何控件，如果修改了半径或线宽，自动调整 width 和 height
     if (before.type === 'hg_arc' && updates.style) {
       const currentStyle = before.style || {};
       const newStyle = { ...currentStyle, ...updates.style };
       const radius = newStyle.radius ?? 40;
       const strokeWidth = newStyle.strokeWidth ?? 8;
-      
+
       // 自动调整尺寸：width = height = 2 * (radius + strokeWidth)
       const newSize = 2 * (radius + strokeWidth);
-      
+
       finalUpdates.position = {
         ...before.position,
         ...finalUpdates.position,
@@ -649,15 +635,15 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         height: newSize,
       };
     }
-    
+
     if (before.type === 'hg_circle' && updates.style) {
       const currentStyle = before.style || {};
       const newStyle = { ...currentStyle, ...updates.style };
       const radius = newStyle.radius ?? 40;
-      
+
       // 自动调整尺寸：width = height = 2 * radius
       const newSize = 2 * radius;
-      
+
       finalUpdates.position = {
         ...before.position,
         ...finalUpdates.position,
@@ -665,7 +651,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         height: newSize,
       };
     }
-    
+
     // 对于 hg_view，如果设置 entry=true，需要将其他 hg_view 的 entry 设为 false
     if (before.type === 'hg_view' && (finalUpdates.data?.entry === true || finalUpdates.data?.entry === 'true')) {
       set((state) => ({
@@ -690,21 +676,12 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       get().saveToFile();
       return;
     }
-    
+
     set((state) => ({
       components: state.components.map((comp) =>
         comp.id === id ? { ...comp, ...finalUpdates } : comp
       ),
     }));
-
-    // 发送更新组件消息给后端广播（用于协同）
-    if (vscodeAPI) {
-      vscodeAPI.postMessage({
-        command: 'updateComponent',
-        componentId: id,
-        updates: finalUpdates
-      });
-    }
 
     if (options?.save !== false) {
       get().saveToFile();
@@ -713,15 +690,15 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
 
   renameComponent: (oldId, newId) => {
     const state = get();
-    
+
     // 检查新 ID 是否已存在
     if (state.components.some(c => c.id === newId)) {
       return false;
     }
-    
+
     // 获取被重命名的组件
     const targetComponent = state.components.find(c => c.id === oldId);
-    
+
     // 如果是 hg_list 组件，需要同步重命名其子 hg_list_item
     const listItemRenames: Map<string, string> = new Map();
     if (targetComponent?.type === 'hg_list') {
@@ -729,25 +706,25 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       const listItems = state.components.filter(
         c => c.type === 'hg_list_item' && c.parent === oldId
       );
-      
+
       // 为每个 list_item 生成新的 ID
       listItems.forEach(item => {
         // 从旧 ID 中提取 item 后缀（如 _item_1）
         const oldItemId = item.id;
         const itemSuffix = oldItemId.replace(oldId, '');
         const newItemId = newId + itemSuffix;
-        
+
         // 检查新 ID 是否已存在
         if (!state.components.some(c => c.id === newItemId)) {
           listItemRenames.set(oldItemId, newItemId);
         }
       });
     }
-    
+
     // 更新组件 ID 和所有引用
     set((state) => ({
       // 更新选中状态
-      selectedComponent: state.selectedComponent === oldId ? newId : 
+      selectedComponent: state.selectedComponent === oldId ? newId :
         (listItemRenames.has(state.selectedComponent || '') ? listItemRenames.get(state.selectedComponent!)! : state.selectedComponent),
       selectedComponents: state.selectedComponents.map(id => {
         if (id === oldId) return newId;
@@ -757,7 +734,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       // 更新组件列表
       components: state.components.map((comp) => {
         let updated = comp;
-        
+
         // 更新组件自身的 id 和 name
         if (comp.id === oldId) {
           updated = { ...updated, id: newId, name: newId };
@@ -766,14 +743,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           const newItemId = listItemRenames.get(comp.id)!;
           updated = { ...updated, id: newItemId, name: newItemId };
         }
-        
+
         // 更新子组件的 parent 引用
         if (comp.parent === oldId) {
           updated = { ...updated, parent: newId };
         } else if (listItemRenames.has(comp.parent || '')) {
           updated = { ...updated, parent: listItemRenames.get(comp.parent!)! };
         }
-        
+
         // 更新父组件的 children 数组
         if (comp.children) {
           let childrenUpdated = false;
@@ -792,7 +769,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             updated = { ...updated, children: newChildren };
           }
         }
-        
+
         // 更新事件配置中的 target 引用
         if (comp.eventConfigs) {
           const updatedConfigs = comp.eventConfigs.map(ec => ({
@@ -828,7 +805,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           }));
           updated = { ...updated, eventConfigs: updatedConfigs };
         }
-        
+
         // 更新定时动画中的 target 引用（switchView 动作）
         if (comp.data?.timers && Array.isArray(comp.data.timers)) {
           let timersChanged = false;
@@ -867,7 +844,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             updated = { ...updated, data: { ...updated.data, timers: newTimers } };
           }
         }
-        
+
         return updated;
       }),
     }));
@@ -900,7 +877,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       return;
     }
 
-    const result = removeComponentsImpl([id], { sendCoopMessage: true });
+    const result = removeComponentsImpl([id]);
 
     if (vscodeAPI && result) {
       let message = `删除控件: ${id}`;
@@ -993,7 +970,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),
   setOperationInProgress: (op) => set({ operationInProgress: op }),
   setSimulationFlow: (flow) => set((state) => ({ simulationFlow: { ...state.simulationFlow, ...flow } })),
-  
+
   // 保存当前视图状态
   saveViewState: (uiState) => {
     const state = get();
@@ -1037,7 +1014,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       return { restored: false };
     }
   },
-  
+
   // 将指定组件居中显示在画布上
   centerViewOnCanvas: (componentId) => {
     const state = get();
@@ -1046,21 +1023,21 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       console.log('[centerViewOnCanvas] Component not found or no position:', componentId);
       return;
     }
-    
+
     // 获取画布可视区域的尺寸（使用容器而不是画布本身）
     const containerElement = document.querySelector('.designer-canvas-container');
     if (!containerElement) {
       console.log('[centerViewOnCanvas] Canvas container not found');
       return;
     }
-    
+
     const rect = containerElement.getBoundingClientRect();
     const viewportWidth = rect.width;
     const viewportHeight = rect.height;
-    
+
     // 实际缩放比例（与 DesignerCanvas 中的 transform 一致）
     const effectiveZoom = state.zoom / (window.devicePixelRatio || 1);
-    
+
     // 计算组件的绝对位置（累加所有父组件的偏移）
     let absX = component.position.x;
     let absY = component.position.y;
@@ -1073,17 +1050,17 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       parentId = parent?.parent || null;
     }
-    
+
     // 计算组件中心点（在画布坐标系中）
     const compCenterX = absX + component.position.width / 2;
     const compCenterY = absY + component.position.height / 2;
-    
+
     // 计算需要的偏移量，使组件中心对齐视口中心
     // 公式：视口中心 = 组件中心 * effectiveZoom + offset
     // 所以：offset = 视口中心 - 组件中心 * effectiveZoom
     const offsetX = viewportWidth / 2 - compCenterX * effectiveZoom;
     const offsetY = viewportHeight / 2 - compCenterY * effectiveZoom;
-    
+
     console.log('[centerViewOnCanvas]', {
       componentId,
       absPos: { x: absX, y: absY },
@@ -1093,7 +1070,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       effectiveZoom,
       offset: { x: offsetX, y: offsetY }
     });
-    
+
     set({ canvasOffset: { x: offsetX, y: offsetY } });
   },
 
@@ -1245,7 +1222,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     const { components } = get();
     const component = components.find((c) => c.id === id);
     if (!component) return;
-    
+
     // 禁止复制列表项
     if (component.type === 'hg_list_item') {
       if (vscodeAPI) {
@@ -1256,7 +1233,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     // 递归获取所有子组件
     const getAllChildren = (parentId: string): Component[] => {
       const children = components.filter(c => c.parent === parentId);
@@ -1266,10 +1243,10 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       });
       return result;
     };
-    
+
     // 收集组件及其所有子组件
     const allComponents = [component, ...getAllChildren(component.id)];
-    
+
     // 如果有子组件，使用 clipboardMultiple；否则使用 clipboard
     if (allComponents.length > 1) {
       set({ clipboardMultiple: allComponents, clipboard: null });
@@ -1281,7 +1258,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   cutComponent: (id) => {
     const component = get().components.find((c) => c.id === id);
     if (!component) return;
-    
+
     // 禁止剪切列表项
     if (component.type === 'hg_list_item') {
       if (vscodeAPI) {
@@ -1292,14 +1269,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     get().copyComponent(id);
     get().removeComponent(id);
   },
 
   pasteComponent: (position) => {
     const { clipboard, clipboardMultiple, components, selectedComponent } = get();
-    
+
     // 根据当前选中组件确定粘贴目标父容器
     const resolveTargetParent = (): string | null => {
       // 如果粘贴的是 view，强制放到画布根级别
@@ -1317,15 +1294,15 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       return selected.parent || null;
     };
     const targetParent = resolveTargetParent();
-    
+
     // 多选粘贴
     if (clipboardMultiple.length > 0) {
       const newIds: string[] = [];
-      
+
       // 创建旧ID到新ID的映射表（两阶段：先非 list_item，再 list_item）
       const idMap = new Map<string, string>();
       let trackingComponents = [...components];
-      
+
       // 阶段1：为非 list_item 组件生成新 ID
       clipboardMultiple.forEach((comp) => {
         if (comp.type === 'hg_list_item') return;
@@ -1333,7 +1310,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         idMap.set(comp.id, newId);
         trackingComponents.push({ ...comp, id: newId } as Component);
       });
-      
+
       // 阶段2：为 list_item 组件生成 {newListId}_item_{index} 格式的 ID
       clipboardMultiple.forEach((comp) => {
         if (comp.type !== 'hg_list_item') return;
@@ -1348,20 +1325,20 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         idMap.set(comp.id, newItemId);
         trackingComponents.push({ ...comp, id: newItemId } as Component);
       });
-      
+
       // 找出所有顶层组件（没有父组件或父组件不在复制列表中）
-      const topLevelComponents = clipboardMultiple.filter(comp => 
+      const topLevelComponents = clipboardMultiple.filter(comp =>
         !comp.parent || !idMap.has(comp.parent)
       );
-      
+
       // 计算顶层组件的边界框
       const minX = Math.min(...topLevelComponents.map(c => c.position.x));
       const minY = Math.min(...topLevelComponents.map(c => c.position.y));
-      
+
       clipboardMultiple.forEach((comp, index) => {
         const newId = idMap.get(comp.id)!;
         const isTopLevel = !comp.parent || !idMap.has(comp.parent);
-        
+
         // 确定父组件
         let newParent: string | null = null;
         if (comp.parent) {
@@ -1375,9 +1352,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         } else if (isTopLevel) {
           newParent = targetParent;
         }
-        
+
         // 不预设 children，由 addComponent 在添加子组件时自动构建
-        
+
         // 计算新位置
         let newPosition;
         if (!isTopLevel) {
@@ -1392,7 +1369,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           // 顶层组件：应用偏移量
           const offsetX = comp.position.x - minX;
           const offsetY = comp.position.y - minY;
-          
+
           newPosition = position ? {
             x: position.x + offsetX,
             y: position.y + offsetY,
@@ -1405,7 +1382,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             height: comp.position.height,
           };
         }
-        
+
         const newComponent: Component = {
           ...comp,
           id: newId,
@@ -1414,18 +1391,18 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           children: [],
           position: newPosition,
         };
-        
+
         get().addComponent(newComponent);
         newIds.push(newComponent.id);
       });
-      
+
       get().setSelectedComponents(newIds);
       return;
     }
-    
+
     // 单选粘贴
     if (!clipboard) return;
-    
+
     const newId = generateComponentId(clipboard.type, components, get().otherFileComponentIds);
     const newComponent: Component = {
       ...clipboard,
@@ -1445,7 +1422,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         height: clipboard.position.height,
       },
     };
-    
+
     get().addComponent(newComponent);
     get().selectComponent(newComponent.id);
   },
@@ -1453,12 +1430,12 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   copySelectedComponents: () => {
     const { selectedComponents, components } = get();
     if (!selectedComponents.length) return;
-    
+
     // 获取所有选中的组件（排除列表项）
-    const directlySelected = components.filter((c) => 
+    const directlySelected = components.filter((c) =>
       selectedComponents.includes(c.id) && c.type !== 'hg_list_item'
     );
-    
+
     if (directlySelected.length === 0) {
       if (vscodeAPI) {
         vscodeAPI.postMessage({
@@ -1468,7 +1445,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     // 递归获取所有子组件
     const getAllChildren = (parentId: string): Component[] => {
       const children = components.filter(c => c.parent === parentId);
@@ -1478,14 +1455,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       });
       return result;
     };
-    
+
     // 收集所有需要复制的组件（包括子组件）
     const componentsToCopy = new Set<Component>(directlySelected);
     directlySelected.forEach(comp => {
       const children = getAllChildren(comp.id);
       children.forEach(child => componentsToCopy.add(child));
     });
-    
+
     // 按照层级顺序排序（父组件在前，子组件在后）
     const sortedComponents = Array.from(componentsToCopy).sort((a, b) => {
       // 如果 a 是 b 的祖先，a 应该在前
@@ -1502,18 +1479,18 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return 0;
     });
-    
+
     set({ clipboardMultiple: sortedComponents, clipboard: null });
   },
 
   cutSelectedComponents: () => {
     const { selectedComponents, components } = get();
     if (!selectedComponents.length) return;
-    
-    const componentsToCut = components.filter((c) => 
+
+    const componentsToCut = components.filter((c) =>
       selectedComponents.includes(c.id) && c.type !== 'hg_list_item'
     );
-    
+
     if (componentsToCut.length === 0) {
       if (vscodeAPI) {
         vscodeAPI.postMessage({
@@ -1523,16 +1500,16 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     get().copySelectedComponents();
     componentsToCut.forEach((c) => get().removeComponent(c.id));
   },
 
   // ============ 对齐操作 ============
-  
+
   alignSelectedComponents: (type: AlignType) => {
     const { selectedComponents, components, updateComponent } = get();
-    
+
     if (selectedComponents.length < 2) {
       if (vscodeAPI) {
         vscodeAPI.postMessage({
@@ -1542,22 +1519,22 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     const selected = components.filter((c) => selectedComponents.includes(c.id));
-    
+
     // 检查是否所有组件都在同一父容器
     // 特殊处理：如果父容器都是 list_item，检查它们是否属于同一个 list
     const parents = selected.map((c) => c.parent);
     const uniqueParents = new Set(parents);
-    
+
     if (uniqueParents.size > 1) {
       // 检查是否所有父容器都是 list_item，且属于同一个 list
       const parentComponents = parents
         .map(parentId => components.find(c => c.id === parentId))
         .filter(p => p !== undefined) as Component[];
-      
+
       const allParentsAreListItems = parentComponents.every(p => p.type === 'hg_list_item');
-      
+
       if (allParentsAreListItems) {
         // 检查所有 list_item 是否属于同一个 list
         const listParents = new Set(parentComponents.map(p => p.parent));
@@ -1582,16 +1559,16 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         return;
       }
     }
-    
+
     // 重新排序：将最后选中的组件放在第一位（作为参考）
     const lastSelectedId = selectedComponents[selectedComponents.length - 1];
     const reordered = [
       ...selected.filter(c => c.id === lastSelectedId),
       ...selected.filter(c => c.id !== lastSelectedId)
     ];
-    
+
     const updates = alignComponents(reordered, type);
-    
+
     // 直接批量更新组件位置，避免触发几何控件的尺寸自动调整
     set((state) => {
       const newComponents = state.components.map((comp) => {
@@ -1606,7 +1583,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       });
       return { components: newComponents };
     });
-    
+
     // 保存到文件
     get().saveToFile();
   },
@@ -1622,9 +1599,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     const selected = components.filter((c) => selectedComponents.includes(c.id));
-    
+
     // 检查是否所有组件都在同一父容器
     const parents = new Set(selected.map((c) => c.parent));
     if (parents.size > 1) {
@@ -1636,9 +1613,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     const updates = distributeComponents(selected, type);
-    
+
     updates.forEach(({ id, position }) => {
       if (Object.keys(position).length > 0) {
         const comp = components.find((c) => c.id === id);
@@ -1662,12 +1639,12 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     const selected = components.filter((c) => selectedComponents.includes(c.id));
-    
+
     // 尺寸调整不需要同一父容器限制
     const updates = resizeComponents(selected, type, 'first');
-    
+
     updates.forEach(({ id, position }) => {
       if (Object.keys(position).length > 0) {
         const comp = components.find((c) => c.id === id);
@@ -1746,8 +1723,8 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     // 5. 只有容器控件（hg_view, hg_window）可以作为父组件
     if (newParent) {
       const newParentComp = state.components.find(c => c.id === newParent);
-      if (newParentComp && 
-          newParentComp.type !== 'hg_view' && 
+      if (newParentComp &&
+          newParentComp.type !== 'hg_view' &&
           newParentComp.type !== 'hg_window' &&
           newParentComp.type !== 'hg_list' &&
           newParentComp.type !== 'hg_list_item') {
@@ -1806,22 +1783,22 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       const siblings = state.components.filter(c => c.parent === parentId)
         .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
       const currentIndex = siblings.findIndex(c => c.id === componentId);
-      
+
       if (currentIndex === -1 || currentIndex === newIndex) {
         return state;
       }
-      
+
       // 重新排列同级组件
       const reordered = [...siblings];
       const [moved] = reordered.splice(currentIndex, 1);
       reordered.splice(newIndex, 0, moved);
-      
+
       // 更新重排后的同级组件的 zIndex（按新顺序分配 zIndex）
       const reorderedWithZIndex = reordered.map((sibling, index) => ({
         ...sibling,
         zIndex: index
       }));
-      
+
       // 如果是 hg_list_item，交换子组件树而不是交换位置
       // 保持每个 item 的位置、index 不变，交换 children 内容，并按位置重命名 item id
       const isListItem = reordered.length > 0 && reordered[0].type === 'hg_list_item';
@@ -1832,13 +1809,13 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         //   1. siblings[i] 的 children = reordered[i] 的原始 children
         //   2. 子控件的 parent 更新为新的 item id
         //   3. item id 按位置重命名为 ${listId}_item_${i}
-        
+
         // 第一步：确定每个位置的新 item id（按位置顺序重命名）
         // 用临时 id 避免重命名冲突
         const tempPrefix = `__tmp_reorder_${Date.now()}_`;
         const finalIds = siblings.map((_, i) => `${parentId}_item_${i}`);
         const tempIds = siblings.map((_, i) => `${tempPrefix}${i}`);
-        
+
         // 建立映射：旧 item id → 临时 id → 最终 id
         const oldToTemp = new Map<string, string>();
         const tempToFinal = new Map<string, string>();
@@ -1846,7 +1823,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           oldToTemp.set(item.id, tempIds[i]);
           tempToFinal.set(tempIds[i], finalIds[i]);
         });
-        
+
         // 建立内容映射：位置 i 的 item（siblings[i]）应该显示 reordered[i] 的 children
         // 子控件的新 parent = 位置 i 的最终 id（finalIds[i]）
         const itemNewChildren = new Map<string, string[]>(); // 旧 item id → new children ids
@@ -1859,7 +1836,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             childNewParent.set(childId, finalIds[i]);
           });
         });
-        
+
         // 第二步：一次性更新所有组件
         const newComponents = state.components.map(comp => {
           // 更新 list_item 本身：新 id + 新 children
@@ -1883,15 +1860,15 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           }
           return comp;
         });
-        
+
         return { components: newComponents };
       }
-      
+
       // 重建整个 components 数组，保持新的顺序
       const siblingIds = new Set(siblings.map(s => s.id));
       const newComponents: typeof state.components = [];
       let siblingsInserted = false;
-      
+
       for (const comp of state.components) {
         if (siblingIds.has(comp.id)) {
           // 遇到第一个同级组件时，插入所有重排后的同级组件（已更新 zIndex）
@@ -1912,7 +1889,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           }
         }
       }
-      
+
       return { components: newComponents };
     });
     get().saveToFile();
@@ -1923,13 +1900,13 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     const state = get();
     const component = state.components.find(c => c.id === componentId);
     const targetComp = state.components.find(c => c.id === targetId);
-    
+
     if (!component || !targetComp) return;
-    
+
     // 先移动到新父组件
     set((state) => {
       const oldParentId = component.parent;
-      
+
       return {
         components: state.components.map((comp) => {
           // 更新组件的父引用（设置高 zIndex 确保在排序后位于末尾）
@@ -1954,14 +1931,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         }),
       };
     });
-    
+
     // 然后调整顺序（使用更新后的状态）
     const updatedState = get();
     const siblings = updatedState.components.filter(c => c.parent === newParentId)
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
     const targetIndex = siblings.findIndex(c => c.id === targetId);
     const newIndex = position === 'before' ? targetIndex : targetIndex + 1;
-    
+
     get().reorderSiblings(componentId, newParentId, newIndex);
   },
 
@@ -1980,7 +1957,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   },
 
   // ============ List Item 管理 ============
-  
+
   /**
    * 同步 list 控件的 list_item 子组件数量
    * 只负责数量增减，不复制子控件，不修改已有 item 的内容
@@ -1992,10 +1969,10 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       if (!listComponent || listComponent.type !== 'hg_list') {
         return state;
       }
-      
+
       // 获取 noteNum 属性（默认为 5）
       const noteNum = (listComponent.data?.noteNum as number) || 5;
-      
+
       // 双重过滤：parent 字段匹配 OR 在 list 的 children 数组中
       // 防止 HML 加载后 parent 字段不一致导致漏算
       const listChildrenSet = new Set(listComponent.children || []);
@@ -2007,23 +1984,23 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           return indexA - indexB;
         });
       const currentCount = currentItems.length;
-      
+
       console.log(`[syncListItems] listId=${listId}, noteNum=${noteNum}, currentCount=${currentCount}`);
-      
+
       // 如果数量已经匹配，不需要调整
       if (currentCount === noteNum) {
         return state;
       }
-      
+
       // 获取布局属性，用于计算新 item 的位置
       const itemWidth = parseInt(String(listComponent.style?.itemWidth)) || 100;
       const itemHeight = parseInt(String(listComponent.style?.itemHeight)) || 100;
       const space = parseInt(String(listComponent.style?.space)) || 0;
       const direction = (listComponent.style?.direction as string) || 'VERTICAL';
       const isVertical = direction === 'VERTICAL';
-      
+
       let newComponents = [...state.components];
-      
+
       if (noteNum > currentCount) {
         // 以当前最大 index + 1 作为新 item 的起始 index
         const maxExistingIndex = currentItems.length > 0
@@ -2039,7 +2016,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             idSuffix++;
             newItemId = `${listId}_item_${idSuffix}`;
           }
-          
+
           // 根据布局属性计算正确的位置
           const newPosition = {
             x: isVertical ? 0 : newIndex * (itemWidth + space),
@@ -2047,7 +2024,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             width: itemWidth,
             height: itemHeight,
           };
-          
+
           // 新增空的 hg_list_item，不复制已有 item 的子控件
           const newItem: Component = {
             id: newItemId,
@@ -2062,9 +2039,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
             locked: false,
             zIndex: newIndex,
           };
-          
+
           newComponents.push(newItem);
-          
+
           // 更新 list 组件的 children 数组
           const listIndex = newComponents.findIndex(c => c.id === listId);
           if (listIndex !== -1) {
@@ -2080,7 +2057,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         // 需要删除多余的 list_item（删除末尾的）
         const itemsToRemove = currentItems.slice(noteNum);
         const idsToRemove = new Set<string>();
-        
+
         // 收集要删除的 list_item 及其所有子组件的 ID
         itemsToRemove.forEach(item => {
           idsToRemove.add(item.id);
@@ -2092,10 +2069,10 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           };
           collectChildIds(item.id);
         });
-        
+
         // 过滤掉要删除的组件
         newComponents = newComponents.filter(c => !idsToRemove.has(c.id));
-        
+
         // 更新 list 组件的 children 数组
         const listIndex = newComponents.findIndex(c => c.id === listId);
         if (listIndex !== -1) {
@@ -2106,7 +2083,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           newComponents[listIndex] = updatedList;
         }
       }
-      
+
       // 最后，确保 list 的 children 数组按 index 排序（list_item 在前，其他子组件在后）
       const finalListIndex = newComponents.findIndex(c => c.id === listId);
       if (finalListIndex !== -1) {
@@ -2115,22 +2092,22 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
           const listItems = finalList.children
             .map(childId => newComponents.find(c => c.id === childId))
             .filter(child => child !== undefined && child.type === 'hg_list_item') as Component[];
-          
+
           listItems.sort((a, b) => ((a.data?.index as number) ?? 0) - ((b.data?.index as number) ?? 0));
-          
+
           const otherChildren = finalList.children.filter(childId => {
             const child = newComponents.find(c => c.id === childId);
             return child && child.type !== 'hg_list_item';
           });
-          
+
           finalList.children = [...listItems.map(c => c.id), ...otherChildren];
           newComponents[finalListIndex] = finalList;
         }
       }
-      
+
       return { components: newComponents };
     });
-    
+
     get().saveToFile();
   },
 
@@ -2155,7 +2132,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
 
       return { components: newComponents };
     });
-    
+
     // 在 set 完成后立即保存到文件
     get().saveToFile();
   },
@@ -2207,7 +2184,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   updateAssetConfig: (path: string, settings: ItemSettings, changedField?: string) => {
     const state = get();
     const currentConfig = state.conversionConfig;
-    
+
     if (!currentConfig) {
       // 如果没有配置，创建新配置
       const newConfig: ConversionConfig = {
@@ -2221,7 +2198,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         }
       };
       set({ conversionConfig: newConfig });
-      
+
       // 通知后端保存配置
       if (vscodeAPI) {
         vscodeAPI.postMessage({
@@ -2233,7 +2210,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       }
       return;
     }
-    
+
     // 更新现有配置
     const newConfig: ConversionConfig = {
       ...currentConfig,
@@ -2242,9 +2219,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         [path]: settings
       }
     };
-    
+
     set({ conversionConfig: newConfig });
-    
+
     // 通知后端保存配置
     if (vscodeAPI) {
       vscodeAPI.postMessage({

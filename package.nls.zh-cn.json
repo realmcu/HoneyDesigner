@@ -1,7 +1,7 @@
 {
   "displayName": "HoneyGUI 可视化设计器",
   "description": "VS Code 插件，提供 HoneyGUI 可视化界面设计、HML 编辑、C 代码生成与实时仿真功能。",
-  
+
   "command.newProject": "HoneyGUI: 新建项目",
   "command.openProject": "HoneyGUI: 打开项目",
   "command.createNewHml": "HoneyGUI: 新建设计",
@@ -13,9 +13,6 @@
   "command.simulationStop": "HoneyGUI: 停止仿真",
   "command.openInTextEditor": "用文本编辑器打开",
   "command.openInDesigner": "用 HoneyGUI 设计器打开",
-  "command.startHost": "开启协同 (主机)",
-  "command.joinSession": "加入协同 (访客)",
-  "command.stopCollaboration": "停止协同",
   "command.refreshEnvironment": "刷新环境检查",
   "command.mapTools": "HoneyGUI: 地图工具",
 
@@ -23,15 +20,12 @@
   "view.environment": "环境",
   "view.quick": "快捷操作",
 
-  "viewsWelcome.honeygui.welcome": "[$(add) 新建项目](command:honeygui.newProject)\n[$(file-add) 新建设计](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) 打开项目](command:honeygui.openProject)\n[$(tools) 资源转换工具](command:honeygui.tools)\n[$(map) 地图工具](command:honeygui.mapTools)\n\n协同开发:\n[$(broadcast) 开启协同 (主机)](command:honeygui.collaboration.startHost)\n[$(plug) 加入协同 (访客)](command:honeygui.collaboration.joinSession)",
+  "viewsWelcome.honeygui.welcome": "[$(add) 新建项目](command:honeygui.newProject)\n[$(file-add) 新建设计](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) 打开项目](command:honeygui.openProject)\n[$(tools) 资源转换工具](command:honeygui.tools)\n[$(map) 地图工具](command:honeygui.mapTools)",
 
   "welcome.newProject": "新建项目",
   "welcome.newDesign": "新建设计",
   "welcome.openProject": "打开项目",
   "welcome.tools": "资源转换工具",
-  "welcome.collaboration": "协同开发:",
-  "welcome.startHost": "开启协同 (主机)",
-  "welcome.joinSession": "加入协同 (访客)",
 
   "env.python": "Python",
   "env.scons": "SCons",

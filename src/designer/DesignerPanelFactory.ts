@@ -39,9 +39,9 @@ export class DesignerPanelFactory {
             vscode.Uri.joinPath(context.extensionUri, 'src', 'designer', 'webview'),
             vscode.Uri.joinPath(context.extensionUri, 'out', 'designer', 'webview')
         ];
-        
+
         logger.info(`[DesignerPanelFactory] Creating panel, filePath: ${filePath}`);
-        
+
         let projectRoot: string | undefined;
         if (filePath) {
             projectRoot = ProjectUtils.findProjectRoot(filePath);
@@ -70,7 +70,7 @@ export class DesignerPanelFactory {
         const designerPanel = new DesignerPanel(panel, context);
         DesignerPanel.currentPanel = designerPanel;
 
-        // 协同开发场景：创建空白文档，后续由协同服务同步内容
+        // 创建空白文档
         designerPanel.createNewDocument();
 
         return designerPanel;

@@ -1,7 +1,7 @@
 {
   "displayName": "HoneyGUI Visual Designer",
   "description": "VS Code extension for HoneyGUI visual interface design, HML editing, C code generation and real-time simulation.",
-  
+
   "command.newProject": "HoneyGUI: New Project",
   "command.openProject": "HoneyGUI: Open Project",
   "command.createNewHml": "HoneyGUI: New Design",
@@ -13,9 +13,6 @@
   "command.simulationStop": "HoneyGUI: Stop Simulation",
   "command.openInTextEditor": "Open with Text Editor",
   "command.openInDesigner": "Open with HoneyGUI Designer",
-  "command.startHost": "Start Host",
-  "command.joinSession": "Join Session",
-  "command.stopCollaboration": "Stop Collaboration",
   "command.refreshEnvironment": "Refresh Environment Check",
   "command.mapTools": "HoneyGUI: Map Tools",
 
@@ -23,15 +20,12 @@
   "view.environment": "ENVIRONMENT",
   "view.quick": "QUICK",
 
-  "viewsWelcome.honeygui.welcome": "[$(add) New Project](command:honeygui.newProject)\n[$(file-add) New Design](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) Open Project](command:honeygui.openProject)\n[$(tools) Resource Conversion Tools](command:honeygui.tools)\n[$(map) Map Tools](command:honeygui.mapTools)\n\nCollaboration:\n[$(broadcast) Start Host](command:honeygui.collaboration.startHost)\n[$(plug) Join Session](command:honeygui.collaboration.joinSession)",
+  "viewsWelcome.honeygui.welcome": "[$(add) New Project](command:honeygui.newProject)\n[$(file-add) New Design](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) Open Project](command:honeygui.openProject)\n[$(tools) Resource Conversion Tools](command:honeygui.tools)\n[$(map) Map Tools](command:honeygui.mapTools)",
 
   "welcome.newProject": "New Project",
   "welcome.newDesign": "New Design",
   "welcome.openProject": "Open Project",
   "welcome.tools": "Resource Conversion Tools",
-  "welcome.collaboration": "Collaboration:",
-  "welcome.startHost": "Start Host (Host)",
-  "welcome.joinSession": "Join Session (Guest)",
 
   "env.python": "Python",
   "env.scons": "SCons",
