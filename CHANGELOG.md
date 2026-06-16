@@ -2,6 +2,21 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.8.0] - 2026-06-16
+
+### Added
+- 启用 codegen / simulation 的 HTTP API 端点，支持外部工具远程触发代码生成与仿真
+- 新增 AI 协作资产：对齐 honeygui-designer skill 与 HML-Spec，分发 references / examples 供 AI 代理生成 HML
+- entry 入口文件新增保护区（`@protected`），重新生成时保留用户自定义代码
+
+### Removed
+- 彻底移除协同开发（Collaboration）功能的所有残留代码与引用
+
+### Internal
+- 清理死代码、提取 ColorUtils 工具类、修复 `_sleep` 忙等待
+- 移除未使用的 vite 与 @vitejs/plugin-react 依赖
+- CI：新增 Windows e2e job（MinGW 8.1.0，覆盖全部模板）；将 update-libs 抽为独立 nightly workflow，定时改为 UTC 20:00（北京 04:00）；优化 LVGL clone 重试与仿真库自动更新流程
+
 ## [1.7.17] - 2026-06-11
 
 ### Added
