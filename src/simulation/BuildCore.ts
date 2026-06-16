@@ -73,7 +73,12 @@ export class BuildCore {
             throw new Error(vscode.l10n.t('Built-in win32_sim directory does not exist: {0}', win32SimSource));
         }
 
-        if (!fs.existsSync(this.buildDir)) {
+        const portDir = path.join(this.buildDir, 'port');
+        if (!fs.existsSync(this.buildDir) || !fs.existsSync(portDir)) {
+            if (fs.existsSync(this.buildDir)) {
+                this.logger.log(vscode.l10n.t('Build directory incomplete, cleaning for fresh setup...'));
+                fs.rmSync(this.buildDir, { recursive: true, force: true });
+            }
             this.logger.log(vscode.l10n.t('Copying win32_sim...'));
             this.copyDirectory(win32SimSource, this.buildDir);
             this.logger.log(vscode.l10n.t('win32_sim copied'));
