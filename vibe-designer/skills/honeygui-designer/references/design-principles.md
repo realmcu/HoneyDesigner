@@ -68,13 +68,13 @@ Icons/labels (non-interactive): Can be smaller
 **Example Layout**:
 ```xml
 <!-- Good spacing and sizes -->
-<hg_button id="btn_1" x="50" y="200" w="80" h="80" />   <!-- 80x80, good -->
-<hg_button id="btn_2" x="170" y="200" w="80" h="80" />  <!-- 40px gap, good -->
-<hg_button id="btn_3" x="290" y="200" w="80" h="80" />
+<hg_button id="btn_1" x="50" y="200" width="80" height="80" />   <!-- 80x80, good -->
+<hg_button id="btn_2" x="170" y="200" width="80" height="80" />  <!-- 40px gap, good -->
+<hg_button id="btn_3" x="290" y="200" width="80" height="80" />
 
 <!-- Avoid this -->
-<hg_button id="btn_tiny" x="100" y="300" w="30" h="30" />  <!-- Too small! -->
-<hg_button id="btn_close" x="135" y="300" w="40" h="40" /> <!-- Too close! -->
+<hg_button id="btn_tiny" x="100" y="300" width="30" height="30" />  <!-- Too small! -->
+<hg_button id="btn_close" x="135" y="300" width="40" height="40" /> <!-- Too close! -->
 ```
 
 ---
@@ -136,28 +136,28 @@ Guide user attention to the most important information first.
 
 **Example**:
 ```xml
-<view id="view_home">
+<hg_view id="view_home" x="0" y="0" width="454" height="454">
   <!-- Primary: Large time display (top-center) -->
   <hg_label id="lbl_time"
-            x="127" y="150" w="200" h="60"
+            x="127" y="150" width="200" height="60"
             text="14:32"
             fontSize="48"
             color="#FFFFFF" />
 
   <!-- Secondary: Date (below, smaller) -->
   <hg_label id="lbl_date"
-            x="127" y="220" w="200" h="30"
+            x="127" y="220" width="200" height="30"
             text="Monday, Mar 18"
             fontSize="16"
             color="#CCCCCC" />
 
   <!-- Tertiary: Battery (corner, smallest) -->
   <hg_label id="lbl_battery"
-            x="380" y="20" w="50" h="20"
+            x="380" y="20" width="50" height="20"
             text="85%"
             fontSize="12"
             color="#999999" />
-</view>
+</hg_view>
 ```
 
 ---
@@ -179,25 +179,15 @@ Provide immediate visual feedback for all interactions.
 
 **Example**:
 ```xml
-<!-- Button with visual feedback via images -->
+<!-- Image button: press feedback is built in (imageOn shown while pressed) -->
 <hg_button id="btn_action"
-           x="177" y="300" w="100" h="44"
-           src="assets/btn_normal.bin" />
+           x="177" y="300" width="100" height="44"
+           imageOn="/btn_pressed.bin" imageOff="/btn_normal.bin"
+           clickCallback="on_action_click" />
 
-<!-- On press, switch to pressed image -->
-<hg_button id="btn_action"
-           x="177" y="300" w="100" h="44"
-           src="assets/btn_pressed.bin" />
-
-<!-- Or use opacity animation -->
-<timer id="anim_press" enabled="true" interval="16" reload="false" mode="preset">
-  <segment duration="100">
-    <action type="opacity" from="255" to="180" />
-  </segment>
-  <segment duration="100">
-    <action type="opacity" from="180" to="255" />
-  </segment>
-</timer>
+<!-- Or an opacity pulse via the timers attribute (JSON; see HML-Spec.md §13) -->
+<hg_image id="img_pulse" x="177" y="300" width="100" height="44" src="/btn_normal.bin"
+          timers='[{"id":"t_pulse","enabled":true,"interval":16,"reload":true,"mode":"preset","segments":[{"duration":100,"actions":[{"type":"opacity","from":255,"to":180}]},{"duration":100,"actions":[{"type":"opacity","from":180,"to":255}]}]}]' />
 ```
 
 ---
@@ -222,10 +212,10 @@ Embedded devices have limited CPU and memory. Optimize for performance.
 **Example**:
 ```xml
 <!-- Good: Shallow hierarchy, reused assets -->
-<hg_view id="view_main">
-  <hg_image id="img_bg" src="assets/bg.bin" />
-  <hg_button id="btn_1" src="assets/icon_generic.bin" />
-  <hg_button id="btn_2" src="assets/icon_generic.bin" />  <!-- Reused -->
+<hg_view id="view_main" x="0" y="0" width="454" height="454">
+  <hg_image id="img_bg" x="0" y="0" width="454" height="454" src="/bg.bin" />
+  <hg_button id="btn_1" x="50" y="360" width="80" height="80" imageOff="/icon_generic.bin" />
+  <hg_button id="btn_2" x="160" y="360" width="80" height="80" imageOff="/icon_generic.bin" />  <!-- Reused -->
 </hg_view>
 
 <!-- Avoid: Deep nesting -->
@@ -285,25 +275,27 @@ Design to prevent errors and provide clear recovery paths.
 ```xml
 <!-- Confirmation dialog for delete -->
 <hg_window id="win_confirm_delete"
-           x="50" y="127" w="354" h="200"
-           title="Confirm Delete">
+           x="50" y="127" width="354" height="200"
+           showBackground="true" backgroundColor="#1E1E1E">
+  <hg_label id="lbl_title"
+            x="27" y="20" width="300" height="30"
+            text="Confirm Delete" fontSize="20" color="#FFFFFF"
+            hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
   <hg_label id="lbl_message"
-            x="27" y="60" w="300" h="40"
+            x="27" y="60" width="300" height="40"
             text="Delete this item? This cannot be undone."
-            fontSize="16"
-            textAlign="center" />
+            fontSize="16" color="#CCCCCC"
+            hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" />
 
+  <!-- Image buttons; click handlers via clickCallback -->
   <hg_button id="btn_cancel"
-             x="57" y="120" w="120" h="44"
-             text="Cancel"
-             backgroundColor="#666666"
-             onClick="closeDialog" />
-
+             x="57" y="120" width="120" height="44"
+             imageOn="/btn_cancel_on.bin" imageOff="/btn_cancel.bin"
+             clickCallback="closeDialog" />
   <hg_button id="btn_confirm"
-             x="197" y="120" w="120" h="44"
-             text="Delete"
-             backgroundColor="#FF0000"
-             onClick="confirmDelete" />
+             x="197" y="120" width="120" height="44"
+             imageOn="/btn_delete_on.bin" imageOff="/btn_delete.bin"
+             clickCallback="confirmDelete" />
 </hg_window>
 ```
 
@@ -349,25 +341,25 @@ Design for the usage context of embedded devices.
 **Example - Smartwatch Design**:
 ```xml
 <!-- Glanceable home screen -->
-<view id="view_home">
+<hg_view id="view_home" x="0" y="0" width="454" height="454">
   <!-- Large time (primary info) -->
   <hg_label id="lbl_time"
-            x="127" y="150" w="200" h="60"
+            x="127" y="150" width="200" height="60"
             text="14:32"
             fontSize="48" />
 
   <!-- Quick metrics (secondary) -->
   <hg_label id="lbl_steps"
-            x="177" y="220" w="100" h="30"
+            x="177" y="220" width="100" height="30"
             text="5,240 steps"
             fontSize="14" />
 
   <!-- One-tap actions (bottom) -->
   <hg_button id="btn_start_workout"
-             x="177" y="350" w="100" h="44"
+             x="177" y="350" width="100" height="44"
              text="Start"
              fontSize="18" />
-</view>
+</hg_view>
 ```
 
 ---
@@ -476,12 +468,9 @@ Error:      #FF0066 (red)
 
 **Example**:
 ```xml
-<!-- Smooth fade transition -->
-<timer id="anim_fade_in" enabled="true" interval="16" reload="false" mode="preset">
-  <segment duration="300">
-    <action type="opacity" from="0" to="255" />
-  </segment>
-</timer>
+<!-- Smooth fade transition via the timers attribute (JSON; see HML-Spec.md §13) -->
+<hg_image id="img_fade" x="0" y="0" width="454" height="454" src="/panel.bin"
+          timers='[{"id":"t_fade","enabled":true,"interval":16,"reload":false,"mode":"preset","segments":[{"duration":300,"actions":[{"type":"opacity","from":0,"to":255}]}]}]' />
 ```
 
 ---

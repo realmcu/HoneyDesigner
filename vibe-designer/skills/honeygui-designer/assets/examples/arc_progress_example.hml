@@ -1,241 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ⚠️ 资源路径说明
-  本示例中的资源路径（如 assets/icon_move.bin）是占位符，仅用于演示 HML 结构。
+  示例片段：加载动画（HoneyGUI 引擎方言）· 聚焦"timer 驱动动画"
+  演示点：用 timers 属性（JSON 数组字符串）给组件绑定定时动画——此处 preset 模式下
+          让 hg_image 持续旋转（rotation 0→360，interval=16ms 约 60fps，reload 循环）；
+          外圈 hg_arc 作静态环形底，中心 hg_label 显示进度文案。
 
-  在实际项目中，你需要：
-  1. 准备资源文件（PNG/JPG 图片、TTF 字体等）
-  2. 使用 VSCode Extension 的转换工具将资源转换为 .bin 格式
-  3. 将转换后的文件放入项目的 assets/ 目录
+  timers 字段：id/name/enabled/interval/reload/mode + segments[].actions[]（type=rotation 等）。
+  注意 timers 值是 JSON，故 XML 属性用单引号包裹：timers='[{"...":...}]'。
 
-  💡 快速开始：使用 Extension 的"新建项目"功能选择模板（如 Smart Watch），
-     模板中已包含完整的资源文件，可以直接运行。
+  ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
+  ⚠️ 资源路径（如 /spinner.bin）是占位符，恒以 "/" 开头；实际项目需准备资源并放入 assets/。
 -->
 <hml>
   <meta>
-    <title>Activity Rings</title>
-    <description>Circular progress indicators with gradient arcs for fitness tracking</description>
-    <project>
-      <resolution>454x454</resolution>
-      <pixelMode>RGB565</pixelMode>
-    </project>
+    <project name="Loading" appId="com.example.loading"
+             resolution="454x454" pixelMode="RGB565" />
+    <author name="Developer" email="dev@example.com" />
   </meta>
 
-  <view id="view_activity_rings">
-    <!--
-      活动圆环示例（运动表盘风格）
-      - 展示 hg_arc 组件的使用
-      - 三个同心圆弧：运动（红色）、锻炼（绿色）、站立（蓝色）
-      - 使用渐变效果增强视觉吸引力
-    -->
+  <view>
+    <hg_view id="view_loading" entry="true" x="0" y="0" width="454" height="454"
+             backgroundColor="#000000">
 
-    <!--
-      背景
-      - 纯黑背景，突出彩色圆环
-    -->
-    <hg_view id="view_background"
-             name="Background"
-             x="0" y="0"
-             w="454" h="454"
-             backgroundColor="#000000" />
+      <!-- 静态环形底 -->
+      <hg_arc id="arc_ring" x="127" y="127" width="200" height="200"
+              radius="95" startAngle="0" endAngle="360"
+              strokeWidth="6" color="#222222" opacity="255" zIndex="0" />
 
-    <!--
-      标题
-    -->
-    <hg_label id="lbl_title"
-              name="Title"
-              x="127" y="30"
-              w="200" h="40"
-              text="Activity"
-              fontSize="28"
-              color="#FFFFFF"
-              fontFile="/NotoSansSC-Bold.ttf"
-              textAlign="center" />
+      <!-- 旋转的加载图标：timers 绑定 preset 旋转动画，每 16ms 一帧、循环、3s 转一圈 -->
+      <hg_image id="img_spinner" x="187" y="187" width="80" height="80"
+                src="/spinner.bin" zIndex="1"
+                timers='[{"id":"spin","name":"Spin","enabled":true,"runImmediately":true,"interval":16,"reload":true,"mode":"preset","segments":[{"duration":3000,"actions":[{"type":"rotation","from":0,"to":360}]}]}]' />
 
-    <!--
-      时间显示
-      - 使用 timeFormat 自动显示系统时间
-    -->
-    <hg_label id="lbl_time"
-              name="Time"
-              x="140" y="90"
-              w="174" h="50"
-              timeFormat="HH:MM"
-              fontSize="48"
-              color="#FFFFFF"
-              fontFile="/NotoSansSC-Bold.ttf"
-              textAlign="center" />
-
-    <!--
-      圆弧进度组 - 三个同心圆
-      中心点：(227, 287) - 屏幕中心
-    -->
-
-    <!--
-      外圆（运动圆环）背景轨道
-      - 深红色（#3a171d），作为未完成部分
-      - radius="105" - 半径 105px
-      - startAngle="0" endAngle="360" - 完整圆圈
-      - strokeWidth="20" - 圆环宽度
-    -->
-    <hg_arc id="arc_move_bg"
-            name="Move Background"
-            x="10" y="162"
-            w="250" h="250"
-            radius="105"
-            startAngle="0"
-            endAngle="360"
-            strokeWidth="20"
-            color="#3a171d"
-            opacity="255" />
-
-    <!--
-      中圆（锻炼圆环）背景轨道
-      - 深绿色（#1e3719）
-      - radius="80" - 半径 80px
-    -->
-    <hg_arc id="arc_exercise_bg"
-            name="Exercise Background"
-            x="35" y="187"
-            w="200" h="200"
-            radius="80"
-            startAngle="0"
-            endAngle="360"
-            strokeWidth="20"
-            color="#1e3719"
-            opacity="255" />
-
-    <!--
-      内圆（站立圆环）背景轨道
-      - 深蓝绿色（#16322f）
-      - radius="55" - 半径 55px
-    -->
-    <hg_arc id="arc_stand_bg"
-            name="Stand Background"
-            x="60" y="212"
-            w="150" h="150"
-            radius="55"
-            startAngle="0"
-            endAngle="360"
-            strokeWidth="20"
-            color="#16322f"
-            opacity="255" />
-
-    <!--
-      外圆（运动圆环）进度
-      - 红色渐变（#e9402e → #ea418f）
-      - startAngle="270" - 从顶部开始（12 点钟方向）
-      - endAngle="270" - 当前示例设为 270（完成 0%）
-      - useGradient="true" - 启用渐变
-      - gradientStops - 渐变色标定义（JSON 格式）
-
-      注：实际应用中，endAngle 应该根据完成百分比动态计算
-      例如：完成 50% → endAngle = 270 + 180 = 450（或 90）
-    -->
-    <hg_arc id="arc_move_progress"
-            name="Move Progress"
-            x="10" y="162"
-            w="250" h="250"
-            radius="105"
-            startAngle="270"
-            endAngle="90"
-            strokeWidth="20"
-            color="#e6404a"
-            opacity="255"
-            useGradient="true"
-            gradientStops="[{&quot;position&quot;:0,&quot;color&quot;:&quot;#e9402e&quot;},{&quot;position&quot;:1,&quot;color&quot;:&quot;#ea418f&quot;}]" />
-
-    <!--
-      中圆（锻炼圆环）进度
-      - 绿色渐变（#abf64c → #dcf950）
-      - 示例显示 40° 进度（270 + 40 = 310）
-    -->
-    <hg_arc id="arc_exercise_progress"
-            name="Exercise Progress"
-            x="35" y="187"
-            w="200" h="200"
-            radius="80"
-            startAngle="270"
-            endAngle="310"
-            strokeWidth="20"
-            color="#bdfe4a"
-            opacity="255"
-            useGradient="true"
-            gradientStops="[{&quot;position&quot;:0,&quot;color&quot;:&quot;#abf64c&quot;},{&quot;position&quot;:1,&quot;color&quot;:&quot;#dcf950&quot;}]"
-            gradientEndAngle="270" />
-
-    <!--
-      内圆（站立圆环）进度
-      - 青色渐变（#5fcad8 → #74f8ae）
-      - 示例显示完整圆圈（用于演示）
-    -->
-    <hg_arc id="arc_stand_progress"
-            name="Stand Progress"
-            x="60" y="212"
-            w="150" h="150"
-            radius="55"
-            startAngle="270"
-            endAngle="270"
-            strokeWidth="20"
-            color="#73e6e6"
-            opacity="255"
-            useGradient="true"
-            gradientStops="[{&quot;position&quot;:0,&quot;color&quot;:&quot;#5fcad8&quot;},{&quot;position&quot;:1,&quot;color&quot;:&quot;#74f8ae&quot;}]" />
-
-    <!--
-      数值显示区域
-      - 显示每个圆环对应的数值
-    -->
-
-    <!-- 运动数值（右上，红色） -->
-    <hg_label id="lbl_move_value"
-              name="Move Value"
-              x="282" y="175"
-              w="128" h="70"
-              text="439"
-              fontSize="80"
-              color="#e6404a"
-              fontFile="/NotoSansSC-Bold.ttf"
-              textAlign="left" />
-
-    <!-- 锻炼数值（右中，绿色） -->
-    <hg_label id="lbl_exercise_value"
-              name="Exercise Value"
-              x="324" y="252"
-              w="86" h="70"
-              text="2"
-              fontSize="80"
-              color="#bdfe4a"
-              fontFile="/NotoSansSC-Bold.ttf"
-              textAlign="left" />
-
-    <!-- 站立数值（右下，青色） -->
-    <hg_label id="lbl_stand_value"
-              name="Stand Value"
-              x="324" y="342"
-              w="86" h="70"
-              text="7"
-              fontSize="80"
-              color="#73e6e6"
-              fontFile="/NotoSansSC-Bold.ttf"
-              textAlign="left" />
-
-    <!--
-      底部快捷图标
-    -->
-    <hg_image id="icon_heart"
-              name="Heart Rate Icon"
-              x="35" y="425"
-              w="60" h="60"
-              src="assets/icon_heart.bin" />
-
-    <hg_label id="lbl_heart_rate"
-              name="Heart Rate"
-              x="107" y="435"
-              w="250" h="50"
-              text="80 bpm, 1m ago"
-              fontSize="24"
-              color="#FFFFFF"
-              fontFile="/NotoSansSC-Bold.ttf" />
+      <!-- 中心进度文案 -->
+      <hg_label id="lbl_loading" x="127" y="350" width="200" height="32"
+                text="Loading..." fontSize="20" color="#FFFFFF"
+                hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" zIndex="2" />
+    </hg_view>
   </view>
 </hml>

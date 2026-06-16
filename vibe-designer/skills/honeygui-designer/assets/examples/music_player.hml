@@ -1,180 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ⚠️ 资源路径说明
-  本示例中的资源路径（如 assets/bg_gradient.bin）是占位符，仅用于演示 HML 结构。
+  示例片段：音乐播放器（HoneyGUI 引擎方言）· 聚焦"圆环进度"
+  演示点：用两层 hg_arc 表达环形进度（底轨 0~360° + 进度弧 startAngle~endAngle）；
+          hg_button 用 imageOn/imageOff + clickCallback（非容器、无子组件，绝不用 src= 或内嵌子元素）。
+          注：HoneyGUI 无原生进度条/滑块，环形/线性进度用 hg_arc/hg_rect 叠放表达。
 
-  在实际项目中，你需要：
-  1. 准备资源文件（PNG/JPG 图片、TTF 字体等）
-  2. 使用 VSCode Extension 的转换工具将资源转换为 .bin 格式
-  3. 将转换后的文件放入项目的 assets/ 目录
-
-  💡 快速开始：使用 Extension 的"新建项目"功能选择模板（如 Smart Watch），
-     模板中已包含完整的资源文件，可以直接运行。
+  ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
+  ⚠️ 资源路径（如 /album.bin）是占位符，恒以 "/" 开头；实际项目需准备资源并放入 assets/。
 -->
 <hml>
   <meta>
-    <title>Music Player</title>
-    <description>Media playback interface with album art and controls</description>
-    <project>
-      <resolution>454x454</resolution>
-      <pixelMode>RGB565</pixelMode>
-    </project>
+    <project name="MusicPlayer" appId="com.example.music"
+             resolution="454x454" pixelMode="RGB565" />
+    <author name="Developer" email="dev@example.com" />
   </meta>
 
-  <view id="view_player">
-    <!--
-      渐变背景
-      - 全屏背景图，提供视觉氛围
-      - 通常使用深色渐变，突出前景内容
-    -->
-    <hg_image id="img_background"
-              name="Background"
-              x="0" y="0"
-              w="454" h="454"
-              src="assets/bg_gradient.bin" />
+  <view>
+    <hg_view id="view_player" entry="true" x="0" y="0" width="454" height="454"
+             backgroundColor="#0A0A0A">
 
-    <!--
-      专辑封面容器
-      - 居中显示，200x200px 正方形
-      - 外层容器：圆角 20px，深灰背景
-      - 内层专辑图：10px 内边距，圆角 12px
-      - 双层结构形成阴影效果
-    -->
-    <hg_view id="view_album_container"
-             name="Album Container"
-             x="127" y="70"
-             w="200" h="200"
-             borderRadius="20"
-             backgroundColor="#1E1E1E">
-      <!-- 专辑封面图片 -->
-      <hg_image id="img_album"
-                name="Album Art"
-                x="10" y="10"
-                w="180" h="180"
-                src="assets/album_cover.bin"
-                borderRadius="12" />
-    </hg_view>
+      <!-- 环形进度底轨：完整 0~360° 深灰圆环 -->
+      <hg_arc id="arc_track" x="77" y="40" width="300" height="300"
+              radius="145" startAngle="0" endAngle="360"
+              strokeWidth="10" color="#333333" opacity="255" zIndex="0" />
 
-    <!--
-      歌曲信息区域
-      - 位于专辑封面下方 20px
-      - 包含歌曲标题和艺术家名称
-    -->
+      <!-- 环形进度（45%）：从顶部 270° 起，绿色渐变弧。endAngle 按百分比算：270+360*0.45≈432→72 -->
+      <hg_arc id="arc_progress" x="77" y="40" width="300" height="300"
+              radius="145" startAngle="270" endAngle="72"
+              strokeWidth="10" color="#00FF88" opacity="255"
+              useGradient="true"
+              gradientStops="[{&quot;position&quot;:0,&quot;color&quot;:&quot;#00FF88&quot;},{&quot;position&quot;:1,&quot;color&quot;:&quot;#00C2FF&quot;}]"
+              zIndex="1" />
 
-    <!--
-      歌曲标题
-      - 白色，22px 大字号
-      - 居中对齐，最多显示一行
-    -->
-    <hg_label id="lbl_song_title"
-              name="Song Title"
-              x="77" y="290"
-              w="300" h="35"
-              text="Beautiful Song"
-              fontSize="22"
-              color="#FFFFFF"
-              textAlign="center" />
+      <!-- 专辑封面（环内居中） -->
+      <hg_image id="img_album" x="147" y="110" width="160" height="160"
+                src="/album.bin" zIndex="2" />
 
-    <!--
-      艺术家名称
-      - 浅灰色（#CCCCCC），16px
-      - 次要信息，位于标题下方
-    -->
-    <hg_label id="lbl_artist"
-              name="Artist"
-              x="77" y="330"
-              w="300" h="28"
-              text="Artist Name"
-              fontSize="16"
-              color="#CCCCCC"
-              textAlign="center" />
+      <!-- 歌曲标题 / 艺术家 -->
+      <hg_label id="lbl_title" x="77" y="290" width="300" height="32"
+                text="Beautiful Song" fontSize="22" color="#FFFFFF"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" zIndex="2" />
+      <hg_label id="lbl_artist" x="77" y="324" width="300" height="26"
+                text="Artist Name" fontSize="16" color="#AAAAAA"
+                hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" zIndex="2" />
 
-    <!--
-      播放进度条
-      - 宽度 300px，高度 6px
-      - 绿色进度（#00FF88）+ 深灰背景（#333333）
-      - 圆角 3px，细长条形状
-      - 当前进度：45%
-    -->
-    <hg_progressbar id="progress_playback"
-                    name="Playback Progress"
-                    x="77" y="375"
-                    w="300" h="6"
-                    value="45"
-                    color="#00FF88"
-                    backgroundColor="#333333"
-                    borderRadius="3" />
-
-    <!--
-      时间标签
-      - 左侧：当前播放时间
-      - 右侧：总时长
-      - 13px 小字号，灰色
-    -->
-    <hg_label id="lbl_time_current"
-              name="Current Time"
-              x="77" y="390"
-              w="80" h="22"
-              text="1:23"
-              fontSize="13"
-              color="#999999" />
-
-    <hg_label id="lbl_time_total"
-              name="Total Time"
-              x="297" y="390"
-              w="80" h="22"
-              text="3:05"
-              fontSize="13"
-              color="#999999"
-              textAlign="right" />
-
-    <!--
-      播放控制按钮容器
-      - 3 个按钮水平排列：上一首 + 播放/暂停 + 下一首
-      - 中间的播放按钮更大（60x60px）以突出主要功能
-      - 两侧按钮较小（50x50px）
-    -->
-    <hg_view id="view_controls"
-             name="Controls"
-             x="77" y="420"
-             w="300" h="70">
-
-      <!--
-        上一首按钮
-        - 位于左侧，50x50px
-        - 满足触摸目标最小尺寸
-      -->
-      <hg_button id="btn_previous"
-                 name="Previous"
-                 x="30" y="10"
-                 w="50" h="50"
-                 src="assets/icon_previous.bin"
-                 onClick="handlePrevious" />
-
-      <!--
-        播放/暂停按钮
-        - 位于中间，60x60px
-        - 最大尺寸，突出主要操作
-        - y 偏移 5px 使其略高于两侧按钮
-      -->
-      <hg_button id="btn_play_pause"
-                 name="Play/Pause"
-                 x="120" y="5"
-                 w="60" h="60"
-                 src="assets/icon_play.bin"
-                 onClick="handlePlayPause" />
-
-      <!--
-        下一首按钮
-        - 位于右侧，50x50px
-        - 与上一首按钮对称
-      -->
-      <hg_button id="btn_next"
-                 name="Next"
-                 x="220" y="10"
-                 w="50" h="50"
-                 src="assets/icon_next.bin"
-                 onClick="handleNext" />
+      <!-- 播放/暂停按钮（toggle 图片按钮，两态切换调不同回调） -->
+      <hg_button id="btn_play" x="195" y="372" width="64" height="64"
+                 toggleMode="true" initialState="off"
+                 imageOn="/icon_pause.bin" imageOff="/icon_play.bin"
+                 onCallback="music_pause" offCallback="music_play" zIndex="3" />
     </hg_view>
   </view>
 </hml>

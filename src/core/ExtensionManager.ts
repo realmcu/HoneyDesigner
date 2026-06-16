@@ -132,8 +132,9 @@ export class ExtensionManager {
                 const config = JSON.parse(fs.readFileSync(projectConfigPath, 'utf8'));
                 logger.info(`检测到项目配置: ${config.name || '未命名项目'}`);
 
-                // 将 HML-Spec.md 拷贝到项目根目录（供 AI agent 参考）
-                this.copyHmlSpecToProject(workspaceRoot);
+                // 分发 AI 协作资产（HML-Spec.md / skill / AGENTS.md / CLAUDE.md）
+                const targetEngine = config.targetEngine === 'lvgl' ? 'lvgl' : 'honeygui';
+                this.setupAiAssets(workspaceRoot, targetEngine);
             } else {
                 logger.info('未检测到项目配置文件');
             }
@@ -144,13 +145,27 @@ export class ExtensionManager {
     }
 
     /**
-     * 将插件内置的 HML-Spec.md 拷贝到项目根目录
-     * 供 AI agent (vibe coding) 生成 HML 时参考
+     * 分发 AI 协作资产到项目根目录，供任意 AI agent（vibe coding）生成 HML 时参考：
+     *   ① HML-Spec.md            —— 规范副本（顶部注入当前引擎说明）
+     *   ② .claude/skills/...     —— HoneyGUI Designer skill（Claude 生态自动加载）
+     *   ③ AGENTS.md              —— 通用 agent 协作约定（不存在才写）
+     *   ④ CLAUDE.md              —— 引用 AGENTS.md（不存在则写，存在则补引用）
+     * 各步骤独立 try，单步失败不影响其余分发。
      */
-    private copyHmlSpecToProject(projectRoot: string): void {
+    private setupAiAssets(projectRoot: string, targetEngine: 'honeygui' | 'lvgl'): void {
+        this.copyHmlSpecToProject(projectRoot, targetEngine);
+        this.copySkillToProject(projectRoot);
+        this.writeAgentsMd(projectRoot, targetEngine);
+        this.writeOrUpdateClaudeMd(projectRoot);
+    }
+
+    /**
+     * 将插件内置的 HML-Spec.md 拷贝到项目根目录，并在顶部注入当前引擎说明
+     * （按 §5 计划：过滤视图先用"全量 + 引擎头注释"，组件矩阵已含引擎标注，agent 据此过滤）
+     */
+    private copyHmlSpecToProject(projectRoot: string, targetEngine: 'honeygui' | 'lvgl'): void {
         try {
-            const extensionPath = this.context.extensionPath;
-            const srcSpec = path.join(extensionPath, 'docs', 'HML-Spec.md');
+            const srcSpec = path.join(this.context.extensionPath, 'vibe-designer', 'skills', 'honeygui-designer', 'references', 'hml-spec.md');
             const destSpec = path.join(projectRoot, 'HML-Spec.md');
 
             if (!fs.existsSync(srcSpec)) {
@@ -158,16 +173,197 @@ export class ExtensionManager {
                 return;
             }
 
-            // 检查是否需要更新（源文件更新时间比目标新，或目标不存在）
-            const needCopy = !fs.existsSync(destSpec) ||
-                fs.statSync(srcSpec).mtimeMs > fs.statSync(destSpec).mtimeMs;
+            const header =
+                `<!--\n` +
+                `  本文件由 HoneyGUI Visual Designer 自动分发，请勿手动编辑（每次打开项目会按需覆盖）。\n` +
+                `  当前项目 targetEngine = ${targetEngine}。\n` +
+                `  生成 HML 时：仅使用下方组件矩阵中标注 ${targetEngine} 为 ready(✓) 的组件；\n` +
+                `  标注 planned / unsupported 的组件在本引擎不可用，一律勿用。\n` +
+                `-->\n\n`;
+            const specContent = fs.readFileSync(srcSpec, 'utf8');
+            const expected = header + specContent;
 
-            if (needCopy) {
-                fs.copyFileSync(srcSpec, destSpec);
-                logger.info(`HML-Spec.md 已拷贝到项目: ${destSpec}`);
+            // 按内容（含引擎头）比对，不同才重写：既覆盖 spec 内容更新，也覆盖 targetEngine 切换。
+            // 不能用 mtime——首次写出后目标恒新于源，会永久漏掉引擎切换导致引擎头陈旧。
+            if (fs.existsSync(destSpec) && fs.readFileSync(destSpec, 'utf8') === expected) {
+                return;
+            }
+            fs.writeFileSync(destSpec, expected, 'utf8');
+            logger.info(`HML-Spec.md 已分发到项目（engine=${targetEngine}）: ${destSpec}`);
+        } catch (error) {
+            logger.warn(`分发 HML-Spec.md 失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * 将插件内置的 honeygui-designer skill 整目录拷贝到项目的 .claude/skills/ 下
+     * （Claude Code 等生态会自动加载）。逐文件 mtime 较新才覆盖。
+     */
+    private copySkillToProject(projectRoot: string): void {
+        try {
+            const srcSkill = path.join(
+                this.context.extensionPath,
+                'vibe-designer', 'skills', 'honeygui-designer'
+            );
+            const destSkill = path.join(projectRoot, '.claude', 'skills', 'honeygui-designer');
+
+            if (!fs.existsSync(srcSkill)) {
+                logger.warn(`skill 目录不存在: ${srcSkill}`);
+                return;
+            }
+
+            // 排除 references/hml-spec.md：规范由 copyHmlSpecToProject 带引擎头单独分发到项目根，
+            // skill 副本里不再保留无引擎头的重复版（避免两份不一致）。
+            this.copyDirWithMtime(srcSkill, destSkill, (rel) => rel === 'references/hml-spec.md');
+            logger.info(`honeygui-designer skill 已分发到项目: ${destSkill}`);
+        } catch (error) {
+            logger.warn(`分发 skill 失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * 将 srcDir 镜像到 destDir：逐文件按 mtime 增量覆盖（源更新或目标缺失才写），
+     * 并剪除目标端在源中已不存在（或被 skip 显式排除）的条目，保持目标为有效源的精确镜像
+     * ——否则 skill 升级时被删除/改名的旧文件（如废弃的 components.md / hml-syntax.md）
+     * 会残留，让 agent 读到过期错误规范。
+     *
+     * @param skip 接收相对 srcDir 的路径（以 '/' 分隔），返回 true 则该条目既不拷贝、
+     *             目标端同名条目也会被剪除。用于排除由专门通道分发的文件（如 hml-spec.md）。
+     */
+    private copyDirWithMtime(
+        srcDir: string,
+        destDir: string,
+        skip?: (relPath: string) => boolean,
+        baseRel: string = ''
+    ): void {
+        fs.mkdirSync(destDir, { recursive: true });
+
+        const relOf = (name: string) => (baseRel ? `${baseRel}/${name}` : name);
+        const srcEntries = fs.readdirSync(srcDir, { withFileTypes: true });
+        // 有效源条目：排除调用方显式跳过的（如 references/hml-spec.md
+        // ——它由 copyHmlSpecToProject 专门带引擎头分发到项目根，skill 副本里不再保留无头重复版）
+        const keptEntries = srcEntries.filter(e => !(skip && skip(relOf(e.name))));
+        const keptNames = new Set(keptEntries.map(e => e.name));
+
+        // 先剪除目标端多余条目（源已移除或被排除），保持目标为有效源的精确镜像
+        for (const destEntry of fs.readdirSync(destDir, { withFileTypes: true })) {
+            if (!keptNames.has(destEntry.name)) {
+                fs.rmSync(path.join(destDir, destEntry.name), { recursive: true, force: true });
+            }
+        }
+
+        for (const entry of keptEntries) {
+            const srcPath = path.join(srcDir, entry.name);
+            const destPath = path.join(destDir, entry.name);
+            if (entry.isDirectory()) {
+                this.copyDirWithMtime(srcPath, destPath, skip, relOf(entry.name));
+            } else if (entry.isFile()) {
+                const needCopy = !fs.existsSync(destPath) ||
+                    fs.statSync(srcPath).mtimeMs > fs.statSync(destPath).mtimeMs;
+                if (needCopy) {
+                    fs.copyFileSync(srcPath, destPath);
+                }
+            }
+        }
+    }
+
+    /**
+     * 在项目根写入面向通用 agent 的 AGENTS.md。
+     * 不覆盖用户定制：仅当目标缺失、或目标内容恰为本扩展生成的另一引擎版本（即未被用户改动）时才写，
+     * 后者用于 targetEngine 切换后刷新引擎提示——否则陈旧的 targetEngine 会误导 agent。
+     */
+    private writeAgentsMd(projectRoot: string, targetEngine: 'honeygui' | 'lvgl'): void {
+        try {
+            const destAgents = path.join(projectRoot, 'AGENTS.md');
+            const expected = this.buildAgentsMdContent(targetEngine);
+
+            if (fs.existsSync(destAgents)) {
+                const existing = fs.readFileSync(destAgents, 'utf8');
+                if (existing === expected) {
+                    return; // 已是当前引擎版本
+                }
+                // 内容不等于任一引擎的原始模板 ⇒ 视为用户已定制，保留不动
+                const otherEngine = targetEngine === 'honeygui' ? 'lvgl' : 'honeygui';
+                if (existing !== this.buildAgentsMdContent(otherEngine)) {
+                    return;
+                }
+                // 落到这里：现有内容是另一引擎的原始模板 ⇒ 引擎已切换，刷新为当前引擎版本
+            }
+            fs.writeFileSync(destAgents, expected, 'utf8');
+            logger.info(`AGENTS.md 已写入项目（engine=${targetEngine}）: ${destAgents}`);
+        } catch (error) {
+            logger.warn(`写入 AGENTS.md 失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * 生成 AGENTS.md 内容（含当前 targetEngine 提示）
+     */
+    private buildAgentsMdContent(targetEngine: 'honeygui' | 'lvgl'): string {
+        return `# HoneyGUI 项目 — AI 协作指南
+
+本项目使用 HoneyGUI HML（XML-based UI 标记）描述嵌入式 GUI。
+目标引擎（targetEngine）：**${targetEngine}**（见 project.json，每个项目锁定一个引擎）。
+
+## 规范（唯一真相源）
+
+生成 / 修改 HML 前**必读**：[./HML-Spec.md](./HML-Spec.md)
+
+- 仅使用规范中标注当前引擎 ${targetEngine} 为 ready(✓) 的组件；标注 planned / unsupported 的一律勿用。
+- \`hg_view\` 不可嵌套；非容器组件不可有子组件。
+- 资源路径必须以 \`/\` 开头（从 assets 目录起算）；\`hg_label\` 必须有 \`fontFile\`，且字体须在 assets/ 中。
+- 事件用 \`<events><event><action>\` 结构，不用内联 \`onXxx\` 属性。
+- 尺寸用 \`width\`/\`height\`（不是 \`w\`/\`h\`）；对齐用 \`hAlign\`/\`vAlign\`（不是 \`textAlign\`）。
+- 绝不存在、永远勿用的组件：\`hg_container\`、\`hg_grid\`、\`hg_tab\`。
+
+## 生成后必做（验证闭环）
+
+调用 Extension HTTP API 验证（设计器运行时监听 38912）：
+
+\`\`\`bash
+curl -X POST http://localhost:38912/api/validate-hml \\
+  -H "Content-Type: application/json" \\
+  -d '{"filePath":"ui/xxx.hml"}'
+\`\`\`
+
+修复所有 errors 后再继续。注意：验证器只查 8 条结构规则，**不校验组件白名单 / 属性名**，
+\`valid:true\` 仅必要不充分——仍须对照 HML-Spec.md 人工核对组件在当前引擎可用、属性名正确。
+
+## 看效果（仿真）
+
+在 VSCode 中打开本项目（已安装 HoneyGUI Visual Designer 扩展）：
+点击 HoneyGUI 侧边栏的 **Simulate（🚀）**，或命令面板执行 \`HoneyGUI: Simulate\`，
+扩展会自动完成 codegen → SCons 编译 → 仿真器运行。
+`;
+    }
+
+    /**
+     * 写入 / 更新项目根 CLAUDE.md：不存在则写含 @AGENTS.md 引用；
+     * 已存在但未引用 AGENTS.md 时仅追加引用，绝不覆盖用户已有内容。
+     */
+    private writeOrUpdateClaudeMd(projectRoot: string): void {
+        try {
+            const destClaude = path.join(projectRoot, 'CLAUDE.md');
+
+            if (!fs.existsSync(destClaude)) {
+                const content =
+                    `# CLAUDE.md\n\n` +
+                    `本项目的 AI 协作约定见 AGENTS.md（HML 规范、验证闭环、仿真）：\n\n` +
+                    `@AGENTS.md\n`;
+                fs.writeFileSync(destClaude, content, 'utf8');
+                logger.info(`CLAUDE.md 已写入项目: ${destClaude}`);
+                return;
+            }
+
+            const existing = fs.readFileSync(destClaude, 'utf8');
+            if (!existing.includes('@AGENTS.md')) {
+                const appended = existing.replace(/\s*$/, '') +
+                    `\n\n## AI 协作指南\n\n@AGENTS.md\n`;
+                fs.writeFileSync(destClaude, appended, 'utf8');
+                logger.info(`CLAUDE.md 已追加 @AGENTS.md 引用: ${destClaude}`);
             }
         } catch (error) {
-            logger.warn(`拷贝 HML-Spec.md 失败: ${error instanceof Error ? error.message : String(error)}`);
+            logger.warn(`写入 / 更新 CLAUDE.md 失败: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 

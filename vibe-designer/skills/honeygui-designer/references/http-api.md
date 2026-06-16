@@ -83,7 +83,7 @@ curl http://localhost:38912/api/version
 curl -X POST http://localhost:38912/api/validate-hml \
   -H "Content-Type: application/json" \
   -d '{
-    "hmlContent": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<hml>\n  <meta>\n    <title>Test</title>\n  </meta>\n  <view>\n    <hg_view id=\"view_main\" entry=\"true\">\n      <hg_button id=\"btn1\" x=\"100\" y=\"200\" w=\"60\" h=\"50\" text=\"Click\" />\n    </hg_view>\n  </view>\n</hml>"
+    "hmlContent": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<hml>\n  <meta>\n    <project name=\"Test\" resolution=\"454x454\" pixelMode=\"RGB565\" />\n  </meta>\n  <view>\n    <hg_view id=\"view_main\" entry=\"true\" x=\"0\" y=\"0\" width=\"454\" height=\"454\">\n      <hg_button id=\"btn1\" x=\"100\" y=\"200\" width=\"120\" height=\"48\" imageOn=\"/btn_on.bin\" imageOff=\"/btn_off.bin\" clickCallback=\"on_btn1_click\" />\n    </hg_view>\n  </view>\n</hml>"
   }'
 ```
 

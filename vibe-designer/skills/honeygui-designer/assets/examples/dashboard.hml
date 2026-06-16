@@ -1,219 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ⚠️ 资源路径说明
-  本示例中的资源路径（如 assets/icon_steps.bin）是占位符，仅用于演示 HML 结构。
+  示例：健康指标仪表盘（HoneyGUI 引擎方言）· 完整多组件布局
+  演示点：2x2 卡片网格布局；用 hg_rect 作卡片背景 + 同级 hg_image/hg_label 按 zIndex 叠放
+          （HoneyGUI 无"卡片容器"，且 hg_view 不可嵌套 hg_view——卡片不能用嵌套 view 实现）。
 
-  在实际项目中，你需要：
-  1. 准备资源文件（PNG/JPG 图片、TTF 字体等）
-  2. 使用 VSCode Extension 的转换工具将资源转换为 .bin 格式
-  3. 将转换后的文件放入项目的 assets/ 目录
-
-  💡 快速开始：使用 Extension 的"新建项目"功能选择模板（如 Smart Watch），
-     模板中已包含完整的资源文件，可以直接运行。
+  ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
+  ⚠️ 资源路径（如 /icon_steps.bin）是占位符，恒以 "/" 开头；实际项目需准备资源并放入 assets/。
 -->
 <hml>
   <meta>
-    <title>Fitness Dashboard</title>
-    <description>Health and fitness metrics dashboard with multiple status cards</description>
-    <project>
-      <resolution>454x454</resolution>
-      <pixelMode>RGB565</pixelMode>
-    </project>
+    <project name="Dashboard" appId="com.example.dashboard"
+             resolution="454x454" pixelMode="RGB565" />
+    <author name="Developer" email="dev@example.com" />
   </meta>
 
-  <view id="view_dashboard">
-    <!--
-      背景视图
-      - 纯黑色背景，提供高对比度
-      - 为彩色卡片提供衬托
-    -->
-    <hg_view id="view_background"
-             name="Background"
-             x="0" y="0"
-             w="454" h="454"
-             backgroundColor="#000000" />
+  <view>
+    <hg_view id="view_dashboard" entry="true" x="0" y="0" width="454" height="454"
+             backgroundColor="#000000">
 
-    <!--
-      页面标题
-      - 居中显示"Dashboard"
-      - 白色文字，26px 字号
-      - 顶部预留 30px 边距
-    -->
-    <hg_label id="lbl_title"
-              name="Title"
-              x="127" y="30"
-              w="200" h="40"
-              text="Dashboard"
-              fontSize="26"
-              color="#FFFFFF"
-              textAlign="center" />
+      <hg_label id="lbl_title" x="127" y="24" width="200" height="36"
+                text="Dashboard" fontSize="26" color="#FFFFFF"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" zIndex="10" />
 
-    <!--
-      指标卡片布局（2x2 网格）
-      - 4 个卡片排列成 2 行 2 列
-      - 卡片尺寸：167x147px
-      - 卡片间距：40px（左右边距），20px（卡片之间）
-      - 每个卡片包含：图标 + 数值 + 标签
-    -->
+      <!-- 卡片 1：步数（左上）。rect 背景 + 数值/名称叠放其上 -->
+      <hg_rect id="card_steps" x="30" y="80" width="190" height="150"
+               fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
+      <hg_image id="icon_steps" x="105" y="98" width="40" height="40"
+                src="/icon_steps.bin" zIndex="1" />
+      <hg_label id="lbl_steps_val" x="40" y="146" width="170" height="40"
+                text="8,542" fontSize="30" color="#00FF88"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" zIndex="1" />
+      <hg_label id="lbl_steps_name" x="40" y="192" width="170" height="24"
+                text="Steps" fontSize="15" color="#999999"
+                hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" zIndex="1" />
 
-    <!--
-      卡片 1：步数（左上）
-      - 位置：x=40, y=90（距离标题 20px）
-      - 深灰背景（#1E1E1E）+ 圆角 16px
-      - 绿色数值（#00FF88）表示运动活跃
-    -->
-    <hg_view id="card_steps"
-             name="Steps Card"
-             x="40" y="90"
-             w="167" h="147"
-             backgroundColor="#1E1E1E"
-             borderRadius="16">
-      <!-- 图标：步数图标，顶部居中 -->
-      <hg_image id="icon_steps"
-                name="Steps Icon"
-                x="59" y="20"
-                w="50" h="50"
-                src="assets/icon_steps.bin" />
+      <!-- 卡片 2：心率（右上） -->
+      <hg_rect id="card_heart" x="234" y="80" width="190" height="150"
+               fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
+      <hg_image id="icon_heart" x="309" y="98" width="40" height="40"
+                src="/icon_heart.bin" zIndex="1" />
+      <hg_label id="lbl_heart_val" x="244" y="146" width="170" height="40"
+                text="72" fontSize="30" color="#FF0066"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" zIndex="1" />
+      <hg_label id="lbl_heart_name" x="244" y="192" width="170" height="24"
+                text="BPM" fontSize="15" color="#999999"
+                hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" zIndex="1" />
 
-      <!-- 数值：步数计数，大字号醒目显示 -->
-      <hg_label id="lbl_steps_value"
-                name="Steps Value"
-                x="34" y="75"
-                w="100" h="40"
-                text="8,542"
-                fontSize="28"
-                color="#00FF88"
-                textAlign="center" />
+      <!-- 卡片 3：卡路里（左下） -->
+      <hg_rect id="card_cal" x="30" y="244" width="190" height="150"
+               fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
+      <hg_image id="icon_cal" x="105" y="262" width="40" height="40"
+                src="/icon_calories.bin" zIndex="1" />
+      <hg_label id="lbl_cal_val" x="40" y="310" width="170" height="40"
+                text="420" fontSize="30" color="#FF8800"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" zIndex="1" />
+      <hg_label id="lbl_cal_name" x="40" y="356" width="170" height="24"
+                text="Cal" fontSize="15" color="#999999"
+                hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" zIndex="1" />
 
-      <!-- 标签：指标名称，灰色小字 -->
-      <hg_label id="lbl_steps_label"
-                name="Steps Label"
-                x="34" y="112"
-                w="100" h="22"
-                text="Steps"
-                fontSize="14"
-                color="#999999"
-                textAlign="center" />
-    </hg_view>
-
-    <!--
-      卡片 2：心率（右上）
-      - 位置：x=247（距离左卡片 40px 间距）
-      - 红色数值（#FF0066）表示心率
-      - 单位：BPM（每分钟心跳数）
-    -->
-    <hg_view id="card_heart"
-             name="Heart Card"
-             x="247" y="90"
-             w="167" h="147"
-             backgroundColor="#1E1E1E"
-             borderRadius="16">
-      <!-- 图标：心率图标 -->
-      <hg_image id="icon_heart"
-                name="Heart Icon"
-                x="59" y="20"
-                w="50" h="50"
-                src="assets/icon_heart.bin" />
-
-      <!-- 数值：心率数值 -->
-      <hg_label id="lbl_heart_value"
-                name="Heart Value"
-                x="34" y="75"
-                w="100" h="40"
-                text="72"
-                fontSize="28"
-                color="#FF0066"
-                textAlign="center" />
-
-      <!-- 标签：单位 BPM -->
-      <hg_label id="lbl_heart_label"
-                name="Heart Label"
-                x="34" y="112"
-                w="100" h="22"
-                text="BPM"
-                fontSize="14"
-                color="#999999"
-                textAlign="center" />
-    </hg_view>
-
-    <!--
-      卡片 3：卡路里（左下）
-      - 位置：y=257（距离上方卡片 20px 间距）
-      - 橙色数值（#FF8800）表示能量消耗
-      - 单位：Cal（卡路里）
-    -->
-    <hg_view id="card_calories"
-             name="Calories Card"
-             x="40" y="257"
-             w="167" h="147"
-             backgroundColor="#1E1E1E"
-             borderRadius="16">
-      <!-- 图标：卡路里图标 -->
-      <hg_image id="icon_calories"
-                name="Calories Icon"
-                x="59" y="20"
-                w="50" h="50"
-                src="assets/icon_calories.bin" />
-
-      <!-- 数值：卡路里消耗 -->
-      <hg_label id="lbl_calories_value"
-                name="Calories Value"
-                x="34" y="75"
-                w="100" h="40"
-                text="420"
-                fontSize="28"
-                color="#FF8800"
-                textAlign="center" />
-
-      <!-- 标签：单位 Cal -->
-      <hg_label id="lbl_calories_label"
-                name="Calories Label"
-                x="34" y="112"
-                w="100" h="22"
-                text="Cal"
-                fontSize="14"
-                color="#999999"
-                textAlign="center" />
-    </hg_view>
-
-    <!--
-      卡片 4：睡眠（右下）
-      - 位置：右下角（x=247, y=257）
-      - 蓝色数值（#6688FF）表示睡眠时长
-      - 格式：小时.小数（如 7.5h）
-    -->
-    <hg_view id="card_sleep"
-             name="Sleep Card"
-             x="247" y="257"
-             w="167" h="147"
-             backgroundColor="#1E1E1E"
-             borderRadius="16">
-      <!-- 图标：睡眠图标 -->
-      <hg_image id="icon_sleep"
-                name="Sleep Icon"
-                x="59" y="20"
-                w="50" h="50"
-                src="assets/icon_sleep.bin" />
-
-      <!-- 数值：睡眠时长 -->
-      <hg_label id="lbl_sleep_value"
-                name="Sleep Value"
-                x="34" y="75"
-                w="100" h="40"
-                text="7.5h"
-                fontSize="28"
-                color="#6688FF"
-                textAlign="center" />
-
-      <!-- 标签：指标名称 -->
-      <hg_label id="lbl_sleep_label"
-                name="Sleep Label"
-                x="34" y="112"
-                w="100" h="22"
-                text="Sleep"
-                fontSize="14"
-                color="#999999"
-                textAlign="center" />
+      <!-- 卡片 4：睡眠（右下） -->
+      <hg_rect id="card_sleep" x="234" y="244" width="190" height="150"
+               fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
+      <hg_image id="icon_sleep" x="309" y="262" width="40" height="40"
+                src="/icon_sleep.bin" zIndex="1" />
+      <hg_label id="lbl_sleep_val" x="244" y="310" width="170" height="40"
+                text="7.5h" fontSize="30" color="#6688FF"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" zIndex="1" />
+      <hg_label id="lbl_sleep_name" x="244" y="356" width="170" height="24"
+                text="Sleep" fontSize="15" color="#999999"
+                hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" zIndex="1" />
     </hg_view>
   </view>
 </hml>

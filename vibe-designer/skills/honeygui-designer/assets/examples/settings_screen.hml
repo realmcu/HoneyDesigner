@@ -1,210 +1,87 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ⚠️ 资源路径说明
-  本示例中的资源路径（如 assets/icon_back.bin）是占位符，仅用于演示 HML 结构。
+  示例：设置页（HoneyGUI 引擎方言）
+  演示点：可滚动 hg_list + hg_list_item、toggle 图片按钮（代替 LVGL 的 switch）、
+          值显示 + 调节按钮（代替 LVGL 的 slider）、<events> 事件结构。
 
-  在实际项目中，你需要：
-  1. 准备资源文件（PNG/JPG 图片、TTF 字体等）
-  2. 使用 VSCode Extension 的转换工具将资源转换为 .bin 格式
-  3. 将转换后的文件放入项目的 assets/ 目录
-
-  💡 快速开始：使用 Extension 的"新建项目"功能选择模板（如 Smart Watch），
-     模板中已包含完整的资源文件，可以直接运行。
+  ⚠️ 资源路径（如 /icon_back.bin）是占位符，仅演示结构。实际项目中需准备资源、
+     用 Extension 转换为 .bin、放入 assets/ 目录。路径恒以 "/" 开头（从 assets 起算）。
 -->
 <hml>
   <meta>
-    <title>Settings Screen</title>
-    <description>Settings page with adjustable brightness and volume sliders</description>
-    <project>
-      <resolution>454x454</resolution>
-      <pixelMode>RGB565</pixelMode>
-    </project>
+    <project name="Settings" appId="com.example.settings"
+             resolution="454x454" pixelMode="RGB565" />
+    <author name="Developer" email="dev@example.com" />
   </meta>
 
-  <view id="view_settings">
-    <!--
-      页面头部
-      - 蓝色背景条（#0066CC），高度 80px
-      - 包含返回按钮和页面标题
-      - 固定在顶部，不随内容滚动
-    -->
-    <hg_view id="view_header"
-             name="Header"
-             x="0" y="0"
-             w="454" h="80"
-             backgroundColor="#0066CC">
-      <!--
-        返回按钮
-        - 位于左上角，40x40px
-        - 满足最小触摸目标尺寸（≥44px）
-      -->
-      <hg_button id="btn_back"
-                 name="Back Button"
-                 x="20" y="20"
-                 w="40" h="40"
-                 src="assets/icon_back.bin"
-                 onClick="goBack" />
+  <view>
+    <hg_view id="view_settings" entry="true" x="0" y="0" width="454" height="454"
+             backgroundColor="#000000">
 
-      <!-- 页面标题：居中显示 "Settings" -->
-      <hg_label id="lbl_title"
-                name="Title"
-                x="127" y="20"
-                w="200" h="40"
-                text="Settings"
-                fontSize="24"
-                color="#FFFFFF"
-                textAlign="center" />
+      <!-- 返回按钮（图片按钮，点击调用 C 回调） -->
+      <hg_button id="btn_back" x="20" y="20" width="44" height="44"
+                 imageOn="/icon_back_on.bin" imageOff="/icon_back.bin"
+                 clickCallback="go_back" />
+
+      <!-- 页面标题 -->
+      <hg_label id="lbl_title" x="127" y="24" width="200" height="40"
+                text="Settings" fontSize="24" color="#FFFFFF"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+
+      <!-- 可滚动设置列表 -->
+      <hg_list id="list_settings" x="20" y="80" width="414" height="354"
+               direction="VERTICAL" style="LIST_CLASSIC"
+               itemWidth="414" itemHeight="80" space="8"
+               noteNum="4" autoAlign="true" inertia="true">
+
+        <!-- WiFi 开关（toggle 按钮：两张图片表达 on/off） -->
+        <hg_list_item id="row_wifi" x="0" y="0" width="414" height="80">
+          <hg_image id="icon_wifi" x="10" y="15" width="50" height="50" src="/icon_wifi.bin" />
+          <hg_label id="lbl_wifi" x="75" y="25" width="180" height="30"
+                    text="WiFi" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
+          <hg_button id="btn_wifi" x="334" y="25" width="60" height="30"
+                     toggleMode="true" initialState="on"
+                     imageOn="/switch_on.bin" imageOff="/switch_off.bin"
+                     onCallback="wifi_on" offCallback="wifi_off" />
+        </hg_list_item>
+
+        <!-- Bluetooth 开关 -->
+        <hg_list_item id="row_bt" x="0" y="0" width="414" height="80">
+          <hg_image id="icon_bt" x="10" y="15" width="50" height="50" src="/icon_bt.bin" />
+          <hg_label id="lbl_bt" x="75" y="25" width="180" height="30"
+                    text="Bluetooth" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
+          <hg_button id="btn_bt" x="334" y="25" width="60" height="30"
+                     toggleMode="true" initialState="off"
+                     imageOn="/switch_on.bin" imageOff="/switch_off.bin"
+                     onCallback="bt_on" offCallback="bt_off" />
+        </hg_list_item>
+
+        <!-- 亮度：值显示 + 调节按钮（HoneyGUI 无原生 slider） -->
+        <hg_list_item id="row_brightness" x="0" y="0" width="414" height="80">
+          <hg_image id="icon_brightness" x="10" y="15" width="50" height="50" src="/icon_brightness.bin" />
+          <hg_label id="lbl_brightness" x="75" y="25" width="150" height="30"
+                    text="Brightness" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
+          <hg_label id="lbl_brightness_value" x="230" y="25" width="60" height="30"
+                    text="70%" fontSize="18" color="#00FF88"
+                    hAlign="RIGHT" fontFile="/NotoSansSC-Regular.ttf" />
+          <hg_button id="btn_bright_down" x="300" y="25" width="40" height="40"
+                     imageOn="/btn_minus_on.bin" imageOff="/btn_minus.bin"
+                     clickCallback="brightness_down" />
+          <hg_button id="btn_bright_up" x="354" y="25" width="40" height="40"
+                     imageOn="/btn_plus_on.bin" imageOff="/btn_plus.bin"
+                     clickCallback="brightness_up" />
+        </hg_list_item>
+
+        <!-- 关于（图片按钮，点击调用回调） -->
+        <hg_list_item id="row_about" x="0" y="0" width="414" height="80">
+          <hg_image id="icon_about" x="10" y="15" width="50" height="50" src="/icon_info.bin" />
+          <hg_label id="lbl_about" x="75" y="25" width="200" height="30"
+                    text="About" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
+          <hg_button id="btn_about" x="334" y="25" width="60" height="40"
+                     imageOn="/icon_chevron_on.bin" imageOff="/icon_chevron.bin"
+                     clickCallback="go_to_about" />
+        </hg_list_item>
+      </hg_list>
     </hg_view>
-
-    <!--
-      内容区域（可滚动容器）
-      - 位于头部下方（y=80）
-      - 高度 374px（总高 454 - 头部 80）
-      - 支持垂直滚动，内容超过容器高度时可滑动
-    -->
-    <hg_container id="cnt_content"
-                  name="Content"
-                  x="0" y="80"
-                  w="454" h="374"
-                  overflow="scroll"
-                  backgroundColor="#000000">
-
-      <!--
-        亮度设置项
-        - 图标 + 标签 + 数值显示 + 滑块
-        - 布局：图标居左，标签和滑块在右侧垂直排列
-      -->
-      <hg_view id="item_brightness"
-               name="Brightness Setting"
-               x="40" y="30"
-               w="374" h="100">
-        <!-- 图标：亮度图标 -->
-        <hg_image id="icon_brightness"
-                  name="Brightness Icon"
-                  x="0" y="20"
-                  w="50" h="50"
-                  src="assets/icon_brightness.bin" />
-
-        <!-- 标签：设置项名称 -->
-        <hg_label id="lbl_brightness"
-                  name="Brightness Label"
-                  x="70" y="10"
-                  w="200" h="30"
-                  text="Brightness"
-                  fontSize="18"
-                  color="#FFFFFF" />
-
-        <!--
-          数值显示：当前亮度百分比
-          - 右对齐，绿色（#00FF88）突出显示
-          - 实时反映滑块值变化
-        -->
-        <hg_label id="lbl_brightness_value"
-                  name="Brightness Value"
-                  x="270" y="10"
-                  w="100" h="30"
-                  text="70%"
-                  fontSize="18"
-                  color="#00FF88"
-                  textAlign="right" />
-
-        <!--
-          亮度滑块
-          - 范围 0-100，当前值 70
-          - 水平方向，宽度 300px
-          - 值变化触发 handleBrightnessChange 事件
-        -->
-        <hg_slider id="slider_brightness"
-                   name="Brightness Slider"
-                   x="70" y="50"
-                   w="300" h="40"
-                   min="0"
-                   max="100"
-                   value="70"
-                   orientation="horizontal"
-                   onValueChange="handleBrightnessChange" />
-      </hg_view>
-
-      <!--
-        音量设置项
-        - 与亮度设置项结构相同
-        - 垂直间距 20px（y=150 vs y=30）
-      -->
-      <hg_view id="item_volume"
-               name="Volume Setting"
-               x="40" y="150"
-               w="374" h="100">
-        <!-- 图标：音量图标 -->
-        <hg_image id="icon_volume"
-                  name="Volume Icon"
-                  x="0" y="20"
-                  w="50" h="50"
-                  src="assets/icon_volume.bin" />
-
-        <!-- 标签：设置项名称 -->
-        <hg_label id="lbl_volume"
-                  name="Volume Label"
-                  x="70" y="10"
-                  w="200" h="30"
-                  text="Volume"
-                  fontSize="18"
-                  color="#FFFFFF" />
-
-        <!-- 数值显示：当前音量百分比 -->
-        <hg_label id="lbl_volume_value"
-                  name="Volume Value"
-                  x="270" y="10"
-                  w="100" h="30"
-                  text="50%"
-                  fontSize="18"
-                  color="#00FF88"
-                  textAlign="right" />
-
-        <!--
-          音量滑块
-          - 范围 0-100，当前值 50
-          - 值变化触发 handleVolumeChange 事件
-        -->
-        <hg_slider id="slider_volume"
-                   name="Volume Slider"
-                   x="70" y="50"
-                   w="300" h="40"
-                   min="0"
-                   max="100"
-                   value="50"
-                   orientation="horizontal"
-                   onValueChange="handleVolumeChange" />
-      </hg_view>
-
-      <!--
-        关于按钮
-        - 整个按钮区域可点击（374x60px）
-        - 深灰背景 + 圆角，与滑块项区分
-        - 包含图标和文字标签
-      -->
-      <hg_button id="btn_about"
-                 name="About Button"
-                 x="40" y="270"
-                 w="374" h="60"
-                 backgroundColor="#1E1E1E"
-                 borderRadius="12"
-                 onClick="goToAbout">
-        <!-- 图标：信息图标 -->
-        <hg_image id="icon_about"
-                  name="About Icon"
-                  x="20" y="5"
-                  w="50" h="50"
-                  src="assets/icon_info.bin" />
-
-        <!-- 标签：按钮文字 -->
-        <hg_label id="lbl_about"
-                  name="About Label"
-                  x="90" y="15"
-                  w="200" h="30"
-                  text="About"
-                  fontSize="18"
-                  color="#FFFFFF" />
-      </hg_button>
-    </hg_container>
   </view>
 </hml>

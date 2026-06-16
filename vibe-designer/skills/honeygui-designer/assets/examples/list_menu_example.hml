@@ -1,274 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ⚠️ 资源路径说明
-  本示例中的资源路径（如 assets/icon_activity.bin）是占位符，仅用于演示 HML 结构。
+  示例片段：应用菜单列表 + 视图跳转（HoneyGUI 引擎方言）
+  演示点：① hg_list（容器）只装 hg_list_item，每个 item 内放 hg_image + hg_label；
+          ② <events><event><action> 结构 + switchView 在两个 hg_view 间跳转（按键/滑动）；
+          ③ 多 view 文档中恰好一个 hg_view entry="true"，其余为可跳转的目标视图。
 
-  在实际项目中，你需要：
-  1. 准备资源文件（PNG/JPG 图片、TTF 字体等）
-  2. 使用 VSCode Extension 的转换工具将资源转换为 .bin 格式
-  3. 将转换后的文件放入项目的 assets/ 目录
-
-  💡 快速开始：使用 Extension 的"新建项目"功能选择模板（如 Smart Watch），
-     模板中已包含完整的资源文件，可以直接运行。
+  ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
+  ⚠️ 资源路径（如 /icon_activity.bin）是占位符，恒以 "/" 开头；实际项目需准备资源并放入 assets/。
 -->
 <hml>
   <meta>
-    <title>App Menu List</title>
-    <description>Scrollable application menu with list items</description>
-    <project>
-      <resolution>454x454</resolution>
-      <pixelMode>RGB565</pixelMode>
-    </project>
+    <project name="AppMenu" appId="com.example.appmenu"
+             resolution="454x454" pixelMode="RGB565" />
+    <author name="Developer" email="dev@example.com" />
   </meta>
 
-  <view id="view_app_menu">
-    <!--
-      应用菜单列表示例
-      - 展示 hg_list 和 hg_list_item 的使用
-      - 垂直滚动列表，包含 10 个应用图标
-      - 每个 list item 高度 100px，间距 5px
-    -->
+  <view>
+    <!-- 入口视图：可滚动应用列表；上滑跳到详情视图 -->
+    <hg_view id="view_menu" entry="true" x="0" y="0" width="454" height="454"
+             backgroundColor="#000000">
+      <events>
+        <event type="onSwipeUp">
+          <action type="switchView" target="view_detail"
+                  switchOutStyle="SWITCH_OUT_TO_TOP_USE_TRANSLATION"
+                  switchInStyle="SWITCH_IN_FROM_BOTTOM_USE_TRANSLATION" />
+        </event>
+      </events>
 
-    <!--
-      页面标题
-      - 固定在顶部，不随列表滚动
-    -->
-    <hg_label id="lbl_menu_title"
-              name="Menu Title"
-              x="127" y="30"
-              w="200" h="40"
-              text="Apps"
-              fontSize="28"
-              color="#FFFFFF"
-              fontFile="/NotoSansSC-Bold.ttf"
-              textAlign="center" />
+      <hg_list id="list_apps" x="40" y="40" width="374" height="374"
+               direction="VERTICAL" style="LIST_CLASSIC"
+               itemWidth="374" itemHeight="90" space="6"
+               noteNum="4" autoAlign="true" inertia="true" loop="false">
 
-    <!--
-      可滚动列表容器
-      - hg_list 是容器组件，必须包含 hg_list_item 子元素
-      - direction="VERTICAL" 表示垂直滚动
-      - itemHeight="100" 定义每项高度
-      - space="5" 定义项之间的间距
-      - loop="false" 不循环滚动
-    -->
-    <hg_list id="list_apps"
-             name="App List"
-             x="40" y="90"
-             w="374" h="354"
-             itemWidth="374"
-             itemHeight="100"
-             space="5"
-             direction="VERTICAL"
-             loop="false"
-             autoAlign="true"
-             inertia="true">
+        <hg_list_item id="row_activity" x="0" y="0" width="374" height="90">
+          <hg_image id="icon_activity" x="12" y="15" width="60" height="60" src="/icon_activity.bin" />
+          <hg_label id="lbl_activity" x="88" y="30" width="250" height="30"
+                    text="Activity" fontSize="22" color="#FFFFFF"
+                    hAlign="LEFT" fontFile="/NotoSansSC-Regular.ttf" />
+        </hg_list_item>
 
-      <!--
-        列表项 1：活动记录
-        - 每个 hg_list_item 必须设置 index 属性
-        - index 从 0 开始递增
-      -->
-      <hg_list_item id="list_item_activity"
-                    index="0"
-                    x="0" y="0"
-                    w="374" h="100">
-        <!-- 应用图标 -->
-        <hg_image id="icon_activity"
-                  name="Activity Icon"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_activity.bin" />
+        <hg_list_item id="row_heart" x="0" y="0" width="374" height="90">
+          <hg_image id="icon_heart" x="12" y="15" width="60" height="60" src="/icon_heart.bin" />
+          <hg_label id="lbl_heart" x="88" y="30" width="250" height="30"
+                    text="Heart Rate" fontSize="22" color="#FFFFFF"
+                    hAlign="LEFT" fontFile="/NotoSansSC-Regular.ttf" />
+        </hg_list_item>
 
-        <!-- 应用名称 -->
-        <hg_label id="lbl_activity"
-                  name="Activity Label"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Activity"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
+        <hg_list_item id="row_weather" x="0" y="0" width="374" height="90">
+          <hg_image id="icon_weather" x="12" y="15" width="60" height="60" src="/icon_weather.bin" />
+          <hg_label id="lbl_weather" x="88" y="30" width="250" height="30"
+                    text="Weather" fontSize="22" color="#FFFFFF"
+                    hAlign="LEFT" fontFile="/NotoSansSC-Regular.ttf" />
+        </hg_list_item>
 
-      <!--
-        列表项 2：心率监测
-      -->
-      <hg_list_item id="list_item_heart"
-                    index="1"
-                    x="0" y="105"
-                    w="374" h="100">
-        <hg_image id="icon_heart"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_heart.bin" />
-        <hg_label id="lbl_heart"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Heart Rate"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
+        <hg_list_item id="row_music" x="0" y="0" width="374" height="90">
+          <hg_image id="icon_music" x="12" y="15" width="60" height="60" src="/icon_music.bin" />
+          <hg_label id="lbl_music" x="88" y="30" width="250" height="30"
+                    text="Music" fontSize="22" color="#FFFFFF"
+                    hAlign="LEFT" fontFile="/NotoSansSC-Regular.ttf" />
+        </hg_list_item>
+      </hg_list>
+    </hg_view>
 
-      <!--
-        列表项 3：天气
-      -->
-      <hg_list_item id="list_item_weather"
-                    index="2"
-                    x="0" y="210"
-                    w="374" h="100">
-        <hg_image id="icon_weather"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_weather.bin" />
-        <hg_label id="lbl_weather"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Weather"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-
-      <!--
-        列表项 4：消息
-      -->
-      <hg_list_item id="list_item_message"
-                    index="3"
-                    x="0" y="315"
-                    w="374" h="100">
-        <hg_image id="icon_message"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_message.bin" />
-        <hg_label id="lbl_message"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Messages"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-
-      <!--
-        列表项 5：音乐
-      -->
-      <hg_list_item id="list_item_music"
-                    index="4"
-                    x="0" y="420"
-                    w="374" h="100">
-        <hg_image id="icon_music"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_music.bin" />
-        <hg_label id="lbl_music"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Music"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-
-      <!--
-        列表项 6：地图
-      -->
-      <hg_list_item id="list_item_map"
-                    index="5"
-                    x="0" y="525"
-                    w="374" h="100">
-        <hg_image id="icon_map"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_map.bin" />
-        <hg_label id="lbl_map"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Maps"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-
-      <!--
-        列表项 7：秒表
-      -->
-      <hg_list_item id="list_item_stopwatch"
-                    index="6"
-                    x="0" y="630"
-                    w="374" h="100">
-        <hg_image id="icon_stopwatch"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_stopwatch.bin" />
-        <hg_label id="lbl_stopwatch"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Stopwatch"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-
-      <!--
-        列表项 8：闹钟
-      -->
-      <hg_list_item id="list_item_alarm"
-                    index="7"
-                    x="0" y="735"
-                    w="374" h="100">
-        <hg_image id="icon_alarm"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_alarm.bin" />
-        <hg_label id="lbl_alarm"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Alarms"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-
-      <!--
-        列表项 9：指南针
-      -->
-      <hg_list_item id="list_item_compass"
-                    index="8"
-                    x="0" y="840"
-                    w="374" h="100">
-        <hg_image id="icon_compass"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_compass.bin" />
-        <hg_label id="lbl_compass"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Compass"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-
-      <!--
-        列表项 10：设置
-      -->
-      <hg_list_item id="list_item_settings"
-                    index="9"
-                    x="0" y="945"
-                    w="374" h="100">
-        <hg_image id="icon_settings"
-                  x="10" y="10"
-                  w="80" h="80"
-                  src="assets/icon_settings.bin" />
-        <hg_label id="lbl_settings"
-                  x="110" y="30"
-                  w="250" h="40"
-                  text="Settings"
-                  fontSize="24"
-                  color="#FFFFFF"
-                  fontFile="/NotoSansSC-Bold.ttf" />
-      </hg_list_item>
-    </hg_list>
+    <!-- 目标视图：下滑返回菜单 -->
+    <hg_view id="view_detail" x="0" y="0" width="454" height="454"
+             backgroundColor="#101820">
+      <events>
+        <event type="onSwipeDown">
+          <action type="switchView" target="view_menu"
+                  switchOutStyle="SWITCH_OUT_TO_BOTTOM_USE_TRANSLATION"
+                  switchInStyle="SWITCH_IN_FROM_TOP_USE_TRANSLATION" />
+        </event>
+      </events>
+      <hg_label id="lbl_detail" x="77" y="200" width="300" height="40"
+                text="Detail Page" fontSize="26" color="#FFFFFF"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+      <hg_label id="lbl_hint" x="77" y="250" width="300" height="28"
+                text="Swipe down to go back" fontSize="15" color="#888888"
+                hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" />
+    </hg_view>
   </view>
 </hml>

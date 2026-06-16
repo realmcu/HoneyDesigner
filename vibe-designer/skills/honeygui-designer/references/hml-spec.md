@@ -1,8 +1,46 @@
 # HML (HoneyGUI Markup Language) Specification
 
-> Version: 1.0 | Last Updated: 2026-04-03
+> Version: 2.0 | Last Updated: 2026-06-15
 
 HML is an XML-based markup language used by HoneyGUI Design to describe embedded GUI layouts. This document serves as the authoritative reference for AI agents generating HML files.
+
+HML is **one language with two code-generation backends (engines)**: `honeygui` and `lvgl`.
+Each project locks exactly one engine via `project.json` → `targetEngine`. A component may be
+available on both engines, only one, or neither. **Only use components marked available (✓) for
+the current project's engine.** Components marked "暂不支持，勿用" / "planned" / "unsupported"
+must NOT be used for that engine.
+
+## Engine Support Model (READ FIRST)
+
+Every component section is tagged with its per-engine status, in two synchronized forms:
+
+1. A human-readable line right under the heading, e.g. `引擎: ✓HoneyGUI ✓LVGL`.
+2. A machine-parsable HTML comment on the next line, e.g. `<!-- engine: honeygui=ready lvgl=ready -->`.
+
+> ⚠️ The HTML-comment form is **consumed by tooling** (per-engine distribution filter + CI
+> drift-check). Keep its exact format: `<!-- engine: honeygui=<status> lvgl=<status> -->`,
+> where `<status>` ∈ `ready` | `planned` | `unsupported`. Do not free-text it.
+
+| Status | Meaning | Usable? |
+|--------|---------|---------|
+| `ready` | Fully implemented for this engine | ✅ Yes |
+| `planned` | Registered but not implemented — codegen produces a stub/TODO | ❌ No — do not use |
+| `unsupported` | Not available on this engine at all | ❌ No — do not use |
+
+Human-label shorthand used in headings:
+
+| Heading label | Equivalent statuses |
+|---------------|---------------------|
+| `引擎: ✓HoneyGUI ✓LVGL` | honeygui=ready, lvgl=ready |
+| `引擎: 仅HoneyGUI` | honeygui=ready, lvgl=unsupported |
+| `引擎: 仅HoneyGUI（LVGL 暂未实现）` | honeygui=ready, lvgl=planned |
+| `引擎: 仅LVGL` | honeygui=planned, lvgl=ready |
+| `引擎: 暂不支持，勿用` | honeygui=planned, lvgl=planned |
+
+> **Source of truth is code, not this document.** The matrix is derived from the two codegen
+> registries (`src/codegen/honeygui/components/index.ts`, `src/codegen/lvgl/components/index.ts`)
+> and `ComponentLibrary.tsx`'s `engineSupport`. When they disagree with a `planned` stub
+> Generator that exists in a registry, `engineSupport` wins (a registered Generator ≠ ready).
 
 
 ## hg_view can not nest hg_view!!!!
@@ -12,11 +50,11 @@ HML is an XML-based markup language used by HoneyGUI Design to describe embedded
 
 ## Only if font files is in assets folder, the hg_label can access them!!!
 
-- fallback: if there is no font file in assets folder, coping font files in fallback folder to assets folder, and using these fallback font files. 
+- fallback: if there is no font file in assets folder, coping font files in fallback folder to assets folder, and using these fallback font files.
 
 ## please setting hg_label's font file.
 
-## no relative file path 
+## no relative file path
 - all assets files's path is a '/' + 'relative path from assets folder'
 - example: '/NotoSansSC-Bold.ttf' is OK, 'NotoSansSC-Bold.ttf' will fault.
 
@@ -42,7 +80,7 @@ HML is an XML-based markup language used by HoneyGUI Design to describe embedded
 5. [Component Taxonomy & Nesting Rules](#5-component-taxonomy--nesting-rules)
 6. [Container Components](#6-container-components)
 7. [Basic Controls](#7-basic-controls)
-
+8. [Input Controls (LVGL only)](#8-input-controls-lvgl-only)
 9. [Graphics Controls](#9-graphics-controls)
 10. [Multimedia Controls](#10-multimedia-controls)
 11. [Mini-App Controls](#11-mini-app-controls)
@@ -163,14 +201,55 @@ All components support these base attributes:
 
 ## 5. Component Taxonomy & Nesting Rules
 
-### All Component Types
+### All Component Types — Engine Matrix
 
-| Category | Tags |
-|----------|------|
-| **Containers** | `hg_view`, `hg_window`,  `hg_list`, `hg_list_item`, `hg_menu_cellular` |
-| **Basic** |  `hg_button`, `hg_label`, `hg_time_label`, `hg_image` |
-| **Graphics** | `hg_arc`, `hg_circle`, `hg_rect`, `hg_qbcode` |
-| **Mini-App** | `hg_openclaw`, `hg_claw_face` |
+Status legend: ✅ ready · 🚧 planned (do not use) · ❌ unsupported (do not use).
+**Source of truth = code** (see Engine Support Model above). This matrix is a snapshot of
+commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
+
+| Category | Tag | HoneyGUI | LVGL |
+|----------|-----|----------|------|
+| **Containers** | `hg_view` | ✅ | ✅ |
+| | `hg_window` | ✅ | ✅ |
+| | `hg_list` | ✅ | ✅ |
+| | `hg_list_item` | ✅ | ✅ |
+| | `hg_menu_cellular` | ✅ | 🚧 |
+| **Basic** | `hg_button` | ✅ | ✅ |
+| | `hg_label` | ✅ | ✅ |
+| | `hg_time_label` | ✅ | ✅ |
+| | `hg_timer_label` | ✅ | ✅ |
+| | `hg_image` | ✅ | ✅ |
+| **Input** (仅LVGL) | `hg_input` | 🚧 | ✅ |
+| | `hg_checkbox` | 🚧 | ✅ |
+| | `hg_radio` | 🚧 | ✅ |
+| | `hg_switch` | 🚧 | ✅ |
+| | `hg_slider` | 🚧 | ✅ |
+| | `hg_progressbar` | 🚧 | ✅ |
+| **Graphics** | `hg_arc` | ✅ | ✅ |
+| | `hg_circle` | ✅ | ✅ |
+| | `hg_rect` | ✅ | ✅ |
+| | `hg_svg` | ✅ | ✅ |
+| | `hg_qbcode` | ✅ | ✅ |
+| | `hg_glass` | ✅ | ❌ |
+| | `hg_particle` | ✅ | ❌ |
+| **Multimedia** | `hg_image` (见 Basic) | ✅ | ✅ |
+| | `hg_gif` | ✅ | ✅ |
+| | `hg_video` | ✅ | 🚧 |
+| | `hg_lottie` | ✅ | ✅ |
+| | `hg_3d` | ✅ | 🚧 |
+| **Mini-App** (仅HoneyGUI) | `hg_map` | ✅ | ❌ |
+| | `hg_openclaw` | ✅ | ❌ |
+| | `hg_claw_face` | ✅ | ❌ |
+| **Not implemented** | `hg_canvas` | 🚧 | 🚧 |
+
+> **Do NOT exist (never use):** `hg_container`, `hg_grid`, `hg_tab` — not in either codegen
+> registry. If you need layout, use `hg_view` / `hg_window` / `hg_list`.
+
+> **Per-engine reminders:**
+> - **HoneyGUI projects** must not use the 🚧 input family (`hg_input`/`hg_checkbox`/`hg_radio`/
+>   `hg_switch`/`hg_slider`/`hg_progressbar`) nor `hg_canvas` — they are planned, codegen emits stubs.
+> - **LVGL projects** must not use `hg_video`/`hg_3d` (planned) nor the ❌ HoneyGUI-only components
+>   (`hg_glass`/`hg_particle`/`hg_map`/`hg_openclaw`/`hg_claw_face`) nor `hg_menu_cellular`.
 
 ### Nesting Rules (CRITICAL)
 
@@ -199,6 +278,9 @@ All components support these base attributes:
 
 ### 6.1 `hg_view` — View Container
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
 The primary top-level container representing a full screen/page.
 
 | Attribute | Type | Default | Description |
@@ -217,6 +299,9 @@ The primary top-level container representing a full screen/page.
 
 ### 6.2 `hg_window` — Window Container
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
 A windowed container with optional background and blur.
 
 | Attribute | Type | Default | Description |
@@ -232,6 +317,9 @@ A windowed container with optional background and blur.
 
 
 ### 6.4 `hg_list` — List Container
+
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
 
 Scrollable list with multiple layout styles.
 
@@ -269,10 +357,18 @@ Scrollable list with multiple layout styles.
 | `LIST_HELIX` | Helix layout |
 | `LIST_CURL` | Curl effect |
 
+> **Engine note (LVGL):** only `LIST_CLASSIC` is supported. Any non-classic `style`
+> (`LIST_CIRCLE`/`LIST_ZOOM`/`LIST_CARD`/`LIST_FADE`/`LIST_FAN`/`LIST_HELIX`/`LIST_CURL`) is
+> **degraded to a classic `lv_list`** with a `/* TODO(lvgl) */` comment. For portable HML,
+> prefer `LIST_CLASSIC` unless the project targets HoneyGUI.
+
 - **Default size**: 300×400
-- **C API**: `gui_list_create`
+- **C API (HoneyGUI)**: `gui_list_create` · **C API (LVGL)**: `lv_list_create`
 
 ### 6.5 `hg_list_item` — List Item
+
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
 
 Child of `hg_list`. Not available in the component library — managed automatically by the list.
 
@@ -282,7 +378,10 @@ Child of `hg_list`. Not available in the component library — managed automatic
 
 ### 6.6 `hg_menu_cellular` — Honeycomb Menu
 
-A hexagonal scrolling menu.
+引擎: 仅HoneyGUI（LVGL 暂未实现）
+<!-- engine: honeygui=ready lvgl=planned -->
+
+A hexagonal scrolling menu. **LVGL projects: do not use (planned).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -293,11 +392,22 @@ A hexagonal scrolling menu.
 
 - **Default size**: dynamic (matches project resolution)
 
+### 6.7 `hg_canvas` — Canvas (NOT IMPLEMENTED)
+
+引擎: 暂不支持，勿用
+<!-- engine: honeygui=planned lvgl=planned -->
+
+> ⚠️ **Planned on both engines — do NOT use.** Registered in both codegen registries but only
+> emits a stub. Use `hg_image` / `hg_rect` / `hg_arc` / `hg_svg` for drawing instead.
+
 ---
 
 ## 7. Basic Controls
 
 ### 7.1 `hg_button` — Button
+
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
 
 Image-based button with two modes: **Normal** (momentary press) and **Toggle** (latching switch).
 Both modes use `gui_img` at runtime since the HoneyGUI SDK has no native button widget.
@@ -354,6 +464,9 @@ Both modes use `gui_img` at runtime since the HoneyGUI SDK has no native button 
 
 ### 7.2 `hg_label` — Text Label
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
 Text display with optional scrolling and timer features.
 
 fallback: if there is no font file in assets folder, coping font files in fallback folder to assets folder, and using these fallback font files.
@@ -406,6 +519,9 @@ fallback: if there is no font file in assets folder, coping font files in fallba
 
 ### 7.3 `hg_time_label` — Real-Time Clock Label
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
 Displays the current system time. Inherits all `hg_label` font and alignment attributes.
 
 fallback: if there is no font file in assets folder, coping font files in fallback folder to assets folder, and using these fallback font files.
@@ -432,6 +548,9 @@ fallback: if there is no font file in assets folder, coping font files in fallba
 
 ### 7.4 `hg_timer_label` — Timer Label
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
 Like `hg_label` with timer mode, but defaults to NOT auto-starting.
 
 | Attribute | Type | Default | Description |
@@ -442,6 +561,9 @@ Like `hg_label` with timer mode, but defaults to NOT auto-starting.
 - **Default size**: 120×24
 
 ### 7.5 `hg_image` — Image
+
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
 
 Image display with transform and blend mode support.
 
@@ -492,6 +614,9 @@ Image display with transform and blend mode support.
 
 ### 7.6 `hg_gif` — GIF Animation
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
 Displays an animated GIF file directly (no format conversion; raw GIF data packed into `.bin`).
 
 | Attribute | Type | Default | Description |
@@ -506,7 +631,11 @@ Displays an animated GIF file directly (no format conversion; raw GIF data packe
 
 ### 7.7 `hg_video` — Video
 
+引擎: 仅HoneyGUI（LVGL 暂未实现）
+<!-- engine: honeygui=ready lvgl=planned -->
+
 Plays a video file using the HoneyGUI video API (standard or Lite Video).
+**LVGL projects: do not use (planned).** The `useMsv1` Lite Video mode is **HoneyGUI-only**.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -529,10 +658,115 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
 
 ---
 
+## 8. Input Controls (LVGL only)
+
+> ⚠️ **All components in this section are `仅LVGL`.** They are `planned` (not implemented) on
+> HoneyGUI — **HoneyGUI projects must NOT use them** (codegen emits a stub). Only use them when
+> `project.json` → `targetEngine` is `lvgl`.
+
+### 8.1 `hg_input` — Text Input
+
+引擎: 仅LVGL
+<!-- engine: honeygui=planned lvgl=ready -->
+
+Single-line text entry field. **HoneyGUI projects: do not use (planned).**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `placeholder` | string | — | Placeholder text shown when empty |
+
+- **Default size**: 200×32
+- **C API (LVGL)**: `lv_textarea_create`
+
+### 8.2 `hg_checkbox` — Checkbox
+
+引擎: 仅LVGL
+<!-- engine: honeygui=planned lvgl=ready -->
+
+Labeled checkbox. **HoneyGUI projects: do not use (planned).** Inherits text/font attributes
+from `hg_label` (`text`, `color`, `fontFile`, `fontSize`, `fontType`, `renderMode`).
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `text` | string | "Checkbox" | Label text |
+| `value` | boolean | false | Checked state |
+
+- **Default size**: 120×24
+- **C API (LVGL)**: `lv_checkbox_create`
+
+### 8.3 `hg_radio` — Radio Button
+
+引擎: 仅LVGL
+<!-- engine: honeygui=planned lvgl=ready -->
+
+Radio option (mutually exclusive within a group). **HoneyGUI projects: do not use (planned).**
+Inherits text/font attributes from `hg_label`.
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `text` | string | "Option" | Label text |
+| `value` | boolean | false | Checked state |
+
+- **Default size**: 120×24
+- **C API (LVGL)**: `lv_checkbox_create` (radio styling)
+
+### 8.4 `hg_switch` — Switch
+
+引擎: 仅LVGL
+<!-- engine: honeygui=planned lvgl=ready -->
+
+On/off toggle switch. **HoneyGUI projects: do not use (planned).**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `value` | boolean | false | On/off state |
+
+- **Default size**: 50×28
+- **C API (LVGL)**: `lv_switch_create`
+
+### 8.5 `hg_slider` — Slider
+
+引擎: 仅LVGL
+<!-- engine: honeygui=planned lvgl=ready -->
+
+Draggable value slider. **HoneyGUI projects: do not use (planned).**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `value` | number | 0 | Current value |
+| `min` | number | 0 | Minimum value |
+| `max` | number | 100 | Maximum value |
+
+- **Default size**: 200×20
+- **C API (LVGL)**: `lv_slider_create`
+
+### 8.6 `hg_progressbar` — Progress Bar
+
+引擎: 仅LVGL
+<!-- engine: honeygui=planned lvgl=ready -->
+
+Progress indicator bar. **HoneyGUI projects: do not use (planned).**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `value` | number | 0 | Current value |
+| `min` | number | 0 | Minimum value |
+| `max` | number | 100 | Maximum value |
+| `color` | color | #00FF00 | Bar (indicator) color |
+| `backgroundColor` | color | #333333 | Track color |
+| `orientation` | enum | horizontal | `horizontal` / `vertical` |
+
+- **Default size**: 200×20
+- **C API (LVGL)**: `lv_bar_create`
+
+---
 
 ## 9. Graphics Controls
 
 ### 9.1 `hg_arc` — Arc
+
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
 
 | Attribute | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
@@ -550,6 +784,9 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
 
 ### 9.2 `hg_circle` — Circle
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `radius` | number | 40 | Circle radius |
@@ -563,6 +800,9 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
 - **C API**: `gui_circle_create`
 
 ### 9.3 `hg_rect` — Rectangle
+
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -580,6 +820,10 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
 
 ### 9.4 `hg_qbcode` — QR Code / Barcode
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+> LVGL: `qrcode` → `lv_qrcode`, `barcode` → `lv_barcode`.
+
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `codeType` | enum | qrcode | `qrcode` / `barcode` |
@@ -595,12 +839,110 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
   - QR code is always black-on-white; no color configuration
   - `data_len` in `gui_qbcode_config` is automatically set to `strlen(codeContent)`
 
+### 9.5 `hg_svg` — SVG Vector Graphic
 
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
 
+Renders a vector `.svg` file. Loaded at runtime by file path (no C-array conversion).
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `src` | string | — | SVG file path (relative to assets, must start with `/`) |
+
+- **Default size**: 100×100
+- **C API (HoneyGUI)**: `gui_svg_create_from_file`
+- **C API (LVGL)**: `lv_image_create` + `lv_image_set_src` (requires `LV_USE_SVG` / ThorVG)
+
+### 9.6 `hg_glass` — Glass Effect
+
+引擎: 仅HoneyGUI
+<!-- engine: honeygui=ready lvgl=unsupported -->
+> **LVGL projects: do not use (unsupported).**
+
+A refractive "glass" overlay built from a shape mask.
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `src` | string | — | Shape mask file path (relative to assets) |
+| `distortion` | number | 10 | Distortion strength (%) |
+| `region` | number | 50 | Effect range (%) |
+| `movable` | boolean | false | Allow dragging the glass |
+| `click` | boolean | false | Enable click interaction |
+
+- **Default size**: 150×150
+- **C API**: `gui_glass_create_from_fs`
+
+### 9.7 `hg_particle` — Particle Effect
+
+引擎: 仅HoneyGUI
+<!-- engine: honeygui=ready lvgl=unsupported -->
+> **LVGL projects: do not use (unsupported).**
+
+A preset particle animation (snow, etc.).
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `particleEffect` | enum | snow | Effect type (preset name, e.g. `snow`) |
+
+- **Default size**: 200×200
+- **C API**: `effect_{particleEffect}_create` (e.g. `effect_snow_create`)
+
+---
+
+## 10. Multimedia Controls
+
+> `hg_image` (§7.5), `hg_gif` (§7.6) and `hg_video` (§7.7) are documented under Basic Controls.
+> The animation/3D components below complete the multimedia set.
+
+### 10.1 `hg_lottie` — Lottie Animation
+
+引擎: ✓HoneyGUI ✓LVGL
+<!-- engine: honeygui=ready lvgl=ready -->
+
+Plays a Lottie (vector JSON) animation.
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `src` | string | — | Animation file path (relative to assets) |
+| `autoplay` | boolean | true | Start playing automatically |
+| `loop` | boolean | true | Loop playback |
+
+- **Default size**: 150×150
+- **C API (HoneyGUI)**: `gui_lottie_create_from_file`
+- **C API (LVGL)**: `lv_lottie_create`
+
+### 10.2 `hg_3d` — 3D Model
+
+引擎: 仅HoneyGUI（LVGL 暂未实现）
+<!-- engine: honeygui=ready lvgl=planned -->
+
+Renders a 3D model with camera and transform control.
+**LVGL projects: do not use (planned).**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `modelPath` | string | — | Model file path (relative to assets) |
+| `drawType` | enum | L3_DRAW_FRONT_AND_SORT | `L3_DRAW_FRONT_ONLY` / `L3_DRAW_FRONT_AND_BACK` / `L3_DRAW_FRONT_AND_SORT` |
+| `worldX` / `worldY` / `worldZ` | number | 0 / 0 / 30 | World position |
+| `rotationX` / `rotationY` / `rotationZ` | number | 0 | Rotation (degrees) |
+| `scale` | number | 5 | Model scale |
+| `cameraPosX` / `cameraPosY` / `cameraPosZ` | number | 0 | Camera position |
+| `cameraLookX` / `cameraLookY` / `cameraLookZ` | number | 0 / 0 / 1 | Camera look-at target |
+
+- **Default size**: 400×400
+- **C API (HoneyGUI)**: `gui_lite3d_create`
+- **C API (LVGL)**: `lv_gltf_create` (planned — not yet generated)
+
+---
 
 ## 11. Mini-App Controls
 
 ### 11.1 `hg_map` — Vector Map
+
+引擎: 仅HoneyGUI
+<!-- engine: honeygui=ready lvgl=unsupported -->
+> **LVGL projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -613,6 +955,10 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
 
 ### 11.2 `hg_openclaw` — OpenClaw AI Chat
 
+引擎: 仅HoneyGUI
+<!-- engine: honeygui=ready lvgl=unsupported -->
+> **LVGL projects: do not use (unsupported).**
+
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `fontFile` | string | "" | Font file |
@@ -623,6 +969,10 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
 - **C API**: `gui_openclaw_create_from_mem`
 
 ### 11.3 `hg_claw_face` — Claw Face Expression
+
+引擎: 仅HoneyGUI
+<!-- engine: honeygui=ready lvgl=unsupported -->
+> **LVGL projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -821,26 +1171,41 @@ Transition animations used with `switchView` actions.
 
 ## 15. Code Generation Mapping
 
-The designer generates C source code from HML. Here is the component-to-API mapping:
+The designer generates C source code from HML. The create function depends on the project's
+`targetEngine`. `—` = not generated for that engine (planned/unsupported; do not use).
 
-| HML Tag | C Create Function | Header |
-|---------|-------------------|--------|
-| `hg_view` | `GUI_VIEW_INSTANCE` macro | `gui_view.h` |
-| `hg_window` | `gui_win_create` | `gui_win.h` |
-| `hg_button` | `gui_img_create_from_fs` (image-based) | `gui_img.h` |
-| `hg_label` | `gui_text_create` / `gui_scroll_text_create` | `gui_text.h` |
-| `hg_image` | `gui_img_create_from_fs` | `gui_img.h` |
-| `hg_gif` | `gui_gif_create_from_fs` | `gui_gif.h` |
-| `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | `gui_video.h` / `gui_lite_video.h` |
-| `hg_arc` | `gui_arc_create` | `gui_arc.h` |
-| `hg_circle` | `gui_circle_create` | `gui_circle.h` |
-| `hg_rect` | `gui_rect_create` | `gui_rect.h` |
-| `hg_list` | `gui_list_create` | `gui_list.h` |
-| `hg_map` | `gui_vector_map_create_from_mem` | `gui_vector_map.h` |
-| `hg_openclaw` | `gui_openclaw_create_from_mem` | `gui_openclaw.h` |
-| `hg_claw_face` | `gui_openclaw_emoji_create` | `gui_openclaw_emoji.h` |
-| `hg_menu_cellular` | custom generator | `gui_menu_cellular.h` |
-| `hg_qbcode` | `gui_qbcode_create` + `gui_qbcode_config` | `gui_qbcode.h` |
+| HML Tag | HoneyGUI Create Function | LVGL Create Function |
+|---------|--------------------------|----------------------|
+| `hg_view` | `GUI_VIEW_INSTANCE` macro | (view container) |
+| `hg_window` | `gui_win_create` | (window container) |
+| `hg_button` | `gui_img_create_from_fs` (image-based) | `lv_button_create` |
+| `hg_label` | `gui_text_create` / `gui_scroll_text_create` | `lv_label_create` |
+| `hg_time_label` | `gui_text_create` (clock) | `lv_label_create` (clock) |
+| `hg_timer_label` | `gui_text_create` (timer) | `lv_label_create` (timer) |
+| `hg_image` | `gui_img_create_from_fs` | `lv_image_create` |
+| `hg_gif` | `gui_gif_create_from_fs` | `lv_gif_create` |
+| `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | — (planned) |
+| `hg_lottie` | `gui_lottie_create_from_file` | `lv_lottie_create` |
+| `hg_3d` | `gui_lite3d_create` | — (planned) |
+| `hg_arc` | `gui_arc_create` | `lv_arc_create` |
+| `hg_circle` | `gui_circle_create` | `lv_obj_create` (circle) |
+| `hg_rect` | `gui_rect_create` | `lv_obj_create` (rect) |
+| `hg_svg` | `gui_svg_create_from_file` | `lv_image_create` (ThorVG) |
+| `hg_list` | `gui_list_create` | `lv_list_create` |
+| `hg_glass` | `gui_glass_create_from_fs` | — (unsupported) |
+| `hg_particle` | `effect_{type}_create` | — (unsupported) |
+| `hg_map` | `gui_vector_map_create_from_mem` | — (unsupported) |
+| `hg_openclaw` | `gui_openclaw_create_from_mem` | — (unsupported) |
+| `hg_claw_face` | `gui_openclaw_emoji_create` | — (unsupported) |
+| `hg_menu_cellular` | custom generator (`gui_menu_cellular.h`) | — (planned) |
+| `hg_qbcode` | `gui_qbcode_create` + `gui_qbcode_config` | `lv_qrcode_create` / `lv_barcode_create` |
+| `hg_input` | — (planned) | `lv_textarea_create` |
+| `hg_checkbox` | — (planned) | `lv_checkbox_create` |
+| `hg_radio` | — (planned) | `lv_checkbox_create` (radio) |
+| `hg_switch` | — (planned) | `lv_switch_create` |
+| `hg_slider` | — (planned) | `lv_slider_create` |
+| `hg_progressbar` | — (planned) | `lv_bar_create` |
+| `hg_canvas` | — (planned) | — (planned) |
 
 ### Generated File Structure
 
@@ -904,14 +1269,14 @@ src/
                     radius="40" startAngle="0" endAngle="270"
                     strokeWidth="8" color="#4CAF50" zIndex="3" />
 
-            
+
         </hg_view>
 
         <!-- Menu screen -->
         <hg_view id="view_menu" x="0" y="0" width="454" height="454"
                  backgroundColor="#1a1a1a" zIndex="1">
 
-            
+
 
             <hg_list id="list_menu" x="20" y="60" width="414" height="380"
                      direction="VERTICAL" style="LIST_CLASSIC"

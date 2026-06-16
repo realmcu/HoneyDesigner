@@ -30,7 +30,6 @@ test-services.js
 # 脚本和文档
 scripts/**
 docs/**
-!docs/HML-Spec.md
 
 # Tools - 只保留运行时需要的工具
 tools/**
@@ -69,9 +68,16 @@ azure.png
 fail.log
 
 # ========================================
-# 仿真引擎（不需要打包到插件中）
+# Agent 工作树 / 状态（对所有 Claude Code 协同者通用，绝不进包）
+# 个人本地的测试工程 / SDK 克隆请放进 .git/info/exclude（个人配置，不污染此共享文件）
 # ========================================
-vibe-designer/**
+.claude/**
+
+# ========================================
+# vibe-designer：仅打包 AI skill 目录
+# 新建/打开项目时由 ExtensionManager 分发到 项目根/.claude/skills/
+# （references/hml-spec.md 直接 git 追踪，唯一真相源）
+# ========================================
 
 # ========================================
 # 模板项目 - 排除编译产物和大文件

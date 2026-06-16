@@ -90,7 +90,7 @@ HoneyGUI projects created by this extension have the following structure:
 - **No PowerShell**: Build commands must work in CMD on Windows (avoid PowerShell-specific syntax).
 - **Chinese Documentation**: Use Chinese for user-facing documentation and comments where appropriate.
 - **Avoid Creating Documentation**: Do not create new .md files unless explicitly required.
-- **HML Spec Sync**: When the HML spec changes (new components, new/modified attributes, new event types, nesting rule changes, etc.), you MUST update `docs/HML-Spec.md` accordingly. This document is the single source of truth for AI agents generating HML files.
+- **HML Spec Sync**: When the HML spec changes (new components, new/modified attributes, new event types, nesting rule changes, etc.), you MUST update `vibe-designer/skills/honeygui-designer/references/hml-spec.md` accordingly. This file is the single source of truth for AI agents generating HML files.
 
 ## Style and Conventions
 - **Language**: TypeScript is used for both the extension and the webview.

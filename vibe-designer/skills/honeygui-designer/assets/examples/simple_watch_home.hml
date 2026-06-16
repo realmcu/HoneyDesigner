@@ -1,112 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ⚠️ 资源路径说明
-  本示例中的资源路径（如 assets/bg_home.bin）是占位符，仅用于演示 HML 结构。
+  示例：智能手表主页（HoneyGUI 引擎方言）· 完整文档骨架
+  演示点：最小可用文档结构 = <meta>(project+author) + <view> + 恰好一个 hg_view entry="true"；
+          hg_window 作头部容器（毛玻璃）、hg_time_label 实时时间、hg_label 文本、hg_image 图标。
 
-  在实际项目中，你需要：
-  1. 准备资源文件（PNG/JPG 图片、TTF 字体等）
-  2. 使用 VSCode Extension 的转换工具将资源转换为 .bin 格式
-  3. 将转换后的文件放入项目的 assets/ 目录
-
-  💡 快速开始：使用 Extension 的"新建项目"功能选择模板（如 Smart Watch），
-     模板中已包含完整的资源文件，可以直接运行。
+  ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
+  ⚠️ 资源路径（如 /home_icon.bin）是占位符，恒以 "/" 开头（从 assets 目录起算）；
+     实际项目需准备资源、用 Extension 转为 .bin 放入 assets/。
 -->
 <hml>
   <meta>
-    <title>Simple Watch Home</title>
-    <description>Clean smartwatch home screen with time display and quick actions</description>
-    <project>
-      <resolution>454x454</resolution>
-      <pixelMode>RGB565</pixelMode>
-    </project>
+    <project name="WatchHome" appId="com.example.watchhome"
+             resolution="454x454" pixelMode="RGB565" />
+    <author name="Developer" email="dev@example.com" />
   </meta>
 
-  <view id="view_home">
-    <!--
-      背景图片
-      - 全屏尺寸 454x454，覆盖整个显示区域
-      - 提供视觉基础层
-    -->
-    <hg_image id="img_background"
-              name="Background"
-              x="0" y="0"
-              w="454" h="454"
-              src="assets/bg_home.bin" />
+  <view>
+    <hg_view id="view_home" entry="true" x="0" y="0" width="454" height="454"
+             backgroundColor="#000000">
 
-    <!--
-      时间显示（主要信息）
-      - 使用 timeFormat="HH:MM" 自动显示系统时间
-      - 大字号（56px）确保可读性
-      - 水平居中对齐，位于屏幕上半部分
-    -->
-    <hg_label id="lbl_time"
-              name="Time"
-              x="127" y="140"
-              w="200" h="70"
-              timeFormat="HH:MM"
-              fontSize="56"
-              color="#FFFFFF"
-              textAlign="center" />
+      <!-- 中心图标 -->
+      <hg_image id="img_home" x="187" y="180" width="80" height="80"
+                src="/home_icon.bin" />
 
-    <!--
-      日期显示（次要信息）
-      - 格式：2024-04-21
-      - 较小字号（16px），颜色略浅
-      - 紧邻时间下方，形成信息层次
-    -->
-    <hg_label id="lbl_date"
-              name="Date"
-              x="127" y="220"
-              w="200" h="30"
-              timeFormat="YYYY-MM-DD"
-              fontSize="16"
-              color="#CCCCCC"
-              textAlign="center" />
-
-    <!--
-      星期显示（辅助信息）
-      - 使用 timeFormat="dddd" 显示完整星期名称
-      - 最小字号（14px），最浅颜色
-      - 完成日期时间信息组
-    -->
-    <hg_label id="lbl_day"
-              name="Day"
-              x="127" y="250"
-              w="200" h="25"
-              timeFormat="dddd"
-              fontSize="14"
-              color="#999999"
-              textAlign="center" />
-
-    <!--
-      快速操作按钮区域
-      - 3 个按钮水平排列，间距 0px（紧邻）
-      - 按钮尺寸 80x80px，满足触摸目标最小尺寸（44px）
-      - 使用图标而非文字，节省空间
-    -->
-
-    <!-- 活动记录按钮 -->
-    <hg_button id="btn_activity"
-               name="Activity Button"
-               x="107" y="320"
-               w="80" h="80"
-               src="assets/icon_activity.bin"
-               onClick="goToActivity" />
-
-    <!-- 应用列表按钮 -->
-    <hg_button id="btn_apps"
-               name="Apps Button"
-               x="187" y="320"
-               w="80" h="80"
-               src="assets/icon_apps.bin"
-               onClick="goToApps" />
-
-    <!-- 设置按钮 -->
-    <hg_button id="btn_settings"
-               name="Settings Button"
-               x="267" y="320"
-               w="80" h="80"
-               src="assets/icon_settings.bin"
-               onClick="goToSettings" />
+      <!-- 头部容器：毛玻璃窗口，承载时间与标题 -->
+      <hg_window id="win_header" x="0" y="0" width="454" height="110"
+                 enableBlur="true" blurDegree="225">
+        <hg_time_label id="lbl_clock" x="300" y="24" width="120" height="40"
+                       timeFormat="HH:mm" fontSize="36" color="#FFFFFF"
+                       hAlign="RIGHT" fontFile="/NotoSansSC-Bold.ttf" />
+        <hg_label id="lbl_greeting" x="24" y="34" width="200" height="32"
+                  text="My Home" fontSize="22" color="#E98F36"
+                  hAlign="LEFT" fontFile="/NotoSansSC-Regular.ttf" />
+      </hg_window>
+    </hg_view>
   </view>
 </hml>

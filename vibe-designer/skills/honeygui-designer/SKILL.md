@@ -18,144 +18,115 @@ description: |
 
 根据自然语言描述生成生产级的 HoneyGUI HML 文件。
 
+## ⚠️ 唯一真相源：HML-Spec.md
+
+**组件清单、属性名、事件结构、引擎矩阵一律以规范全文为准**，不要凭记忆或本文件的概述生成 HML。
+
+- **在项目里工作时**：规范是**项目根 `HML-Spec.md`**（打开项目时自动分发，已按当前项目 `targetEngine`
+  过滤并注入引擎说明；任何 agent 用 Read 即可）。这是项目内唯一一份规范，下文所有 `HML-Spec.md` 均指它。
+- **维护本 skill / 改规范时**：唯一真相源是扩展仓库内 `references/hml-spec.md`，直接编辑此文件
+  （分发到项目时不再复制它，改由项目根那份承载，避免两份不一致）。
+
+**生成或修改任何 HML 前，先 Read 规范全文。** 本 SKILL.md 只讲工作流与最易踩的坑；
+组件/属性细节、引擎可用性、事件/定时器/动画全在规范里。
+
+### 引擎决定可用组件（关键）
+
+HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个项目在 `project.json` 的
+`targetEngine` 锁定一个。**只用规范中标注当前引擎 ✓（ready）的组件**；标 `planned`（🚧 / "暂不支持"）
+或 `unsupported`（❌）的一律勿用——codegen 会产出 stub 或根本不支持，仿真编译会失败。
+
+- HoneyGUI 项目**勿用**：`hg_input` / `hg_checkbox` / `hg_radio` / `hg_switch` / `hg_slider` /
+  `hg_progressbar`（这些是 **LVGL-only**）、`hg_canvas`。
+- LVGL 项目**勿用**：`hg_video` / `hg_3d`（planned）、`hg_glass` / `hg_particle` / `hg_map` /
+  `hg_openclaw` / `hg_claw_face` / `hg_menu_cellular`。
+- **任何引擎都不存在、永远勿用**：`hg_container`、`hg_grid`、`hg_tab`。需要布局时用
+  `hg_view` / `hg_window` / `hg_list`。
+
+> 注意：`validate-hml` 通过**不等于**组件/属性正确——验证器只查 8 条结构规则（见下），
+> **不校验组件白名单、不校验属性名**。组件与属性的正确性必须对照 `HML-Spec.md` 人工确认。
+
 ## 快速开始
 
 当用户请求 UI 设计时：
 
-1. **理解需求**
-   - 明确设备类型（智能手表、IoT 面板等）
-   - 屏幕分辨率（智能手表默认：454x454）
-   - 所需的关键功能/组件
-   - 视觉风格偏好
+1. **理解需求** — 设备类型、屏幕分辨率（智能手表默认 454x454）、所需功能、视觉风格。
+2. **Read 规范** — 打开 `HML-Spec.md`，确认要用的组件在当前引擎可用、属性名与事件结构。
+3. **规划布局** — 在脑海构思组件层次；考虑触摸目标、可读性；多屏则规划导航。
+4. **生成 HML** — 用规范方言（见下"方言速记"），包含 `<meta>` 与 `<view>`，事件用 `<events>` 结构。
+5. **验证 HML** ⚠️ — **必须调用** `POST http://localhost:38912/api/validate-hml`，修复所有 errors 后重验；
+   再对照规范矩阵人工核对组件/属性（验证器不查这两项）。详见"HML 验证"。
+6. **迭代优化** — 呈现 HML，接受反馈改进，基于嵌入式最佳实践提建议。
 
-2. **规划布局**
-   - 在脑海中构思组件层次结构
-   - 考虑嵌入式设备的人机工程学（触摸目标、可读性）
-   - 如果是多屏幕，规划导航流程
+## HML 方言速记（最常被写错，务必照此）
 
-3. **生成 HML**
-   - 使用组件库中的适当组件
-   - 遵循 HML 语法规则
-   - 包含元数据信息
-   - 添加事件处理器以实现交互
+这些是 AI 最容易用错的写法。完整规则见 `HML-Spec.md`。
 
-4. **验证 HML** ⚠️
-   - **必须调用** `/api/validate-hml` 验证生成的代码
-   - 检查所有 8 项约束规则（见"关键约束"章节）
-   - 修复验证错误后重新验证
-   - 详见"HML 验证"章节
+| 维度 | ✅ 正确 | ❌ 错误 |
+|------|--------|--------|
+| 尺寸 | `width="120"` `height="48"` | `w="120"` `h="48"` |
+| 文本对齐 | `hAlign="CENTER"`（`LEFT`/`CENTER`/`RIGHT`）、`vAlign="MID"` | `textAlign="center"` |
+| meta | `<project name="App" resolution="454x454" pixelMode="RGB565" />` + `<author .../>` | `<title>` + 嵌套 `<resolution>` |
+| 事件 | `<events><event type="onClick"><action type="callFunction" functionName="fn"/></event></events>` | 内联 `onClick="fn"` |
+| 按钮 | `hg_button` 用 `imageOn`/`imageOff` + `clickCallback`（普通）或 `onCallback`/`offCallback`（toggle），**非容器、无子组件** | `hg_button src=`、内嵌子组件、`text=` |
+| entry | 恰好一个 `hg_view entry="true"` | 缺 entry 或多个 entry |
+| 资源路径 | 以 `/` 开头，是"从 assets 文件夹起的相对路径"，如 `/icon.bin`、`/NotoSansSC-Bold.ttf` | `icon.bin`、`assets/icon.bin` |
+| 字体 | `hg_label` 必须有 `fontFile`，且字体文件须在 assets 中 | 缺 `fontFile` |
 
-5. **迭代优化**
-   - 呈现生成的 HML
-   - 接受反馈并改进
-   - 基于嵌入式 UI 最佳实践提出改进建议
-
-## HML 结构
+## HML 结构骨架
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <hml>
   <meta>
-    <title>Screen Name</title>
-    <description>Brief description</description>
-    <project>
-      <resolution>454x454</resolution>
-      <pixelMode>RGB565</pixelMode>
-    </project>
+    <project name="MyApp" appId="com.example.myapp"
+             resolution="454x454" pixelMode="RGB565" />
+    <author name="Developer" email="dev@example.com" />
   </meta>
-  <view id="main_view">
-    <!-- Components here -->
+  <view>
+    <hg_view id="view_main" entry="true" x="0" y="0" width="454" height="454"
+             backgroundColor="#000000">
+      <hg_label id="lbl_title" x="127" y="40" width="200" height="40"
+                text="Hello" fontSize="24" color="#FFFFFF"
+                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+    </hg_view>
   </view>
 </hml>
 ```
 
-## 组件库概览
+## 嵌套规则（关键，验证器会查）
 
-**常用组件**：
-- `hg_button` - 交互式按钮
-- `hg_label` - 文本显示（静态或动态）
-- `hg_image` - 支持变换的图片
-- `hg_slider` - 数值滑块
-- `hg_switch` - 开关切换
-- `hg_progressbar` - 进度指示器
-- `hg_input` - 文本输入框
-
-**容器组件**：
-- `hg_view` - 通用容器
-- `hg_window` - 窗口容器
-- `hg_container` - 布局容器
-
-**高级组件**：
-- `hg_list` / `hg_list_item` - 可滚动列表
-- `hg_grid` - 网格布局
-- `hg_tab` - 标签页导航
-- `hg_canvas` - 自定义绘图
-- `hg_menu_cellular` - 蜂窝菜单
-- `hg_particle` - 粒子效果
-
-**详细的组件文档**：阅读 `references/components.md`
-
-## 关键属性
-
-每个组件通常具有：
-- `id` - 唯一标识符
-- `name` - 显示名称
-- `x`, `y` - 位置（像素）
-- `w`, `h` - 尺寸（像素）
-
-组件特定的属性各不相同。详见 `references/components.md`。
+1. **只有容器** (`hg_view`、`hg_window`、`hg_list`、`hg_list_item`) 能包含子组件。
+2. **非容器控件必须放在容器内**——不能直接作 `<view>` 的子节点。
+3. **非容器控件不能有子组件**（如 `hg_label`/`hg_image`/`hg_button` 内不可嵌任何元素）。
+4. `hg_view` **不能嵌套** `hg_view`。
+5. `hg_list` 的子节点应为 `hg_list_item`；`hg_list_item` 可含任意非容器控件。
 
 ## 事件处理
 
-组件支持的事件包括：
-- `onClick` - 按钮按下
-- `onValueChange` - 滑块/输入变化
-- `onLongPress` - 长按手势
+事件用 `<events>` 子节点声明，模型是 **event → action**：
 
-事件动作可以：
-- 切换视图
-- 更新组件属性
-- 触发动画
-- 执行自定义回调
+```xml
+<hg_view id="view_home" x="0" y="0" width="454" height="454" entry="true">
+  <events>
+    <event type="onSwipeLeft">
+      <action type="switchView" target="view_settings"
+              switchOutStyle="SWITCH_OUT_TO_LEFT_USE_TRANSLATION"
+              switchInStyle="SWITCH_IN_FROM_RIGHT_USE_TRANSLATION" />
+    </event>
+  </events>
+  <!-- 子组件 -->
+</hg_view>
+```
 
-## 嵌入式 UI 设计原则
-
-1. **触摸目标**：按钮最小 44x44px
-2. **可读性**：使用清晰的字体大小（正文 ≥16px）
-3. **性能**：最小化嵌套，复用资源
-4. **简洁性**：清晰的层次结构，避免过度复杂
-5. **反馈**：为交互提供视觉反馈
-
-**全面的指导方针**：阅读 `references/design-principles.md`
-
-## 布局模式
-
-常见模式包括：
-- **仪表盘** - 状态卡片网格
-- **设置** - 垂直选项列表
-- **媒体控制** - 居中的播放控件
-- **导航** - 顶部/底部导航栏
-- **表单** - 垂直字段排列
-
-**详细模式和示例**：阅读 `references/layout-patterns.md`
-
-## 关键约束（必须遵守）
-
-生成 HML 时必须遵守严格的规则。**完整约束清单**：参见 `references/constraints.md`
-
-**最关键的 3 条规则**：
-
-1. ⚠️ **hg_view 嵌套**：`hg_view` 不能嵌套在另一个 `hg_view` 中
-2. ⚠️ **资源路径**：所有资源路径必须以 `/` 开头（如 `/font.ttf`，不能是 `font.ttf`）
-3. ⚠️ **字体文件**：`hg_label` 必须设置 `fontFile` 属性，字体文件必须在 assets 文件夹中
-
-其他约束包括：组件嵌套规则、Entry View 唯一性、组件 ID 格式、事件函数位置、文档结构等。
-
-详见 `references/constraints.md` 查看全部 8 项约束的详细说明和示例。
+- 常用事件：`onClick`、`onLongPress`、`onSwipeLeft/Right/Up/Down`、`onShow`/`onHide`（仅 `hg_view`）。
+- 常用动作：`switchView`（切视图）、`callFunction`（调 C 回调）、`sendMessage`、`controlTimer`。
+- `callFunction` 引用的 C 函数需先在 `src/user/...` 写空实现（仅为仿真编译通过）。
+- 完整事件/动作/切换动画清单见 `HML-Spec.md` §12 / §14。
 
 ## HML 验证
 
-生成 HML 后，使用 Extension HTTP API 进行验证：
+生成 HML 后，调用 Extension HTTP API 验证：
 
 ```bash
 # 方法 1：验证 HML 内容字符串
@@ -163,126 +134,37 @@ curl -X POST http://localhost:38912/api/validate-hml \
   -H "Content-Type: application/json" \
   -d '{"hmlContent":"<?xml version=\"1.0\"?><hml>...</hml>"}'
 
-# 方法 2：通过文件路径验证 HML
+# 方法 2：通过文件路径验证
 curl -X POST http://localhost:38912/api/validate-hml \
   -H "Content-Type: application/json" \
   -d '{"filePath":"ui/main.hml"}'
 ```
 
-**响应**：
-```json
-{
-  "success": true,
-  "data": {
-    "valid": true/false,
-    "errors": [...],
-    "warnings": [...],
-    "validationRules": [
-      "内容非空检查",
-      "XML 语法验证",
-      "文档结构验证",
-      "组件 ID 唯一性和格式验证",
-      "组件嵌套规则验证",
-      "hg_view 不嵌套验证",
-      "资源路径格式验证",
-      "Entry View 唯一性验证"
-    ]
-  }
-}
-```
+**验证器的 8 条规则**（必要不充分）：内容非空、XML 语法、文档结构（meta+view）、组件 ID 唯一性与格式、
+组件嵌套规则、`hg_view` 不嵌套、资源路径以 `/` 开头、Entry View 唯一性。
 
-**验证检查项**：
-1. XML 语法和结构
-2. 组件 ID 唯一性和格式正确性
-3. 组件嵌套规则（容器 vs. 非容器）
-4. hg_view 不能嵌套在另一个 hg_view 中
-5. 资源路径必须以 `/` 开头
-6. 必须有且仅有一个视图具有 `entry="true"`
+> ⚠️ 验证器**不查组件白名单、不查属性名**。用了不存在/当前引擎不可用的组件，或写错属性名（如把 `width` 写成 `w`），也可能 `valid:true`。
+> 因此 `valid:true` 后仍须对照 `HML-Spec.md` 核对：组件在当前引擎可用、属性名正确。
 
-**详细的 HTTP API 文档**：参见 `references/http-api.md`
-
-## 工作流示例
-
-**用户**："设计一个智能手表设置界面，包含亮度和音量滑块"
-
-**步骤**：
-1. 澄清需求：分辨率？其他功能？
-2. 规划布局：标题标签，两个带标签的滑块，返回按钮
-3. 生成 HML：完整布局的 HML 代码
-4. 验证：调用 `/api/validate-hml` 检查错误
-5. 呈现：显示生成的代码
-6. 迭代：根据反馈调整
-
-## 高级功能
-
-**动画与计时器**：
-- 组件支持基于计时器的动画
-- 多个动画段
-- 动作：尺寸、位置、不透明度、旋转、缩放等
-- 计时器配置参见 `references/components.md`
-
-**多屏幕导航**：
-- 多个具有唯一 ID 的 `<view>` 元素
-- 使用事件在视图之间切换
-- 支持过渡动画
-
-**自定义样式**：
-- 颜色、边框、背景
-- 图片变换（缩放、旋转、不透明度）
-- 字体自定义
+详细 API：`references/http-api.md`。
 
 ## 文件参考
 
-- **`references/components.md`** - 完整的组件文档，包含所有属性和示例
-- **`references/hml-syntax.md`** - HML XML 语法规则和最佳实践
-- **`references/layout-patterns.md`** - 常见 UI 模式及代码示例
-- **`references/design-principles.md`** - 嵌入式 UI 设计指南
-- **`references/constraints.md`** - 全部 8 项 HML 约束规则详细说明
-- **`references/http-api.md`** - Extension HTTP API 完整文档
-- **`references/common-mistakes.md`** - 常见错误和修复方法
+- **`HML-Spec.md`**（项目根）— **唯一真相源**：全部组件、属性、事件、引擎矩阵。
+- **`references/design-principles.md`** — 嵌入式 UI 设计方法论（spec 不涵盖）。
+- **`references/layout-patterns.md`** — 常见布局模式与代码示例（spec 不涵盖）。
+- **`references/common-mistakes.md`** — 高频错误与修复。
+- **`references/http-api.md`** — Extension HTTP API 完整文档。
+
+## 示例使用提示（防照抄）
+
+`assets/examples/` 中的示例**仅示范语法结构与组件用法**——必须按用户的**具体需求原创设计**，
+**不要套用示例的布局、配色或文案**。优先参考演示单一语法点的小片段，而非整屏成品界面。
 
 ## 使用提示
 
-- **从简单开始**：先完成基本布局，再逐步增加复杂性
-- **边做边验证**：确保 ID 唯一，属性有效
-- **考虑嵌入式特性**：电池寿命、有限资源、手指友好的 UI
-- **快速迭代**：生成 → 反馈 → 改进
-
-## 示例文件
-
-参考 `assets/examples/` 中的完整示例获取设计灵感：
-
-| 示例文件 | 用途 | 适用场景 | 组件亮点 |
-|---------|------|---------|----------|
-| `simple_watch_home.hml` | 简单的手表主屏幕 | 入门示例：时间显示 + 基础按钮 | hg_label (timeFormat), hg_button |
-| `dashboard.hml` | 健康数据仪表盘 | 网格布局：多个状态卡片（2x2 网格） | hg_view 嵌套, 卡片布局 |
-| `settings_screen.hml` | 设置界面 | 列表布局：垂直选项列表 + 开关/滑块 | hg_slider, hg_container (滚动) |
-| `music_player.hml` | 音乐播放器控制 | 媒体控制：专辑封面 + 播放控制按钮 | hg_progressbar, 圆角容器 |
-| `list_menu_example.hml` | 应用菜单列表 | 长列表：10 个可滚动应用图标 | **hg_list + hg_list_item** |
-| `arc_progress_example.hml` | 活动圆环（运动表盘） | 圆弧进度：三个同心圆环 + 渐变 | **hg_arc + 渐变效果** |
-
-**⚠️ 资源路径说明**：
-- 所有示例中的资源路径（如 `assets/icon.bin`）是占位符，仅用于演示 HML 结构
-- 实际使用时，需要准备资源文件并使用 Extension 转换为 .bin 格式
-- 💡 快速开始：使用 Extension 的"新建项目"功能选择模板，模板中已包含完整资源
-
-所有示例都遵循 HML 约束规则，可以直接作为生成代码的参考模板。
-
-## 模板工程
-
-HoneyGUI 提供 5 个官方模板工程，包含完整的 HML 文件、资源文件和项目配置：
-
-| 模板 ID | 名称 | 说明 | 大小 |
-|---------|------|------|------|
-| `smartwatch` | Smart Watch | 智能手表界面，包含字体、图片、3D模型、视频等完整资源 | 20 MB |
-| `dashboard` | Car Dashboard | 汽车仪表盘界面，包含仪表盘 UI 资源 | 20 MB |
-| `chatbot` | Chat Bot | 聊天机器人界面（轻量级） | 20 MB |
-| `rotary` | Rotary Knob | 旋钮控制界面（轻量级） | 20 MB |
-| `settings` | Settings | 设置界面（轻量级） | 20 MB |
-
-**使用场景**：
-- 当用户请求"基于模板创建项目"时，可以推荐这些模板
-- 模板包含生产级的 HML 代码和资源，可以作为学习参考
-- 用户可以通过 VSCode Extension 的"新建项目"功能选择模板
-
-**注意**：模板从 Gitee 仓库克隆，需要网络连接。模板路径格式：`https://gitee.com/realmcu/honeygui-template-{id}.git`
+- **先 Read 规范，再生成**：组件/属性以 `HML-Spec.md` 为准。
+- **从简单开始**：先完成基本布局，再增加复杂性。
+- **边做边验证**：验证 + 对照规范双重确认。
+- **考虑嵌入式特性**：电池、有限资源、手指友好的触摸目标（≥44x44px）。
+- **快速迭代**：生成 → 验证 → 反馈 → 改进。
