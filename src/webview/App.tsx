@@ -506,18 +506,6 @@ const App: React.FC = () => {
           }
           break;
 
-        case 'mapPathSelected':
-          if (message.componentId && message.path) {
-            const store = useDesignerStore.getState();
-            const component = store.components.find(c => c.id === message.componentId);
-            if (component) {
-              store.updateComponent(message.componentId, {
-                data: { ...component.data, mapFile: message.path }
-              });
-            }
-          }
-          break;
-
         case 'createImageComponent':
         case 'createGifComponent':
         case 'create3DComponent':

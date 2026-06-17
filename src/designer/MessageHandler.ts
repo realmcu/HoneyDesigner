@@ -143,10 +143,6 @@ export class MessageHandler {
                 this._assetManager.handleSelectFontPath(message.componentId, this._fileManager.currentFilePath);
                 break;
 
-            case 'selectMapPath':
-                this._assetManager.handleSelectMapPath(message.componentId, this._fileManager.currentFilePath);
-                break;
-
             case 'preview':
                 this._handlePreview(message.content);
                 break;
@@ -188,10 +184,6 @@ export class MessageHandler {
 
             case 'getFontFiles':
                 this._assetManager.handleGetFontFiles(this._fileManager.currentFilePath);
-                break;
-
-            case 'getMapFiles':
-                this._assetManager.handleGetMapFiles(this._fileManager.currentFilePath);
                 break;
 
             case 'checkFontGlyphs':

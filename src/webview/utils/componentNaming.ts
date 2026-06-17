@@ -27,9 +27,6 @@ const TYPE_ABBREVIATIONS: Record<string, string> = {
   hg_lottie: 'lot',
   hg_glass: 'gls',
   hg_particle: 'ptcl',
-  hg_map: 'mp',
-  hg_openclaw: 'claw',
-  hg_claw_face: 'face',
   hg_menu_cellular: 'menu_cell',
 };
 

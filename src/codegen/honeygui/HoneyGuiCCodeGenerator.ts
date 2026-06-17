@@ -118,21 +118,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       SConscriptGenerator.generate(srcDir);
       files.push(path.join(srcDir, 'SConscript'));
 
-      // If map component exists, copy gui_vector_map library
-      const hasMapComponent = this.components.some(c => c.type === 'hg_map');
-      if (hasMapComponent) {
-        const copiedFiles = this.copyVectorMapLibrary(srcDir);
-        files.push(...copiedFiles);
-      }
-
-      // If OpenClaw / Claw Face component exists, copy gui_openclaw library
-      const hasOpenClawComponent = this.components.some(c => c.type === 'hg_openclaw');
-      const hasClawFaceComponent = this.components.some(c => c.type === 'hg_claw_face');
-      if (hasOpenClawComponent || hasClawFaceComponent) {
-        const copiedFiles = this.copyOpenClawLibrary(srcDir);
-        files.push(...copiedFiles);
-      }
-
       return { success: true, files };
     } catch (error) {
       return {
@@ -153,9 +138,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     const hasView = componentTypes.includes('hg_view');
     const hasWindow = componentTypes.includes('hg_window');
     const has3D = componentTypes.includes('hg_3d');
-    const hasMap = componentTypes.includes('hg_map');
-    const hasOpenClaw = componentTypes.includes('hg_openclaw');
-    const hasClawFace = componentTypes.includes('hg_claw_face');
     const hasLabel = componentTypes.includes('hg_label');
     const hasArc = componentTypes.includes('hg_arc');
     
@@ -211,26 +193,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       if (hasTouchRotation) {
         code += `#include "tp_algo.h"\n`;
       }
-    }
-
-    // Vector map component requires VFS and vector_map headers
-    if (hasMap) {
-      if (!has3D) {  // Avoid duplicate inclusion of gui_vfs.h
-        code += `#include "gui_vfs.h"\n`;
-      }
-      code += `#include "gui_vector_map.h"\n`;
-    }
-
-    // OpenClaw component requires VFS and openclaw headers
-    if (hasOpenClaw) {
-      if (!has3D && !hasMap) {  // Avoid duplicate inclusion of gui_vfs.h
-        code += `#include "gui_vfs.h"\n`;
-      }
-      code += `#include "gui_openclaw.h"\n`;
-    }
-
-    if (hasClawFace && !hasOpenClaw) {
-      code += `#include "gui_openclaw_emoji.h"\n`;
     }
 
     // Cellular menu component headers
@@ -658,14 +620,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
           childrenCode += this.generateComponentTree(child, childIndent);
         }
       });
-
-      const openClawEmojiBindings = this.generateOpenClawEmojiBindings(
-        component,
-        component.type === 'hg_window' ? indent : indent + 1
-      );
-      if (openClawEmojiBindings) {
-        childrenCode += `\n${openClawEmojiBindings}`;
-      }
     }
     
     // Generate event binding code (for hg_view and hg_window onMessage, key events, etc.)
@@ -972,12 +926,6 @@ static void ${component.id}_breath_anim_cb(void *p)
         return 'gui_canvas_t';
       case 'hg_particle':
         return 'gui_particle_widget_t';
-      case 'hg_map':
-        return 'gui_vector_map_t';
-      case 'hg_openclaw':
-        return 'gui_openclaw_t';
-      case 'hg_claw_face':
-        return 'gui_openclaw_emoji_widget_t';
       case 'hg_menu_cellular':
         return 'gui_menu_cellular_t';
       case 'hg_qbcode':
@@ -990,200 +938,4 @@ static void ${component.id}_breath_anim_cb(void *p)
     }
   }
 
-  /**
-   * Copy gui_vector_map library to the generated code directory
-   * @param srcDir Source code directory
-   * @returns List of copied files
-   */
-  private copyVectorMapLibrary(srcDir: string): string[] {
-    const files: string[] = [];
-    
-    // Get extension installation directory
-    // __dirname = out/src/codegen/honeygui, go up 4 levels to project root
-    const extensionPath = path.join(__dirname, '..', '..', '..', '..');
-    const sourceLibDir = path.join(extensionPath, 'lib', 'gui_vector_map');
-    const targetLibDir = path.join(srcDir, 'gui_vector_map');
-
-    console.log(`[MapGenerator] __dirname: ${__dirname}`);
-    console.log(`[MapGenerator] extensionPath: ${extensionPath}`);
-    console.log(`[MapGenerator] sourceLibDir: ${sourceLibDir}`);
-    console.log(`[MapGenerator] targetLibDir: ${targetLibDir}`);
-
-    // Check if source directory exists
-    if (!fs.existsSync(sourceLibDir)) {
-      console.warn(`[MapGenerator] gui_vector_map library not found at: ${sourceLibDir}`);
-      return files;
-    }
-
-    console.log(`[MapGenerator] Source directory exists, copying files...`);
-
-    // Create target directory
-    if (!fs.existsSync(targetLibDir)) {
-      fs.mkdirSync(targetLibDir, { recursive: true });
-    }
-
-    // Recursively copy directory
-    this.copyDirRecursive(sourceLibDir, targetLibDir, files);
-
-    console.log(`[MapGenerator] Copied ${files.length} files to ${targetLibDir}`);
-
-    return files;
-  }
-
-  /**
-   * Generate OpenClaw binding code for clawFace components directly under the current container
-   */
-  private generateOpenClawEmojiBindings(container: Component, indent: number): string {
-    const containerChildren = container.children ?? [];
-
-    if (containerChildren.length === 0) {
-      return '';
-    }
-
-    const directClawFaces = containerChildren
-      .map(childId => this.componentMap.get(childId))
-      .filter((child): child is Component => child !== undefined && child.type === 'hg_claw_face');
-
-    if (directClawFaces.length === 0) {
-      return '';
-    }
-
-    const indentStr = '    '.repeat(indent);
-    const subtreeComponents = this.collectSubtreeComponents(container);
-    const sameContainerOpenClaws = subtreeComponents.filter(comp => comp.type === 'hg_openclaw');
-    let code = '';
-
-    directClawFaces.forEach(face => {
-      const explicitTarget = typeof face.data?.openclawTarget === 'string'
-        ? face.data.openclawTarget.trim()
-        : '';
-
-      let targetComp: Component | undefined;
-      let warningMessage = '';
-
-      if (explicitTarget) {
-        const candidate = this.componentMap.get(explicitTarget);
-        if (!candidate) {
-          warningMessage = `OpenClaw target \"${explicitTarget}\" for ${face.id} was not found`;
-        } else if (candidate.type !== 'hg_openclaw') {
-          warningMessage = `Target \"${explicitTarget}\" for ${face.id} is not an hg_openclaw component`;
-        } else if (!sameContainerOpenClaws.some(comp => comp.id === candidate.id)) {
-          warningMessage = `Target \"${explicitTarget}\" for ${face.id} is outside the current view/window scope`;
-        } else {
-          targetComp = candidate;
-        }
-      } else {
-        const siblingOpenClaw = (containerChildren
-          .map(childId => this.componentMap.get(childId))
-          .find(child => child?.type === 'hg_openclaw'));
-
-        targetComp = siblingOpenClaw || sameContainerOpenClaws[0];
-
-        if (!targetComp) {
-          warningMessage = `No hg_openclaw component found for ${face.id}`;
-        }
-      }
-
-      code += `\n${indentStr}// Bind ${face.id} to OpenClaw\n`;
-
-      if (!targetComp) {
-        code += `${indentStr}// Warning: ${warningMessage}\n`;
-        return;
-      }
-
-      code += `${indentStr}if (${targetComp.id} != NULL && ${face.id} != NULL)\n`;
-      code += `${indentStr}{\n`;
-      code += `${indentStr}    gui_openclaw_set_emoji(${targetComp.id}, ${face.id});\n`;
-      code += `${indentStr}}\n`;
-    });
-
-    return code;
-  }
-
-  /**
-   * Collect all components in the container subtree in component tree order
-   */
-  private collectSubtreeComponents(container: Component): Component[] {
-    const result: Component[] = [];
-
-    const walk = (comp: Component) => {
-      result.push(comp);
-      if (!comp.children || comp.children.length === 0) {
-        return;
-      }
-
-      comp.children.forEach(childId => {
-        const child = this.componentMap.get(childId);
-        if (child) {
-          walk(child);
-        }
-      });
-    };
-
-    walk(container);
-    return result;
-  }
-
-  /**
-   * Recursively copy directory
-   */
-  private copyDirRecursive(src: string, dest: string, files: string[]): void {
-    const entries = fs.readdirSync(src, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const srcPath = path.join(src, entry.name);
-      const destPath = path.join(dest, entry.name);
-
-      if (entry.isDirectory()) {
-        if (!fs.existsSync(destPath)) {
-          fs.mkdirSync(destPath, { recursive: true });
-        }
-        this.copyDirRecursive(srcPath, destPath, files);
-      } else {
-        fs.copyFileSync(srcPath, destPath);
-        files.push(destPath);
-      }
-    }
-  }
-
-  /**
-   * Copy gui_openclaw library to the generated code directory
-   * @param srcDir Source code directory
-   * @returns List of copied files
-   */
-  private copyOpenClawLibrary(srcDir: string): string[] {
-    const files: string[] = [];
-    
-    // Get extension installation directory
-    // __dirname = out/src/codegen/honeygui, go up 4 levels to project root
-    const extensionPath = path.join(__dirname, '..', '..', '..', '..');
-      // Note: directory name is gui_openclaw (historical naming)
-    const sourceLibDir = path.join(extensionPath, 'lib', 'gui_openclaw');
-    const targetLibDir = path.join(srcDir, 'gui_openclaw');
-
-    console.log(`[OpenClawGenerator] __dirname: ${__dirname}`);
-    console.log(`[OpenClawGenerator] extensionPath: ${extensionPath}`);
-    console.log(`[OpenClawGenerator] sourceLibDir: ${sourceLibDir}`);
-    console.log(`[OpenClawGenerator] targetLibDir: ${targetLibDir}`);
-
-    // Check if source directory exists
-    if (!fs.existsSync(sourceLibDir)) {
-      console.warn(`[OpenClawGenerator] gui_openclaw library not found at: ${sourceLibDir}`);
-      return files;
-    }
-
-    console.log(`[OpenClawGenerator] Source directory exists, copying files...`);
-
-    // Create target directory
-    if (!fs.existsSync(targetLibDir)) {
-      fs.mkdirSync(targetLibDir, { recursive: true });
-    }
-
-    // Recursively copy directory
-    this.copyDirRecursive(sourceLibDir, targetLibDir, files);
-
-    console.log(`[OpenClawGenerator] Copied ${files.length} files to ${targetLibDir}`);
-
-    return files;
-  }
 }

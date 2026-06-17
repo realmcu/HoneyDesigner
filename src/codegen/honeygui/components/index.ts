@@ -24,9 +24,6 @@ import { LottieGenerator } from './LottieGenerator';
 import { GlassGenerator } from './GlassGenerator';
 import { TimeLabelGenerator } from './TimeLabelGenerator';
 import { ParticleGenerator } from './ParticleGenerator';
-import { MapGenerator } from './MapGenerator';
-import { OpenClawGenerator } from './OpenClawGenerator';
-import { ClawFaceGenerator } from './ClawFaceGenerator';
 import { MenuCellularGenerator } from './MenuCellularGenerator';
 import { QbcodeGenerator } from './QbcodeGenerator';
 import { DefaultGenerator } from './DefaultGenerator';
@@ -68,9 +65,6 @@ export class ComponentGeneratorFactory {
     this.generators.set('hg_svg', new SvgGenerator());
     this.generators.set('hg_glass', new GlassGenerator());
     this.generators.set('hg_particle', new ParticleGenerator());
-    this.generators.set('hg_map', new MapGenerator());
-    this.generators.set('hg_openclaw', new OpenClawGenerator());
-    this.generators.set('hg_claw_face', new ClawFaceGenerator());
     this.generators.set('hg_qbcode', new QbcodeGenerator());
   }
 

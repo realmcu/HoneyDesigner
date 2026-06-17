@@ -44,9 +44,6 @@ export type ComponentType =
   | 'hg_lottie'
   | 'hg_glass'
   | 'hg_particle'
-  | 'hg_map'
-  | 'hg_openclaw'
-  | 'hg_claw_face'
   | 'hg_menu_cellular'
   | 'hg_qbcode';
 

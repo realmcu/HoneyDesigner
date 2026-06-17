@@ -318,51 +318,6 @@ export class AssetManager extends EventEmitter {
         }
     }
 
-    public async handleGetMapFiles(currentFilePath: string | undefined): Promise<void> {
-        try {
-            if (!currentFilePath) {
-                return;
-            }
-
-            const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
-            if (!projectRoot) {
-                return;
-            }
-
-            const assetsDir = ProjectUtils.getAssetsDir(projectRoot);
-            const maps: string[] = [];
-
-            // 递归扫描 .trmap 文件
-            const scanMaps = (dirPath: string, relativePath: string) => {
-                if (!fs.existsSync(dirPath)) return;
-                const files = fs.readdirSync(dirPath);
-                for (const file of files) {
-                    const filePath = path.join(dirPath, file);
-                    const stats = fs.statSync(filePath);
-                    if (stats.isDirectory()) {
-                        scanMaps(filePath, relativePath ? `${relativePath}/${file}` : file);
-                    } else {
-                        const ext = path.extname(file).toLowerCase();
-                        if (ext === '.trmap') {
-                            // 返回VFS路径格式
-                            const vfsPath = relativePath ? `/${relativePath}/${file}` : `/${file}`;
-                            maps.push(vfsPath);
-                        }
-                    }
-                }
-            };
-
-            scanMaps(assetsDir, '');
-
-            this._panel.webview.postMessage({
-                command: 'mapFilesLoaded',
-                maps
-            });
-        } catch (error) {
-            logger.error(`获取地图文件列表失败: ${error}`);
-        }
-    }
-
     /**
      * 删除资源文件或文件夹
      */
@@ -1446,59 +1401,6 @@ export class AssetManager extends EventEmitter {
         } catch (error) {
             logger.error(`[AssetManager] 选择字体文件失败: ${error}`);
             vscode.window.showErrorMessage('选择字体文件失败');
-        }
-    }
-
-    public async handleSelectMapPath(componentId: string, currentFilePath: string | undefined): Promise<void> {
-        try {
-            const options: vscode.OpenDialogOptions = {
-                canSelectFiles: true,
-                canSelectFolders: false,
-                canSelectMany: false,
-                defaultUri: this.getDefaultDialogUri(currentFilePath),
-                filters: {
-                    'Map Files': ['trmap']
-                },
-                openLabel: '选择地图文件'
-            };
-
-            const fileUri = await vscode.window.showOpenDialog(options);
-            if (fileUri && fileUri.length > 0) {
-                const filePath = fileUri[0].fsPath;
-                const fileName = path.basename(filePath);
-
-                AssetManager.rememberPath(filePath, false);
-
-                if (!currentFilePath) {
-                    vscode.window.showErrorMessage('无法确定项目路径');
-                    return;
-                }
-
-                const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
-                if (!projectRoot) {
-                    vscode.window.showErrorMessage('无法找到项目根目录');
-                    return;
-                }
-
-                const assetsDir = path.join(projectRoot, 'assets');
-                const targetPath = path.join(assetsDir, fileName);
-
-                if (!fs.existsSync(targetPath)) {
-                    await fs.promises.copyFile(filePath, targetPath);
-                }
-
-                const vfsPath = `/${fileName}`;
-                this._panel.webview.postMessage({
-                    command: 'mapPathSelected',
-                    componentId,
-                    path: vfsPath
-                });
-
-                logger.info(`[AssetManager] 地图文件已选择: ${vfsPath}`);
-            }
-        } catch (error) {
-            logger.error(`[AssetManager] 选择地图文件失败: ${error}`);
-            vscode.window.showErrorMessage('选择地图文件失败');
         }
     }
 

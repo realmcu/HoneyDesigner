@@ -17,7 +17,6 @@ const zhCN = {
   'Input Controls': '输入控件',
   'Graphics': '图形',
   'Multimedia': '多媒体',
-  'Mini App': '小程序',
 
   // Component names
   'Button': '按钮',
@@ -184,22 +183,6 @@ const zhCN = {
   'Shape Path': '形状路径',
   'Distortion (%)': '扭曲强度(%)',
   'Effect Range (%)': '效果范围(%)',
-  'Recommended Emoji Font': '推荐 Emoji 字体:',
-  'OpenClaw Target': 'OpenClaw 目标',
-  'Initial Expression': '初始表情',
-  'Auto Match First OpenClaw in Scope': '自动匹配当前作用域中的第一个 OpenClaw',
-  'No OpenClaw targets found in current scope': '当前作用域内未找到 OpenClaw 目标',
-  'Only OpenClaw components in the current view or window are available': '这里只显示当前视图或窗口内可绑定的 OpenClaw 组件',
-  'Out of Scope or Missing': '超出作用域或不存在',
-  'Neutral': '平静',
-  'Happy': '开心',
-  'Sad': '难过',
-  'Angry': '生气',
-  'Surprised': '惊讶',
-  'Thinking': '思考',
-  'Sleeping': '睡觉',
-  'Love': '喜爱',
-  'Wink': '眨眼',
 
   // Toolbar
   'Save': '保存',
@@ -949,15 +932,7 @@ const zhCN = {
   'hg_menu_cellular size is determined by project resolution and cannot be modified': 'hg_menu_cellular 的宽高由项目分辨率决定，不可修改',
   'hg_menu_cellular position is fixed at (0,0) and cannot be modified': 'hg_menu_cellular 的坐标固定为 (0,0)，不可修改',
 
-  // Vector Map
-  'Vector Map': '矢量地图',
-  'Map File (.trmap)': '地图文件 (.trmap)',
   'Font File (.ttf)': '字体文件 (.ttf)',
-  'OpenClaw': 'OpenClaw',
-  'Emoji Font (.ttf)': 'Emoji 字体文件 (.ttf)',
-  'Sender ID': '发送者 ID',
-  'Claw Face': 'Claw 表情',
-  'OpenClaw Target ID': 'OpenClaw 目标 ID',
 
   // Toolbar operation states
   'Generating...': '生成中...',

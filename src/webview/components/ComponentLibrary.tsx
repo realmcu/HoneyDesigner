@@ -520,41 +520,6 @@ const componentDefinitions: ComponentDefinition[] = [
     ],
   },
   {
-    type: 'hg_map',
-    name: 'Vector Map',
-    icon: '🗺️',
-    engineSupport: { lvgl: 'unsupported' },
-    defaultSize: { width: 200, height: 300 },
-    properties: [
-      { name: 'mapFile', label: 'Map File (.trmap)', type: 'string', defaultValue: '', group: 'data' },
-      { name: 'fontFile', label: 'Font File (.ttf)', type: 'string', defaultValue: '', group: 'data' },
-      { name: 'pcSerialName', label: 'PC Serial Name', type: 'string', defaultValue: '', group: 'data' },
-    ],
-  },
-  {
-    type: 'hg_openclaw',
-    name: 'OpenClaw',
-    icon: '🦞',
-    engineSupport: { lvgl: 'unsupported' },
-    defaultSize: { width: 410, height: 502 },
-    properties: [
-      { name: 'fontFile', label: 'Font File (.ttf)', type: 'string', defaultValue: '', group: 'data' },
-      { name: 'emojiFontFile', label: 'Emoji Font (.ttf)', type: 'string', defaultValue: '', group: 'data', hint: 'Recommended: Noto Emoji (https://fonts.google.com/noto/specimen/Noto+Emoji)' },
-      { name: 'senderId', label: 'Sender ID', type: 'string', defaultValue: 'user1', group: 'data' },
-    ],
-  },
-  {
-    type: 'hg_claw_face',
-    name: 'Claw Face',
-    icon: '😐',
-    engineSupport: { lvgl: 'unsupported' },
-    defaultSize: { width: 160, height: 160 },
-    properties: [
-      { name: 'openclawTarget', label: 'OpenClaw Target', type: 'string', defaultValue: '', group: 'data' },
-      { name: 'initialExpression', label: 'Initial Expression', type: 'select', defaultValue: 'neutral', group: 'data', options: ['neutral', 'happy', 'sad', 'angry', 'surprised', 'thinking', 'sleeping', 'love', 'wink'] },
-    ],
-  },
-  {
     type: 'hg_menu_cellular',
     name: 'Menu Cellular',
     icon: '⬡',
@@ -590,7 +555,6 @@ const componentCategories = [
   { name: 'Input Controls', types: ['hg_input', 'hg_checkbox', 'hg_radio', 'hg_switch', 'hg_slider', 'hg_progressbar'] },
   { name: 'Graphics', types: ['hg_arc', 'hg_circle', 'hg_rect', 'hg_svg', 'hg_glass', 'hg_particle', 'hg_qbcode'] },
   { name: 'Multimedia', types: ['hg_video', 'hg_gif', 'hg_3d', 'hg_lottie'] },
-  { name: 'Mini App', types: ['hg_map', 'hg_openclaw', 'hg_claw_face'] },
 ];
 
 /**

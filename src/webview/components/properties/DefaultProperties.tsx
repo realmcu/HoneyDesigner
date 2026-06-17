@@ -186,13 +186,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
     });
   };
 
-  const handleSelectMapPath = () => {
-    window.vscodeAPI?.postMessage({
-      command: 'selectMapPath',
-      componentId: componentIdRef.current
-    });
-  };
-
   // 监听字体文件列表和字体度量信息响应
   React.useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -260,128 +253,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
           </button>
         )}
       </div>
-    );
-  };
-
-  const getClawFaceScopeOwner = () => {
-    if (component.type !== 'hg_claw_face' || !components) {
-      return null;
-    }
-
-    let current = component;
-    let rootView = current.type === 'hg_view' ? current : null;
-
-    while (current.parent) {
-      const parent = components.find(c => c.id === current.parent);
-      if (!parent) {
-        break;
-      }
-
-      if (parent.type === 'hg_window') {
-        return parent;
-      }
-
-      if (parent.type === 'hg_view') {
-        rootView = parent;
-      }
-
-      current = parent;
-    }
-
-    return rootView;
-  };
-
-  const getScopedOpenClawTargets = () => {
-    const scopeOwner = getClawFaceScopeOwner();
-    if (!scopeOwner || !components) {
-      return [] as Array<{ value: string; label: string }>;
-    }
-
-    const result: Array<{ value: string; label: string }> = [];
-    const visited = new Set<string>();
-
-    const walk = (comp: typeof component) => {
-      if (visited.has(comp.id)) {
-        return;
-      }
-      visited.add(comp.id);
-
-      if (comp.type === 'hg_openclaw') {
-        result.push({
-          value: comp.id,
-          label: `${comp.name} (${comp.id})`
-        });
-      }
-
-      if (comp.children && comp.children.length > 0) {
-        comp.children.forEach(childId => {
-          const child = components.find(c => c.id === childId);
-          if (child) {
-            walk(child);
-          }
-        });
-      }
-    };
-
-    walk(scopeOwner);
-    return result;
-  };
-
-  const renderOpenClawTargetSelector = () => {
-    const value = (component.data as any)?.openclawTarget || '';
-    const scopedTargets = getScopedOpenClawTargets();
-    const options: Array<{ value: string; label: string }> = [
-      { value: '', label: t('Auto Match First OpenClaw in Scope') }
-    ];
-
-    options.push(...scopedTargets);
-
-    if (value && !options.some(option => option.value === value)) {
-      options.push({ value, label: `${value} (${t('Out of Scope or Missing')})` });
-    }
-
-    return (
-      <div>
-        <PropertyEditor
-          type="select"
-          value={value}
-          onChange={(nextValue) => handleDataChange('openclawTarget', nextValue)}
-          options={options}
-          disabled={options.length === 1}
-        />
-        <div style={{
-          fontSize: '10px',
-          color: 'var(--vscode-descriptionForeground)',
-          marginTop: '4px',
-          lineHeight: '1.4'
-        }}>
-          💡 {options.length === 1 ? t('No OpenClaw targets found in current scope') : t('Only OpenClaw components in the current view or window are available')}
-        </div>
-      </div>
-    );
-  };
-
-  const renderClawFaceExpressionSelector = () => {
-    const value = (component.data as any)?.initialExpression || 'neutral';
-    const options = [
-      { value: 'neutral', label: t('Neutral') },
-      { value: 'happy', label: t('Happy') },
-      { value: 'sad', label: t('Sad') },
-      { value: 'angry', label: t('Angry') },
-      { value: 'surprised', label: t('Surprised') },
-      { value: 'thinking', label: t('Thinking') },
-      { value: 'sleeping', label: t('Sleeping') },
-      { value: 'love', label: t('Love') },
-      { value: 'wink', label: t('Wink') },
-    ];
-
-    return (
-      <PropertyEditor
-        type="select"
-        value={value}
-        onChange={(nextValue) => handleDataChange('initialExpression', nextValue)}
-        options={options}
-      />
     );
   };
 
@@ -545,42 +416,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             </div>
           </div>
         )}
-      </div>
-    );
-  };
-
-  const renderMapFileProperty = (value: any, onChange: (value: any) => void) => {
-    return (
-      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-        <input
-          type="text"
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="地图文件路径 (.trmap)"
-          style={{
-            flex: 1,
-            padding: '4px 6px',
-            backgroundColor: 'var(--vscode-input-background)',
-            color: 'var(--vscode-input-foreground)',
-            border: '1px solid var(--vscode-input-border)',
-            borderRadius: '2px',
-          }}
-        />
-        <button
-          onClick={handleSelectMapPath}
-          style={{
-            padding: '4px 8px',
-            backgroundColor: 'var(--vscode-button-background)',
-            color: 'var(--vscode-button-foreground)',
-            border: 'none',
-            borderRadius: '2px',
-            cursor: 'pointer',
-            fontSize: '12px'
-          }}
-          title="选择地图文件"
-        >
-          🗺️
-        </button>
       </div>
     );
   };
@@ -1216,21 +1051,12 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                           (component.data as any)?.[property.name],
                           (value) => handleDataChange(property.name, value)
                         )
-                      ) : property.name === 'fontFile' || property.name === 'emojiFontFile' ? (
+                      ) : property.name === 'fontFile' ? (
                         renderFontProperty(
                           (component.data as any)?.[property.name],
                           (value) => handleDataChange(property.name, value),
                           property.name
                         )
-                      ) : property.name === 'mapFile' ? (
-                        renderMapFileProperty(
-                          (component.data as any)?.[property.name],
-                          (value) => handleDataChange(property.name, value)
-                        )
-                      ) : property.name === 'openclawTarget' && component.type === 'hg_claw_face' ? (
-                        renderOpenClawTargetSelector()
-                      ) : property.name === 'initialExpression' && component.type === 'hg_claw_face' ? (
-                        renderClawFaceExpressionSelector()
                       ) : property.name === 'text' && (component.type === 'hg_timer_label' || component.type === 'hg_time_label') ? (
                         <>
                           <PropertyEditor
@@ -1280,36 +1106,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                       )}
                     </div>
                   ))}
-                {/* OpenClaw Emoji 字体推荐 */}
-                {component.type === 'hg_openclaw' && (
-                  <div style={{
-                    marginTop: '12px',
-                    padding: '8px',
-                    backgroundColor: 'var(--vscode-textBlockQuote-background)',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    color: 'var(--vscode-descriptionForeground)',
-                    lineHeight: 1.5,
-                  }}>
-                    <div style={{ marginBottom: '4px' }}>💡 {t('Recommended Emoji Font')}</div>
-                    <a
-                      href="https://fonts.google.com/noto/specimen/Noto+Emoji"
-                      style={{
-                        color: 'var(--vscode-textLink-foreground)',
-                        textDecoration: 'none',
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        window.vscodeAPI?.postMessage({
-                          command: 'openExternal',
-                          url: 'https://fonts.google.com/noto/specimen/Noto+Emoji'
-                        });
-                      }}
-                    >
-                      Noto Emoji ↗
-                    </a>
-                  </div>
-                )}
               </CollapsibleGroup>
             )}
 

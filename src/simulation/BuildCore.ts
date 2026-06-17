@@ -240,13 +240,6 @@ Return('objs')
             this.logger.log(`user 目录拷贝完成: ${userCount} 个`);
         }
 
-        // 拷贝向量地图（hg_map）引用的字体文件（直接拷贝，不转换格式）
-        this.logger.log('拷贝向量地图字体资源...');
-        const mapFontCount = this.copyMapFonts(assetsDir, outputDir, usedAssets.mapFonts);
-        if (mapFontCount > 0) {
-            this.logger.log(`向量地图字体拷贝完成: ${mapFontCount} 个`);
-        }
-
         // 转换视频资源（只转换使用的）
         this.logger.log(vscode.l10n.t('Checking video assets...'));
         const videoConverter = new VideoConverterService((msg) => {
@@ -685,7 +678,6 @@ Return('objs')
 
     /**
      * 全量扫描 assets 目录，返回所有资源文件
-     * 仍需扫描 HML 获取 mapFonts（地图字体需特殊拷贝处理）
      */
     private async scanAllAssets(): Promise<{
         images: Set<string>;
@@ -753,7 +745,6 @@ Return('objs')
             this.scanModelTextures(assetsDir, models, images);
         }
 
-        // mapFonts 仍需从 HML 中获取（hg_map/hg_openclaw 组件的字体需直接拷贝）
         const uiDir = path.join(this.projectRoot, 'ui');
         if (fs.existsSync(uiDir)) {
             const dummyImages = new Set<string>();
@@ -917,25 +908,6 @@ Return('objs')
         while ((match = assetAttributeRegex.exec(hmlContent)) !== null) {
             const assetPath = match[2];
             processAssetPath(assetPath);
-        }
-
-        // 特殊处理：hg_map/hg_openclaw 组件的 fontFile 和 emojiFontFile 属性（字体文件需要直接拷贝，不进行格式转换）
-        // 只匹配 hg_map 和 hg_openclaw 标签内的 fontFile，避免误匹配 hg_label 等组件的字体属性
-        const mapComponentRegex = /<(hg_map|hg_openclaw)\s[^>]*>/g;
-        let compMatch;
-        while ((compMatch = mapComponentRegex.exec(hmlContent)) !== null) {
-            const tagContent = compMatch[0];
-            const fontFileInTag = /(fontFile|emojiFontFile)\s*=\s*["']([^"']+)["']/g;
-            let fontMatch;
-            while ((fontMatch = fontFileInTag.exec(tagContent)) !== null) {
-                let fontPath = fontMatch[2];
-                if (fontPath.startsWith('assets/')) {
-                    fontPath = fontPath.substring(7);
-                }
-                if (fontPath) {
-                    mapFonts.add(fontPath);
-                }
-            }
         }
 
         // 特殊处理：timers 属性中的 imageSequence 和 changeImage 资源引用
@@ -1970,28 +1942,7 @@ Return('objs')
         return count;
     }
 
-    /**
-     * 拷贝向量地图（hg_map）组件引用的字体文件
-     * 这些字体通过 VFS 文件系统直接加载，无需格式转换
-     */
-    protected copyMapFonts(assetsDir: string, outputDir: string, mapFonts: Set<string>): number {
-        let count = 0;
-        for (const fontRelPath of mapFonts) {
-            const srcPath = path.join(assetsDir, fontRelPath);
-            if (!fs.existsSync(srcPath)) {
-                this.logger.log(`向量地图字体文件不存在，跳过: ${fontRelPath}`, true);
-                continue;
-            }
-            const destPath = path.join(outputDir, fontRelPath);
-            const destDir = path.dirname(destPath);
-            if (!fs.existsSync(destDir)) {
-                fs.mkdirSync(destDir, { recursive: true });
-            }
-            fs.copyFileSync(srcPath, destPath);
-            count++;
-        }
-        return count;
-    }
+
 
     /**
      * 根据 Label 组件配置转换字体资源

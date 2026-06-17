@@ -123,7 +123,7 @@ export class HmlValidationService {
             // ========================================
             // 规则 7: 资源路径格式验证（HML-Spec 开头说明）
             // - 所有资源路径必须以 '/' 开头
-            // - 包括：src, imageOn, imageOff, fontFile, mapFile, emojiFontFile
+            // - 包括：src, imageOn, imageOff, fontFile
             // - 正确：/NotoSansSC-Bold.ttf
             // - 错误：NotoSansSC-Bold.ttf
             // ========================================
@@ -344,8 +344,6 @@ export class HmlValidationService {
      *   - src: 图片/视频资源路径（hg_image, hg_video 等）
      *   - imageOn/imageOff: 开关图片（hg_switch 等）
      *   - fontFile: 字体文件路径（hg_label 等）
-     *   - mapFile: 地图数据文件（hg_map 等）
-     *   - emojiFontFile: 表情字体文件
      *
      * 正确示例：
      * - fontFile="/NotoSansSC-Bold.ttf"
@@ -367,7 +365,7 @@ export class HmlValidationService {
     ): void {
         for (const component of components) {
             // 检查常见的资源属性
-            const resourceAttrs = ['src', 'imageOn', 'imageOff', 'fontFile', 'mapFile', 'emojiFontFile'];
+            const resourceAttrs = ['src', 'imageOn', 'imageOff', 'fontFile'];
 
             for (const attr of resourceAttrs) {
                 const value = (component.data as any)?.[attr];

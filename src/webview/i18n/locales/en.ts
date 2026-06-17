@@ -17,7 +17,6 @@ const en = {
   'Input Controls': 'Input Controls',
   'Graphics': 'Graphics',
   'Multimedia': 'Multimedia',
-  'Mini App': 'Mini App',
 
   // Component names
   'Button': 'Button',
@@ -184,22 +183,6 @@ const en = {
   'Shape Path': 'Shape Path',
   'Distortion (%)': 'Distortion (%)',
   'Effect Range (%)': 'Effect Range (%)',
-  'Recommended Emoji Font': 'Recommended Emoji Font:',
-  'OpenClaw Target': 'OpenClaw Target',
-  'Initial Expression': 'Initial Expression',
-  'Auto Match First OpenClaw in Scope': 'Auto match first OpenClaw in scope',
-  'No OpenClaw targets found in current scope': 'No OpenClaw targets found in current scope',
-  'Only OpenClaw components in the current view or window are available': 'Only OpenClaw components in the current view or window are available',
-  'Out of Scope or Missing': 'Out of scope or missing',
-  'Neutral': 'Neutral',
-  'Happy': 'Happy',
-  'Sad': 'Sad',
-  'Angry': 'Angry',
-  'Surprised': 'Surprised',
-  'Thinking': 'Thinking',
-  'Sleeping': 'Sleeping',
-  'Love': 'Love',
-  'Wink': 'Wink',
 
   // Toolbar
   'Save': 'Save',
@@ -947,15 +930,7 @@ const en = {
   'hg_menu_cellular size is determined by project resolution and cannot be modified': 'hg_menu_cellular size is determined by project resolution and cannot be modified',
   'hg_menu_cellular position is fixed at (0,0) and cannot be modified': 'hg_menu_cellular position is fixed at (0,0) and cannot be modified',
 
-  // Vector Map
-  'Vector Map': 'Vector Map',
-  'Map File (.trmap)': 'Map File (.trmap)',
   'Font File (.ttf)': 'Font File (.ttf)',
-  'OpenClaw': 'OpenClaw',
-  'Emoji Font (.ttf)': 'Emoji Font (.ttf)',
-  'Sender ID': 'Sender ID',
-  'Claw Face': 'Claw Face',
-  'OpenClaw Target ID': 'OpenClaw Target ID',
 
   // Toolbar operation states
   'Generating...': 'Generating...',

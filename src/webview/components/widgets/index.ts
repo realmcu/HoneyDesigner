@@ -25,9 +25,6 @@ import { GlassWidget } from './GlassWidget';
 import { LottieWidget } from './LottieWidget';
 import { CanvasWidget } from './CanvasWidget';
 import { ParticleWidget } from './ParticleWidget';
-import { MapWidget } from './MapWidget';
-import { OpenClawWidget } from './OpenClawWidget';
-import { ClawFaceWidget } from './ClawFaceWidget';
 import { MenuCellularWidget } from './MenuCellularWidget';
 import { QbcodeWidget } from './QbcodeWidget';
 
@@ -63,9 +60,6 @@ export const widgetRegistry: Record<string, React.FC<WidgetProps>> = {
   hg_glass: widgetMemo(GlassWidget),
   hg_lottie: widgetMemo(LottieWidget),
   hg_particle: widgetMemo(ParticleWidget),
-  hg_map: widgetMemo(MapWidget),
-  hg_openclaw: widgetMemo(OpenClawWidget),
-  hg_claw_face: widgetMemo(ClawFaceWidget),
   hg_menu_cellular: widgetMemo(MenuCellularWidget),
   hg_qbcode: widgetMemo(QbcodeWidget),
 };

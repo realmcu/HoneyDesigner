@@ -141,8 +141,7 @@ HML 没有内联事件属性，所有交互必须用 `<events>` 结构。
            onCallback="wifi_on" offCallback="wifi_off" />
 ```
 
-> 反之，LVGL 项目勿用 `hg_video` / `hg_3d`（planned）与 `hg_glass` / `hg_particle` / `hg_map` /
-> `hg_openclaw` / `hg_claw_face` / `hg_menu_cellular`（unsupported / planned）。
+> 反之，LVGL 项目勿用 `hg_video` / `hg_3d`（planned）与 `hg_glass` / `hg_particle` / `hg_menu_cellular`（unsupported / planned）。
 > `hg_canvas` 两端都未实现，一律勿用——绘图改用 `hg_image` / `hg_rect` / `hg_arc` / `hg_svg`。
 
 ---

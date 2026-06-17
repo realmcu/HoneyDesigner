@@ -1,3 +1,0 @@
-[submodule "firmware/external/stb"]
-	path = firmware/external/stb
-	url = https://github.com/nothings/stb

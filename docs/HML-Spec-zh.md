@@ -169,7 +169,6 @@ HML 是一种基于 XML 的标记语言，由 HoneyGUI Design 用于描述嵌入
 | **容器** | `hg_view`, `hg_window`, `hg_list`, `hg_list_item`, `hg_menu_cellular` |
 | **基础** | `hg_label`, `hg_time_label`, `hg_image` |
 | **图形** | `hg_arc`, `hg_circle`, `hg_rect`|
-| **小程序** | `hg_openclaw`, `hg_claw_face` |
 
 ### 嵌套规则（关键）
 
@@ -488,45 +487,7 @@ HML 是一种基于 XML 的标记语言，由 HoneyGUI Design 用于描述嵌入
 
 
 
-## 11. 小程序控件
-
-### 11.1 `hg_map` — 矢量地图
-
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `mapFile` | string | "" | 地图数据文件 |
-| `fontFile` | string | "" | 地图字体文件 |
-| `pcSerialName` | string | "" | PC 串口名称 |
-
-- **默认尺寸**：200×300
-- **C API**：`gui_vector_map_create_from_mem`
-
-### 11.2 `hg_openclaw` — OpenClaw AI 聊天
-
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `fontFile` | string | "" | 字体文件 |
-| `emojiFontFile` | string | "" | 表情字体文件 |
-| `senderId` | string | "user1" | 发送者标识符 |
-
-- **默认尺寸**：410×502
-- **C API**：`gui_openclaw_create_from_mem`
-
-### 11.3 `hg_claw_face` — Claw Face 表情
-
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `openclawTarget` | string | "" | 关联的 OpenClaw 组件 ID |
-| `initialExpression` | enum | neutral | 初始表情 |
-
-**`initialExpression` 值**：`neutral`、`happy`、`sad`、`angry`、`surprised`、`thinking`、`sleeping`、`love`、`wink`
-
-- **默认尺寸**：160×160
-- **C API**：`gui_openclaw_emoji_create`
-
----
-
-## 12. 事件系统
+## 11. 事件系统
 
 HML 使用**事件 → 动作**模型。事件在任何组件的 `<events>` 子节点内声明。
 
@@ -722,9 +683,6 @@ HML 使用**事件 → 动作**模型。事件在任何组件的 `<events>` 子�
 | `hg_circle` | `gui_circle_create` | `gui_circle.h` |
 | `hg_rect` | `gui_rect_create` | `gui_rect.h` |
 | `hg_list` | `gui_list_create` | `gui_list.h` |
-| `hg_map` | `gui_vector_map_create_from_mem` | `gui_vector_map.h` |
-| `hg_openclaw` | `gui_openclaw_create_from_mem` | `gui_openclaw.h` |
-| `hg_claw_face` | `gui_openclaw_emoji_create` | `gui_openclaw_emoji.h` |
 | `hg_menu_cellular` | 自定义生成器 | `gui_menu_cellular.h` |
 
 ### 生成的文件结构

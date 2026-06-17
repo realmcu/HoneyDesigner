@@ -237,9 +237,6 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 | | `hg_video` | ✅ | 🚧 |
 | | `hg_lottie` | ✅ | ✅ |
 | | `hg_3d` | ✅ | 🚧 |
-| **Mini-App** (仅HoneyGUI) | `hg_map` | ✅ | ❌ |
-| | `hg_openclaw` | ✅ | ❌ |
-| | `hg_claw_face` | ✅ | ❌ |
 | **Not implemented** | `hg_canvas` | 🚧 | 🚧 |
 
 > **Do NOT exist (never use):** `hg_container`, `hg_grid`, `hg_tab` — not in either codegen
@@ -249,7 +246,7 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 > - **HoneyGUI projects** must not use the 🚧 input family (`hg_input`/`hg_checkbox`/`hg_radio`/
 >   `hg_switch`/`hg_slider`/`hg_progressbar`) nor `hg_canvas` — they are planned, codegen emits stubs.
 > - **LVGL projects** must not use `hg_video`/`hg_3d` (planned) nor the ❌ HoneyGUI-only components
->   (`hg_glass`/`hg_particle`/`hg_map`/`hg_openclaw`/`hg_claw_face`) nor `hg_menu_cellular`.
+>   (`hg_glass`/`hg_particle`) nor `hg_menu_cellular`.
 
 ### Nesting Rules (CRITICAL)
 
@@ -936,57 +933,7 @@ Renders a 3D model with camera and transform control.
 
 ---
 
-## 11. Mini-App Controls
-
-### 11.1 `hg_map` — Vector Map
-
-引擎: 仅HoneyGUI
-<!-- engine: honeygui=ready lvgl=unsupported -->
-> **LVGL projects: do not use (unsupported).**
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `mapFile` | string | "" | Map data file |
-| `fontFile` | string | "" | Map font file |
-| `pcSerialName` | string | "" | PC serial port name |
-
-- **Default size**: 200×300
-- **C API**: `gui_vector_map_create_from_mem`
-
-### 11.2 `hg_openclaw` — OpenClaw AI Chat
-
-引擎: 仅HoneyGUI
-<!-- engine: honeygui=ready lvgl=unsupported -->
-> **LVGL projects: do not use (unsupported).**
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `fontFile` | string | "" | Font file |
-| `emojiFontFile` | string | "" | Emoji font file |
-| `senderId` | string | "user1" | Sender identifier |
-
-- **Default size**: 410×502
-- **C API**: `gui_openclaw_create_from_mem`
-
-### 11.3 `hg_claw_face` — Claw Face Expression
-
-引擎: 仅HoneyGUI
-<!-- engine: honeygui=ready lvgl=unsupported -->
-> **LVGL projects: do not use (unsupported).**
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `openclawTarget` | string | "" | Linked OpenClaw component ID |
-| `initialExpression` | enum | neutral | Initial expression |
-
-**`initialExpression` values**: `neutral`, `happy`, `sad`, `angry`, `surprised`, `thinking`, `sleeping`, `love`, `wink`
-
-- **Default size**: 160×160
-- **C API**: `gui_openclaw_emoji_create`
-
----
-
-## 12. Event System
+## 11. Event System
 
 HML uses an **event → action** model. Events are declared inside an `<events>` child node of any component.
 
@@ -1194,9 +1141,6 @@ The designer generates C source code from HML. The create function depends on th
 | `hg_list` | `gui_list_create` | `lv_list_create` |
 | `hg_glass` | `gui_glass_create_from_fs` | — (unsupported) |
 | `hg_particle` | `effect_{type}_create` | — (unsupported) |
-| `hg_map` | `gui_vector_map_create_from_mem` | — (unsupported) |
-| `hg_openclaw` | `gui_openclaw_create_from_mem` | — (unsupported) |
-| `hg_claw_face` | `gui_openclaw_emoji_create` | — (unsupported) |
 | `hg_menu_cellular` | custom generator (`gui_menu_cellular.h`) | — (planned) |
 | `hg_qbcode` | `gui_qbcode_create` + `gui_qbcode_config` | `lv_qrcode_create` / `lv_barcode_create` |
 | `hg_input` | — (planned) | `lv_textarea_create` |

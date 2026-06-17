@@ -38,8 +38,7 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
 
 - HoneyGUI 项目**勿用**：`hg_input` / `hg_checkbox` / `hg_radio` / `hg_switch` / `hg_slider` /
   `hg_progressbar`（这些是 **LVGL-only**）、`hg_canvas`。
-- LVGL 项目**勿用**：`hg_video` / `hg_3d`（planned）、`hg_glass` / `hg_particle` / `hg_map` /
-  `hg_openclaw` / `hg_claw_face` / `hg_menu_cellular`。
+- LVGL 项目**勿用**：`hg_video` / `hg_3d`（planned）、`hg_glass` / `hg_particle` / `hg_menu_cellular`。
 - **任何引擎都不存在、永远勿用**：`hg_container`、`hg_grid`、`hg_tab`。需要布局时用
   `hg_view` / `hg_window` / `hg_list`。
 
