@@ -375,6 +375,8 @@
   "Rounded 40px": "Rounded 40px",
   "Rounded 60px": "Rounded 60px",
   "Target Engine": "Target Engine",
+  "Enable AI collaboration assets": "Enable AI collaboration assets",
+  "Distribute HML-Spec.md and AI agent guides to the project root for vibe coding. Uncheck for pure drag-and-drop use.": "Distribute HML-Spec.md and AI agent guides to the project root for vibe coding. Uncheck for pure drag-and-drop use.",
   "Coming Soon": "Coming Soon",
   "Minimum SDK": "Minimum SDK",
   "Pixel Mode": "Pixel Mode",

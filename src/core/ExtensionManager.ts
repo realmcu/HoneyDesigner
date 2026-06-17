@@ -132,9 +132,16 @@ export class ExtensionManager {
                 const config = JSON.parse(fs.readFileSync(projectConfigPath, 'utf8'));
                 logger.info(`检测到项目配置: ${config.name || '未命名项目'}`);
 
-                // 分发 AI 协作资产（HML-Spec.md / skill / AGENTS.md / CLAUDE.md）
-                const targetEngine = config.targetEngine === 'lvgl' ? 'lvgl' : 'honeygui';
-                this.setupAiAssets(workspaceRoot, targetEngine);
+                // 分发 AI 协作资产（.claude/skills/ 全量 + 根 AGENTS.md 门面）。
+                // 受项目级开关 aiAssets 控制：默认开启（未设置或非 false 即分发）；
+                // 纯拖拽、不使用 AI 的用户可在 project.json 设 "aiAssets": false 关闭，
+                // 此时自动清理已存在的分发产物。
+                if (config.aiAssets === false) {
+                    this.cleanupAiAssets(workspaceRoot);
+                } else {
+                    const targetEngine = config.targetEngine === 'lvgl' ? 'lvgl' : 'honeygui';
+                    this.setupAiAssets(workspaceRoot, targetEngine);
+                }
             } else {
                 logger.info('未检测到项目配置文件');
             }
@@ -145,18 +152,101 @@ export class ExtensionManager {
     }
 
     /**
-     * 分发 AI 协作资产到项目根目录，供任意 AI agent（vibe coding）生成 HML 时参考：
-     *   ① HML-Spec.md            —— 规范副本（顶部注入当前引擎说明）
-     *   ② .claude/skills/...     —— HoneyGUI Designer skill（Claude 生态自动加载）
-     *   ③ AGENTS.md              —— 通用 agent 协作约定（不存在才写）
-     *   ④ CLAUDE.md              —— 引用 AGENTS.md（不存在则写，存在则补引用）
+     * 分发 AI 协作资产，供任意 AI agent（vibe coding）生成 HML 时参考：
+     *   ① .claude/skills/honeygui-designer/  —— skill 全量（Claude Code 原生自动加载）
+     *   ② references/hml-spec.md             —— 完整规范，注入当前引擎头（唯一真相源）
+     *   ③ AGENTS.md（根）                     —— 中性门面：内联铁律 + 跳转 skill/spec，供其它 agent 手动 @
      * 各步骤独立 try，单步失败不影响其余分发。
+     *
+     * 不主动改 .gitignore：是否纳入版本控制完全交给用户——新建项目时用户已通过
+     * aiAssets 开关表态；旧项目首次打开会"凭空"出现这些文件，正是让用户察觉新功能，
+     * 不想要就把 project.json 的 aiAssets 设为 false 或自行 .gitignore。
      */
     private setupAiAssets(projectRoot: string, targetEngine: 'honeygui' | 'lvgl'): void {
-        this.copyHmlSpecToProject(projectRoot, targetEngine);
+        this.migrateLegacyAiAssets(projectRoot);
         this.copySkillToProject(projectRoot);
-        this.writeAgentsMd(projectRoot, targetEngine);
-        this.writeOrUpdateClaudeMd(projectRoot);
+        this.copyHmlSpecToProject(projectRoot, targetEngine);
+        this.writeAgentsMd(projectRoot);
+    }
+
+    /**
+     * 迁移旧版分发方案的残留（旧版把 HML-Spec.md / CLAUDE.md 分发到项目根）。
+     * 幂等：残留清除后再次调用即空操作。规范现已移入 skill 内，CLAUDE.md 入口由 AGENTS.md 取代。
+     */
+    private migrateLegacyAiAssets(projectRoot: string): void {
+        // 旧版根目录 HML-Spec.md（规范已移入 .claude/skills/.../references/hml-spec.md）
+        try {
+            const legacySpec = path.join(projectRoot, 'HML-Spec.md');
+            if (fs.existsSync(legacySpec)) {
+                const c = fs.readFileSync(legacySpec, 'utf8');
+                if (c.includes('本文件由 HoneyGUI Visual Designer 自动分发')) {
+                    fs.rmSync(legacySpec);
+                    logger.info('migrate: 已删除旧版根目录 HML-Spec.md（规范已移入 skill）');
+                }
+            }
+        } catch (e) { logger.warn(`migrate: 处理旧 HML-Spec.md 失败: ${e}`); }
+
+        // 旧版写入/追加的 CLAUDE.md（现以 AGENTS.md 为入口，移除本扩展的贡献）
+        try {
+            const claudePath = path.join(projectRoot, 'CLAUDE.md');
+            if (fs.existsSync(claudePath)) {
+                const content = fs.readFileSync(claudePath, 'utf8');
+                const autoGenFull =
+                    `# CLAUDE.md\n\n` +
+                    `本项目的 AI 协作约定见 AGENTS.md（HML 规范、验证闭环、仿真）：\n\n` +
+                    `@AGENTS.md\n`;
+                if (content === autoGenFull) {
+                    fs.rmSync(claudePath);
+                    logger.info('migrate: 已删除旧版自动生成的 CLAUDE.md');
+                } else {
+                    const cleaned = content.replace(/\n\n## AI 协作指南\n\n@AGENTS\.md\n?/g, '');
+                    if (cleaned !== content) {
+                        fs.writeFileSync(claudePath, cleaned.replace(/\s*$/, '') + '\n', 'utf8');
+                        logger.info('migrate: 已从 CLAUDE.md 移除旧版 @AGENTS.md 引用块');
+                    }
+                }
+            }
+        } catch (e) { logger.warn(`migrate: 处理 CLAUDE.md 失败: ${e}`); }
+    }
+
+    /**
+     * 清理已分发的 AI 协作产物（当 project.json 的 aiAssets === false 时调用）。
+     *
+     * 删除策略按安全等级分类：
+     *   - .claude/skills/honeygui-designer/：整目录删除（可再生）。
+     *   - AGENTS.md：剥离本扩展的托管区块；文件若仅含该块则删除，用户自有正文一律保留。
+     *   - 旧版根 HML-Spec.md / CLAUDE.md 残留交由 migrateLegacyAiAssets 处理。
+     * 不动 .gitignore：本扩展从不写它，是否忽略由用户自行决定。
+     */
+    private cleanupAiAssets(projectRoot: string): void {
+        this.migrateLegacyAiAssets(projectRoot);
+
+        // ① .claude/skills/honeygui-designer/：整目录删除
+        try {
+            const skillPath = path.join(projectRoot, '.claude', 'skills', 'honeygui-designer');
+            if (fs.existsSync(skillPath)) {
+                fs.rmSync(skillPath, { recursive: true, force: true });
+                logger.info('cleanupAiAssets: 已删除 .claude/skills/honeygui-designer/');
+            }
+        } catch (e) { logger.warn(`cleanupAiAssets: 删除 skill 目录失败: ${e}`); }
+
+        // ② AGENTS.md：剥离托管区块，用户自有正文保留；若整文件都是我们的则删除
+        try {
+            const agentsPath = path.join(projectRoot, 'AGENTS.md');
+            if (fs.existsSync(agentsPath)) {
+                const existing = fs.readFileSync(agentsPath, 'utf8');
+                const stripped = this.stripAgentsBlock(existing);
+                if (stripped === null) {
+                    logger.info('cleanupAiAssets: AGENTS.md 无本扩展托管块，保留');
+                } else if (stripped.trim().length === 0) {
+                    fs.rmSync(agentsPath);
+                    logger.info('cleanupAiAssets: 已删除 AGENTS.md（仅含本扩展托管块）');
+                } else {
+                    fs.writeFileSync(agentsPath, stripped, 'utf8');
+                    logger.info('cleanupAiAssets: 已从 AGENTS.md 剥离托管块，保留用户正文');
+                }
+            }
+        } catch (e) { logger.warn(`cleanupAiAssets: 处理 AGENTS.md 失败: ${e}`); }
     }
 
     /**
@@ -166,7 +256,7 @@ export class ExtensionManager {
     private copyHmlSpecToProject(projectRoot: string, targetEngine: 'honeygui' | 'lvgl'): void {
         try {
             const srcSpec = path.join(this.context.extensionPath, 'vibe-designer', 'skills', 'honeygui-designer', 'references', 'hml-spec.md');
-            const destSpec = path.join(projectRoot, 'HML-Spec.md');
+            const destSpec = path.join(projectRoot, '.claude', 'skills', 'honeygui-designer', 'references', 'hml-spec.md');
 
             if (!fs.existsSync(srcSpec)) {
                 logger.warn(`HML-Spec.md 不存在: ${srcSpec}`);
@@ -188,8 +278,9 @@ export class ExtensionManager {
             if (fs.existsSync(destSpec) && fs.readFileSync(destSpec, 'utf8') === expected) {
                 return;
             }
+            fs.mkdirSync(path.dirname(destSpec), { recursive: true });
             fs.writeFileSync(destSpec, expected, 'utf8');
-            logger.info(`HML-Spec.md 已分发到项目（engine=${targetEngine}）: ${destSpec}`);
+            logger.info(`hml-spec.md 已分发到 skill（engine=${targetEngine}）: ${destSpec}`);
         } catch (error) {
             logger.warn(`分发 HML-Spec.md 失败: ${error instanceof Error ? error.message : String(error)}`);
         }
@@ -212,9 +303,9 @@ export class ExtensionManager {
                 return;
             }
 
-            // 排除 references/hml-spec.md：规范由 copyHmlSpecToProject 带引擎头单独分发到项目根，
-            // skill 副本里不再保留无引擎头的重复版（避免两份不一致）。
-            this.copyDirWithMtime(srcSkill, destSkill, (rel) => rel === 'references/hml-spec.md');
+            // 整目录镜像（含 references/hml-spec.md 的无头原版）；随后 copyHmlSpecToProject
+            // 会按当前引擎把该文件覆盖为带引擎头的版本，故此处无需排除。
+            this.copyDirWithMtime(srcSkill, destSkill);
             logger.info(`honeygui-designer skill 已分发到项目: ${destSkill}`);
         } catch (error) {
             logger.warn(`分发 skill 失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -223,40 +314,28 @@ export class ExtensionManager {
 
     /**
      * 将 srcDir 镜像到 destDir：逐文件按 mtime 增量覆盖（源更新或目标缺失才写），
-     * 并剪除目标端在源中已不存在（或被 skip 显式排除）的条目，保持目标为有效源的精确镜像
+     * 并剪除目标端在源中已不存在的条目，保持目标为源的精确镜像
      * ——否则 skill 升级时被删除/改名的旧文件（如废弃的 components.md / hml-syntax.md）
      * 会残留，让 agent 读到过期错误规范。
-     *
-     * @param skip 接收相对 srcDir 的路径（以 '/' 分隔），返回 true 则该条目既不拷贝、
-     *             目标端同名条目也会被剪除。用于排除由专门通道分发的文件（如 hml-spec.md）。
      */
-    private copyDirWithMtime(
-        srcDir: string,
-        destDir: string,
-        skip?: (relPath: string) => boolean,
-        baseRel: string = ''
-    ): void {
+    private copyDirWithMtime(srcDir: string, destDir: string): void {
         fs.mkdirSync(destDir, { recursive: true });
 
-        const relOf = (name: string) => (baseRel ? `${baseRel}/${name}` : name);
         const srcEntries = fs.readdirSync(srcDir, { withFileTypes: true });
-        // 有效源条目：排除调用方显式跳过的（如 references/hml-spec.md
-        // ——它由 copyHmlSpecToProject 专门带引擎头分发到项目根，skill 副本里不再保留无头重复版）
-        const keptEntries = srcEntries.filter(e => !(skip && skip(relOf(e.name))));
-        const keptNames = new Set(keptEntries.map(e => e.name));
+        const srcNames = new Set(srcEntries.map(e => e.name));
 
-        // 先剪除目标端多余条目（源已移除或被排除），保持目标为有效源的精确镜像
+        // 先剪除目标端多余条目（源已移除），保持目标为源的精确镜像
         for (const destEntry of fs.readdirSync(destDir, { withFileTypes: true })) {
-            if (!keptNames.has(destEntry.name)) {
+            if (!srcNames.has(destEntry.name)) {
                 fs.rmSync(path.join(destDir, destEntry.name), { recursive: true, force: true });
             }
         }
 
-        for (const entry of keptEntries) {
+        for (const entry of srcEntries) {
             const srcPath = path.join(srcDir, entry.name);
             const destPath = path.join(destDir, entry.name);
             if (entry.isDirectory()) {
-                this.copyDirWithMtime(srcPath, destPath, skip, relOf(entry.name));
+                this.copyDirWithMtime(srcPath, destPath);
             } else if (entry.isFile()) {
                 const needCopy = !fs.existsSync(destPath) ||
                     fs.statSync(srcPath).mtimeMs > fs.statSync(destPath).mtimeMs;
@@ -267,49 +346,125 @@ export class ExtensionManager {
         }
     }
 
+    // AGENTS.md 中本扩展托管区块的起止标记。用标记包裹，使我们能在不触碰
+    // 用户自有正文的前提下，幂等地更新自己的那一段。
+    private static readonly AGENTS_BLOCK_START =
+        '<!-- BEGIN HoneyGUI AI 设计指南（自动维护，请勿编辑本区块） -->';
+    private static readonly AGENTS_BLOCK_END =
+        '<!-- END HoneyGUI AI 设计指南 -->';
+
     /**
-     * 在项目根写入面向通用 agent 的 AGENTS.md。
-     * 不覆盖用户定制：仅当目标缺失、或目标内容恰为本扩展生成的另一引擎版本（即未被用户改动）时才写，
-     * 后者用于 targetEngine 切换后刷新引擎提示——否则陈旧的 targetEngine 会误导 agent。
+     * 在项目根维护中性门面 AGENTS.md，采用"托管区块"模型，绝不覆盖用户自有正文：
+     *   - 文件不存在        ⇒ 新建，仅含我们的托管区块。
+     *   - 已含我们的区块    ⇒ 只刷新区块内容（幂等），区块外用户正文原样保留。
+     *   - 用户已有 AGENTS.md ⇒ 在文末追加我们的区块，不动其原有内容。
+     *   - 旧版整文件自动生成 ⇒ 迁移为托管区块格式。
+     * 区块内容为静态（不含具体引擎名——引擎信息只活在 hml-spec.md 头部），切引擎时无需刷新。
      */
-    private writeAgentsMd(projectRoot: string, targetEngine: 'honeygui' | 'lvgl'): void {
+    private writeAgentsMd(projectRoot: string): void {
         try {
             const destAgents = path.join(projectRoot, 'AGENTS.md');
-            const expected = this.buildAgentsMdContent(targetEngine);
+            const block = this.buildAgentsMdBlock();
 
-            if (fs.existsSync(destAgents)) {
-                const existing = fs.readFileSync(destAgents, 'utf8');
-                if (existing === expected) {
-                    return; // 已是当前引擎版本
-                }
-                // 内容不等于任一引擎的原始模板 ⇒ 视为用户已定制，保留不动
-                const otherEngine = targetEngine === 'honeygui' ? 'lvgl' : 'honeygui';
-                if (existing !== this.buildAgentsMdContent(otherEngine)) {
-                    return;
-                }
-                // 落到这里：现有内容是另一引擎的原始模板 ⇒ 引擎已切换，刷新为当前引擎版本
+            if (!fs.existsSync(destAgents)) {
+                fs.writeFileSync(destAgents, block, 'utf8');
+                logger.info(`AGENTS.md 已写入项目: ${destAgents}`);
+                return;
             }
-            fs.writeFileSync(destAgents, expected, 'utf8');
-            logger.info(`AGENTS.md 已写入项目（engine=${targetEngine}）: ${destAgents}`);
+
+            const existing = fs.readFileSync(destAgents, 'utf8');
+            const start = existing.indexOf(ExtensionManager.AGENTS_BLOCK_START);
+            const end = existing.indexOf(ExtensionManager.AGENTS_BLOCK_END);
+
+            // a) 已含托管区块 ⇒ 原地替换区块（幂等），区块外用户正文不动
+            if (start !== -1 && end !== -1 && end > start) {
+                const before = existing.slice(0, start);
+                const after = existing.slice(end + ExtensionManager.AGENTS_BLOCK_END.length);
+                const updated = before + block.trim() + after;
+                if (updated !== existing) {
+                    fs.writeFileSync(destAgents, updated, 'utf8');
+                    logger.info(`AGENTS.md 托管区块已刷新: ${destAgents}`);
+                }
+                return;
+            }
+
+            // b) 旧版整文件自动生成（引擎变体或旧无标记静态版）⇒ 迁移为托管区块格式
+            if (this.isLegacyAutoGenAgents(existing)
+                || existing.trimEnd() === this.buildAgentsMdContent().trimEnd()) {
+                fs.writeFileSync(destAgents, block, 'utf8');
+                logger.info(`AGENTS.md 已迁移为托管区块格式: ${destAgents}`);
+                return;
+            }
+
+            // c) 用户自有 AGENTS.md（无我们的区块）⇒ 文末追加，保留其原有内容
+            const appended = existing.replace(/\s*$/, '') + '\n\n' + block;
+            fs.writeFileSync(destAgents, appended, 'utf8');
+            logger.info(`AGENTS.md 已存在，已追加本扩展托管区块: ${destAgents}`);
         } catch (error) {
             logger.warn(`写入 AGENTS.md 失败: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
+    /** 用起止标记包裹静态门面内容，构成 AGENTS.md 中本扩展的托管区块。 */
+    private buildAgentsMdBlock(): string {
+        return `${ExtensionManager.AGENTS_BLOCK_START}\n\n` +
+            this.buildAgentsMdContent() +
+            `\n${ExtensionManager.AGENTS_BLOCK_END}\n`;
+    }
+
     /**
-     * 生成 AGENTS.md 内容（含当前 targetEngine 提示）
+     * 从 AGENTS.md 内容中剥离本扩展的托管区块，返回应保留的剩余内容：
+     *   - 含起止标记      ⇒ 删除该区块，返回区块外的用户正文（可能为空字符串）。
+     *   - 旧版整文件自动生成 ⇒ 返回 ''（整文件都是我们的，应删除）。
+     *   - 用户自有文件     ⇒ 返回 null（不含我们的块，调用方应保留不动）。
      */
-    private buildAgentsMdContent(targetEngine: 'honeygui' | 'lvgl'): string {
-        return `# HoneyGUI 项目 — AI 协作指南
+    private stripAgentsBlock(content: string): string | null {
+        const start = content.indexOf(ExtensionManager.AGENTS_BLOCK_START);
+        const end = content.indexOf(ExtensionManager.AGENTS_BLOCK_END);
+        if (start !== -1 && end !== -1 && end > start) {
+            const before = content.slice(0, start).replace(/\s*$/, '');
+            const after = content.slice(end + ExtensionManager.AGENTS_BLOCK_END.length)
+                .replace(/^\s*/, '');
+            const rest = (before && after ? before + '\n\n' + after : before + after)
+                .replace(/\s*$/, '');
+            return rest.length ? rest + '\n' : '';
+        }
+        if (this.isLegacyAutoGenAgents(content)
+            || content.trimEnd() === this.buildAgentsMdContent().trimEnd()) {
+            return '';
+        }
+        return null;
+    }
 
-本项目使用 HoneyGUI HML（XML-based UI 标记）描述嵌入式 GUI。
-目标引擎（targetEngine）：**${targetEngine}**（见 project.json，每个项目锁定一个引擎）。
+    /**
+     * 判断 AGENTS.md 是否为旧版自动生成的引擎变体（用户极不可能手写出该精确头部），
+     * 用于迁移时安全地刷新为新静态版。
+     */
+    private isLegacyAutoGenAgents(content: string): boolean {
+        return content.startsWith('# HoneyGUI 项目 — AI 协作指南')
+            && /目标引擎（targetEngine）：\*\*(honeygui|lvgl)\*\*/.test(content);
+    }
 
-## 规范（唯一真相源）
+    /**
+     * 生成中性门面 AGENTS.md 的静态内容：内联致命铁律 + 跳转完整规范（skill 内 hml-spec.md）。
+     * 供 Codex / Cursor / Copilot / Trae 等手动 @；Claude Code 另会自动加载同目录 skill。
+     * 不含具体引擎名——具体引擎由 hml-spec.md 头部声明，避免切引擎时本文件陈旧。
+     */
+    private buildAgentsMdContent(): string {
+        return `# HoneyGUI 项目 — AI 设计指南
 
-生成 / 修改 HML 前**必读**：[./HML-Spec.md](./HML-Spec.md)
+> 用任意 AI agent（Claude Code / Cursor / Codex / Copilot / Trae 等）生成或修改本项目的
+> HML 界面时，请先 \`@\` 引用本文件；Claude Code 还会自动加载 honeygui-designer skill。
 
-- 仅使用规范中标注当前引擎 ${targetEngine} 为 ready(✓) 的组件；标注 planned / unsupported 的一律勿用。
+## 生成 HML 前必读完整规范
+
+\`.claude/skills/honeygui-designer/references/hml-spec.md\`
+
+（该文件由扩展按当前项目引擎自动维护，顶部注明了 targetEngine 与各组件可用性。）
+
+## 不读规范也必须守的底线
+
+- 只用规范中标注当前 targetEngine 为 ready(✓) 的组件；planned / unsupported 一律勿用。
 - \`hg_view\` 不可嵌套；非容器组件不可有子组件。
 - 资源路径必须以 \`/\` 开头（从 assets 目录起算）；\`hg_label\` 必须有 \`fontFile\`，且字体须在 assets/ 中。
 - 事件用 \`<events><event><action>\` 结构，不用内联 \`onXxx\` 属性。
@@ -326,8 +481,8 @@ curl -X POST http://localhost:38912/api/validate-hml \\
   -d '{"filePath":"ui/xxx.hml"}'
 \`\`\`
 
-修复所有 errors 后再继续。注意：验证器只查 8 条结构规则，**不校验组件白名单 / 属性名**，
-\`valid:true\` 仅必要不充分——仍须对照 HML-Spec.md 人工核对组件在当前引擎可用、属性名正确。
+修复所有 errors 后再继续。注意：验证器只查结构规则，**不校验组件白名单 / 属性名**，
+\`valid:true\` 仅必要不充分——仍须对照 hml-spec.md 人工核对组件在当前引擎可用、属性名正确。
 
 ## 看效果（仿真）
 
@@ -335,36 +490,6 @@ curl -X POST http://localhost:38912/api/validate-hml \\
 点击 HoneyGUI 侧边栏的 **Simulate（🚀）**，或命令面板执行 \`HoneyGUI: Simulate\`，
 扩展会自动完成 codegen → SCons 编译 → 仿真器运行。
 `;
-    }
-
-    /**
-     * 写入 / 更新项目根 CLAUDE.md：不存在则写含 @AGENTS.md 引用；
-     * 已存在但未引用 AGENTS.md 时仅追加引用，绝不覆盖用户已有内容。
-     */
-    private writeOrUpdateClaudeMd(projectRoot: string): void {
-        try {
-            const destClaude = path.join(projectRoot, 'CLAUDE.md');
-
-            if (!fs.existsSync(destClaude)) {
-                const content =
-                    `# CLAUDE.md\n\n` +
-                    `本项目的 AI 协作约定见 AGENTS.md（HML 规范、验证闭环、仿真）：\n\n` +
-                    `@AGENTS.md\n`;
-                fs.writeFileSync(destClaude, content, 'utf8');
-                logger.info(`CLAUDE.md 已写入项目: ${destClaude}`);
-                return;
-            }
-
-            const existing = fs.readFileSync(destClaude, 'utf8');
-            if (!existing.includes('@AGENTS.md')) {
-                const appended = existing.replace(/\s*$/, '') +
-                    `\n\n## AI 协作指南\n\n@AGENTS.md\n`;
-                fs.writeFileSync(destClaude, appended, 'utf8');
-                logger.info(`CLAUDE.md 已追加 @AGENTS.md 引用: ${destClaude}`);
-            }
-        } catch (error) {
-            logger.warn(`写入 / 更新 CLAUDE.md 失败: ${error instanceof Error ? error.message : String(error)}`);
-        }
     }
 
     /**

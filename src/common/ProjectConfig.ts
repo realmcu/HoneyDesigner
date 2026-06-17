@@ -32,6 +32,11 @@ export interface ProjectConfig {
     resolution?: string;
     pixelMode?: 'RGB565' | 'RGB888' | 'ARGB8888';  // 像素格式，默认 RGB565
     targetEngine?: 'honeygui' | 'lvgl';  // 目标GUI引擎，默认honeygui
+
+    // 是否分发 AI 协作资产（.claude/skills/ + 根 AGENTS.md）。默认 true（未设置即开启）；
+    // 设为 false 则不分发，并清理已分发的产物。
+    aiAssets?: boolean;
+
     assetsDir?: string;      // 资源目录，默认 "assets"
     uiDir?: string;          // UI目录，默认 "ui"
     srcDir?: string;         // 源码目录，默认 "src"

@@ -28,6 +28,10 @@
         }
         .form-group { margin-bottom: 20px; width: 100%; }
         label { display: block; margin-bottom: 8px; font-size: 14px; color: #d4d4d4; }
+        .checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 4px; }
+        .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #007acc; }
+        .checkbox-label span { font-size: 14px; color: #d4d4d4; }
+        .field-hint { font-size: 12px; color: #969696; margin-top: 4px; }
         .form-control {
             width: 100%; padding: 8px 12px; background-color: #3c3c3c;
             border: 1px solid #3e3e42; border-radius: 3px; color: #d4d4d4;
@@ -177,6 +181,14 @@
                 <input type="text" id="romfsBaseAddr" class="form-control" value="{{defaultRomfsAddr}}" placeholder="{{defaultRomfsAddr}}" />
             </div>
             
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="aiAssets" checked />
+                    <span>{{i18n_aiAssets}}</span>
+                </label>
+                <div class="field-hint">{{i18n_aiAssetsHint}}</div>
+            </div>
+
             <button id="createButton" class="btn-create" disabled>{{i18n_create}}</button>
         </div>
     </div>
@@ -319,6 +331,7 @@
                     resolution: resolution,
                     cornerRadius: parseInt(document.getElementById('cornerRadius').value, 10),
                     targetEngine: document.getElementById('targetEngine').value,
+                    aiAssets: document.getElementById('aiAssets').checked,
                     minSdk: document.getElementById('minSdk').value,
                     pixelMode: document.getElementById('pixelMode').value,
                     romfsBaseAddr: romfsAddr || '{{defaultRomfsAddr}}'

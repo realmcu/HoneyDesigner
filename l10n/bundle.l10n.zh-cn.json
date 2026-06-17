@@ -374,6 +374,8 @@
   "Rounded 40px": "圆角 40px",
   "Rounded 60px": "圆角 60px",
   "Target Engine": "目标引擎",
+  "Enable AI collaboration assets": "启用 AI 协作资产",
+  "Distribute HML-Spec.md and AI agent guides to the project root for vibe coding. Uncheck for pure drag-and-drop use.": "将 HML-Spec.md 和 AI 智能体指南分发到项目根目录，以支持 Vibe Coding。纯拖拽设计用户可取消勾选。",
   "Coming Soon": "即将推出",
   "Minimum SDK": "最低 SDK",
   "Pixel Mode": "像素模式",

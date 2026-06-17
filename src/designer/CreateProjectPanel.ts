@@ -149,6 +149,8 @@ export class CreateProjectPanel {
             rounded40: vscode.l10n.t('Rounded 40px'),
             rounded60: vscode.l10n.t('Rounded 60px'),
             targetEngine: vscode.l10n.t('Target Engine'),
+            aiAssets: vscode.l10n.t('Enable AI collaboration assets'),
+            aiAssetsHint: vscode.l10n.t('Distribute HML-Spec.md and AI agent guides to the project root for vibe coding. Uncheck for pure drag-and-drop use.'),
             comingSoon: vscode.l10n.t('Coming Soon'),
             minimumSdk: vscode.l10n.t('Minimum SDK'),
             pixelMode: vscode.l10n.t('Pixel Mode'),
@@ -321,7 +323,7 @@ export class CreateProjectPanel {
      */
     private async _createProject(config: any): Promise<void> {
         try {
-            const { projectName, saveLocation, appId, resolution, cornerRadius, targetEngine, minSdk, pixelMode, romfsBaseAddr } = config;
+            const { projectName, saveLocation, appId, resolution, cornerRadius, targetEngine, aiAssets, minSdk, pixelMode, romfsBaseAddr } = config;
 
             // 记录日志用于调试
             logger.info(`[CreateProjectPanel] Creating project: projectName=${projectName}, saveLocation=${saveLocation}, appId=${appId}, targetEngine=${targetEngine}, romfsBaseAddr=${romfsBaseAddr}, cornerRadius=${cornerRadius}`);
@@ -385,7 +387,7 @@ export class CreateProjectPanel {
                 cancellable: false
             }, async () => {
                 // 创建项目结构
-                await this._createProjectStructure(projectPath, projectName, appId, resolution, cornerRadius, targetEngine || 'honeygui', minSdk, pixelMode, romfsBaseAddr);
+                await this._createProjectStructure(projectPath, projectName, appId, resolution, cornerRadius, targetEngine || 'honeygui', aiAssets !== false, minSdk, pixelMode, romfsBaseAddr);
             });
             
             // 显示成功消息
@@ -432,6 +434,7 @@ export class CreateProjectPanel {
         resolution: string,
         cornerRadius: number,
         targetEngine: string,
+        aiAssets: boolean,
         minSdk: string,
         pixelMode: string,
         romfsBaseAddr?: string
@@ -545,7 +548,8 @@ export class CreateProjectPanel {
             appId: appId,
             resolution: resolution,
             cornerRadius: cornerRadius ?? 0,  // 屏幕形状：0=矩形, -1=圆形, >0=圆角半径
-            targetEngine: targetEngine,  // 添加目标引擎配置
+            targetEngine: targetEngine,
+            aiAssets: aiAssets,
             minSdk: minSdk,
             pixelMode: pixelMode,
             mainHmlFile: `ui/${hmlFileName}`,
