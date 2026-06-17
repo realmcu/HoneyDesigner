@@ -53,11 +53,7 @@
  * | hg_textarea                      | w × h                                          | 同输入框                     |
  * | hg_switch                        | w × h                                          | 轨道 + 滑块占满              |
  * | hg_slider                        | w × h                                          | 轨道占满宽度                  |
- * | --- 其他 ---                      |                                                |                              |
- * | hg_map                           | w × h                                          | 地图渲染整个区域              |
- * | hg_openclaw                      | w × h                                          | 小程序渲染整个区域            |
- * | hg_claw_face                     | w × h                                          | 同上                         |
- * 
+ *
  * 文本精算公式：
  *   面积 = Σ(每个可见字符的面积)
  *   CJK 字符面积 = fontSize × fontSize
@@ -108,10 +104,8 @@
  * | hg_window                        | 2.0     | 背景填充                          |
  * | hg_canvas                        | 0       | 纯容器，不产生绘制                  |
  * | hg_list / hg_list_item           | 0       | 纯容器，不产生绘制                  |
- * | hg_map                           | 4.0     | 矢量地图渲染                       |
  * | hg_menu_cellular                 | 0       | 容器，不产生绘制                    |
- * | hg_openclaw / hg_claw_face       | 1.0     | 小程序容器                         |
- * 
+ *
  * 修正系数（叠加到基础系数上）：
  *   - 文本类矢量字体 (fontType='vector')：基础系数从 2.0 → 4.0
  *   - 有渐变 (useGradient=true)：× 1.5
@@ -164,10 +158,6 @@ const BASE_RENDER_COST: Record<string, number> = {
   hg_list: 0,
   hg_list_item: 0,
   hg_menu_cellular: 0,
-  // 其他
-  hg_map: 4.0,
-  hg_openclaw: 1.0,
-  hg_claw_face: 1.0,
 };
 
 // ============================================================================

@@ -83,12 +83,11 @@ Human-label shorthand used in headings:
 8. [Input Controls (LVGL only)](#8-input-controls-lvgl-only)
 9. [Graphics Controls](#9-graphics-controls)
 10. [Multimedia Controls](#10-multimedia-controls)
-11. [Mini-App Controls](#11-mini-app-controls)
-12. [Event System](#12-event-system)
-13. [Timer & Animation System](#13-timer--animation-system)
-14. [View Switch Animations](#14-view-switch-animations)
-15. [Code Generation Mapping](#15-code-generation-mapping)
-16. [Examples](#16-examples)
+11. [Event System](#11-event-system)
+12. [Timer & Animation System](#12-timer--animation-system)
+13. [View Switch Animations](#13-view-switch-animations)
+14. [Code Generation Mapping](#14-code-generation-mapping)
+15. [Examples](#15-examples)
 
 ---
 
@@ -1013,18 +1012,18 @@ Multiple actions per event and multiple events per component are supported:
 
 ---
 
-## 13. Timer & Animation System
+## 12. Timer & Animation System
 
 Components can have timer-driven animations via the `timers` attribute (stored as a JSON array string).
 
-### 13.1 XML Representation
+### 12.1 XML Representation
 
 ```xml
 <hg_image id="img1" x="0" y="0" width="100" height="100" src="icon.png"
           timers='[{"id":"t1","name":"Rotate","enabled":true,"interval":16,"reload":true,"mode":"preset","segments":[{"duration":3000,"actions":[{"type":"rotation","from":0,"to":360}]}]}]' />
 ```
 
-### 13.2 TimerConfig Fields
+### 12.2 TimerConfig Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -1042,7 +1041,7 @@ Components can have timer-driven animations via the `timers` attribute (stored a
 | `stopOnComplete` | boolean | Stop after total duration |
 | `enableLog` | boolean | Enable debug logging |
 
-### 13.3 TimerAction Types
+### 12.3 TimerAction Types
 
 | Type | Description |
 |------|-------------|
@@ -1062,11 +1061,11 @@ Components can have timer-driven animations via the `timers` attribute (stored a
 
 ---
 
-## 14. View Switch Animations
+## 13. View Switch Animations
 
 Transition animations used with `switchView` actions.
 
-### 14.1 Switch Out Styles
+### 13.1 Switch Out Styles
 
 | Style | Description |
 |-------|-------------|
@@ -1087,7 +1086,7 @@ Transition animations used with `switchView` actions.
 | `SWITCH_OUT_STILL_USE_BLUR` | Static blur |
 | `SWITCH_OUT_ANIMATION_FADE` | Fade out |
 
-### 14.2 Switch In Styles
+### 13.2 Switch In Styles
 
 | Style | Description |
 |-------|-------------|
@@ -1116,7 +1115,7 @@ Transition animations used with `switchView` actions.
 
 ---
 
-## 15. Code Generation Mapping
+## 14. Code Generation Mapping
 
 The designer generates C source code from HML. The create function depends on the project's
 `targetEngine`. `—` = not generated for that engine (planned/unsupported; do not use).
@@ -1177,9 +1176,9 @@ src/
 
 ---
 
-## 16. Examples
+## 15. Examples
 
-### 16.1 Smartwatch Home Screen
+### 15.1 Smartwatch Home Screen
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1244,7 +1243,7 @@ src/
 </hml>
 ```
 
-### 16.2 Image with Animation
+### 15.2 Image with Animation
 
 ```xml
 <hg_image id="img_logo" x="177" y="177" width="100" height="100"
@@ -1265,7 +1264,7 @@ src/
 
 
 
-### 16.4 Swipe Navigation Between Views
+### 15.4 Swipe Navigation Between Views
 
 ```xml
 <hg_view id="view_page1" x="0" y="0" width="454" height="454" entry="true">
