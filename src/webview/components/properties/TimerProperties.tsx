@@ -982,7 +982,7 @@ const TimerActionEditor: React.FC<{
         <select
           value={action.type}
           onChange={(e) => {
-            const newType = e.target.value as 'size' | 'position' | 'opacity' | 'rotation' | 'scale' | 'switchView' | 'changeImage' | 'imageSequence' | 'visibility' | 'switchTimer' | 'setFocus' | 'fgColor' | 'bgColor';
+            const newType = e.target.value as 'size' | 'position' | 'opacity' | 'rotation' | 'scale' | 'value' | 'switchView' | 'changeImage' | 'imageSequence' | 'visibility' | 'switchTimer' | 'setFocus' | 'fgColor' | 'bgColor';
             const newAction: TimerAction = { type: newType };
             if (newType === 'size') {
               newAction.fromW = 0;
@@ -1017,6 +1017,9 @@ const TimerActionEditor: React.FC<{
               newAction.visible = true;
             } else if (newType === 'switchTimer') {
               newAction.timerId = '';
+            } else if (newType === 'value') {
+              newAction.fromValue = 0;
+              newAction.toValue = 100;
             } else if (newType === 'fgColor') {
               newAction.fgColorTo = '0xFFFFFFFF';
             } else if (newType === 'bgColor') {
@@ -1035,6 +1038,7 @@ const TimerActionEditor: React.FC<{
           }}
         >
           {componentType === 'hg_window' && <option value="size">{t('Adjust Size')}</option>}
+          {['hg_progressbar', 'hg_slider'].includes(componentType) && <option value="value">{t('Adjust Value')}</option>}
           <option value="position">{t('Adjust Position')}</option>
           <option value="opacity">{t('Adjust Opacity')}</option>
           {componentType === 'hg_image' && <option value="rotation">{t('Adjust Rotation')}</option>}
@@ -1657,6 +1661,45 @@ const TimerActionEditor: React.FC<{
                 else if (val > 255) val = 255;
                 onUpdate({ to: val });
               }}
+              style={{
+                width: '100%',
+                padding: '3px',
+                backgroundColor: 'var(--vscode-input-background)',
+                color: 'var(--vscode-input-foreground)',
+                border: '1px solid var(--vscode-input-border)',
+                borderRadius: '2px',
+                fontSize: '11px',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {action.type === 'value' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+          <div>
+            <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From')}</label>
+            <input
+              type="number"
+              value={action.fromValue ?? 0}
+              onChange={(e) => onUpdate({ fromValue: Number(e.target.value) })}
+              style={{
+                width: '100%',
+                padding: '3px',
+                backgroundColor: 'var(--vscode-input-background)',
+                color: 'var(--vscode-input-foreground)',
+                border: '1px solid var(--vscode-input-border)',
+                borderRadius: '2px',
+                fontSize: '11px',
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To')}</label>
+            <input
+              type="number"
+              value={action.toValue ?? 100}
+              onChange={(e) => onUpdate({ toValue: Number(e.target.value) })}
               style={{
                 width: '100%',
                 padding: '3px',

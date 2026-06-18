@@ -317,6 +317,7 @@ const en = {
   'Adjust Scale': 'Adjust Scale',
   'Adjust Foreground Color': 'Adjust Foreground Color',
   'Adjust Background Color': 'Adjust Background Color',
+  'Adjust Value': 'Adjust Value',
   'Change Image': 'Change Image',
   'Image Sequence': 'Image Sequence',
   'Add Image': 'Add Image',

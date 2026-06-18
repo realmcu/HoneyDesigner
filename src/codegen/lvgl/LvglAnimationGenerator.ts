@@ -39,7 +39,7 @@ export interface TimerCallbackImpl {
 }
 
 /** Animatable property keys, each backed by a generated wrapper exec_cb. */
-type HelperKey = 'x' | 'y' | 'width' | 'height' | 'opa' | 'rotation' | 'scale_x' | 'scale_y';
+type HelperKey = 'x' | 'y' | 'width' | 'height' | 'opa' | 'rotation' | 'scale_x' | 'scale_y' | 'bar_value' | 'slider_value';
 
 /** Normalized animation segment (duration in ms + action list). */
 interface Segment {
@@ -86,10 +86,18 @@ const HELPER_DEFS: Record<HelperKey, { cb: string; def: string }> = {
     cb: '_hg_anim_scale_y_cb',
     def: 'static void _hg_anim_scale_y_cb(void * var, int32_t v) { lv_obj_set_style_transform_scale_y((lv_obj_t *)var, v, LV_PART_MAIN); }',
   },
+  bar_value: {
+    cb: '_hg_anim_bar_value_cb',
+    def: 'static void _hg_anim_bar_value_cb(void * var, int32_t v) { lv_bar_set_value((lv_obj_t *)var, v, LV_ANIM_OFF); }',
+  },
+  slider_value: {
+    cb: '_hg_anim_slider_value_cb',
+    def: 'static void _hg_anim_slider_value_cb(void * var, int32_t v) { lv_slider_set_value((lv_obj_t *)var, v, LV_ANIM_OFF); }',
+  },
 };
 
 /** Interpolatable action types -> native lv_anim. */
-const INTERP_TYPES = new Set<TimerAction['type']>(['position', 'size', 'opacity', 'rotation', 'scale']);
+const INTERP_TYPES = new Set<TimerAction['type']>(['position', 'size', 'opacity', 'rotation', 'scale', 'value']);
 /** Discrete action types -> frame-driven lv_timer callback. */
 const DISCRETE_TYPES = new Set<TimerAction['type']>([
   'visibility', 'setFocus', 'changeImage', 'imageSequence', 'fgColor', 'bgColor', 'switchTimer',
@@ -267,7 +275,7 @@ export class LvglAnimationGenerator {
     // --- Interpolatable bucket -> lv_anim ---
     if (hasInterp) {
       if (isControlled) {
-        this.registerAnimHelpers(objId, timer, index, segments, isMulti);
+        this.registerAnimHelpers(objId, timer, index, segments, isMulti, component.type);
         if (isEnabled) {
           code += `    _anim_start_${objId}_t${index}(${objId});\n`;
         }
@@ -313,7 +321,8 @@ export class LvglAnimationGenerator {
    */
   private actionToAnimSpecs(
     action: TimerAction,
-    prefix: string
+    prefix: string,
+    componentType = ''
   ): Array<{ name: string; helper: HelperKey; from: number; to: number }> {
     switch (action.type) {
       case 'position':
@@ -351,6 +360,12 @@ export class LvglAnimationGenerator {
           { name: `${prefix}_scaley`, helper: 'scale_y', from: toScale(action.zoomYOrigin), to: toScale(action.zoomYTarget) },
         ];
       }
+      case 'value': {
+        const helper: HelperKey = componentType === 'hg_slider' ? 'slider_value' : 'bar_value';
+        return [
+          { name: `${prefix}_val`, helper, from: toFiniteNumber(action.fromValue, 0), to: toFiniteNumber(action.toValue, 100) },
+        ];
+      }
       default:
         return [];
     }
@@ -372,7 +387,7 @@ export class LvglAnimationGenerator {
     code += this.emitPivotIfNeeded(objId, supported);
     supported.forEach((action, actionIdx) => {
       const prefix = `a_${objId}_t${index}_${actionIdx}`;
-      this.actionToAnimSpecs(action, prefix).forEach(s => {
+      this.actionToAnimSpecs(action, prefix, component.type).forEach(s => {
         code += this.buildAnim(s.name, objId, s.helper, s.from, s.to, duration,
           `    lv_anim_set_repeat_count(&${s.name}, ${repeat});\n    lv_anim_start(&${s.name});\n`);
       });
@@ -394,7 +409,7 @@ export class LvglAnimationGenerator {
     let code = `    /* Timer "${this.escapeComment(label)}": ${segments.length} segments (timeline) */\n`;
     code += this.emitPivotIfNeeded(objId, segments.flatMap(s => s.actions));
     code += `    ${tlVar} = lv_anim_timeline_create();\n`;
-    code += this.emitTimelineAdds(objId, index, segments, tlVar);
+    code += this.emitTimelineAdds(objId, index, segments, tlVar, component.type);
     if (timer.reload !== false) {
       code += `    lv_anim_timeline_set_repeat_count(${tlVar}, LV_ANIM_REPEAT_INFINITE);\n`;
     }
@@ -403,7 +418,7 @@ export class LvglAnimationGenerator {
   }
 
   /** Shared timeline-add emission (used inline and inside start helpers). */
-  private emitTimelineAdds(objId: string, index: number, segments: Segment[], tlVar: string): string {
+  private emitTimelineAdds(objId: string, index: number, segments: Segment[], tlVar: string, componentType = ''): string {
     let code = '';
     let startTime = 0;
     segments.forEach((seg, segIdx) => {
@@ -412,7 +427,7 @@ export class LvglAnimationGenerator {
       const effDuration = segDuration > 0 ? segDuration : segActions.length > 0 ? 1000 : 0;
       segActions.forEach((action, actionIdx) => {
         const prefix = `a_${objId}_t${index}_s${segIdx}_${actionIdx}`;
-        this.actionToAnimSpecs(action, prefix).forEach(s => {
+        this.actionToAnimSpecs(action, prefix, componentType).forEach(s => {
           code += this.buildAnim(s.name, objId, s.helper, s.from, s.to, effDuration,
             `    lv_anim_timeline_add(${tlVar}, ${startTime}, &${s.name});\n`);
         });
@@ -428,7 +443,7 @@ export class LvglAnimationGenerator {
    * inside the helper and stop via lv_anim_delete; multi-segment timers build a
    * (lazily created) timeline and start/pause it.
    */
-  private registerAnimHelpers(objId: string, timer: TimerConfig, index: number, segments: Segment[], isMulti: boolean): void {
+  private registerAnimHelpers(objId: string, timer: TimerConfig, index: number, segments: Segment[], isMulti: boolean, componentType = ''): void {
     const startName = `_anim_start_${objId}_t${index}`;
     const stopName = `_anim_stop_${objId}_t${index}`;
     this.callbackExterns.add(`void ${startName}(lv_obj_t * obj);`);
@@ -445,7 +460,7 @@ export class LvglAnimationGenerator {
       start += `    if (${tlVar} == NULL) {\n`;
       start += `        ${tlVar} = lv_anim_timeline_create();\n`;
       // Indent the shared timeline-add block by one extra level.
-      start += this.indent(this.emitTimelineAdds('obj', index, segments, tlVar), 4);
+      start += this.indent(this.emitTimelineAdds('obj', index, segments, tlVar, componentType), 4);
       if (timer.reload !== false) {
         start += `        lv_anim_timeline_set_repeat_count(${tlVar}, LV_ANIM_REPEAT_INFINITE);\n`;
       }
@@ -467,7 +482,7 @@ export class LvglAnimationGenerator {
     const stopCbs = new Set<HelperKey>();
     supported.forEach((action, actionIdx) => {
       const prefix = `a_${objId}_t${index}_${actionIdx}`;
-      this.actionToAnimSpecs(action, prefix).forEach(s => {
+      this.actionToAnimSpecs(action, prefix, componentType).forEach(s => {
         stopCbs.add(s.helper);
         start += this.buildAnim(s.name, 'obj', s.helper, s.from, s.to, duration,
           `    lv_anim_set_repeat_count(&${s.name}, ${repeat});\n    lv_anim_start(&${s.name});\n`);

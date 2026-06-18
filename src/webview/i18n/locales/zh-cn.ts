@@ -317,6 +317,7 @@ const zhCN = {
   'Adjust Scale': '调整缩放',
   'Adjust Foreground Color': '调整前景色',
   'Adjust Background Color': '调整背景色',
+  'Adjust Value': '调整数值',
   'Change Image': '更换图片',
   'Image Sequence': '图片序列',
   'Add Image': '添加图片',

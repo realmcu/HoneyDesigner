@@ -71,7 +71,7 @@ export interface ComponentStyle {
  * 定时动画动作类型
  */
 export interface TimerAction {
-  type: 'size' | 'position' | 'opacity' | 'rotation' | 'scale' | 'switchView' | 'changeImage' | 'imageSequence' | 'visibility' | 'switchTimer' | 'setFocus' | 'fgColor' | 'bgColor';
+  type: 'size' | 'position' | 'opacity' | 'rotation' | 'scale' | 'value' | 'switchView' | 'changeImage' | 'imageSequence' | 'visibility' | 'switchTimer' | 'setFocus' | 'fgColor' | 'bgColor';
   // 大小动作
   fromW?: number;
   fromH?: number;
@@ -116,6 +116,9 @@ export interface TimerAction {
   // 背景色动作（仅 hg_image）
   bgColorFrom?: string;      // 初始背景色（0xFFRRGGBB 格式，可选）
   bgColorTo?: string;        // 目标背景色（0xFFRRGGBB 格式）
+  // 数值动作（hg_progressbar / hg_slider，仅 LVGL）
+  fromValue?: number;        // 起始值
+  toValue?: number;          // 目标值
 }
 
 /**
