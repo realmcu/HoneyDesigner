@@ -140,7 +140,8 @@ export class ExtensionManager {
                     this.cleanupAiAssets(workspaceRoot);
                 } else {
                     const targetEngine = config.targetEngine === 'lvgl' ? 'lvgl' : 'honeygui';
-                    this.setupAiAssets(workspaceRoot, targetEngine);
+                    // 推迟到当前事件循环结束后执行，不阻塞扩展初始化关键路径
+                    setImmediate(() => this.setupAiAssets(workspaceRoot, targetEngine));
                 }
             } else {
                 logger.info('未检测到项目配置文件');
@@ -270,16 +271,29 @@ export class ExtensionManager {
                 `  生成 HML 时：仅使用下方组件矩阵中标注 ${targetEngine} 为 ready(✓) 的组件；\n` +
                 `  标注 planned / unsupported 的组件在本引擎不可用，一律勿用。\n` +
                 `-->\n\n`;
-            const specContent = fs.readFileSync(srcSpec, 'utf8');
-            const expected = header + specContent;
 
-            // 按内容（含引擎头）比对，不同才重写：既覆盖 spec 内容更新，也覆盖 targetEngine 切换。
-            // 不能用 mtime——首次写出后目标恒新于源，会永久漏掉引擎切换导致引擎头陈旧。
-            if (fs.existsSync(destSpec) && fs.readFileSync(destSpec, 'utf8') === expected) {
-                return;
+            // 跳过条件：目标文件存在 且 源未更新 且 引擎头匹配。
+            // 引擎切换时 engineTag 不匹配，强制重写；扩展升级时源 mtime 更新，正常覆盖。
+            // 避免每次都读两个完整文件做全量字符串比对（hml-spec.md 较大时开销显著）。
+            const engineTag = `targetEngine = ${targetEngine}`;
+            if (fs.existsSync(destSpec)) {
+                const srcMtime = fs.statSync(srcSpec).mtimeMs;
+                const destMtime = fs.statSync(destSpec).mtimeMs;
+                if (srcMtime <= destMtime) {
+                    // mtime 未变，只需确认引擎头正确（廉价：只读文件头部约 200 字节）
+                    const fd = fs.openSync(destSpec, 'r');
+                    const buf = Buffer.alloc(256);
+                    fs.readSync(fd, buf, 0, 256, 0);
+                    fs.closeSync(fd);
+                    if (buf.toString('utf8').includes(engineTag)) {
+                        return;
+                    }
+                }
             }
+
+            const specContent = fs.readFileSync(srcSpec, 'utf8');
             fs.mkdirSync(path.dirname(destSpec), { recursive: true });
-            fs.writeFileSync(destSpec, expected, 'utf8');
+            fs.writeFileSync(destSpec, header + specContent, 'utf8');
             logger.info(`hml-spec.md 已分发到 skill（engine=${targetEngine}）: ${destSpec}`);
         } catch (error) {
             logger.warn(`分发 HML-Spec.md 失败: ${error instanceof Error ? error.message : String(error)}`);
