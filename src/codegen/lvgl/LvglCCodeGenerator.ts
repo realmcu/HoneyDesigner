@@ -19,6 +19,7 @@ import { LvglHeaderFileGenerator } from './files/LvglHeaderFileGenerator';
 import { LvglSourceFileGenerator } from './files/LvglSourceFileGenerator';
 import { LvglEntryFileGenerator } from './files/LvglEntryFileGenerator';
 import { LvglCallbackFileGenerator, CallbackImpl } from './files/LvglCallbackFileGenerator';
+import { LvglAnimationGenerator } from './LvglAnimationGenerator';
 import { LvglProtectedAreaMerger } from './files/LvglProtectedAreaMerger';
 import { LvglComponentGeneratorFactory } from './components';
 import { LvglEventGeneratorFactory } from './events';
@@ -81,8 +82,13 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       const headerFile = path.join(lvglDir, `${designName}_lvgl_ui.h`);
       const sourceFile = path.join(lvglDir, `${designName}_lvgl_ui.c`);
 
+      // Shared animation generator: the source generator's pre-pass populates it
+      // with discrete-action timer callbacks + extern declarations, which are then
+      // collected into the callback files below.
+      const animGenerator = new LvglAnimationGenerator();
+
       fs.writeFileSync(headerFile, this.headerFileGenerator.generate(designName, orderedComponents), 'utf-8');
-      fs.writeFileSync(sourceFile, this.sourceFileGenerator.generate(designName, orderedComponents, ctx, imageVars, fontVars, (c) => this.getParentRef(c), this.resourceManager), 'utf-8');
+      fs.writeFileSync(sourceFile, this.sourceFileGenerator.generate(designName, orderedComponents, ctx, imageVars, fontVars, (c) => this.getParentRef(c), this.resourceManager, animGenerator), 'utf-8');
 
       files.push(headerFile, sourceFile);
 
@@ -103,12 +109,18 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       // Generate callback files (with protected area mechanism)
       // Always generate callback files, even if no events are configured, to ensure header exists for #include
       const callbackImpls = this.collectCallbackImpls(orderedComponents);
+      // Append discrete-action timer callbacks collected during the source pre-pass.
+      callbackImpls.push(...animGenerator.getTimerCallbackImpls());
       const callbackHeaderFile = path.join(lvglDir, `${designName}_lvgl_callbacks.h`);
       const callbackSourceFile = path.join(lvglDir, `${designName}_lvgl_callbacks.c`);
-      const callbackNames = callbackImpls.map(impl => impl.name);
+      const callbackDeclarations = callbackImpls.map(impl => impl.signature);
 
-      const generatedHeader = this.callbackFileGenerator.generateHeader(designName, callbackNames);
-      const generatedSource = this.callbackFileGenerator.generateImplementation(designName, callbackImpls);
+      const generatedHeader = this.callbackFileGenerator.generateHeader(designName, callbackDeclarations);
+      const generatedSource = this.callbackFileGenerator.generateImplementation(
+        designName,
+        callbackImpls,
+        animGenerator.getCallbackExternDeclarations()
+      );
 
       fs.writeFileSync(callbackHeaderFile, generatedHeader, 'utf-8');
 

@@ -1013,6 +1013,13 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 
 组件可通过 `timers` 属性（以 JSON 数组字符串存储）拥有由定时器驱动的动画。
 
+**引擎支持：** 两个引擎均消费相同的 `timers` 数据。
+
+- **HoneyGUI** 生成帧驱动的定时器回调（`gui_obj_create_timer`），每帧手动插值（仅限线性）。
+- **LVGL** 将可插值动作转换为原生 `lv_anim` 引擎（多段 → `lv_anim_timeline`），将离散动作转换为帧驱动的 `lv_timer` 回调。参见 §12.4 了解各动作的路由。
+
+缓动在两个引擎上**均仅支持线性** —— 没有每动作缓动属性。
+
 ### 12.1 XML 表示
 
 ```xml
@@ -1040,21 +1047,40 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 
 ### 12.3 TimerAction 类型
 
-| 类型 | 说明 |
-|------|-------------|
-| `size` | 尺寸动画 |
-| `position` | 位置动画 |
-| `opacity` | 不透明度动画 |
-| `rotation` | 旋转动画 |
-| `scale` | 缩放动画 |
-| `switchView` | 切换到另一个视图 |
-| `changeImage` | 更换图片源 |
-| `imageSequence` | 播放图片序列 |
-| `visibility` | 切换可见性 |
-| `switchTimer` | 启动/停止另一个定时器 |
-| `setFocus` | 设置焦点 |
-| `fgColor` | 前景色动画 |
-| `bgColor` | 背景色动画 |
+| 类型 | 说明 | LVGL 路由 |
+| ------ | ------------- | -------------- |
+| `size` | 尺寸动画 | `lv_anim`（插值） |
+| `position` | 位置动画 | `lv_anim`（插值） |
+| `opacity` | 不透明度动画 | `lv_anim`（插值） |
+| `rotation` | 旋转动画 | `lv_anim`（插值，以中心为轴） |
+| `scale` | 缩放动画 | `lv_anim`（插值，以中心为轴） |
+| `switchView` | 切换到另一个视图 | `lv_screen_load_anim`（参见 §13） |
+| `changeImage` | 更换图片源 | `lv_timer`（离散） |
+| `imageSequence` | 播放图片序列 | `lv_timer`（离散） |
+| `visibility` | 切换可见性 | `lv_timer`（离散） |
+| `switchTimer` | 启动/停止另一个定时器 | `lv_timer`（离散） |
+| `setFocus` | 设置焦点 | `lv_timer`（离散） |
+| `fgColor` | 前景色动画 | `lv_timer`（离散，ARGB 插值） |
+| `bgColor` | 背景色动画 | `lv_timer`（离散，ARGB 插值） |
+
+### 12.4 LVGL 动画路由
+
+当 `targetEngine` 为 `lvgl` 时，动作被分为两类：
+
+- **可插值类型**（`position` / `size` / `opacity` / `rotation` / `scale`）：
+  由原生 `lv_anim` 引擎驱动。单段定时器输出自启动的 `lv_anim_t` 块；多段定时器变为
+  `lv_anim_timeline`，各段从累计偏移处开始。`position` /
+  `size` / `scale` 各自展开为两个标量动画（x+y / w+h / scale_x+scale_y）。
+  单位转换：旋转角度 → 0.1°（×10），缩放 `1.0` → `256`，不透明度已为
+  0–255。旋转/缩放将 `transform_pivot` 设置为对象中心。
+- **离散类型**（`visibility` / `setFocus` / `changeImage` / `imageSequence` /
+  `fgColor` / `bgColor` / `switchTimer`）：由帧驱动的 `lv_timer`
+  回调驱动，镜像 HoneyGUI 的段计数模型。回调体输出到
+  `{design}_lvgl_callbacks.c` 的受保护区域（用户可编辑）。
+
+`reload: false` 让动画运行一次（重复次数 = 1，或离散定时器在完成后暂停）；否则无限重复
+（`LV_ANIM_REPEAT_INFINITE`）。LVGL 可插值路径上忽略 `interval` 字段（LVGL 由 `duration`
+驱动）；它仍作为离散 `lv_timer` 回调的滴答周期使用。
 
 ---
 

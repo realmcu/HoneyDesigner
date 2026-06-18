@@ -11,6 +11,7 @@ import { LvglGeneratorContext } from '../LvglComponentGenerator';
 import { LvglComponentGeneratorFactory } from '../components';
 import { LvglEventGeneratorFactory } from '../events';
 import { LvglResourceManager } from '../LvglResourceManager';
+import { LvglAnimationGenerator } from '../LvglAnimationGenerator';
 
 /** Information about a root view and its descendant components */
 interface ViewGroup {
@@ -23,6 +24,9 @@ interface ViewGroup {
 }
 
 export class LvglSourceFileGenerator {
+  /** Per-component pre-generated animation code, keyed by component id. */
+  private animCodeMap = new Map<string, string>();
+
   /**
    * Generate {designName}_lvgl_ui.c file content
    * @param designName Design name
@@ -40,7 +44,8 @@ export class LvglSourceFileGenerator {
     imageVars: string[],
     fontVars: string[],
     getParentRef: (component: Component) => string,
-    resourceManager?: LvglResourceManager
+    resourceManager?: LvglResourceManager,
+    animGenerator: LvglAnimationGenerator = new LvglAnimationGenerator()
   ): string {
     let code = `/**\n`;
     code += ` * ${designName} LVGL UI implementation (auto-generated)\n`;
@@ -77,11 +82,32 @@ export class LvglSourceFileGenerator {
       }
     }
 
+    // Pre-pass: translate each component's animations (data.timers) into lv_anim /
+    // lv_timer code up front. This caches the per-component create-view code and lets
+    // the animation generator collect wrapper exec_cb helpers, timeline/timer handles
+    // and the discrete-action callbacks (queried later via the shared instance), so
+    // every dependency is emitted before the view create functions that reference it.
+    this.animCodeMap = new Map<string, string>();
+    orderedComponents.forEach(c => {
+      const animCode = animGenerator.generate(c, ctx);
+      if (animCode) {
+        this.animCodeMap.set(c.id, animCode);
+      }
+    });
+    code += animGenerator.getHelperDefinitions();
+    code += animGenerator.getTimelineDeclarations();
+    code += animGenerator.getTimerHandleDeclarations();
+
     // Component handle definitions
     code += `// Component handle definitions\n`;
     orderedComponents.forEach(c => {
       code += `lv_obj_t * ${c.id} = NULL;\n`;
     });
+    code += `\n`;
+
+    // Controllable animation start/stop helpers (referenced by both create
+    // functions and switchTimer callbacks), defined before the create functions.
+    code += animGenerator.getStartHelperDefinitions();
 
     // Group components by root view
     const viewGroups = this.groupByRootView(orderedComponents, ctx);
@@ -257,6 +283,14 @@ export class LvglSourceFileGenerator {
       if (bindings) {
         code += bindings;
       }
+    }
+
+    // Animation bindings (lv_anim, pre-generated in the anim pre-pass). Placed after
+    // creation/events so the component handle is ready, matching HoneyGUI's timer
+    // binding timing inside the view create function.
+    const animCode = this.animCodeMap.get(component.id);
+    if (animCode) {
+      code += animCode;
     }
 
     code += `\n`;

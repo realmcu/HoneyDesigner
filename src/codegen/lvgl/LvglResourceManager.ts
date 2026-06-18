@@ -161,6 +161,26 @@ export class LvglResourceManager {
         addImage(component.data?.imageOn);
         addImage(component.data?.imageOff);
       }
+      // Images referenced only by timer animations (changeImage / imageSequence)
+      // must also be converted so the generated lv_image_set_src can resolve them.
+      const timers = component.data?.timers;
+      if (Array.isArray(timers)) {
+        const scanActions = (actions: any) => {
+          if (!Array.isArray(actions)) { return; }
+          for (const action of actions) {
+            addImage(action?.imagePath);
+            if (Array.isArray(action?.imageSequence)) {
+              action.imageSequence.forEach((p: string) => addImage(p));
+            }
+          }
+        };
+        for (const timer of timers) {
+          scanActions(timer?.actions);
+          if (Array.isArray(timer?.segments)) {
+            timer.segments.forEach((seg: any) => scanActions(seg?.actions));
+          }
+        }
+      }
     }
 
     return result;

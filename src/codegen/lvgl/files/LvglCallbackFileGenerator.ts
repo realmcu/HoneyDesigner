@@ -17,9 +17,11 @@ export class LvglCallbackFileGenerator {
   /**
    * Generate {designName}_lvgl_callbacks.h
    * @param designName Design name
-   * @param callbackFunctions Callback function name list
+   * @param declarations Full callback declarations (e.g. "void cb(lv_event_t * e)").
+   *   Each callback carries its own signature so event (lv_event_t) and animation
+   *   timer (lv_timer_t) callbacks can coexist.
    */
-  generateHeader(designName: string, callbackFunctions: string[]): string {
+  generateHeader(designName: string, declarations: string[]): string {
     const guard = `${designName.toUpperCase()}_LVGL_CALLBACKS_H`;
     let code = `/**\n`;
     code += ` * ${designName} LVGL callback declarations (auto-generated)\n`;
@@ -28,8 +30,8 @@ export class LvglCallbackFileGenerator {
     code += `#define ${guard}\n\n`;
     code += `#include "lvgl.h"\n\n`;
 
-    for (const fn of callbackFunctions) {
-      code += `void ${fn}(lv_event_t * e);\n`;
+    for (const decl of declarations) {
+      code += `${decl};\n`;
     }
 
     code += `\n#endif /* ${guard} */\n`;
@@ -40,14 +42,21 @@ export class LvglCallbackFileGenerator {
    * Generate {designName}_lvgl_callbacks.c (with protected area markers)
    * @param designName Design name
    * @param callbackImpls Callback function implementation list
+   * @param externDeclarations Optional forward/extern declaration block for
+   *   symbols defined in the UI source that animation timer callbacks reference
+   *   (e.g. switchTimer handles and start/stop helpers).
    */
-  generateImplementation(designName: string, callbackImpls: CallbackImpl[]): string {
+  generateImplementation(designName: string, callbackImpls: CallbackImpl[], externDeclarations = ''): string {
     let code = `/**\n`;
     code += ` * ${designName} LVGL callback implementations (auto-generated)\n`;
     code += ` * User code inside protected areas will be preserved on regeneration.\n`;
     code += ` */\n`;
     code += `#include "${designName}_lvgl_callbacks.h"\n`;
     code += `#include "${designName}_lvgl_ui.h"\n\n`;
+
+    if (externDeclarations) {
+      code += externDeclarations;
+    }
 
     for (const impl of callbackImpls) {
       code += `${impl.signature}\n`;

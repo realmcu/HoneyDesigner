@@ -1016,6 +1016,15 @@ Multiple actions per event and multiple events per component are supported:
 
 Components can have timer-driven animations via the `timers` attribute (stored as a JSON array string).
 
+**Engine support:** the same `timers` data is consumed by **both** engines.
+- **HoneyGUI** generates a frame-driven timer callback (`gui_obj_create_timer`) that
+  manually interpolates each frame (linear only).
+- **LVGL** translates interpolatable actions to the native `lv_anim` engine
+  (multi-segment → `lv_anim_timeline`) and discrete actions to a frame-driven
+  `lv_timer` callback. See §12.4 for the per-action routing.
+
+Easing is **linear only** on both engines — there is no per-action easing attribute.
+
 ### 12.1 XML Representation
 
 ```xml
@@ -1043,21 +1052,43 @@ Components can have timer-driven animations via the `timers` attribute (stored a
 
 ### 12.3 TimerAction Types
 
-| Type | Description |
-|------|-------------|
-| `size` | Animate size |
-| `position` | Animate position |
-| `opacity` | Animate opacity |
-| `rotation` | Animate rotation |
-| `scale` | Animate scale |
-| `switchView` | Switch to another view |
-| `changeImage` | Change image source |
-| `imageSequence` | Play image sequence |
-| `visibility` | Toggle visibility |
-| `switchTimer` | Start/stop another timer |
-| `setFocus` | Set focus |
-| `fgColor` | Animate foreground color |
-| `bgColor` | Animate background color |
+| Type | Description | LVGL Routing |
+|------|-------------|--------------|
+| `size` | Animate size | `lv_anim` (interpolated) |
+| `position` | Animate position | `lv_anim` (interpolated) |
+| `opacity` | Animate opacity | `lv_anim` (interpolated) |
+| `rotation` | Animate rotation | `lv_anim` (interpolated, pivot centered) |
+| `scale` | Animate scale | `lv_anim` (interpolated, pivot centered) |
+| `switchView` | Switch to another view | `lv_screen_load_anim` (see §13) |
+| `changeImage` | Change image source | `lv_timer` (discrete) |
+| `imageSequence` | Play image sequence | `lv_timer` (discrete) |
+| `visibility` | Toggle visibility | `lv_timer` (discrete) |
+| `switchTimer` | Start/stop another timer | `lv_timer` (discrete) |
+| `setFocus` | Set focus | `lv_timer` (discrete) |
+| `fgColor` | Animate foreground color | `lv_timer` (discrete, ARGB interpolation) |
+| `bgColor` | Animate background color | `lv_timer` (discrete, ARGB interpolation) |
+
+### 12.4 LVGL Animation Routing
+
+When `targetEngine` is `lvgl`, actions are split into two buckets:
+
+- **Interpolatable** (`position` / `size` / `opacity` / `rotation` / `scale`):
+  driven by the native `lv_anim` engine. A single-segment timer emits
+  self-starting `lv_anim_t` blocks; a multi-segment timer becomes an
+  `lv_anim_timeline` whose segments start at accumulated offsets. `position` /
+  `size` / `scale` each expand to two scalar anims (x+y / w+h / scale_x+scale_y).
+  Unit conversions: rotation degrees → 0.1° (×10), scale `1.0` → `256`, opacity is
+  already 0–255. Rotation/scale set `transform_pivot` to the object center.
+- **Discrete** (`visibility` / `setFocus` / `changeImage` / `imageSequence` /
+  `fgColor` / `bgColor` / `switchTimer`): driven by a frame-driven `lv_timer`
+  callback that mirrors HoneyGUI's segment counting model. The callback body is
+  emitted into `{design}_lvgl_callbacks.c` inside a protected area (user-editable).
+
+`reload: false` runs the animation once (repeat count = 1, or the discrete timer
+pauses on completion); otherwise it repeats infinitely
+(`LV_ANIM_REPEAT_INFINITE`). The `interval` field is ignored on
+the LVGL interpolated path (LVGL drives by `duration`); it is still used as the tick
+period for discrete `lv_timer` callbacks.
 
 ---
 
