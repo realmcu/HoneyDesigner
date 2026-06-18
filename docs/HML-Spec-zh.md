@@ -1054,6 +1054,7 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 | `opacity` | 不透明度动画 | `lv_anim`（插值） |
 | `rotation` | 旋转动画 | `lv_anim`（插值，以中心为轴） |
 | `scale` | 缩放动画 | `lv_anim`（插值，以中心为轴） |
+| `value` | 控件数值动画（`hg_progressbar` / `hg_slider`，**仅 LVGL**）——字段：`fromValue`（默认 0）、`toValue`（默认 100）。映射到 `lv_bar_set_value` / `lv_slider_set_value`，超出控件 `min`/`max` 范围的值会被 LVGL 截断。 | `lv_anim`（插值） |
 | `switchView` | 切换到另一个视图 | `lv_screen_load_anim`（参见 §13） |
 | `changeImage` | 更换图片源 | `lv_timer`（离散） |
 | `imageSequence` | 播放图片序列 | `lv_timer`（离散） |
@@ -1067,7 +1068,7 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 
 当 `targetEngine` 为 `lvgl` 时，动作被分为两类：
 
-- **可插值类型**（`position` / `size` / `opacity` / `rotation` / `scale`）：
+- **可插值类型**（`position` / `size` / `opacity` / `rotation` / `scale` / `value`）：
   由原生 `lv_anim` 引擎驱动。单段定时器输出自启动的 `lv_anim_t` 块；多段定时器变为
   `lv_anim_timeline`，各段从累计偏移处开始。`position` /
   `size` / `scale` 各自展开为两个标量动画（x+y / w+h / scale_x+scale_y）。

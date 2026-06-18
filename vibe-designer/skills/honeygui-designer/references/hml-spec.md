@@ -1059,6 +1059,7 @@ Easing is **linear only** on both engines — there is no per-action easing attr
 | `opacity` | Animate opacity | `lv_anim` (interpolated) |
 | `rotation` | Animate rotation | `lv_anim` (interpolated, pivot centered) |
 | `scale` | Animate scale | `lv_anim` (interpolated, pivot centered) |
+| `value` | Animate widget value (`hg_progressbar` / `hg_slider`, **LVGL only**) — fields: `fromValue` (default 0), `toValue` (default 100). Maps to `lv_bar_set_value` / `lv_slider_set_value`. Values are clamped to the widget's configured `min`/`max` range by LVGL. | `lv_anim` (interpolated) |
 | `switchView` | Switch to another view | `lv_screen_load_anim` (see §13) |
 | `changeImage` | Change image source | `lv_timer` (discrete) |
 | `imageSequence` | Play image sequence | `lv_timer` (discrete) |
@@ -1072,7 +1073,7 @@ Easing is **linear only** on both engines — there is no per-action easing attr
 
 When `targetEngine` is `lvgl`, actions are split into two buckets:
 
-- **Interpolatable** (`position` / `size` / `opacity` / `rotation` / `scale`):
+- **Interpolatable** (`position` / `size` / `opacity` / `rotation` / `scale` / `value`):
   driven by the native `lv_anim` engine. A single-segment timer emits
   self-starting `lv_anim_t` blocks; a multi-segment timer becomes an
   `lv_anim_timeline` whose segments start at accumulated offsets. `position` /
