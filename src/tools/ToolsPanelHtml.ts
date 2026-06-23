@@ -1684,7 +1684,7 @@ function renderCharsetStats(charCount, estimatedSizeKB, missingChars) {
     const shown = missingChars.slice(0, MAX_SHOW).map(c => '「' + c + '」').join('');
     const rest = missingChars.length - MAX_SHOW;
     const charList = rest > 0 ? shown + '...等 ' + rest + ' 个' : shown;
-    const advice = missingChars.length > MAX_SHOW ? '\n建议缩小字符集范围或更换字体' : '';
+    const advice = missingChars.length > MAX_SHOW ? '\\n建议缩小字符集范围或更换字体' : '';
     warnEl.textContent = '⚠️ ' + missingChars.length + ' 个字符在字体中不存在：' + charList + advice;
 }
 
