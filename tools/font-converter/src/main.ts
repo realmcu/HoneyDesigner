@@ -12,6 +12,7 @@ import { ConfigManager } from './config';
 import { BitmapFontGenerator } from './bitmap-generator';
 import { VectorFontGenerator } from './vector-generator';
 import { FontGenerator } from './font-generator';
+import { FontConfig } from './types';
 import { FontConverterError, ErrorCode } from './errors';
 
 /**
@@ -25,7 +26,7 @@ export class FontGeneratorFactory {
    * @param config - Font configuration
    * @returns Font generator instance
    */
-  static create(config: any): FontGenerator {
+  static create(config: FontConfig): FontGenerator {
     if (config.outputFormat === 'vector') {
       return new VectorFontGenerator(config);
     } else {

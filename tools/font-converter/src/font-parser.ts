@@ -176,10 +176,6 @@ export class FontParser {
       );
     }
 
-    // Get offset to the font at fontIndex
-    const offsetTableOffset = 12 + fontIndex * 4;
-    const fontOffset = dataView.getUint32(offsetTableOffset);
-
     // opentype.js doesn't support parsing at offset directly,
     // but it can handle TTC files by parsing from the beginning.
     // For TTC files, we parse the entire file and opentype.js
@@ -192,15 +188,17 @@ export class FontParser {
     // or implementing manual offset-based parsing.
 
     if (fontIndex !== 0) {
-      // For non-zero index, we need to create a view starting at the font offset
-      // This is a workaround since opentype.js doesn't support TTC index directly
-      console.warn(
-        `TTC font index ${fontIndex} requested. opentype.js has limited TTC support. ` +
-          `Attempting to parse font at offset ${fontOffset}.`
+      // opentype.js 1.3 does not support parsing TTC at an arbitrary font offset.
+      // Rather than silently returning the wrong font (index 0), fail explicitly.
+      throw new FontConverterError(
+        ErrorCode.FONT_COLLECTION_INDEX_ERROR,
+        `TTC font index ${fontIndex} is not supported. ` +
+          `opentype.js only supports index 0. Collection contains ${numFonts} fonts.`,
+        { filePath: fontPath, expected: '0', actual: String(fontIndex) }
       );
     }
 
-    // Parse the font - opentype.js will handle the TTC structure
+    // Parse the font - opentype.js will parse the first font in the TTC
     return opentype.parse(arrayBuffer);
   }
 

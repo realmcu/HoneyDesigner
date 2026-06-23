@@ -6,11 +6,10 @@
  */
 
 import { RenderMode, Rotation, IndexMethod } from './types';
-import * as fs from 'fs';
-import * as path from 'path';
+import pkg from '../package.json';
 
 /**
- * Read version from package.json
+ * Read version from package.json.
  */
 function getPackageVersion(): {
   major: number;
@@ -19,32 +18,20 @@ function getPackageVersion(): {
   build: number;
   string: string;
 } {
-  // 尝试多个可能的路径：
-  // 1. 源码环境: src/ -> ../package.json
-  // 2. 编译后环境: dist/ -> ../package.json
-  const candidates = [path.resolve(__dirname, '..', 'package.json')];
-
-  for (const packagePath of candidates) {
-    try {
-      if (!fs.existsSync(packagePath)) {
-        continue;
-      }
-      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
-      const versionStr = packageJson.version || '3.1.1';
-      const parts = versionStr.split('.').map((p: string) => parseInt(p, 10) || 0);
-      return {
-        major: parts[0] || 0,
-        minor: parts[1] || 0,
-        revision: parts[2] || 0,
-        build: 0,
-        string: versionStr,
-      };
-    } catch {
-      continue;
-    }
+  try {
+    const versionStr: string = pkg.version || '3.2.0';
+    const parts = versionStr.split('.').map((p: string) => parseInt(p, 10) || 0);
+    return {
+      major: parts[0] || 0,
+      minor: parts[1] || 0,
+      revision: parts[2] || 0,
+      build: 0,
+      string: versionStr,
+    };
+  } catch {
+    // fallback 与 package.json 中的版本保持一致
+    return { major: 3, minor: 2, revision: 0, build: 0, string: '3.2.0' };
   }
-  // fallback 与 package.json 中的版本保持一致
-  return { major: 3, minor: 1, revision: 1, build: 0, string: '3.1.1' };
 }
 
 const PKG_VERSION = getPackageVersion();
@@ -167,8 +154,8 @@ export const VALIDATION_LIMITS = {
   /** Minimum font size in points */
   MIN_FONT_SIZE: 1,
 
-  /** Maximum font size in points */
-  MAX_FONT_SIZE: 255,
+  /** Maximum font size in points (V3 stores font_size as uint16; capped at 1024) */
+  MAX_FONT_SIZE: 1024,
 
   /** Minimum gamma value */
   MIN_GAMMA: 0.1,

@@ -252,12 +252,14 @@ export class CharsetProcessor {
           break;
         }
 
-        default:
+        default: {
+          const unknownType = (source as { type: unknown }).type;
           throw new FontConverterError(
             ErrorCode.CHARSET_PARSE_ERROR,
-            `Unknown character set source type: ${(source as any).type}`,
-            { details: `Type: ${(source as any).type}` }
+            `Unknown character set source type: ${String(unknownType)}`,
+            { details: `Type: ${String(unknownType)}` }
           );
+        }
       }
 
       // Add all characters to the set (automatic deduplication)

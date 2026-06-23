@@ -287,6 +287,23 @@ export class BinaryWriter {
   }
 
   /**
+   * Freezes the writer and verifies the final size matches the expected value.
+   * Throws if the actual written bytes don't match, catching size calculation bugs
+   * that would otherwise be silently swallowed by auto-expansion.
+   *
+   * @param expectedSize - Expected total bytes written
+   * @returns Buffer containing written data
+   */
+  freeze(expectedSize?: number): Buffer {
+    if (expectedSize !== undefined && this.offset !== expectedSize) {
+      throw new RangeError(
+        `BinaryWriter size mismatch: wrote ${this.offset} bytes, expected ${expectedSize}`
+      );
+    }
+    return this.getBuffer();
+  }
+
+  /**
    * Writes a value at a specific offset without changing the current position
    * Useful for updating header fields after writing data
    *
@@ -327,26 +344,24 @@ export class BinaryWriter {
   }
 
   /**
-   * Writes a V2 glyph header (6 bytes): bearing-based per-glyph header
-   * Layout: [bearingX(int8), bearingY(int8), width(uint8), height(uint8), advance(uint8), reserved(uint8)]
+   * Writes a V3.2 glyph header (10 bytes, little-endian): bearing-based per-glyph header
+   * Layout: [bearingX(int16), bearingY(int16), width(uint16), height(uint16), advance(uint16)]
    *
-   * Requirements: 3.1
+   * Requirements: 3.2
    */
-  writeGlyphHeaderV2(header: {
+  writeGlyphHeaderV3(header: {
     bearingX: number;
     bearingY: number;
     width: number;
     height: number;
     advance: number;
-    reserved: number;
   }): void {
-    this.ensureCapacity(6);
-    this.view.setInt8(this.offset, header.bearingX);
-    this.view.setInt8(this.offset + 1, header.bearingY);
-    this.view.setUint8(this.offset + 2, header.width);
-    this.view.setUint8(this.offset + 3, header.height);
-    this.view.setUint8(this.offset + 4, header.advance);
-    this.view.setUint8(this.offset + 5, header.reserved);
-    this.offset += 6;
+    this.ensureCapacity(10);
+    this.view.setInt16(this.offset, header.bearingX, true);
+    this.view.setInt16(this.offset + 2, header.bearingY, true);
+    this.view.setUint16(this.offset + 4, header.width, true);
+    this.view.setUint16(this.offset + 6, header.height, true);
+    this.view.setUint16(this.offset + 8, header.advance, true);
+    this.offset += 10;
   }
 }

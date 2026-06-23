@@ -1,8 +1,8 @@
 /**
- * Bitmap Font Generator (V2 — bearing-based tight bbox)
+ * Bitmap Font Generator (V3 — bearing-based tight bbox)
  *
- * Generates bitmap font files from TrueType fonts using V2 format:
- * - 6-byte GlyphHeaderV2 per glyph (bearingX, bearingY, width, height, advance, reserved)
+ * Generates bitmap font files from TrueType fonts using V3 format:
+ * - 10-byte GlyphHeaderV3 per glyph (bearingX, bearingY, width, height, advance; all int16/uint16)
  * - Tight bounding box bitmap (no canvas padding)
  * - Typography metrics in header extension (ascender, descender, lineGap, unitsPerEm)
  *
@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as opentype from 'opentype.js';
 import { FontGenerator } from './font-generator';
 import { FontConfig, IndexMethod } from './types';
-import { GlyphHeaderV2 } from './types/binary';
+import { GlyphHeaderV3 } from './types/binary';
 import {
   BitmapFontHeader,
   BitmapFontHeaderConfig,
@@ -25,6 +25,19 @@ import { ImageProcessor } from './image-processor';
 import { BINARY_FORMAT, FILE_NAMING } from './constants';
 import { createFileWriteError } from './errors';
 import { PathUtils } from './path-utils';
+
+/** On-disk size of a V3.2 glyph header: int16 ×2 + uint16 ×3 = 10 bytes */
+const GLYPH_HEADER_V3_SIZE = 10;
+
+/** Clamp to the int16 range [-32768, 32767] (bearings). */
+function clampInt16(value: number): number {
+  return Math.max(-32768, Math.min(32767, Math.round(value)));
+}
+
+/** Clamp to the uint16 range [0, 65535] (width / height / advance). */
+function clampUint16(value: number): number {
+  return Math.max(0, Math.min(65535, Math.round(value)));
+}
 
 /**
  * Index entry for the index array
@@ -42,15 +55,15 @@ interface IndexEntry {
 interface ProcessedGlyph {
   /** Unicode code point */
   unicode: number;
-  /** V2 glyph header with bearing metrics */
-  header: GlyphHeaderV2;
+  /** V3 glyph header with bearing metrics */
+  header: GlyphHeaderV3;
   /** Packed tight bbox pixel data */
   pixelData: Uint8Array;
 }
 
 /**
  * BitmapFontGenerator class
- * Generates bitmap font files from TrueType fonts (V2 format)
+ * Generates bitmap font files from TrueType fonts (V3 format)
  */
 export class BitmapFontGenerator extends FontGenerator {
   /** Processed glyphs (bearing-based) */
@@ -150,7 +163,7 @@ export class BitmapFontGenerator extends FontGenerator {
   }
 
   /**
-   * Process a single glyph (bearing-based V2)
+   * Process a single glyph (bearing-based V3)
    *
    * Renders the glyph at fontSize (em-size), computes tight bounding box,
    * extracts bearing metrics from opentype.js, and packs the tight bbox bitmap.
@@ -185,13 +198,12 @@ export class BitmapFontGenerator extends FontGenerator {
 
     if (width === 0 || height === 0) {
       // Empty glyph (like space)
-      const header: GlyphHeaderV2 = {
-        bearingX: Math.max(-128, Math.min(127, rawBearingX)),
-        bearingY: Math.max(-128, Math.min(127, rawBearingY)),
+      const header: GlyphHeaderV3 = {
+        bearingX: clampInt16(rawBearingX),
+        bearingY: clampInt16(rawBearingY),
         width: 0,
         height: 0,
-        advance: Math.max(0, Math.min(255, rawAdvance)),
-        reserved: 0,
+        advance: clampUint16(rawAdvance),
       };
       return { unicode, header, pixelData: new Uint8Array(0) };
     }
@@ -276,13 +288,12 @@ export class BitmapFontGenerator extends FontGenerator {
     const actualBearingX = tightWidth > 0 ? screenX1 + minX : rawBearingX;
     const actualBearingY = tightHeight > 0 ? -(screenY1 + minY) : rawBearingY;
 
-    const header: GlyphHeaderV2 = {
-      bearingX: Math.max(-128, Math.min(127, actualBearingX)),
-      bearingY: Math.max(-128, Math.min(127, actualBearingY)),
-      width: Math.max(0, Math.min(255, tightWidth)),
-      height: Math.max(0, Math.min(255, tightHeight)),
-      advance: Math.max(0, Math.min(255, rawAdvance)),
-      reserved: 0,
+    const header: GlyphHeaderV3 = {
+      bearingX: clampInt16(actualBearingX),
+      bearingY: clampInt16(actualBearingY),
+      width: clampUint16(tightWidth),
+      height: clampUint16(tightHeight),
+      advance: clampUint16(rawAdvance),
     };
 
     return { unicode, header, pixelData: packedPixels };
@@ -495,7 +506,7 @@ export class BitmapFontGenerator extends FontGenerator {
   }
 
   /**
-   * Create the bitmap font header (always V2)
+   * Create the bitmap font header (always V3)
    */
   private createHeader(): BitmapFontHeader {
     const config: BitmapFontHeaderConfig = {
@@ -506,7 +517,7 @@ export class BitmapFontGenerator extends FontGenerator {
       bold: this.config.bold,
       italic: this.config.italic,
       indexMethod: this.config.indexMethod,
-      crop: true, // V2 always crop
+      crop: true, // V3 always crop
       characterCount: this.glyphs.size,
       rvd: this.config.rvd || false,
     };
@@ -525,7 +536,7 @@ export class BitmapFontGenerator extends FontGenerator {
   /**
    * Create the index array based on index method
    *
-   * V2 always has crop=true, so only two modes:
+   * V3 always has crop=true, so only two modes:
    * 1. indexMethod=ADDRESS: 65536 × 4 bytes (file offsets)
    * 2. indexMethod=OFFSET: N × 6 bytes (unicode 2B + file offset 4B)
    */
@@ -585,10 +596,10 @@ export class BitmapFontGenerator extends FontGenerator {
     const headerSize = header.getSize();
     const indexSize = header.indexAreaSize;
 
-    // V2: 6-byte header per glyph + variable-size packed pixel data
+    // V3.2: 10-byte header per glyph + variable-size packed pixel data
     let glyphDataSize = 0;
     for (const g of this.glyphs.values()) {
-      glyphDataSize += 6 + g.pixelData.length;
+      glyphDataSize += GLYPH_HEADER_V3_SIZE + g.pixelData.length;
     }
 
     const totalSize = headerSize + indexSize + glyphDataSize;
@@ -605,7 +616,7 @@ export class BitmapFontGenerator extends FontGenerator {
     await this.writeGlyphData(writer, indexArray, indexStartOffset);
 
     try {
-      fs.writeFileSync(filePath, writer.getBuffer());
+      fs.writeFileSync(filePath, writer.freeze(totalSize));
     } catch (error) {
       throw createFileWriteError(filePath, error as Error);
     }
@@ -662,8 +673,8 @@ export class BitmapFontGenerator extends FontGenerator {
         writer.writeUint32LEAt(indexOffset, glyphOffset);
       }
 
-      // Write 6-byte V2 glyph header
-      writer.writeGlyphHeaderV2(g.header);
+      // Write 10-byte V3.2 glyph header
+      writer.writeGlyphHeaderV3(g.header);
 
       // Write packed tight bbox pixel data
       writer.writeBytes(g.pixelData);

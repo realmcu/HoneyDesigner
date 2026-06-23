@@ -33,12 +33,7 @@ export function calculateStandardDimensions(
   }
 
   const renderSize = fontSize;
-  let backSize = Math.ceil((fontSize * (ascender - descender)) / unitsPerEm);
-
-  if (backSize > 255) {
-    console.warn(`backSize ${backSize} exceeds 255 for fontSize=${fontSize}, clamping to 255`);
-    backSize = 255;
-  }
+  const backSize = Math.ceil((fontSize * (ascender - descender)) / unitsPerEm);
 
   return { renderSize, backSize };
 }
@@ -95,18 +90,19 @@ export interface BitmapFontHeaderConfig {
  *
  * Binary layout (packed, little-endian):
  * - length (1 byte): Total header length
- * - BitmapFontHeadConfig (13 bytes):
+ * - BitmapFontHeadConfig (12 bytes):
  *   - fileFlag (1 byte): 1 for bitmap
- *   - version_major (1 byte): 1
- *   - version_minor (1 byte): 0
- *   - version_revision (1 byte): 2
- *   - size (1 byte): Recalculated font size
- *   - fontSize (1 byte): backSize value
+ *   - version_major (1 byte)
+ *   - version_minor (1 byte)
+ *   - version_revision (1 byte)
+ *   - font_size (offsets 5-6): uint16 LE, supports > 255
  *   - renderMode (1 byte): 1/2/4/8
  *   - bitfield (1 byte): bold, italic, rvd, indexMethod, crop, reserved
  *   - indexAreaSize (4 bytes, int32): Size of index array in bytes
  * - fontNameLength (1 byte): Length of font name including null terminator
  * - fontName (variable): Null-terminated font name
+ * - [V2+ extension, 8 bytes]: ascender(int16), descender(int16),
+ *   lineGap(int16), unitsPerEm(uint16) — all little-endian, after fontName.
  */
 export class BitmapFontHeader {
   /** Total header length in bytes */
@@ -123,9 +119,6 @@ export class BitmapFontHeader {
 
   /** Version revision */
   public readonly versionRevision: number;
-
-  /** Version build number (4th version byte, added for V2) */
-  public readonly versionBuildnum: number;
 
   /** Recalculated font size */
   public readonly size: number;
@@ -199,20 +192,17 @@ export class BitmapFontHeader {
     // Detect V2 mode: all three typography fields must be provided
     this.isV2 = config.ascender != null && config.descender != null && config.unitsPerEm != null;
 
+    this.versionMajor = VERSION.BITMAP.MAJOR;
+    this.versionMinor = VERSION.BITMAP.MINOR;
+    this.versionRevision = VERSION.BITMAP.REVISION;
+
     if (this.isV2) {
-      // V2 validation
       if (config.ascender! <= 0) {
-        throw new Error(`V2 ascender must be positive, got ${config.ascender}`);
+        throw new Error(`ascender must be positive, got ${config.ascender}`);
       }
       if (config.descender! >= 0) {
-        throw new Error(`V2 descender must be negative, got ${config.descender}`);
+        throw new Error(`descender must be negative, got ${config.descender}`);
       }
-
-      // V2: version from package.json, crop always true, fontSize = em-size
-      this.versionMajor = VERSION.BITMAP.MAJOR;
-      this.versionMinor = VERSION.BITMAP.MINOR;
-      this.versionRevision = VERSION.BITMAP.REVISION;
-      this.versionBuildnum = VERSION.BITMAP.BUILD;
       this.crop = true;
       this.fontSize = config.fontSize;
       this.ascender = config.ascender;
@@ -220,11 +210,6 @@ export class BitmapFontHeader {
       this.lineGap = config.lineGap ?? 0;
       this.unitsPerEm = config.unitsPerEm;
     } else {
-      // V1: version from package.json
-      this.versionMajor = VERSION.BITMAP.MAJOR;
-      this.versionMinor = VERSION.BITMAP.MINOR;
-      this.versionRevision = VERSION.BITMAP.REVISION;
-      this.versionBuildnum = VERSION.BITMAP.BUILD;
       this.crop = config.crop;
       this.fontSize = config.fontSize;
     }
@@ -237,7 +222,7 @@ export class BitmapFontHeader {
     );
 
     // Calculate total header length:
-    // CONFIG_SIZE (13) + 2 (length + fontNameLength) + fontNameLength [+ 8 for V2 extension]
+    // CONFIG_SIZE (12) + 2 (length + fontNameLength) + fontNameLength [+ 8 for V2 extension]
     this.length =
       BitmapFontHeader.CONFIG_SIZE +
       2 +
@@ -303,8 +288,7 @@ export class BitmapFontHeader {
     writer.writeUint8(this.versionMajor); // version_major (1 byte)
     writer.writeUint8(this.versionMinor); // version_minor (1 byte)
     writer.writeUint8(this.versionRevision); // version_revision (1 byte)
-    writer.writeUint8(this.versionBuildnum); // version_buildnum (1 byte) — new 4th byte
-    writer.writeUint8(this.fontSize); // fontSize (1 byte) — C side: font_size
+    writer.writeUint16LE(this.fontSize); // font_size (uint16 LE, offsets 5-6)
     writer.writeUint8(this.renderMode); // renderMode (1 byte)
 
     // Write bitfield (1 byte)
@@ -356,8 +340,8 @@ export class BitmapFontHeader {
     const versionMajor = data.readUInt8(offset++);
     const _versionMinor = data.readUInt8(offset++);
     const _versionRevision = data.readUInt8(offset++);
-    const _versionBuildnum = data.readUInt8(offset++); // 4th version byte
-    const fontSize = data.readUInt8(offset++);
+    const fontSize = data.readUInt16LE(offset); // font_size (uint16 LE, offsets 5-6)
+    offset += 2;
     const renderMode = data.readUInt8(offset++) as RenderMode;
 
     // Read bitfield

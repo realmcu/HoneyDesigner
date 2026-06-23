@@ -71,15 +71,17 @@ export interface CropInfo {
 }
 
 /**
- * Per-glyph header (bearing-based, 6 bytes)
+ * Per-glyph header (bearing-based, 10 bytes, all little-endian).
+ *
+ * 16-bit fields match the uint16 font_size: an 8-bit layout truncated the
+ * metrics for large fonts and skewed the rendered glyph.
  */
-export interface GlyphHeaderV2 {
-  bearingX: number; // int8: horizontal bearing (pixels)
-  bearingY: number; // int8: vertical bearing from baseline (pixels)
-  width: number; // uint8: tight bbox width (pixels)
-  height: number; // uint8: tight bbox height (pixels)
-  advance: number; // uint8: horizontal advance (pixels)
-  reserved: number; // uint8: padding, always 0
+export interface GlyphHeaderV3 {
+  bearingX: number; // int16: horizontal bearing (pixels)
+  bearingY: number; // int16: vertical bearing from baseline (pixels)
+  width: number; // uint16: tight bbox width (pixels)
+  height: number; // uint16: tight bbox height (pixels)
+  advance: number; // uint16: horizontal advance (pixels)
 }
 
 /**

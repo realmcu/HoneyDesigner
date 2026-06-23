@@ -230,21 +230,6 @@ export class VectorFontGenerator extends FontGenerator {
    * @param outline - Glyph outline from font parser
    * @returns Vector glyph data
    */
-  /**
-   * Convert glyph outline to vector glyph data format
-   *
-   * IMPORTANT: C++ uses stbtt_GetGlyphBitmapBox which flips Y axis:
-   * - iy0 = floor(-y1)  (negate and swap)
-   * - iy1 = ceil(-y0)
-   *
-   * Process:
-   * 1. Flatten Bezier curves to line segments
-   * 2. Remove overlapping contours (for fonts with overlapping outlines)
-   * 3. Convert to binary format
-   *
-   * @param outline - Glyph outline from font parser
-   * @returns Vector glyph data
-   */
   private async convertOutlineToVectorData(outline: GlyphOutline): Promise<VectorGlyphData> {
     const { boundingBox, advanceWidth, contours } = outline;
 
@@ -623,7 +608,7 @@ export class VectorFontGenerator extends FontGenerator {
 
     // Write to file
     try {
-      fs.writeFileSync(filePath, writer.getBuffer());
+      fs.writeFileSync(filePath, writer.freeze(totalSize));
     } catch (error) {
       throw createFileWriteError(filePath, error as Error);
     }
@@ -642,7 +627,7 @@ export class VectorFontGenerator extends FontGenerator {
     size += 2; // sy1 (int16)
     size += 2; // advance (uint16)
     size += 1; // windingCount (uint8 - C++ compatibility)
-    size += data.windingCount * 1; // windingLengths (uint8 each - C++ compatibility)
+    size += Math.min(data.windingCount, 255) * 1; // windingLengths (uint8 each - C++ compatibility)
     size += data.windings.length * 2; // points (int16 each)
     return size;
   }
@@ -719,11 +704,25 @@ export class VectorFontGenerator extends FontGenerator {
     writer.writeUint16LE(data.advance);
 
     // Write winding count (uint8 - C++ compatibility)
-    writer.writeUint8(data.windingCount);
+    const clampedCount = Math.min(data.windingCount, 255);
+    if (data.windingCount > 255) {
+      console.warn(
+        `Glyph has ${data.windingCount} contours, exceeds uint8 max (255). ` +
+          `Only first 255 contours will be written.`
+      );
+    }
+    writer.writeUint8(clampedCount);
 
     // Write winding lengths (uint8 each - C++ compatibility)
-    for (const length of data.windingLengths) {
-      writer.writeUint8(length);
+    const clampedLengths = data.windingLengths.slice(0, clampedCount);
+    for (const length of clampedLengths) {
+      if (length > 255) {
+        console.warn(
+          `Contour has ${length} points, exceeds uint8 max (255). ` +
+            `Data will be truncated in C++ reader.`
+        );
+      }
+      writer.writeUint8(Math.min(length, 255));
     }
 
     // Write all points (int16 each)

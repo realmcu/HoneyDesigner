@@ -144,8 +144,11 @@ export class FontConverterError extends Error {
     this.context = context;
 
     // Maintains proper stack trace for where error was thrown (V8 only)
-    if (typeof (Error as any).captureStackTrace === 'function') {
-      (Error as any).captureStackTrace(this, FontConverterError);
+    const ErrorWithCapture = Error as typeof Error & {
+      captureStackTrace?: (target: object, constructor: (...args: unknown[]) => unknown) => void;
+    };
+    if (typeof ErrorWithCapture.captureStackTrace === 'function') {
+      ErrorWithCapture.captureStackTrace(this, FontConverterError);
     }
   }
 
