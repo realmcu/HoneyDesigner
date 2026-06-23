@@ -88,7 +88,20 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       const animGenerator = new LvglAnimationGenerator();
 
       fs.writeFileSync(headerFile, this.headerFileGenerator.generate(designName, orderedComponents), 'utf-8');
-      fs.writeFileSync(sourceFile, this.sourceFileGenerator.generate(designName, orderedComponents, ctx, imageVars, fontVars, (c) => this.getParentRef(c), this.resourceManager, animGenerator), 'utf-8');
+
+      const generatedUiSource = this.sourceFileGenerator.generate(designName, orderedComponents, ctx, imageVars, fontVars, (c) => this.getParentRef(c), this.resourceManager, animGenerator);
+      if (fs.existsSync(sourceFile)) {
+        try {
+          const existingUiSource = fs.readFileSync(sourceFile, 'utf-8');
+          const mergedUiSource = LvglProtectedAreaMerger.merge(existingUiSource, generatedUiSource);
+          fs.writeFileSync(sourceFile, mergedUiSource, 'utf-8');
+        } catch (e) {
+          logger.warn(`[LvglCCodeGenerator] Failed to read existing source file, overwriting: ${e}`);
+          fs.writeFileSync(sourceFile, generatedUiSource, 'utf-8');
+        }
+      } else {
+        fs.writeFileSync(sourceFile, generatedUiSource, 'utf-8');
+      }
 
       files.push(headerFile, sourceFile);
 

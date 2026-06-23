@@ -150,6 +150,10 @@ export class LvglSourceFileGenerator {
     }
 
     code += `}\n`;
+
+    code += `\n/* USER CODE BEGIN CUSTOM_FUNCTIONS */\n`;
+    code += `/* USER CODE END CUSTOM_FUNCTIONS */\n`;
+
     return code;
   }
 

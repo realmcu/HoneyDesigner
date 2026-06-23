@@ -37,10 +37,15 @@ export class LvglProtectedAreaMerger {
         `\\/\\* USER CODE BEGIN ${name} \\*\\/[\\s\\S]*?\\/\\* USER CODE END ${name} \\*\\/`,
         'g'
       );
-      result = result.replace(
-        replaceRegex,
-        `/* USER CODE BEGIN ${name} */${content}/* USER CODE END ${name} */`
-      );
+      const hasTarget = new RegExp(`\\/\\* USER CODE BEGIN ${name} \\*\\/`).test(generated);
+      if (hasTarget) {
+        result = result.replace(
+          replaceRegex,
+          `/* USER CODE BEGIN ${name} */${content}/* USER CODE END ${name} */`
+        );
+      } else if (content.trim() !== '') {
+        console.warn(`[LvglProtectedAreaMerger] User code section "${name}" no longer exists in generated output and will be lost. Check if the component or event was removed.`);
+      }
     });
 
     return result;
