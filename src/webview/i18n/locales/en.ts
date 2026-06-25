@@ -906,7 +906,6 @@ const en = {
   // Misc
   'Current File': 'Current File',
   'No font files, please upload to assets directory': 'No font files, please upload to assets directory',
-  'No map files, please upload to assets directory': 'No map files, please upload to assets directory',
   'Columns': 'Columns',
 
   // GeometryProperties - Additional

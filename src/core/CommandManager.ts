@@ -4,7 +4,6 @@ import { DesignerPanel } from '../designer/DesignerPanel';
 import { DesignerPanelFactory } from '../designer/DesignerPanelFactory';
 import { CreateProjectPanel } from '../designer/CreateProjectPanel';
 import { ToolsPanel } from '../tools/ToolsPanel';
-import { MapToolsPanel } from '../tools/MapToolsPanel';
 import * as path from 'path';
 import * as fs from 'fs';
 import { StatusBarManager } from '../ui/StatusBarManager';
@@ -46,17 +45,6 @@ export class CommandManager {
             } catch (error) {
                 logger.error(`打开资源转换工具失败: ${error instanceof Error ? error.message : String(error)}`);
                 vscode.window.showErrorMessage(vscode.l10n.t('Failed to open resource conversion tools: {0}', error instanceof Error ? error.message : vscode.l10n.t('Unknown error')));
-            }
-        });
-
-        // 地图工具
-        this.registerCommand('honeygui.mapTools', async () => {
-            try {
-                logger.info('执行命令: honeygui.mapTools');
-                MapToolsPanel.createOrShow(this.context.extensionUri);
-            } catch (error) {
-                logger.error(`打开地图工具失败: ${error instanceof Error ? error.message : String(error)}`);
-                vscode.window.showErrorMessage(vscode.l10n.t('Failed to open map tools: {0}', error instanceof Error ? error.message : vscode.l10n.t('Unknown error')));
             }
         });
 

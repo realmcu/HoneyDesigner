@@ -14,13 +14,11 @@
   "command.openInTextEditor": "用文本编辑器打开",
   "command.openInDesigner": "用 HoneyGUI 设计器打开",
   "command.refreshEnvironment": "刷新环境检查",
-  "command.mapTools": "HoneyGUI: 地图工具",
-
   "view.welcome": "欢迎",
   "view.environment": "环境",
   "view.quick": "快捷操作",
 
-  "viewsWelcome.honeygui.welcome": "[$(add) 新建项目](command:honeygui.newProject)\n[$(file-add) 新建设计](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) 打开项目](command:honeygui.openProject)\n[$(tools) 资源转换工具](command:honeygui.tools)\n[$(map) 地图工具](command:honeygui.mapTools)",
+  "viewsWelcome.honeygui.welcome": "[$(add) 新建项目](command:honeygui.newProject)\n[$(file-add) 新建设计](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) 打开项目](command:honeygui.openProject)\n[$(tools) 资源转换工具](command:honeygui.tools)",
 
   "welcome.newProject": "新建项目",
   "welcome.newDesign": "新建设计",

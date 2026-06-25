@@ -906,7 +906,6 @@ const zhCN = {
   // Misc
   'Current File': '当前文件',
   'No font files, please upload to assets directory': '暂无字体文件，请先上传到 assets 目录',
-  'No map files, please upload to assets directory': '暂无地图文件，请先上传到 assets 目录',
   'Columns': '列数',
 
   // GeometryProperties - Additional

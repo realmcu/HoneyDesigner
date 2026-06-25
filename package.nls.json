@@ -14,13 +14,11 @@
   "command.openInTextEditor": "Open with Text Editor",
   "command.openInDesigner": "Open with HoneyGUI Designer",
   "command.refreshEnvironment": "Refresh Environment Check",
-  "command.mapTools": "HoneyGUI: Map Tools",
-
   "view.welcome": "WELCOME",
   "view.environment": "ENVIRONMENT",
   "view.quick": "QUICK",
 
-  "viewsWelcome.honeygui.welcome": "[$(add) New Project](command:honeygui.newProject)\n[$(file-add) New Design](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) Open Project](command:honeygui.openProject)\n[$(tools) Resource Conversion Tools](command:honeygui.tools)\n[$(map) Map Tools](command:honeygui.mapTools)",
+  "viewsWelcome.honeygui.welcome": "[$(add) New Project](command:honeygui.newProject)\n[$(file-add) New Design](command:honeygui.createNewHmlInWorkspace)\n[$(folder-opened) Open Project](command:honeygui.openProject)\n[$(tools) Resource Conversion Tools](command:honeygui.tools)",
 
   "welcome.newProject": "New Project",
   "welcome.newDesign": "New Design",

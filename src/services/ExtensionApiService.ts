@@ -129,14 +129,6 @@ export class ExtensionApiService implements vscode.Disposable {
             description: 'Open resource conversion tools panel',
             needsUI: true
         },
-        {
-            endpoint: 'POST /api/map-tools',
-            method: 'POST',
-            command: 'honeygui.mapTools',
-            title: 'Map Tools',
-            description: 'Open map tools panel',
-            needsUI: true
-        },
         // 环境
         {
             endpoint: 'POST /api/environment/refresh',
@@ -289,10 +281,6 @@ export class ExtensionApiService implements vscode.Disposable {
         if (method === 'POST' && url === '/api/tools') {
             return this.handleTools(req, res);
         }
-        if (method === 'POST' && url === '/api/map-tools') {
-            return this.handleMapTools(req, res);
-        }
-
         // 环境
         if (method === 'POST' && url === '/api/environment/refresh') {
             return this.handleEnvironmentRefresh(req, res);
@@ -610,14 +598,6 @@ export class ExtensionApiService implements vscode.Disposable {
      */
     private async handleTools(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         await this.executeCommand('honeygui.tools', res);
-    }
-
-    /**
-     * POST /api/map-tools - 打开地图工具
-     * 复用命令: honeygui.mapTools
-     */
-    private async handleMapTools(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-        await this.executeCommand('honeygui.mapTools', res);
     }
 
     // ==================== 环境 ====================
