@@ -9,6 +9,7 @@ import { ProjectUtils } from '../utils/ProjectUtils';
 import { ConversionConfigService } from '../services/ConversionConfigService';
 import { parseFontCmap } from '../utils/fontCmapParser';
 import { CharsetProcessor } from '../../tools/font-converter/src/charset-processor';
+import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
 
 /**
  * 资源管理器 - 处理资源文件的扫描、添加、删除等操作
@@ -2378,8 +2379,9 @@ export class AssetManager extends EventEmitter {
             // 单条失败（如未填完整的 range）仅忽略该条，不影响其它条目，
             // 避免一条无效项导致整组字符集被丢弃。
             if (Array.isArray(characterSets) && characterSets.length > 0) {
-                // file(cst)/codepage 的 value 存的是相对 projectRoot 的路径
-                // （见 MessageHandler._handleBrowseCharsetFile），故 basePath 用 projectRoot
+                // file(cst)/codepage 的 value 可能是预置标识符（如 "GBK.cst"/"CP936"）
+                // 或用户自定义的相对 projectRoot 路径。预置标识符先经
+                // CharsetSourceResolver 还原为插件内绝对路径，自定义路径仍按 projectRoot 解析。
                 const basePath = projectRoot || '';
                 for (const source of characterSets) {
                     // 跳过空值条目
@@ -2387,8 +2389,9 @@ export class AssetManager extends EventEmitter {
                         continue;
                     }
                     try {
+                        const resolved = CharsetSourceResolver.resolve(source as any);
                         const charsetCodepoints = CharsetProcessor.mergeCharacterSources(
-                            [source] as any,
+                            [resolved] as any,
                             basePath
                         );
                         for (const cp of charsetCodepoints) {

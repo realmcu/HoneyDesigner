@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { PRESET_CHARSETS, PRESET_CODEPAGES, getPresetLabel } from '../common/charsetPresets';
 
 /** 资源转换工具翻译接口 */
 export interface ToolsPanelTranslations {
@@ -77,6 +78,8 @@ export interface ToolsPanelTranslations {
     cstTxtFile: string;
     egCP936: string;
     browse: string;
+    selectPreset: string;
+    customFile: string;
     complete: string;
     success: string;
     failed: string;
@@ -179,6 +182,8 @@ export function getToolsPanelTranslations(): ToolsPanelTranslations {
         cstTxtFile: vscode.l10n.t('.cst / .txt file'),
         egCP936: vscode.l10n.t('e.g. CP936'),
         browse: vscode.l10n.t('Browse'),
+        selectPreset: vscode.l10n.t('Select preset...'),
+        customFile: vscode.l10n.t('Custom file...'),
         complete: vscode.l10n.t('Complete'),
         success: vscode.l10n.t('success'),
         failed: vscode.l10n.t('failed'),
@@ -360,8 +365,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 }
 
 function getScript(t: ToolsPanelTranslations): string {
+    // 预置字符集 / 代码页清单（按当前语言算好显示名后注入前端）
+    const lang = vscode.env.language || 'en';
+    const presetCst = PRESET_CHARSETS.map(p => ({ id: p.id, label: getPresetLabel(PRESET_CHARSETS, p.id, lang) }));
+    const presetCp = PRESET_CODEPAGES.map(p => ({ id: p.id, label: getPresetLabel(PRESET_CODEPAGES, p.id, lang) }));
     return `
 const T = ${JSON.stringify(t)};
+const PRESET_CST = ${JSON.stringify(presetCst)};
+const PRESET_CP = ${JSON.stringify(presetCp)};
+// 预置标识符不含路径分隔符；含 "/" 或 "\\" 视为用户自定义文件路径
+function isPresetVal(v){ return !!v && !/[\\\\/]/.test(v); }
 const vscode = acquireVsCodeApi();
 const files = new Map();
 const blobUrls = new Map();
@@ -1587,11 +1600,23 @@ function handleFileOutputFormatChange(value) {
 function renderCharsetItems(charsets, isFolder) {
     return charsets.map((cs, i) => {
         const prefix = isFolder ? 'folder' : 'file';
-        const needBrowse = cs.type === 'file' || cs.type === 'codepage';
-        const placeholders = {range:T.rangeFormat, string:T.customChars, file:T.browse, codepage:T.browse};
+        const isFileOrCp = cs.type === 'file' || cs.type === 'codepage';
         const hints = {range:T.rangeFormat, string:'', file:T.cstTxtFile, codepage:T.egCP936};
-        // 文件类型只显示文件名
-        const displayValue = needBrowse && cs.value ? cs.value.split(/[\\\\/]/).pop() : (cs.value || '');
+        let middle;
+        if (isFileOrCp) {
+            // 预置 charset/CodePage 走下拉选取（存稳定标识符）；自定义文件才浏览
+            const list = cs.type === 'file' ? PRESET_CST : PRESET_CP;
+            const isCustom = !!cs.value && !isPresetVal(cs.value);
+            const sel = isCustom ? '__custom__' : (cs.value || '');
+            let opts = '<option value="">'+T.selectPreset+'</option>';
+            list.forEach(p => { opts += '<option value="'+p.id+'"'+(sel===p.id?' selected':'')+'>'+p.label+'</option>'; });
+            opts += '<option value="__custom__"'+(isCustom?' selected':'')+'>'+T.customFile+'</option>';
+            middle = '<select onchange="selectCharsetPreset('+i+',this.value,\\''+cs.type+'\\','+isFolder+')">'+opts+'</select>' +
+                (isCustom ? '<button class="browse-btn" onclick="browseCharsetFile('+i+',\\''+cs.type+'\\','+isFolder+')" title="'+(cs.value||'')+'">📁</button>' : '');
+        } else {
+            const placeholders = {range:T.rangeFormat, string:T.customChars};
+            middle = '<input type="text" id="'+prefix+'Charset'+i+'" value="'+(cs.value||'')+'" placeholder="'+(placeholders[cs.type]||'')+'" onchange="updateCharsetValue('+i+',this.value,'+isFolder+')" title="'+(cs.value||'')+'">';
+        }
         return '<div class="charset-item">' +
             '<div class="charset-row">' +
             '<select onchange="updateCharsetType('+i+',this.value,'+isFolder+')">' +
@@ -1600,8 +1625,7 @@ function renderCharsetItems(charsets, isFolder) {
             '<option value="file"'+(cs.type==='file'?' selected':'')+'>'+T.charsetFile+'</option>' +
             '<option value="codepage"'+(cs.type==='codepage'?' selected':'')+'>'+T.codepageFile+'</option>' +
             '</select>' +
-            '<input type="text" id="'+prefix+'Charset'+i+'" value="'+displayValue+'" placeholder="'+placeholders[cs.type]+'" onchange="updateCharsetValue('+i+',this.value,'+isFolder+')"'+(needBrowse?' readonly':'')+' title="'+(cs.value||'')+'">' +
-            (needBrowse ? '<button class="browse-btn" onclick="browseCharsetFile('+i+',\\''+cs.type+'\\','+isFolder+')">'+T.browse+'</button>' : '') +
+            middle +
             (charsets.length > 1 ? '<span class="remove-charset" onclick="removeCharset('+i+','+isFolder+')">✕</span>' : '') +
             '</div>' +
             (hints[cs.type] ? '<div class="charset-hint">'+hints[cs.type]+'</div>' : '') +
@@ -1698,6 +1722,17 @@ function updateCharsetType(idx, type, isFolder) {
 function updateCharsetValue(idx, value, isFolder) {
     const charsets = getCharsets(isFolder);
     charsets[idx].value = value;
+    setCharsets(charsets, isFolder);
+}
+
+function selectCharsetPreset(idx, value, type, isFolder) {
+    if (value === '__custom__') {
+        // 选择「自定义文件…」立即打开文件浏览
+        browseCharsetFile(idx, type, isFolder);
+        return;
+    }
+    const charsets = getCharsets(isFolder);
+    charsets[idx].value = value; // 预置标识符（如 "GBK.cst"/"CP936"）或空
     setCharsets(charsets, isFolder);
 }
 

@@ -693,6 +693,8 @@ const zhCN = {
   'String': '字符串',
   'CST File': 'CST 文件',
   'CodePage': '代码页',
+  'Select preset...': '选择预置…',
+  'Custom file...': '自定义文件…',
   'Remove': '移除',
   'Unicode character range': 'Unicode 字符范围',
   'Example: 0x20-0x7E, 0x4E00-0x9FFF': '示例：0x20-0x7E, 0x4E00-0x9FFF',

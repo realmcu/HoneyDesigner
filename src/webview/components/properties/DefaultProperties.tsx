@@ -6,8 +6,9 @@ import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
 import { componentDefinitions } from '../ComponentLibrary';
 import { useDesignerStore } from '../../store';
-import { t } from '../../i18n';
+import { t, getLocale } from '../../i18n';
 import { useFontGlyphStats } from '../../hooks/useFontGlyphStats';
+import { PRESET_CHARSETS, PRESET_CODEPAGES, isPresetValue, getPresetLabel } from '../../../common/charsetPresets';
 
 // 字体文件扩展名
 const FONT_EXTS = ['ttf', 'otf', 'woff', 'woff2', 'bin'];
@@ -421,6 +422,17 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   };
 
   // 渲染字符集列表
+  // 附加字符集的「各类型说明 + 示例」与「合并说明」集中到标题旁的 💡 悬停提示，
+  // 不再散落在每项下方和底部（窄面板更省空间）。复用既有 i18n key，无需新增翻译。
+  const charsetHelpText = [
+    `${t('Unicode Range')}: ${t('Unicode character range')}  ${t('Example: 0x20-0x7E, 0x4E00-0x9FFF')}`,
+    `${t('String')}: ${t('Extract characters from string')}  ${t('Example: ABC123你好')}`,
+    `${t('CST File')}: ${t('Load characters from CST/TXT file')}  ${t('Example: charset.cst')}`,
+    `${t('CodePage')}: ${t('Windows CodePage encoding')}  ${t('Example: CP936')}`,
+    '',
+    t('Additional character sets will be merged with text characters during font conversion'),
+  ].join('\n');
+
   const renderCharacterSets = () => {
     const charsets = (component.data as any)?.characterSets || [];
     
@@ -454,6 +466,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
           borderRadius: '3px',
           maxHeight: '200px',
           overflowY: 'auto',
+          overflowX: 'hidden',
           marginBottom: '6px'
         }}>
           {charsets.length === 0 ? (
@@ -475,6 +488,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                 flexDirection: 'column',
                 gap: '4px'
               }}>
+                {/* 第一行：类型选择 + 删除（删除按钮固定在右上角，任意宽度都可见） */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <select
                     value={cs.type || 'range'}
@@ -485,7 +499,8 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                       handleDataChange('characterSets', newCharsets);
                     }}
                     style={{
-                      minWidth: '70px',
+                      flex: 1,
+                      minWidth: 0,
                       padding: '3px 6px',
                       backgroundColor: 'var(--vscode-input-background)',
                       color: 'var(--vscode-input-foreground)',
@@ -499,55 +514,13 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                     <option value="file">{t('CST File')}</option>
                     <option value="codepage">{t('CodePage')}</option>
                   </select>
-                  <input
-                    type="text"
-                    value={getDisplayValue(cs)}
-                    onChange={(e) => {
-                      const newCharsets = [...charsets];
-                      newCharsets[index] = { ...cs, value: e.target.value };
-                      handleDataChange('characterSets', newCharsets);
-                    }}
-                    placeholder={
-                      cs.type === 'range' ? '0x20-0x7E' :
-                      cs.type === 'string' ? 'ABC123' :
-                      cs.type === 'file' ? 'charset.cst' :
-                      'CP936'
-                    }
-                    title={cs.value || ''}
-                    style={{
-                      flex: 1,
-                      padding: '3px 6px',
-                      backgroundColor: 'var(--vscode-input-background)',
-                      color: 'var(--vscode-input-foreground)',
-                      border: '1px solid var(--vscode-input-border)',
-                      borderRadius: '2px',
-                      fontSize: '11px'
-                    }}
-                  />
-                  {(cs.type === 'file' || cs.type === 'codepage') && (
-                    <button
-                      onClick={() => handleBrowseCharsetFile(index, cs.type)}
-                      style={{
-                        padding: '3px 6px',
-                        backgroundColor: 'var(--vscode-button-background)',
-                        color: 'var(--vscode-button-foreground)',
-                        border: 'none',
-                        borderRadius: '2px',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        whiteSpace: 'nowrap'
-                      }}
-                      title={t('Browse')}
-                    >
-                      📁
-                    </button>
-                  )}
                   <button
                     onClick={() => {
                       const newCharsets = charsets.filter((_: any, i: number) => i !== index);
                       handleDataChange('characterSets', newCharsets);
                     }}
                     style={{
+                      flexShrink: 0,
                       background: 'transparent',
                       border: 'none',
                       color: 'var(--vscode-descriptionForeground)',
@@ -560,34 +533,92 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                     ✕
                   </button>
                 </div>
-                <div style={{
-                  fontSize: '9px',
-                  color: 'var(--vscode-descriptionForeground)',
-                  paddingLeft: '74px'
-                }}>
-                  {cs.type === 'range' && (
-                    <>
-                      <div>{t('Unicode character range')}</div>
-                      <div>{t('Example: 0x20-0x7E, 0x4E00-0x9FFF')}</div>
-                    </>
-                  )}
-                  {cs.type === 'string' && (
-                    <>
-                      <div>{t('Extract characters from string')}</div>
-                      <div>{t('Example: ABC123你好')}</div>
-                    </>
-                  )}
-                  {cs.type === 'file' && (
-                    <>
-                      <div>{t('Load characters from CST/TXT file')}</div>
-                      <div>{t('Example: charset.cst')}</div>
-                    </>
-                  )}
-                  {cs.type === 'codepage' && (
-                    <>
-                      <div>{t('Windows CodePage encoding')}</div>
-                      <div>{t('Example: CP936')}</div>
-                    </>
+                {/* 第二行：字符集来源（值），占满整行，下拉箭头始终可见 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {(cs.type === 'file' || cs.type === 'codepage') ? (
+                    (() => {
+                      // 预置 charset/CodePage 已随插件分发，改为下拉直接选取（存稳定标识符）；
+                      // 仅当用户需要自有文件时才走「自定义文件…」+ 浏览。
+                      const presetList = cs.type === 'file' ? PRESET_CHARSETS : PRESET_CODEPAGES;
+                      const lang = getLocale();
+                      const isCustom = !!cs.value && !isPresetValue(cs.value);
+                      const selected = isCustom ? '__custom__' : (cs.value || '');
+                      return (
+                        <>
+                          <select
+                            value={selected}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === '__custom__') {
+                                // 选择「自定义文件…」立即打开文件浏览
+                                handleBrowseCharsetFile(index, cs.type);
+                                return;
+                              }
+                              const newCharsets = [...charsets];
+                              newCharsets[index] = { ...cs, value: v };
+                              handleDataChange('characterSets', newCharsets);
+                            }}
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              padding: '3px 6px',
+                              backgroundColor: 'var(--vscode-input-background)',
+                              color: 'var(--vscode-input-foreground)',
+                              border: '1px solid var(--vscode-input-border)',
+                              borderRadius: '2px',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <option value="">{t('Select preset...')}</option>
+                            {presetList.map((p) => (
+                              <option key={p.id} value={p.id}>{getPresetLabel(presetList, p.id, lang)}</option>
+                            ))}
+                            <option value="__custom__">{t('Custom file...')}</option>
+                          </select>
+                          {isCustom && (
+                            <button
+                              onClick={() => handleBrowseCharsetFile(index, cs.type)}
+                              style={{
+                                flexShrink: 0,
+                                padding: '3px 6px',
+                                backgroundColor: 'var(--vscode-button-background)',
+                                color: 'var(--vscode-button-foreground)',
+                                border: 'none',
+                                borderRadius: '2px',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={getDisplayValue(cs) || t('Browse')}
+                            >
+                              📁
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <input
+                      type="text"
+                      value={getDisplayValue(cs)}
+                      onChange={(e) => {
+                        const newCharsets = [...charsets];
+                        newCharsets[index] = { ...cs, value: e.target.value };
+                        handleDataChange('characterSets', newCharsets);
+                      }}
+                      placeholder={cs.type === 'range' ? '0x20-0x7E' : 'ABC123'}
+                      title={cs.value || ''}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: '3px 6px',
+                        backgroundColor: 'var(--vscode-input-background)',
+                        color: 'var(--vscode-input-foreground)',
+                        border: '1px solid var(--vscode-input-border)',
+                        borderRadius: '2px',
+                        fontSize: '11px'
+                      }}
+                    />
                   )}
                 </div>
               </div>
@@ -612,14 +643,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
         >
           + {t('Add Character Set')}
         </button>
-        <div style={{
-          fontSize: '10px',
-          color: 'var(--vscode-descriptionForeground)',
-          marginTop: '6px',
-          lineHeight: '1.4'
-        }}>
-          💡 {t('Additional character sets will be merged with text characters during font conversion')}
-        </div>
         {fontStats.charCount > 0 && (
           <div style={{
             fontSize: '10px',
@@ -1338,7 +1361,15 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                 {/* 附加字符集 - 仅定义了 fontType 属性的控件显示（label 系列） */}
                 {definition.properties.some(p => p.name === 'fontType') && (
                 <div className="property-item">
-                  <label>{t('Additional Character Sets')}</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {t('Additional Character Sets')}
+                    <span
+                      title={charsetHelpText}
+                      style={{ cursor: 'help', fontSize: '12px', userSelect: 'none' }}
+                    >
+                      💡
+                    </span>
+                  </label>
                   <div style={{ marginTop: '4px' }}>
                     {renderCharacterSets()}
                   </div>

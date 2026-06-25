@@ -320,6 +320,8 @@
   "Format: start-end": "Format: start-end",
   ".cst / .txt file": ".cst / .txt file",
   "e.g. CP936": "e.g. CP936",
+  "Select preset...": "Select preset...",
+  "Custom file...": "Custom file...",
   "Browse": "Browse",
   "Complete": "Complete",
   "success": "success",

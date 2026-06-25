@@ -320,6 +320,8 @@
   "Format: start-end": "格式: 起始码-结束码",
   ".cst / .txt file": ".cst / .txt 文件",
   "e.g. CP936": "如 CP936",
+  "Select preset...": "选择预置…",
+  "Custom file...": "自定义文件…",
   "Browse": "浏览",
   "Complete": "完成",
   "success": "成功",

@@ -14,6 +14,7 @@ import { ProjectConfig, DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig'
 import { RomfsConfig } from '../common/RomfsConfig';
 import { buildSConstruct } from './SConstructTemplate';
 import { ProjectUtils } from '../utils/ProjectUtils';
+import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
 
 /**
  * romfs 打包前需要清理的文件规则
@@ -2015,14 +2016,17 @@ Return('objs')
                     { type: 'string', value: group.characters },
                     // 添加附加字符集，将文件路径转换为绝对路径
                     ...group.additionalCharSets.map(cs => {
-                        if ((cs.type === 'file' || cs.type === 'codepage') && cs.value) {
+                        // 先解析预置标识符（如 "GBK.cst"/"CP936"）为插件内绝对路径；
+                        // resolver 不改变 type，自定义路径原样返回再按 projectRoot 还原。
+                        const resolved = CharsetSourceResolver.resolve(cs as any);
+                        if ((cs.type === 'file' || cs.type === 'codepage') && resolved.value) {
                             // 如果是相对路径，转换为相对于项目根目录的绝对路径
                             let absolutePath: string;
-                            if (path.isAbsolute(cs.value)) {
-                                absolutePath = cs.value;
+                            if (path.isAbsolute(resolved.value)) {
+                                absolutePath = resolved.value;
                             } else {
                                 // 规范化路径，移除 ../ 等相对路径符号
-                                const normalizedPath = path.normalize(cs.value);
+                                const normalizedPath = path.normalize(resolved.value);
                                 absolutePath = path.resolve(this.projectRoot, normalizedPath);
                             }
                             return { type: cs.type, value: absolutePath };

@@ -527,21 +527,14 @@ export class MessageHandler {
                 return;
             }
 
-            // 根据文件类型设置默认路径
-            let defaultPath = projectRoot;
-            if (fileType === 'file') {
-                // CST 文件默认路径：tools/font-converter/charset
-                const charsetPath = path.join(projectRoot, 'tools', 'font-converter', 'charset');
-                if (fs.existsSync(charsetPath)) {
-                    defaultPath = charsetPath;
-                }
-            } else if (fileType === 'codepage') {
-                // CodePage 文件默认路径：tools/font-converter/CodePage
-                const codepagePath = path.join(projectRoot, 'tools', 'font-converter', 'CodePage');
-                if (fs.existsSync(codepagePath)) {
-                    defaultPath = codepagePath;
-                }
-            }
+            // 浏览按钮仅用于「自定义字符集文件」：插件内置的预置 charset/CodePage 已
+            // 改为下拉选择（存稳定标识符，见 charsetPresets）。自定义文件通常位于用户
+            // 项目内，故默认目录用项目根。
+            //
+            // 修复历史 bug：旧逻辑尝试 projectRoot/tools/font-converter/{charset,CodePage}，
+            // 但这些预置目录实际打包在插件安装目录、用户项目里并不存在，existsSync 永远为
+            // false，默认目录形同虚设。预置文件改由前端下拉直接选取。
+            const defaultPath = projectRoot;
 
             // 构建文件过滤器
             const fileFilters: { [name: string]: string[] } = {};

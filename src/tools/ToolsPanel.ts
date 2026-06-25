@@ -11,6 +11,7 @@ import { ConversionConfigService, ConversionConfig, TargetFormat, YuvBlur, ItemS
 import { getToolsPanelHtml, getToolsPanelTranslations } from './ToolsPanelHtml';
 import { CharsetProcessor } from '../../tools/font-converter/src/charset-processor';
 import { CharacterSetSource } from '../../tools/font-converter/src/types/config';
+import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
 import { parseFontCmap } from '../utils/fontCmapParser';
 import * as os from 'os';
 
@@ -166,7 +167,9 @@ export class ToolsPanel {
 
         let codepoints: number[] = [];
         try {
-            codepoints = CharsetProcessor.mergeCharacterSources(characterSets || [], '');
+            // 预置标识符（如 "GBK.cst"/"CP936"）先还原为插件内绝对路径再合并
+            const resolved = CharsetSourceResolver.resolveAll((characterSets || []) as any) as any;
+            codepoints = CharsetProcessor.mergeCharacterSources(resolved, '');
         } catch {
             // charset 解析失败时返回空
         }
@@ -1067,7 +1070,10 @@ export class ToolsPanel {
                         fontSize: settings.fontSize || 32,
                         renderMode: settings.renderMode || 4,
                         outputFormat: settings.outputFormat || 'bitmap',
-                        characterSets: settings.characterSets || [{ type: 'range', value: '0x20-0x7E' }],
+                        // 预置标识符（如 "GBK.cst"/"CP936"）还原为插件内绝对路径
+                        characterSets: CharsetSourceResolver.resolveAll(
+                            (settings.characterSets || [{ type: 'range', value: '0x20-0x7E' }]) as any
+                        ) as any,
                         crop: settings.crop
                     });
                     break;

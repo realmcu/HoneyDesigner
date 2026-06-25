@@ -150,6 +150,31 @@ export class ProjectUtils {
     }
 
     /**
+     * 获取插件安装根目录
+     * @returns 插件根目录的绝对路径
+     */
+    static getExtensionRoot(): string {
+        // __dirname 在编译后指向 out/src/utils/，需要向上三级到达插件根目录
+        return path.join(__dirname, '..', '..', '..');
+    }
+
+    /**
+     * 获取插件内置的预置字符集（.cst）目录
+     * @returns tools/font-converter/charset 目录的绝对路径
+     */
+    static getCharsetDir(): string {
+        return path.join(this.getExtensionRoot(), 'tools', 'font-converter', 'charset');
+    }
+
+    /**
+     * 获取插件内置的预置 CodePage 目录
+     * @returns tools/font-converter/CodePage 目录的绝对路径
+     */
+    static getCodePageDir(): string {
+        return path.join(this.getExtensionRoot(), 'tools', 'font-converter', 'CodePage');
+    }
+
+    /**
      * 解析分辨率字符串
      * @param resolution 分辨率字符串，如 "480X272"
      * @returns 宽高对象，解析失败返回默认值 480x272

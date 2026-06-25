@@ -693,6 +693,8 @@ const en = {
   'String': 'String',
   'CST File': 'CST File',
   'CodePage': 'CodePage',
+  'Select preset...': 'Select preset...',
+  'Custom file...': 'Custom file...',
   'Remove': 'Remove',
   'Unicode character range': 'Unicode character range',
   'Example: 0x20-0x7E, 0x4E00-0x9FFF': 'Example: 0x20-0x7E, 0x4E00-0x9FFF',
