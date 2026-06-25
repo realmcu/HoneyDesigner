@@ -6,11 +6,16 @@
 .vscode/**
 .git/**
 .gitignore
+.gitmodules
+.github/**
+.workflow/**
 .trae/**
 .kiro/**
 tsconfig.json
 webpack.config.js
 AGENTS.md
+CLAUDE.md
+eslint.config.js
 
 # 源码（编译后的在 out/ 目录）
 src/**
