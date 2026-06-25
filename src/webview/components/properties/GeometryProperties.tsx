@@ -4,6 +4,7 @@ import { PropertyEditor } from './PropertyEditor';
 import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
+import { HelpIcon } from './HelpIcon';
 import { componentDefinitions } from '../ComponentLibrary';
 import { t } from '../../i18n';
 
@@ -178,8 +179,9 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                        <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
                           {t('Gradient End Angle')}
+                          <HelpIcon title={t('Tip: For full arcs (e.g. 270-270), SDK auto-compensates gradient angle for rounded caps')} />
                         </label>
                         <PropertyEditor
                           type="number"
@@ -187,14 +189,6 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
                           onChange={(value) => handleDataChange('gradientEndAngle', value)}
                         />
                       </div>
-                    </div>
-                    <div style={{ 
-                      marginTop: '6px',
-                      fontSize: '11px',
-                      color: 'var(--vscode-descriptionForeground)',
-                      fontStyle: 'italic'
-                    }}>
-                      💡 {t('Tip: For full arcs (e.g. 270-270), SDK auto-compensates gradient angle for rounded caps')}
                     </div>
                   </div>
                 )}

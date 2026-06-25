@@ -4,6 +4,7 @@ import { BaseProperties } from './BaseProperties';
 import { PropertyEditor } from './PropertyEditor';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
+import { HelpIcon } from './HelpIcon';
 import { t } from '../../i18n';
 
 export const HgWindowProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
@@ -85,7 +86,7 @@ export const HgWindowProperties: React.FC<PropertyPanelProps> = ({ component, on
 
               {enableBlur && (
                 <div className="property-item">
-                  <label>{t('Blur Degree')} (0-255)</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Blur Degree')} (0-255) <HelpIcon title={t('Default value: 225')} /></label>
                   <PropertyEditor
                     type="number"
                     value={blurDegree}
@@ -94,9 +95,6 @@ export const HgWindowProperties: React.FC<PropertyPanelProps> = ({ component, on
                       onUpdate({ data: { ...component.data, blurDegree: clampedValue } });
                     }}
                   />
-                  <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
-                    {t('Default value: 225')}
-                  </div>
                 </div>
               )}
             </CollapsibleGroup>

@@ -3,6 +3,7 @@ import { PropertyPanelProps } from './types';
 import { PropertyEditor } from './PropertyEditor';
 import { EventsPanel } from './EventsPanel';
 import { t } from '../../i18n';
+import { HelpIcon } from './HelpIcon';
 
 /**
  * hg_list_item 属性面板
@@ -86,10 +87,7 @@ export const ListItemProperties: React.FC<PropertyPanelProps> = ({ component, on
             {/* 位置与大小（只读） */}
             <div className="property-group">
               <div className="property-item">
-                <label>{t('Position & Size')}</label>
-                <div style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
-                  {t('Managed by parent list, cannot be modified')}
-                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Position & Size')} <HelpIcon title={t('Managed by parent list, cannot be modified')} /></label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
                   <div>
                     <label style={{ fontSize: '12px' }}>X</label>

@@ -4,6 +4,7 @@ import { BaseProperties } from './BaseProperties';
 import { PropertyEditor } from './PropertyEditor';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
+import { HelpIcon } from './HelpIcon';
 import { t } from '../../i18n';
 
 export const Hg3DProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
@@ -53,7 +54,10 @@ export const Hg3DProperties: React.FC<PropertyPanelProps> = ({ component, onUpda
             {/* 内容 */}
             <CollapsibleGroup title={t('Content')}>
               <div className="property-item">
-                <label>{t('Model Path')}</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {t('Model Path')}
+                  <HelpIcon title={`${t('OBJ format: MTL material and textures must be in the same directory')}\n${t('GLTF format: BIN file and textures must be in the same directory')}`} />
+                </label>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <PropertyEditor
                     type="string"
@@ -78,25 +82,16 @@ export const Hg3DProperties: React.FC<PropertyPanelProps> = ({ component, onUpda
                     📁
                   </button>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                  {t('OBJ format: MTL material and textures must be in the same directory')}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                  {t('GLTF format: BIN file and textures must be in the same directory')}
-                </div>
               </div>
 
               <div className="property-item">
-                <label>{t('Draw Type')}</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Draw Type')} <HelpIcon title={t('Front only / Front and back / Front and sort (default)')} /></label>
                 <PropertyEditor
                   type="select"
                   value={component.data?.drawType ?? 'L3_DRAW_FRONT_AND_SORT'}
                   onChange={(value) => onUpdate({ data: { ...component.data, drawType: value } })}
                   options={['L3_DRAW_FRONT_ONLY', 'L3_DRAW_FRONT_AND_BACK', 'L3_DRAW_FRONT_AND_SORT']}
                 />
-                <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                  {t('Front only / Front and back / Front and sort (default)')}
-                </div>
               </div>
             </CollapsibleGroup>
 
@@ -249,10 +244,8 @@ export const Hg3DProperties: React.FC<PropertyPanelProps> = ({ component, onUpda
                     style={{ marginRight: '8px' }}
                   />
                   {t('Enable Touch Rotation')}
+                  <HelpIcon title={t('In designer, use middle mouse button to preview; on device, responds to touch')} />
                 </label>
-                <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                  {t('In designer, use middle mouse button to preview; on device, responds to touch')}
-                </div>
               </div>
 
               {component.data?.touchRotationEnabled && (
@@ -268,15 +261,12 @@ export const Hg3DProperties: React.FC<PropertyPanelProps> = ({ component, onUpda
                   </div>
 
                   <div className="property-item">
-                    <label>{t('Sensitivity')}</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Sensitivity')} <HelpIcon title={t('Higher value = slower rotation (default 5.0)')} /></label>
                     <PropertyEditor
                       type="number"
                       value={component.data?.touchRotationSensitivity ?? 5.0}
                       onChange={(value) => onUpdate({ data: { ...component.data, touchRotationSensitivity: value } })}
                     />
-                    <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                      {t('Higher value = slower rotation (default 5.0)')}
-                    </div>
                   </div>
                 </>
               )}
@@ -306,15 +296,12 @@ export const Hg3DProperties: React.FC<PropertyPanelProps> = ({ component, onUpda
                   </div>
 
                   <div className="property-item">
-                    <label>{t('Rotation Speed')}</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Rotation Speed')} <HelpIcon title={t('Rotation angle per frame, positive = counterclockwise (default 1.0)')} /></label>
                     <PropertyEditor
                       type="number"
                       value={component.data?.autoRotationSpeed ?? 1.0}
                       onChange={(value) => onUpdate({ data: { ...component.data, autoRotationSpeed: value } })}
                     />
-                    <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                      {t('Rotation angle per frame, positive = counterclockwise (default 1.0)')}
-                    </div>
                   </div>
                 </>
               )}

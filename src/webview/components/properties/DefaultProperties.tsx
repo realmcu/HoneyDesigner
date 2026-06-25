@@ -9,6 +9,7 @@ import { useDesignerStore } from '../../store';
 import { t, getLocale } from '../../i18n';
 import { useFontGlyphStats } from '../../hooks/useFontGlyphStats';
 import { PRESET_CHARSETS, PRESET_CODEPAGES, isPresetValue, getPresetLabel } from '../../../common/charsetPresets';
+import { HelpIcon } from './HelpIcon';
 
 // 字体文件扩展名
 const FONT_EXTS = ['ttf', 'otf', 'woff', 'woff2', 'bin'];
@@ -975,51 +976,39 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                 </div>
                 {/* 起始偏移 */}
                 <div className="property-item">
-                  <label>{t('Start Offset (px)')}</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Start Offset (px)')} <HelpIcon title={t('Initial blank space before text')} /></label>
                   <PropertyEditor
                     type="number"
                     value={(component.data as any)?.scrollStartOffset ?? 0}
                     onChange={(value) => handleDataChange('scrollStartOffset', value)}
                   />
-                  <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                    {t('Initial blank space before text')}
-                  </span>
                 </div>
                 {/* 结束偏移 */}
                 <div className="property-item">
-                  <label>{t('End Offset (px)')}</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('End Offset (px)')} <HelpIcon title={t('Final blank space after text')} /></label>
                   <PropertyEditor
                     type="number"
                     value={(component.data as any)?.scrollEndOffset ?? 0}
                     onChange={(value) => handleDataChange('scrollEndOffset', value)}
                   />
-                  <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                    {t('Final blank space after text')}
-                  </span>
                 </div>
                 {/* 循环间隔 */}
                 <div className="property-item">
-                  <label>{t('Loop Interval (ms)')}</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Loop Interval (ms)')} <HelpIcon title={t('Time for one complete scroll cycle')} /></label>
                   <PropertyEditor
                     type="number"
                     value={(component.data as any)?.scrollInterval ?? 3000}
                     onChange={(value) => handleDataChange('scrollInterval', value)}
                   />
-                  <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                    {t('Time for one complete scroll cycle')}
-                  </span>
                 </div>
                 {/* 总持续时间 */}
                 <div className="property-item">
-                  <label>{t('Total Duration (ms)')}</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Total Duration (ms)')} <HelpIcon title={t('Total scrolling duration, 0 = infinite')} /></label>
                   <PropertyEditor
                     type="number"
                     value={(component.data as any)?.scrollDuration ?? 0}
                     onChange={(value) => handleDataChange('scrollDuration', value)}
                   />
-                  <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                    {t('Total scrolling duration, 0 = infinite')}
-                  </span>
                 </div>
               </CollapsibleGroup>
             )}
@@ -1082,21 +1071,16 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                         )
                       ) : property.name === 'text' && (component.type === 'hg_timer_label' || component.type === 'hg_time_label') ? (
                         <>
-                          <PropertyEditor
-                            type="string"
-                            value={(component.data as any)?.text || ''}
-                            onChange={(value) => handleDataChange('text', value)}
-                            placeholder={component.type === 'hg_time_label'
-                              ? getTimePlaceholder((component.data as any)?.timeFormat || 'HH:mm:ss')
-                              : getTimerPlaceholder((component.data as any)?.timerFormat || 'HH:MM:SS')}
-                          />
-                          <div style={{
-                            fontSize: '10px',
-                            color: 'var(--vscode-descriptionForeground)',
-                            marginTop: '4px',
-                            lineHeight: '1.4'
-                          }}>
-                            💡 {t('Text Preview Hint')}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <PropertyEditor
+                              type="string"
+                              value={(component.data as any)?.text || ''}
+                              onChange={(value) => handleDataChange('text', value)}
+                              placeholder={component.type === 'hg_time_label'
+                                ? getTimePlaceholder((component.data as any)?.timeFormat || 'HH:mm:ss')
+                                : getTimerPlaceholder((component.data as any)?.timerFormat || 'HH:MM:SS')}
+                            />
+                            <HelpIcon title={t('Text Preview Hint')} />
                           </div>
                         </>
                       ) : property.name === 'text' && (component.type === 'hg_label' || component.type === 'hg_time_label') && (component.style as any)?.wordWrap ? (
@@ -1295,24 +1279,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                 <div className="property-item">
                   <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {t('Font Type')}
-                    <span
-                      title={`${t('Bitmap font')}: ${t('Bitmap font hint')}\n${t('Vector font')}: ${t('Vector font hint')}`}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '14px',
-                        height: '14px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--vscode-badge-background)',
-                        color: 'var(--vscode-badge-foreground)',
-                        fontSize: '10px',
-                        cursor: 'help',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      ?
-                    </span>
+                    <HelpIcon title={`${t('Bitmap font')}: ${t('Bitmap font hint')}\n${t('Vector font')}: ${t('Vector font hint')}`} />
                   </label>
                   <PropertyEditor
                     type="select"
@@ -1333,17 +1300,19 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                       type="select"
                       value={(component.data as any)?.renderMode || '4'}
                       onChange={(value) => handleDataChange('renderMode', value)}
-                      options={['1', '2', '4', '8']}
+                      options={[
+                        { value: '1', label: '1 (1 bpp)' },
+                        { value: '2', label: '2 (2 bpp)' },
+                        { value: '4', label: '4 (4 bpp)' },
+                        { value: '8', label: '8 (8 bpp)' },
+                      ]}
                     />
-                    <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                      {(component.data as any)?.renderMode || '4'}-bit {t('grayscale')}
-                    </span>
                   </div>
                 )}
                 {/* 像素序 - 仅 LVGL 项目且定义了 renderMode 属性且点阵字体时显示 */}
                 {isLvglProject && definition.properties.some(p => p.name === 'renderMode') && ((component.data as any)?.fontType || 'bitmap') === 'bitmap' && (
                   <div className="property-item">
-                    <label>{t('Pixel Order')}</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('Pixel Order')} <HelpIcon title={t('Bit order for glyph bitmap')} /></label>
                     <PropertyEditor
                       type="select"
                       value={(component.data as any)?.pixelOrder || 'LSB'}
@@ -1353,9 +1322,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                         { value: 'MSB', label: 'MSB (Most Significant Bit first)' },
                       ]}
                     />
-                    <span style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>
-                      {t('Bit order for glyph bitmap')}
-                    </span>
                   </div>
                 )}
                 {/* 附加字符集 - 仅定义了 fontType 属性的控件显示（label 系列） */}
@@ -1363,12 +1329,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                 <div className="property-item">
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     {t('Additional Character Sets')}
-                    <span
-                      title={charsetHelpText}
-                      style={{ cursor: 'help', fontSize: '12px', userSelect: 'none' }}
-                    >
-                      💡
-                    </span>
+                    <HelpIcon title={charsetHelpText} />
                   </label>
                   <div style={{ marginTop: '4px' }}>
                     {renderCharacterSets()}

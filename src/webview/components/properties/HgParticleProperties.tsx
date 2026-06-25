@@ -4,6 +4,7 @@ import { PropertyEditor } from './PropertyEditor';
 import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
+import { HelpIcon } from './HelpIcon';
 import { getEffectConfig, PARTICLE_EFFECTS } from '../../constants/particleEffects';
 import { t } from '../../i18n';
 
@@ -134,14 +135,7 @@ export const HgParticleProperties: React.FC<PropertyPanelProps> = ({ component, 
                       }}
                     />
                     <span style={{ fontSize: '12px' }}>{t('Interactive Preview')}</span>
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    color: 'var(--vscode-descriptionForeground)',
-                    marginTop: '4px',
-                    lineHeight: '1.4',
-                  }}>
-                    💡 {t('Enable to use mouse interaction on particle. Alt+Click also works as shortcut.')}
+                    <HelpIcon title={t('Enable to use mouse interaction on particle. Alt+Click also works as shortcut.')} />
                   </div>
                 </div>
               )}
