@@ -74,7 +74,7 @@
       </events>
       <hg_label id="lbl_detail" x="77" y="200" width="300" height="40"
                 text="Detail Page" fontSize="26" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
       <hg_label id="lbl_hint" x="77" y="250" width="300" height="28"
                 text="Swipe down to go back" fontSize="15" color="#888888"
                 hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" />

@@ -39,7 +39,7 @@
       <!-- 歌曲标题 / 艺术家 -->
       <hg_label id="lbl_title" x="77" y="290" width="300" height="32"
                 text="Beautiful Song" fontSize="22" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" zIndex="2" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" zIndex="2" />
       <hg_label id="lbl_artist" x="77" y="324" width="300" height="26"
                 text="Artist Name" fontSize="16" color="#AAAAAA"
                 hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" zIndex="2" />

@@ -26,7 +26,7 @@
       <!-- 页面标题 -->
       <hg_label id="lbl_title" x="127" y="24" width="200" height="40"
                 text="Settings" fontSize="24" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
 
       <!-- 可滚动设置列表 -->
       <hg_list id="list_settings" x="20" y="80" width="414" height="354"

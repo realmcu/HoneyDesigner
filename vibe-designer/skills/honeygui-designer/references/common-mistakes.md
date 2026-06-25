@@ -189,7 +189,7 @@ HML 没有内联事件属性，所有交互必须用 `<events>` 结构。
 <!-- ❌ icon.bin（缺 /）、assets/icon.bin（多余前缀） -->
 <!-- ✅ -->
 <hg_image id="img1" src="/icon.bin" />
-<hg_label id="lbl1" text="Hi" fontFile="/NotoSansSC-Bold.ttf" />
+<hg_label id="lbl1" text="Hi" fontFile="/NotoSansSC-Medium.ttf" />
 ```
 
 ### ❌ 错误 3.5：`hg_label` 缺 `fontFile`
@@ -198,7 +198,7 @@ HML 没有内联事件属性，所有交互必须用 `<events>` 结构。
 
 ```xml
 <hg_label id="lbl_title" text="Dashboard" fontSize="26" color="#FFFFFF"
-          fontFile="/NotoSansSC-Bold.ttf" />
+          fontFile="/NotoSansSC-Medium.ttf" />
 ```
 
 > 回退：assets 中无字体时，从 fallback 字体目录复制一份到 assets 再引用。

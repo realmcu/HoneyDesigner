@@ -445,14 +445,8 @@ export class CreateProjectPanel {
         fs.mkdirSync(path.join(projectPath, 'src'), { recursive: true });
         fs.mkdirSync(path.join(projectPath, 'assets'), { recursive: true });
 
-        
-        // 创建 fallback 目录并复制默认字体
-        const fallbackDir = path.join(projectPath, 'fallback');
-        fs.mkdirSync(fallbackDir, { recursive: true });
-        const fontSrc = path.join(this._extensionUri.fsPath, 'lib', 'font', 'NotoSansSC-Bold.ttf');
-        if (fs.existsSync(fontSrc)) {
-            fs.copyFileSync(fontSrc, path.join(fallbackDir, 'NotoSansSC-Bold.ttf'));
-        }
+        // fallback/ 目录与默认字体由 ExtensionManager.setupAiAssets 在打开项目时统一分发
+        // （受 project.json 的 aiAssets 开关控制，新建后 openFolder 会触发），此处不再重复。
 
         // 创建 conversion.json 资源转换配置文件
         const isZhCn = vscode.env.language.startsWith('zh');

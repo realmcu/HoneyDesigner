@@ -301,7 +301,7 @@ HML_CONTENT='<?xml version="1.0" encoding="UTF-8"?>
   <view>
     <hg_view id="view_main" entry="true" x="0" y="0" w="454" h="454">
       <hg_label id="lbl_title" x="100" y="50" width="254" height="40"
-                text="Hello World" fontFile="/NotoSansSC-Bold.ttf" />
+                text="Hello World" fontFile="/NotoSansSC-Medium.ttf" />
     </hg_view>
   </view>
 </hml>'

@@ -40,7 +40,7 @@
 
       <hg_label id="lbl_title" x="127" y="30" width="200" height="40"
                 text="Dashboard" fontSize="24" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
 
       <!-- 卡片 1：步数 -->
       <hg_window id="card_steps" x="40" y="100" width="167" height="147"
@@ -48,7 +48,7 @@
         <hg_image id="icon_steps" x="59" y="20" width="50" height="50" src="/icon_steps.bin" />
         <hg_label id="lbl_steps_value" x="34" y="80" width="100" height="40"
                   text="8542" fontSize="28" color="#00FF88"
-                  hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                  hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
         <hg_label id="lbl_steps_label" x="34" y="115" width="100" height="20"
                   text="Steps" fontSize="14" color="#999999"
                   hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" />
@@ -60,7 +60,7 @@
         <hg_image id="icon_heart" x="59" y="20" width="50" height="50" src="/icon_heart.bin" />
         <hg_label id="lbl_heart_value" x="34" y="80" width="100" height="40"
                   text="72" fontSize="28" color="#FF0066"
-                  hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                  hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
         <hg_label id="lbl_heart_label" x="34" y="115" width="100" height="20"
                   text="BPM" fontSize="14" color="#999999"
                   hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" />
@@ -89,7 +89,7 @@
              backgroundColor="#000000">
       <hg_label id="lbl_title" x="127" y="20" width="200" height="40"
                 text="Settings" fontSize="24" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
 
       <hg_list id="list_settings" x="20" y="70" width="414" height="370"
                direction="VERTICAL" style="LIST_CLASSIC"
@@ -143,7 +143,7 @@
 
       <hg_label id="lbl_song" x="77" y="280" width="300" height="30"
                 text="Song Title" fontSize="20" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
       <hg_label id="lbl_artist" x="77" y="315" width="300" height="25"
                 text="Artist" fontSize="16" color="#CCCCCC"
                 hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" />
@@ -187,7 +187,7 @@
              backgroundColor="#000000">
       <hg_label id="lbl_title" x="127" y="30" width="200" height="40"
                 text="Menu" fontSize="26" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
 
       <!-- 纯图片按钮：直接用 hg_button -->
       <hg_button id="btn_health" x="57" y="100" width="120" height="120"
@@ -231,7 +231,7 @@
   <hg_list_item id="notif_1" x="0" y="0" width="414" height="100">
     <hg_image id="ic_msg" x="15" y="15" width="40" height="40" src="/icon_message.bin" />
     <hg_label id="t_msg" x="65" y="15" width="329" height="25"
-              text="New Message" fontSize="16" color="#FFFFFF" fontFile="/NotoSansSC-Bold.ttf" />
+              text="New Message" fontSize="16" color="#FFFFFF" fontFile="/NotoSansSC-Medium.ttf" />
     <hg_label id="b_msg" x="65" y="45" width="329" height="35"
               text="You have a new message" fontSize="14" color="#CCCCCC"
               fontFile="/NotoSansSC-Regular.ttf" />
@@ -258,7 +258,7 @@
 
   <hg_label id="lbl_steps" x="177" y="160" width="100" height="50"
             text="8542" fontSize="36" color="#00FF88"
-            hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+            hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
   <hg_label id="lbl_unit" x="177" y="210" width="100" height="25"
             text="steps" fontSize="16" color="#999999"
             hAlign="CENTER" fontFile="/NotoSansSC-Regular.ttf" />
@@ -279,13 +279,13 @@
          backgroundColor="#000000">
   <hg_label id="lbl_title" x="127" y="50" width="200" height="40"
             text="Stopwatch" fontSize="24" color="#FFFFFF"
-            hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+            hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
 
   <!-- 秒表：用 hg_timer_label（默认不自动启动） -->
   <hg_timer_label id="lbl_timer" x="77" y="150" width="300" height="100"
                   isTimerLabel="true" timerType="stopwatch" timerFormat="MM:SS:MS"
                   timerAutoStart="false" fontSize="60" color="#00FF88"
-                  hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                  hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
 
   <hg_button id="btn_start" x="127" y="380" width="80" height="80"
              imageOn="/icon_play_on.bin" imageOff="/icon_play.bin"
@@ -343,7 +343,7 @@
     </events>
     <hg_label id="lbl_p1" x="127" y="207" width="200" height="40"
               text="Page 1" fontSize="28" color="#FFFFFF"
-              hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+              hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
   </hg_view>
 
   <hg_view id="view_page2" x="0" y="0" width="454" height="454" backgroundColor="#00FF88">
@@ -356,7 +356,7 @@
     </events>
     <hg_label id="lbl_p2" x="127" y="207" width="200" height="40"
               text="Page 2" fontSize="28" color="#FFFFFF"
-              hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+              hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
   </hg_view>
 </view>
 ```

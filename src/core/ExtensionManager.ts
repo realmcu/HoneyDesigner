@@ -136,6 +136,10 @@ export class ExtensionManager {
                 // 受项目级开关 aiAssets 控制：默认开启（未设置或非 false 即分发）；
                 // 纯拖拽、不使用 AI 的用户可在 project.json 设 "aiAssets": false 关闭，
                 // 此时自动清理已存在的分发产物。
+                // 默认字体是运行时刚需：AI 与手动拖拽的用户都需要字体给 hg_label 用，
+                // 故不受 aiAssets 开关控制。仅当 assets 无任何字体时补一份默认字体（见 ensureDefaultFont）。
+                setImmediate(() => this.ensureDefaultFont(workspaceRoot));
+
                 if (config.aiAssets === false) {
                     this.cleanupAiAssets(workspaceRoot);
                 } else {
@@ -324,6 +328,59 @@ export class ExtensionManager {
         } catch (error) {
             logger.warn(`分发 skill 失败: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+
+    /**
+     * 确保项目 assets/ 里有可用字体：仅当 assets（含子目录）没有任何字体源时，
+     * 复制内置的默认字体 NotoSansSC-Medium.ttf（Noto Sans 简体中文，覆盖 CJK+拉丁+数字）
+     * 进 assets/，让 hg_label 开箱即用。由扩展用 extensionPath 可靠定位字体源。
+     *
+     * 「默认字体」语义而非「保证存在」：用户加了自己的字体后即可删掉这份默认字体、
+     * 不会被重新塞回（assets 已有字体就不再补）。assets 里的字体只有被 HML 的 fontFile
+     * 引用才会在 build 时转换进固件，未引用的不进固件，故放一份默认字体无固件代价。
+     */
+    private ensureDefaultFont(projectRoot: string): void {
+        try {
+            const assetsDir = path.join(projectRoot, 'assets');
+            if (!fs.existsSync(assetsDir)) {
+                return;
+            }
+            const fontExts = new Set(['.ttf', '.otf', '.woff', '.woff2']);
+            if (this.hasFontFile(assetsDir, fontExts)) {
+                return;
+            }
+            const fontName = 'NotoSansSC-Medium.ttf';
+            const srcFont = path.join(this.context.extensionPath, 'lib', 'font', fontName);
+            if (!fs.existsSync(srcFont)) {
+                logger.warn(`默认字体源不存在: ${srcFont}`);
+                return;
+            }
+            fs.copyFileSync(srcFont, path.join(assetsDir, fontName));
+            logger.info(`assets 无字体，已放入默认字体: ${fontName}`);
+        } catch (error) {
+            logger.warn(`放置默认字体失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /** 递归判断目录下是否存在任意字体源文件。 */
+    private hasFontFile(dir: string, exts: Set<string>): boolean {
+        let entries: fs.Dirent[];
+        try {
+            entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+            return false;
+        }
+        for (const entry of entries) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                if (this.hasFontFile(full, exts)) {
+                    return true;
+                }
+            } else if (exts.has(path.extname(entry.name).toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

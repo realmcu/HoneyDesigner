@@ -28,7 +28,7 @@
                  enableBlur="true" blurDegree="225">
         <hg_time_label id="lbl_clock" x="300" y="24" width="120" height="40"
                        timeFormat="HH:mm" fontSize="36" color="#FFFFFF"
-                       hAlign="RIGHT" fontFile="/NotoSansSC-Bold.ttf" />
+                       hAlign="RIGHT" fontFile="/NotoSansSC-Medium.ttf" />
         <hg_label id="lbl_greeting" x="24" y="34" width="200" height="32"
                   text="My Home" fontSize="22" color="#E98F36"
                   hAlign="LEFT" fontFile="/NotoSansSC-Regular.ttf" />

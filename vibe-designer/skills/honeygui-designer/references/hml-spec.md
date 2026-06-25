@@ -50,13 +50,13 @@ Human-label shorthand used in headings:
 
 ## Only if font files is in assets folder, the hg_label can access them!!!
 
-- fallback: if there is no font file in assets folder, coping font files in fallback folder to assets folder, and using these fallback font files.
+- font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified Chinese, covers CJK + Latin + digits) into assets/ only when assets has no font at all, so normally assets already has a font — just reference it (e.g. `/NotoSansSC-Medium.ttf`). `fontFile` points to the ttf source; `.bin` is a build-time conversion product, not a font source. Operate only inside the project — never read the plugin install dir or the OS fonts.
 
 ## please setting hg_label's font file.
 
 ## no relative file path
 - all assets files's path is a '/' + 'relative path from assets folder'
-- example: '/NotoSansSC-Bold.ttf' is OK, 'NotoSansSC-Bold.ttf' will fault.
+- example: '/NotoSansSC-Medium.ttf' is OK, 'NotoSansSC-Medium.ttf' will fault.
 
 ## write empty user c func in src\user if needed (only for compile ok for gui simulater )
 - example: ``` void func1(void *a, void *b) { (void)a; (void)b; gui_log("func1\n"); } ```
@@ -465,7 +465,7 @@ Both modes use `gui_img` at runtime since the HoneyGUI SDK has no native button 
 
 Text display with optional scrolling and timer features.
 
-fallback: if there is no font file in assets folder, coping font files in fallback folder to assets folder, and using these fallback font files.
+font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified Chinese, covers CJK + Latin + digits) into assets/ only when assets has no font at all, so normally assets already has a font — just reference it (e.g. `/NotoSansSC-Medium.ttf`). `fontFile` points to the ttf source; `.bin` is a build-time conversion product, not a font source. Operate only inside the project — never read the plugin install dir or the OS fonts.
 
 #### Text & Layout
 
@@ -520,7 +520,7 @@ fallback: if there is no font file in assets folder, coping font files in fallba
 
 Displays the current system time. Inherits all `hg_label` font and alignment attributes.
 
-fallback: if there is no font file in assets folder, coping font files in fallback folder to assets folder, and using these fallback font files.
+font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified Chinese, covers CJK + Latin + digits) into assets/ only when assets has no font at all, so normally assets already has a font — just reference it (e.g. `/NotoSansSC-Medium.ttf`). `fontFile` points to the ttf source; `.bin` is a build-time conversion product, not a font source. Operate only inside the project — never read the plugin install dir or the OS fonts.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|

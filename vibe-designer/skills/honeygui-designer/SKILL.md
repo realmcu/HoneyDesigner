@@ -69,8 +69,24 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
 | 事件 | `<events><event type="onClick"><action type="callFunction" functionName="fn"/></event></events>` | 内联 `onClick="fn"` |
 | 按钮 | `hg_button` 用 `imageOn`/`imageOff` + `clickCallback`（普通）或 `onCallback`/`offCallback`（toggle），**非容器、无子组件** | `hg_button src=`、内嵌子组件、`text=` |
 | entry | 恰好一个 `hg_view entry="true"` | 缺 entry 或多个 entry |
-| 资源路径 | 以 `/` 开头，是"从 assets 文件夹起的相对路径"，如 `/icon.bin`、`/NotoSansSC-Bold.ttf` | `icon.bin`、`assets/icon.bin` |
+| 资源路径 | 以 `/` 开头，是"从 assets 文件夹起的相对路径"，如 `/icon.bin`、`/NotoSansSC-Medium.ttf` | `icon.bin`、`assets/icon.bin` |
 | 字体 | `hg_label` 必须有 `fontFile`，且字体文件须在 assets 中 | 缺 `fontFile` |
+
+## 字体处理（`hg_label` 系列必读）
+
+`hg_label` / `hg_time_label` / `hg_timer_label` 必须有 `fontFile`，且文件须**真实存在于 `assets/`**，
+否则仿真编译失败。⚠️ `validate-hml` 只查路径以 `/` 开头、**不查文件是否存在**，会对不存在的字体误报 `valid:true`。
+
+确定 `fontFile` 时（**只在项目内操作，不读插件目录或系统字体**）：
+
+1. **列出 `assets/`，用里面已有的字体源**。扩展在打开项目时，若 assets 没有任何字体，
+   会自动放入默认字体 `NotoSansSC-Medium.ttf`（Noto Sans 简体中文，覆盖中文+英文+数字），
+   所以正常情况下 assets 至少有它，直接以 `/NotoSansSC-Medium.ttf` 引用即可。
+2. **`fontFile` 引用 ttf 源文件**；`.bin` 是 build 时由 ttf 转换出的产物，不是字体源，别引用。
+3. **万一 assets 一个字体都没有**，提示用户在设计器资源管理器中添加字体，
+   **不要凭空引用不存在的字体名**。
+
+> 中文文本必须用覆盖 CJK 的字体（如 NotoSansSC）；纯拉丁字体（如 Inter）渲染中文会缺字/豆腐块。
 
 ## HML 结构骨架
 
@@ -87,7 +103,7 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
              backgroundColor="#000000">
       <hg_label id="lbl_title" x="127" y="40" width="200" height="40"
                 text="Hello" fontSize="24" color="#FFFFFF"
-                hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+                hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
     </hg_view>
   </view>
 </hml>

@@ -280,7 +280,7 @@ Design to prevent errors and provide clear recovery paths.
   <hg_label id="lbl_title"
             x="27" y="20" width="300" height="30"
             text="Confirm Delete" fontSize="20" color="#FFFFFF"
-            hAlign="CENTER" fontFile="/NotoSansSC-Bold.ttf" />
+            hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" />
   <hg_label id="lbl_message"
             x="27" y="60" width="300" height="40"
             text="Delete this item? This cannot be undone."
