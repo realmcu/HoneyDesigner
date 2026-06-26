@@ -54,9 +54,13 @@ Human-label shorthand used in headings:
 
 ## please setting hg_label's font file.
 
-## no relative file path
-- all assets files's path is a '/' + 'relative path from assets folder'
-- example: '/NotoSansSC-Medium.ttf' is OK, 'NotoSansSC-Medium.ttf' will fault.
+## file path convention (two kinds — do not mix them up)
+- image-like paths (`src` / `imageOn` / `imageOff`): MUST start with `assets/`, e.g. `assets/icon.png`.
+  This matches what the designer produces; both canvas preview and codegen expect this form.
+  Wrong: `/icon.bin`, `icon.png`.
+- font path (`fontFile`): MUST start with `/` (path relative to the assets folder), e.g. `/NotoSansSC-Medium.ttf`.
+  Wrong: `NotoSansSC-Medium.ttf`, `assets/x.ttf`.
+- For images, reference the source file (`.png` / `.gif` / ...); `.bin` is produced at build time — never reference `.bin`.
 
 ## write empty user c func in src\user if needed (only for compile ok for gui simulater )
 - example: ``` void func1(void *a, void *b) { (void)a; (void)b; gui_log("func1\n"); } ```
@@ -844,7 +848,7 @@ Renders a vector `.svg` file. Loaded at runtime by file path (no C-array convers
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `src` | string | — | SVG file path (relative to assets, must start with `/`) |
+| `src` | string | — | SVG file path, must start with `assets/`, e.g. `assets/shape.svg` |
 
 - **Default size**: 100×100
 - **C API (HoneyGUI)**: `gui_svg_create_from_file`
@@ -1232,12 +1236,12 @@ src/
             <!-- Time display -->
             <hg_time_label id="lbl_time" x="127" y="160" width="200" height="70"
                            timeFormat="HH:mm" fontSize="56" color="#FFFFFF"
-                           hAlign="CENTER" fontFile="roboto_56.bin" zIndex="1" />
+                           hAlign="CENTER" fontFile="/roboto_56.ttf" zIndex="1" />
 
             <!-- Date display -->
             <hg_time_label id="lbl_date" x="152" y="230" width="150" height="30"
                            timeFormat="MM-DD HH:mm" fontSize="18" color="#AAAAAA"
-                           hAlign="CENTER" fontFile="roboto_18.bin" zIndex="2" />
+                           hAlign="CENTER" fontFile="/roboto_18.ttf" zIndex="2" />
 
             <!-- Steps arc -->
             <hg_arc id="arc_steps" x="179" y="300" width="96" height="96"

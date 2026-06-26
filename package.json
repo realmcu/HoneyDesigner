@@ -310,6 +310,7 @@
   "dependencies": {
     "@csstools/css-parser-algorithms": "^3.0.5",
     "@csstools/css-tokenizer": "^3.0.4",
+    "@resvg/resvg-wasm": "^2.6.2",
     "argparse": "^2.0.0",
     "bit-buffer": "^0.2.5",
     "bmp-js": "^0.1.0",

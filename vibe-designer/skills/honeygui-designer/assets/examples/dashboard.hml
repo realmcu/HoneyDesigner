@@ -5,7 +5,7 @@
           （HoneyGUI 无"卡片容器"，且 hg_view 不可嵌套 hg_view——卡片不能用嵌套 view 实现）。
 
   ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
-  ⚠️ 资源路径（如 /icon_steps.bin）是占位符，恒以 "/" 开头；实际项目需准备资源并放入 assets/。
+  ⚠️ 图像路径（如 assets/icon_steps.png）是占位符，以 "assets/" 开头；实际项目需准备资源并放入 assets/。
 -->
 <hml>
   <meta>
@@ -26,7 +26,7 @@
       <hg_rect id="card_steps" x="30" y="80" width="190" height="150"
                fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
       <hg_image id="icon_steps" x="105" y="98" width="40" height="40"
-                src="/icon_steps.bin" zIndex="1" />
+                src="assets/icon_steps.png" zIndex="1" />
       <hg_label id="lbl_steps_val" x="40" y="146" width="170" height="40"
                 text="8,542" fontSize="30" color="#00FF88"
                 hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" zIndex="1" />
@@ -38,7 +38,7 @@
       <hg_rect id="card_heart" x="234" y="80" width="190" height="150"
                fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
       <hg_image id="icon_heart" x="309" y="98" width="40" height="40"
-                src="/icon_heart.bin" zIndex="1" />
+                src="assets/icon_heart.png" zIndex="1" />
       <hg_label id="lbl_heart_val" x="244" y="146" width="170" height="40"
                 text="72" fontSize="30" color="#FF0066"
                 hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" zIndex="1" />
@@ -50,7 +50,7 @@
       <hg_rect id="card_cal" x="30" y="244" width="190" height="150"
                fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
       <hg_image id="icon_cal" x="105" y="262" width="40" height="40"
-                src="/icon_calories.bin" zIndex="1" />
+                src="assets/icon_calories.png" zIndex="1" />
       <hg_label id="lbl_cal_val" x="40" y="310" width="170" height="40"
                 text="420" fontSize="30" color="#FF8800"
                 hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" zIndex="1" />
@@ -62,7 +62,7 @@
       <hg_rect id="card_sleep" x="234" y="244" width="190" height="150"
                fillColor="#1E1E1E" borderRadius="16" zIndex="0" />
       <hg_image id="icon_sleep" x="309" y="262" width="40" height="40"
-                src="/icon_sleep.bin" zIndex="1" />
+                src="assets/icon_sleep.png" zIndex="1" />
       <hg_label id="lbl_sleep_val" x="244" y="310" width="170" height="40"
                 text="7.5h" fontSize="30" color="#6688FF"
                 hAlign="CENTER" fontFile="/NotoSansSC-Medium.ttf" zIndex="1" />

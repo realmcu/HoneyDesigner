@@ -4,8 +4,8 @@
   演示点：可滚动 hg_list + hg_list_item、toggle 图片按钮（代替 LVGL 的 switch）、
           值显示 + 调节按钮（代替 LVGL 的 slider）、<events> 事件结构。
 
-  ⚠️ 资源路径（如 /icon_back.bin）是占位符，仅演示结构。实际项目中需准备资源、
-     用 Extension 转换为 .bin、放入 assets/ 目录。路径恒以 "/" 开头（从 assets 起算）。
+  ⚠️ 图像路径（如 assets/icon_back.png）是占位符，仅演示结构。实际项目中需准备资源、
+     放入 assets/ 目录；图像路径以 "assets/" 开头（仿真/编译时扩展自动把 png 转为 bin）。
 -->
 <hml>
   <meta>
@@ -20,7 +20,7 @@
 
       <!-- 返回按钮（图片按钮，点击调用 C 回调） -->
       <hg_button id="btn_back" x="20" y="20" width="44" height="44"
-                 imageOn="/icon_back_on.bin" imageOff="/icon_back.bin"
+                 imageOn="assets/icon_back_on.png" imageOff="assets/icon_back.png"
                  clickCallback="go_back" />
 
       <!-- 页面标题 -->
@@ -36,49 +36,49 @@
 
         <!-- WiFi 开关（toggle 按钮：两张图片表达 on/off） -->
         <hg_list_item id="row_wifi" x="0" y="0" width="414" height="80">
-          <hg_image id="icon_wifi" x="10" y="15" width="50" height="50" src="/icon_wifi.bin" />
+          <hg_image id="icon_wifi" x="10" y="15" width="50" height="50" src="assets/icon_wifi.png" />
           <hg_label id="lbl_wifi" x="75" y="25" width="180" height="30"
                     text="WiFi" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
           <hg_button id="btn_wifi" x="334" y="25" width="60" height="30"
                      toggleMode="true" initialState="on"
-                     imageOn="/switch_on.bin" imageOff="/switch_off.bin"
+                     imageOn="assets/switch_on.png" imageOff="assets/switch_off.png"
                      onCallback="wifi_on" offCallback="wifi_off" />
         </hg_list_item>
 
         <!-- Bluetooth 开关 -->
         <hg_list_item id="row_bt" x="0" y="0" width="414" height="80">
-          <hg_image id="icon_bt" x="10" y="15" width="50" height="50" src="/icon_bt.bin" />
+          <hg_image id="icon_bt" x="10" y="15" width="50" height="50" src="assets/icon_bt.png" />
           <hg_label id="lbl_bt" x="75" y="25" width="180" height="30"
                     text="Bluetooth" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
           <hg_button id="btn_bt" x="334" y="25" width="60" height="30"
                      toggleMode="true" initialState="off"
-                     imageOn="/switch_on.bin" imageOff="/switch_off.bin"
+                     imageOn="assets/switch_on.png" imageOff="assets/switch_off.png"
                      onCallback="bt_on" offCallback="bt_off" />
         </hg_list_item>
 
         <!-- 亮度：值显示 + 调节按钮（HoneyGUI 无原生 slider） -->
         <hg_list_item id="row_brightness" x="0" y="0" width="414" height="80">
-          <hg_image id="icon_brightness" x="10" y="15" width="50" height="50" src="/icon_brightness.bin" />
+          <hg_image id="icon_brightness" x="10" y="15" width="50" height="50" src="assets/icon_brightness.png" />
           <hg_label id="lbl_brightness" x="75" y="25" width="150" height="30"
                     text="Brightness" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
           <hg_label id="lbl_brightness_value" x="230" y="25" width="60" height="30"
                     text="70%" fontSize="18" color="#00FF88"
                     hAlign="RIGHT" fontFile="/NotoSansSC-Regular.ttf" />
           <hg_button id="btn_bright_down" x="300" y="25" width="40" height="40"
-                     imageOn="/btn_minus_on.bin" imageOff="/btn_minus.bin"
+                     imageOn="assets/btn_minus_on.png" imageOff="assets/btn_minus.png"
                      clickCallback="brightness_down" />
           <hg_button id="btn_bright_up" x="354" y="25" width="40" height="40"
-                     imageOn="/btn_plus_on.bin" imageOff="/btn_plus.bin"
+                     imageOn="assets/btn_plus_on.png" imageOff="assets/btn_plus.png"
                      clickCallback="brightness_up" />
         </hg_list_item>
 
         <!-- 关于（图片按钮，点击调用回调） -->
         <hg_list_item id="row_about" x="0" y="0" width="414" height="80">
-          <hg_image id="icon_about" x="10" y="15" width="50" height="50" src="/icon_info.bin" />
+          <hg_image id="icon_about" x="10" y="15" width="50" height="50" src="assets/icon_info.png" />
           <hg_label id="lbl_about" x="75" y="25" width="200" height="30"
                     text="About" fontSize="18" color="#FFFFFF" fontFile="/NotoSansSC-Regular.ttf" />
           <hg_button id="btn_about" x="334" y="25" width="60" height="40"
-                     imageOn="/icon_chevron_on.bin" imageOff="/icon_chevron.bin"
+                     imageOn="assets/icon_chevron_on.png" imageOff="assets/icon_chevron.png"
                      clickCallback="go_to_about" />
         </hg_list_item>
       </hg_list>

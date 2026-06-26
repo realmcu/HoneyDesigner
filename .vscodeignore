@@ -115,6 +115,10 @@ node_modules/**
 !node_modules/jpeg-js/**
 !node_modules/bmp-js/**
 
+# SVG 栅格化（AI 设计图像生成，扩展侧 require @resvg/resvg-wasm）
+# 自包含 wasm，无运行时依赖；必须随扩展打包，否则 initWasm 找不到 index_bg.wasm
+!node_modules/@resvg/resvg-wasm/**
+
 # LVGL 字体转换器（tools/lv-font-conv）的运行时依赖
 # 由独立 node 进程 require，必须随扩展一起打包，否则转换进程启动即报错
 !node_modules/argparse/**

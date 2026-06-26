@@ -537,7 +537,7 @@ export class ExtensionManager {
 
 - 只用规范中标注当前 targetEngine 为 ready(✓) 的组件；planned / unsupported 一律勿用。
 - \`hg_view\` 不可嵌套；非容器组件不可有子组件。
-- 资源路径必须以 \`/\` 开头（从 assets 目录起算）；\`hg_label\` 必须有 \`fontFile\`，且字体须在 assets/ 中。
+- 图像路径（\`src\`/\`imageOn\`/\`imageOff\`）以 \`assets/\` 开头，如 \`assets/icon.png\`；字体 \`fontFile\` 以 \`/\` 开头，如 \`/NotoSansSC-Medium.ttf\`。\`hg_label\` 必须有 \`fontFile\`，且字体须在 assets/ 中。
 - 事件用 \`<events><event><action>\` 结构，不用内联 \`onXxx\` 属性。
 - 尺寸用 \`width\`/\`height\`（不是 \`w\`/\`h\`）；对齐用 \`hAlign\`/\`vAlign\`（不是 \`textAlign\`）。
 - 绝不存在、永远勿用的组件：\`hg_container\`、\`hg_grid\`、\`hg_tab\`。

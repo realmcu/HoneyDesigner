@@ -1,6 +1,7 @@
 import * as http from 'http';
 import * as vscode from 'vscode';
 import { HmlValidationService, ValidationResult } from './HmlValidationService';
+import { SvgRasterizeService } from './SvgRasterizeService';
 
 /**
  * 端点配置接口
@@ -36,6 +37,7 @@ export class ExtensionApiService implements vscode.Disposable {
     private port: number = 38912;
     private context: vscode.ExtensionContext | undefined;
     private hmlValidator: HmlValidationService | undefined;
+    private svgRasterizer: SvgRasterizeService | undefined;
 
     /**
      * 端点配置（单一数据源）
@@ -147,6 +149,16 @@ export class ExtensionApiService implements vscode.Disposable {
             description: 'Validate HML XML content (supports hmlContent or filePath)',
             args: ['hmlContent: string | filePath: string'],
             needsUI: false
+        },
+        // SVG 栅格化（AI 设计图像生成）
+        {
+            endpoint: 'POST /api/svg-to-image',
+            method: 'POST',
+            command: '', // 不复用命令，直接调用服务
+            title: 'SVG to Image',
+            description: 'Rasterize an SVG to PNG and write it into the project assets/ for AI design. Returns assetPath (assets/<name>.png) for HML reference.',
+            args: ['svg: string', 'name: string', 'width: number', 'height?: number', 'overwrite?: boolean'],
+            needsUI: false
         }
     ];
 
@@ -163,6 +175,9 @@ export class ExtensionApiService implements vscode.Disposable {
         } catch (error) {
             console.error('[API] Failed to initialize HmlValidationService:', error);
         }
+
+        // 初始化 SVG 栅格化服务（wasm 懒加载，构造本身无副作用）
+        this.svgRasterizer = new SvgRasterizeService();
 
         this.server = http.createServer(async (req, res) => {
             // 设置 CORS 头，允许跨域访问
@@ -235,6 +250,11 @@ export class ExtensionApiService implements vscode.Disposable {
         // HML 验证
         if (method === 'POST' && url === '/api/validate-hml') {
             return this.handleValidateHml(req, res);
+        }
+
+        // SVG 栅格化（AI 设计图像生成）
+        if (method === 'POST' && url === '/api/svg-to-image') {
+            return this.handleSvgToImage(req, res);
         }
 
         // 命令列表
@@ -330,6 +350,69 @@ export class ExtensionApiService implements vscode.Disposable {
                 apiPort: this.port,
             }
         }));
+    }
+
+    /**
+     * POST /api/svg-to-image - 将 AI 生成的 SVG 栅格化为 PNG 并写入 assets/
+     *
+     * 请求体: { svg: string, name: string, width: number, height?: number, overwrite?: boolean }
+     * 响应:   { success: true, data: { assetPath, absolutePath, width, height, bytes } }
+     * 产物到 PNG 即止；PNG→.bin 由仿真/构建期处理。assetPath 形如 assets/<name>.png 供 HML 引用。
+     */
+    private async handleSvgToImage(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+        const body = await this.readBody(req);
+
+        if (!body || typeof body.svg !== 'string' || typeof body.name !== 'string' || typeof body.width !== 'number') {
+            res.statusCode = 400;
+            res.end(JSON.stringify({
+                success: false,
+                error: {
+                    code: 'INVALID_PARAMETER',
+                    message: 'Required: svg (string), name (string), width (number); optional: height (number), overwrite (boolean)'
+                }
+            }));
+            return;
+        }
+
+        if (!this.svgRasterizer) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({
+                success: false,
+                error: { code: 'SERVICE_UNAVAILABLE', message: 'SVG Rasterize Service is not initialized' }
+            }));
+            return;
+        }
+
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({
+                success: false,
+                error: { code: 'NO_WORKSPACE', message: 'No workspace folder is open' }
+            }));
+            return;
+        }
+        const projectRoot = workspaceFolders[0].uri.fsPath;
+
+        try {
+            const result = await this.svgRasterizer.svgToAsset(body.svg, projectRoot, body.name, {
+                width: body.width,
+                height: typeof body.height === 'number' ? body.height : undefined,
+                overwrite: body.overwrite === true,
+            });
+            res.statusCode = 200;
+            res.end(JSON.stringify({ success: true, data: result }));
+        } catch (error: any) {
+            const code = error?.code || 'RASTERIZE_FAILED';
+            const statusMap: Record<string, number> = {
+                INVALID_PARAMETER: 400, INVALID_NAME: 400, ASSET_EXISTS: 409, RASTERIZE_FAILED: 422
+            };
+            res.statusCode = statusMap[code] || 500;
+            res.end(JSON.stringify({
+                success: false,
+                error: { code, message: error?.message || 'SVG rasterize failed' }
+            }));
+        }
     }
 
     /**

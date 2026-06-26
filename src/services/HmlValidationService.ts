@@ -16,7 +16,7 @@ import { Component } from '../hml/types';
  * │ 4. 组件 ID 验证         - 全局唯一性 + C 标识符格式                     │
  * │ 5. 组件嵌套规则验证     - 容器/非容器组件嵌套约束                       │
  * │ 6. hg_view 不嵌套验证   - hg_view 不能嵌套在另一个 hg_view 中          │
- * │ 7. 资源路径格式验证     - 所有资源路径必须以 '/' 开头                   │
+ * │ 7. 资源路径格式验证     - 图像 assets/ 开头、字体 fontFile / 开头      │
  * │ 8. Entry View 唯一性验证 - 必须有且只有一个 entry="true" 的 hg_view    │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
@@ -52,7 +52,7 @@ export class HmlValidationService {
      * 4. 组件 ID 验证：全局唯一性 + 格式符合 C 标识符规范
      * 5. 组件嵌套规则验证：只有容器组件可以包含子组件
      * 6. hg_view 不嵌套验证：hg_view 不能嵌套在另一个 hg_view 中
-     * 7. 资源路径格式验证：所有资源路径必须以 '/' 开头
+     * 7. 资源路径格式验证：图像 src/imageOn/imageOff 以 'assets/' 开头、字体 fontFile 以 '/' 开头
      * 8. Entry View 唯一性验证：必须有且只有一个 hg_view 的 entry="true"
      */
     public validateHml(hmlContent: string): ValidationResult {
@@ -121,13 +121,13 @@ export class HmlValidationService {
             this.validateNoNestedViews(document.view.components || [], errors);
 
             // ========================================
-            // 规则 7: 资源路径格式验证（HML-Spec 开头说明）
-            // - 所有资源路径必须以 '/' 开头
-            // - 包括：src, imageOn, imageOff, fontFile
-            // - 正确：/NotoSansSC-Bold.ttf
-            // - 错误：NotoSansSC-Bold.ttf
+            // 规则 7: 资源路径格式验证（按资源类型）
+            // - 图像类 src/imageOn/imageOff：必须以 'assets/' 开头
+            // - 字体 fontFile：必须以 '/' 开头
+            // - 正确：src="assets/icon.png"、fontFile="/NotoSansSC-Medium.ttf"
+            // - 错误：src="/icon.bin"、fontFile="NotoSansSC-Medium.ttf"
             // ========================================
-            validationRules.push('资源路径格式验证（必须以 / 开头）');
+            validationRules.push('资源路径格式验证（图像 assets/ 开头、字体 / 开头）');
             this.validateResourcePaths(document.view.components || [], errors, warnings);
 
             // ========================================
@@ -336,44 +336,57 @@ export class HmlValidationService {
     }
 
     /**
-     * 验证资源路径格式（HML-Spec：必须以 '/' 开头）
+     * 验证资源路径格式（按资源类型分别校验）
      *
-     * 验证内容：
-     * - 检查所有资源路径属性是否以 '/' 开头
-     * - 资源属性包括：
-     *   - src: 图片/视频资源路径（hg_image, hg_video 等）
-     *   - imageOn/imageOff: 开关图片（hg_switch 等）
-     *   - fontFile: 字体文件路径（hg_label 等）
+     * 两类资源在 HML 中的路径约定不同——这与设计器产物、画布预览、codegen
+     * 的实际行为一致（详见各自预览代码），不是随意约定：
      *
-     * 正确示例：
-     * - fontFile="/NotoSansSC-Bold.ttf"
-     * - src="/images/icon.png"
+     * 1) 图像类（src / imageOn / imageOff）：必须以 'assets/' 开头
+     *    - 画布预览 path.join(projectRoot, src) 不补任何前缀，故 src 必须自带 assets/，
+     *      否则预览找不到文件（见 ImageWidget / useWebviewUri / AssetManager）。
+     *    - codegen 会先 strip 'assets/'、再做 png→bin 转换（见 ImageGenerator）。
+     *    - 设计器拖拽创建图像时生成的就是 'assets/xxx.png'（见 App.tsx / messageHandler）。
+     *    - 正确：src="assets/icon.png"   错误：src="/icon.bin"、src="icon.png"
      *
-     * 错误示例：
-     * - fontFile="NotoSansSC-Bold.ttf"  （缺少前导 /）
-     * - src="images/icon.png"           （缺少前导 /）
+     * 2) 字体（fontFile）：必须以 '/' 开头
+     *    - 预览侧 useFontLoader 会主动补 'assets' 前缀（"assets" + fontFile），
+     *      故 fontFile 必须以 / 开头才能拼出 assets/xxx.ttf。
+     *    - 正确：fontFile="/NotoSansSC-Medium.ttf"   错误：fontFile="NotoSansSC-Medium.ttf"
      *
-     * 原因：HML 使用绝对路径以确保资源引用的一致性，
-     * 所有路径都相对于项目的 assetsDir 目录
-     *
-     * 依据：HML-Spec.md 开头特别说明
+     * 注：HmlParser 返回扁平化组件数组，这里遍历即覆盖所有嵌套组件。
      */
     private validateResourcePaths(
         components: Component[],
         errors: ValidationError[],
         warnings: ValidationWarning[]
     ): void {
-        for (const component of components) {
-            // 检查常见的资源属性
-            const resourceAttrs = ['src', 'imageOn', 'imageOff', 'fontFile'];
+        // 图像类资源：路径必须以 'assets/' 开头
+        const imageAttrs = ['src', 'imageOn', 'imageOff'];
+        // 字体资源：路径必须以 '/' 开头（预览侧会补 'assets' 前缀）
+        const fontAttrs = ['fontFile'];
 
-            for (const attr of resourceAttrs) {
+        for (const component of components) {
+            for (const attr of imageAttrs) {
+                const value = (component.data as any)?.[attr];
+                if (value && typeof value === 'string' && value.trim() !== '') {
+                    if (!value.startsWith('assets/')) {
+                        errors.push({
+                            type: 'attribute',
+                            message: `Image resource path must start with 'assets/', got: '${value}'`,
+                            componentId: component.id,
+                            attribute: attr
+                        });
+                    }
+                }
+            }
+
+            for (const attr of fontAttrs) {
                 const value = (component.data as any)?.[attr];
                 if (value && typeof value === 'string' && value.trim() !== '') {
                     if (!value.startsWith('/')) {
                         errors.push({
                             type: 'attribute',
-                            message: `Resource path must start with '/', got: '${value}'`,
+                            message: `Font path must start with '/', got: '${value}'`,
                             componentId: component.id,
                             attribute: attr
                         });

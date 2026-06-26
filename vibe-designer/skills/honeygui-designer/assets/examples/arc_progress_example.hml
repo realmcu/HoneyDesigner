@@ -9,7 +9,7 @@
   注意 timers 值是 JSON，故 XML 属性用单引号包裹：timers='[{"...":...}]'。
 
   ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
-  ⚠️ 资源路径（如 /spinner.bin）是占位符，恒以 "/" 开头；实际项目需准备资源并放入 assets/。
+  ⚠️ 图像路径（如 assets/spinner.png）是占位符，以 "assets/" 开头；实际项目需准备资源并放入 assets/。
 -->
 <hml>
   <meta>
@@ -29,7 +29,7 @@
 
       <!-- 旋转的加载图标：timers 绑定 preset 旋转动画，每 16ms 一帧、循环、3s 转一圈 -->
       <hg_image id="img_spinner" x="187" y="187" width="80" height="80"
-                src="/spinner.bin" zIndex="1"
+                src="assets/spinner.png" zIndex="1"
                 timers='[{"id":"spin","name":"Spin","enabled":true,"runImmediately":true,"interval":16,"reload":true,"mode":"preset","segments":[{"duration":3000,"actions":[{"type":"rotation","from":0,"to":360}]}]}]' />
 
       <!-- 中心进度文案 -->

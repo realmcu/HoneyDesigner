@@ -69,7 +69,8 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
 | 事件 | `<events><event type="onClick"><action type="callFunction" functionName="fn"/></event></events>` | 内联 `onClick="fn"` |
 | 按钮 | `hg_button` 用 `imageOn`/`imageOff` + `clickCallback`（普通）或 `onCallback`/`offCallback`（toggle），**非容器、无子组件** | `hg_button src=`、内嵌子组件、`text=` |
 | entry | 恰好一个 `hg_view entry="true"` | 缺 entry 或多个 entry |
-| 资源路径 | 以 `/` 开头，是"从 assets 文件夹起的相对路径"，如 `/icon.bin`、`/NotoSansSC-Medium.ttf` | `icon.bin`、`assets/icon.bin` |
+| 图像路径 | `src`/`imageOn`/`imageOff` 以 `assets/` 开头，如 `assets/icon.png`（与设计器一致，预览/仿真都认） | `/icon.bin`、`icon.png` |
+| 字体路径 | `fontFile` 以 `/` 开头（从 assets 起算），如 `/NotoSansSC-Medium.ttf` | `NotoSansSC-Medium.ttf`、`assets/x.ttf` |
 | 字体 | `hg_label` 必须有 `fontFile`，且字体文件须在 assets 中 | 缺 `fontFile` |
 
 ## 字体处理（`hg_label` 系列必读）
@@ -87,6 +88,36 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
    **不要凭空引用不存在的字体名**。
 
 > 中文文本必须用覆盖 CJK 的字体（如 NotoSansSC）；纯拉丁字体（如 Inter）渲染中文会缺字/豆腐块。
+
+## 按需生成图像（assets 为空时）
+
+新项目 `assets/` 常常没有现成图标/插画。**需要简单的图标、徽标、装饰图形时**，不要引用不存在的文件，
+而是生成矢量 SVG 交给扩展栅格化为 PNG：调用 `POST http://localhost:38912/api/svg-to-image`，
+扩展用内置 resvg 把 SVG 渲染成 PNG 写入 `assets/`，返回可直接写进 HML 的路径。
+
+**SVG 硬约束（必须遵守，否则栅格化结果不可控或失败）：**
+
+- 只用矢量绘制：`<path>`、`<rect>`、`<circle>`、`<polygon>`、`<line>`、`<g>` 等基本图元。
+- **禁止 `<text>`**（无系统字体，渲染不出文字）、**禁止 `<image>` 与任何外部/网络引用**、禁止滤镜（`<filter>`、投影阴影）。
+- 用正方形 `viewBox`（如 `0 0 100 100`），实际尺寸由 `width` 决定；颜色用简单纯色或线性渐变。
+- 图标设计简洁，贴合嵌入式小屏与目标尺寸（图标通常 48–120px）。
+
+**调用与参数：**
+
+```bash
+curl -X POST http://localhost:38912/api/svg-to-image \
+  -H "Content-Type: application/json" \
+  -d '{"svg":"<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"#01BFFE\"/></svg>","name":"icon_bt","width":96}'
+```
+
+- `svg`（必填）：SVG 源字符串。`name`（必填）：资源名，只允许字母/数字/`_`/`-`，不含扩展名与路径。
+- `width`（必填）：目标像素宽；`height`（可选，省略则按 SVG 比例）；`overwrite`（可选，默认 false，同名已存在返回 409）。
+- 返回 `data.assetPath`，形如 `assets/icon_bt.png`。
+
+**写进 HML：** 把返回的 `assetPath` 原样填进 `hg_image` 的 `src`（或 `hg_button` 的 `imageOn`/`imageOff`），
+如 `<hg_image id="icon_bt" src="assets/icon_bt.png" .../>`。**仍需走 validate-hml**。
+
+> 仿真/编译时扩展会把 `assets/*.png` 自动转成 `.bin`，无需手动转换；`src` 只写 `.png` 源，别写 `.bin`。
 
 ## HML 结构骨架
 
@@ -156,7 +187,7 @@ curl -X POST http://localhost:38912/api/validate-hml \
 ```
 
 **验证器的 8 条规则**（必要不充分）：内容非空、XML 语法、文档结构（meta+view）、组件 ID 唯一性与格式、
-组件嵌套规则、`hg_view` 不嵌套、资源路径以 `/` 开头、Entry View 唯一性。
+组件嵌套规则、`hg_view` 不嵌套、图像路径 `assets/` 开头（字体 `fontFile` 以 `/` 开头）、Entry View 唯一性。
 
 > ⚠️ 验证器**不查组件白名单、不查属性名**。用了不存在/当前引擎不可用的组件，或写错属性名（如把 `width` 写成 `w`），也可能 `valid:true`。
 > 因此 `valid:true` 后仍须对照 `HML-Spec.md` 核对：组件在当前引擎可用、属性名正确。

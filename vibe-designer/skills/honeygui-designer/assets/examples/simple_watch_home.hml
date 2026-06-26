@@ -5,8 +5,8 @@
           hg_window 作头部容器（毛玻璃）、hg_time_label 实时时间、hg_label 文本、hg_image 图标。
 
   ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
-  ⚠️ 资源路径（如 /home_icon.bin）是占位符，恒以 "/" 开头（从 assets 目录起算）；
-     实际项目需准备资源、用 Extension 转为 .bin 放入 assets/。
+  ⚠️ 图像路径（如 assets/home_icon.png）是占位符，以 "assets/" 开头；
+     实际项目需准备资源放入 assets/，仿真/编译时扩展自动把 png 转为 bin。
 -->
 <hml>
   <meta>
@@ -21,7 +21,7 @@
 
       <!-- 中心图标 -->
       <hg_image id="img_home" x="187" y="180" width="80" height="80"
-                src="/home_icon.bin" />
+                src="assets/home_icon.png" />
 
       <!-- 头部容器：毛玻璃窗口，承载时间与标题 -->
       <hg_window id="win_header" x="0" y="0" width="454" height="110"

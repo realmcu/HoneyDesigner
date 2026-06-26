@@ -6,7 +6,7 @@
           注：HoneyGUI 无原生进度条/滑块，环形/线性进度用 hg_arc/hg_rect 叠放表达。
 
   ⚠️ examples 仅示范语法结构，勿照抄布局/配色/文案——请按用户需求原创设计。
-  ⚠️ 资源路径（如 /album.bin）是占位符，恒以 "/" 开头；实际项目需准备资源并放入 assets/。
+  ⚠️ 图像路径（如 assets/album.png）是占位符，以 "assets/" 开头；实际项目需准备资源并放入 assets/。
 -->
 <hml>
   <meta>
@@ -34,7 +34,7 @@
 
       <!-- 专辑封面（环内居中） -->
       <hg_image id="img_album" x="147" y="110" width="160" height="160"
-                src="/album.bin" zIndex="2" />
+                src="assets/album.png" zIndex="2" />
 
       <!-- 歌曲标题 / 艺术家 -->
       <hg_label id="lbl_title" x="77" y="290" width="300" height="32"
@@ -47,7 +47,7 @@
       <!-- 播放/暂停按钮（toggle 图片按钮，两态切换调不同回调） -->
       <hg_button id="btn_play" x="195" y="372" width="64" height="64"
                  toggleMode="true" initialState="off"
-                 imageOn="/icon_pause.bin" imageOff="/icon_play.bin"
+                 imageOn="assets/icon_pause.png" imageOff="assets/icon_play.png"
                  onCallback="music_pause" offCallback="music_play" zIndex="3" />
     </hg_view>
   </view>
