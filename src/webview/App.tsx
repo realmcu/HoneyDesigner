@@ -1537,9 +1537,9 @@ const App: React.FC = () => {
           onMouseDown={(e) => { e.preventDefault(); leftPanel.startResize(); }}
           style={{ display: leftPanel.isCollapsed ? 'none' : 'block' }}
         >
-          <button 
+          <button
             className="collapse-button left"
-            onClick={leftPanel.toggle}
+            onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); leftPanel.toggle(); }}
             title="收起左侧面板 (Ctrl+B)"
           >
             ◀
@@ -1586,9 +1586,9 @@ const App: React.FC = () => {
           onMouseDown={(e) => { e.preventDefault(); rightPanel.startResize(); }}
           style={{ display: rightPanel.isCollapsed ? 'none' : 'block' }}
         >
-          <button 
+          <button
             className="collapse-button right"
-            onClick={rightPanel.toggle}
+            onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); rightPanel.toggle(); }}
             title="收起右侧面板 (Ctrl+Shift+B)"
           >
             ▶
