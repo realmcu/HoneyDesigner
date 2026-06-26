@@ -45,7 +45,8 @@ export type ComponentType =
   | 'hg_glass'
   | 'hg_particle'
   | 'hg_menu_cellular'
-  | 'hg_qbcode';
+  | 'hg_qbcode'
+  | 'hg_streaming';
 
 export type EngineSupport = 'ready' | 'planned' | 'unsupported';
 

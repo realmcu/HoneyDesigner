@@ -27,6 +27,7 @@ import { CanvasWidget } from './CanvasWidget';
 import { ParticleWidget } from './ParticleWidget';
 import { MenuCellularWidget } from './MenuCellularWidget';
 import { QbcodeWidget } from './QbcodeWidget';
+import { StreamingWidget } from './StreamingWidget';
 
 export { WidgetProps, widgetMemo } from './types';
 
@@ -62,4 +63,5 @@ export const widgetRegistry: Record<string, React.FC<WidgetProps>> = {
   hg_particle: widgetMemo(ParticleWidget),
   hg_menu_cellular: widgetMemo(MenuCellularWidget),
   hg_qbcode: widgetMemo(QbcodeWidget),
+  hg_streaming: widgetMemo(StreamingWidget),
 };

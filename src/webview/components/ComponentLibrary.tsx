@@ -371,6 +371,19 @@ const componentDefinitions: ComponentDefinition[] = [
     ],
   },
   {
+    type: 'hg_streaming',
+    name: 'Streaming',
+    icon: '📡',
+    engineSupport: { lvgl: 'unsupported' },
+    defaultSize: { width: 320, height: 240 },
+    properties: [
+      { name: 'codec',          label: 'Codec',                    type: 'select', defaultValue: 'jpeg',  options: ['jpeg', 'msv1', 'cinepak', 'raw'], group: 'data' },
+      { name: 'transporter',    label: 'Transporter Variable',     type: 'string', group: 'data' },
+      { name: 'updateInterval', label: 'Update Interval (ms)',     type: 'number', defaultValue: 40,      min: 10, max: 5000, group: 'data' },
+      { name: 'dropMode',       label: 'Drop Mode',                type: 'select', defaultValue: 'none',  options: ['none', 'unconditional'], group: 'data' },
+    ],
+  },
+  {
     type: 'hg_gif',
     name: 'GIF Animation',
     icon: '🎞️',
@@ -554,7 +567,7 @@ const componentCategories = [
   { name: 'Basic Controls', types: ['hg_button', 'hg_label', 'hg_image'] },
   { name: 'Input Controls', types: ['hg_input', 'hg_checkbox', 'hg_radio', 'hg_switch', 'hg_slider', 'hg_progressbar'] },
   { name: 'Graphics', types: ['hg_arc', 'hg_circle', 'hg_rect', 'hg_svg', 'hg_glass', 'hg_particle', 'hg_qbcode'] },
-  { name: 'Multimedia', types: ['hg_video', 'hg_gif', 'hg_3d', 'hg_lottie'] },
+  { name: 'Multimedia', types: ['hg_video', 'hg_streaming', 'hg_gif', 'hg_3d', 'hg_lottie'] },
 ];
 
 /**

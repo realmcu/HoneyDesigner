@@ -953,6 +953,21 @@ const en = {
   // Font Pixel Order (LVGL only)
   'Pixel Order': 'Pixel Order',
   'Bit order for glyph bitmap': 'Bit order for glyph bitmap in font conversion',
+
+  // HgStreamingProperties
+  'Stream Source': 'Stream Source',
+  'Codec': 'Codec',
+  'Encoded frame format delivered by the transport': 'Encoded frame format delivered by the transport',
+  'Transporter Variable': 'Transporter Variable',
+  'stp_transport_t * variable name (app-owned, must outlive widget)': 'stp_transport_t * variable name (app-owned, must outlive widget)',
+  'Update Policy': 'Update Policy',
+  'Update Interval (ms)': 'Update Interval (ms)',
+  'Frame pull interval in milliseconds (default 40 ms = 25 fps)': 'Frame pull interval in milliseconds (default 40 ms = 25 fps)',
+  'Drop Mode': 'Drop Mode',
+  'None (oldest-first, never drop)': 'None (oldest-first, never drop)',
+  'Unconditional (jump to newest)': 'Unconditional (jump to newest)',
+  'Only safe for independently decodable frames (RAW / JPEG)': 'Only safe for independently decodable frames (RAW / JPEG)',
+  'Default: process frames in order, never skip': 'Default: process frames in order, never skip',
 };
 
 export default en;

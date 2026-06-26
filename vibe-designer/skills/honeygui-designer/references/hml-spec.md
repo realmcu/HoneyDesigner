@@ -238,6 +238,7 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 | **Multimedia** | `hg_image` (见 Basic) | ✅ | ✅ |
 | | `hg_gif` | ✅ | ✅ |
 | | `hg_video` | ✅ | 🚧 |
+| | `hg_streaming` | ✅ | ❌ |
 | | `hg_lottie` | ✅ | ✅ |
 | | `hg_3d` | ✅ | 🚧 |
 | **Not implemented** | `hg_canvas` | 🚧 | 🚧 |
@@ -249,7 +250,7 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 > - **HoneyGUI projects** must not use the 🚧 input family (`hg_input`/`hg_checkbox`/`hg_radio`/
 >   `hg_switch`/`hg_slider`/`hg_progressbar`) nor `hg_canvas` — they are planned, codegen emits stubs.
 > - **LVGL projects** must not use `hg_video`/`hg_3d` (planned) nor the ❌ HoneyGUI-only components
->   (`hg_glass`/`hg_particle`) nor `hg_menu_cellular`.
+>   (`hg_glass`/`hg_particle`/`hg_streaming`) nor `hg_menu_cellular`.
 
 ### Nesting Rules (CRITICAL)
 
@@ -655,6 +656,32 @@ Plays a video file using the HoneyGUI video API (standard or Lite Video).
 - **Default size**: 200×200
 - **C API (standard)**: `gui_video_create_from_fs`, header: `gui_video.h`
 - **C API (Lite Video)**: `gui_lite_video_create_from_fs`, header: `gui_lite_video.h`
+
+---
+
+### 7.8 `hg_streaming` — Streaming Media
+
+引擎: 仅HoneyGUI（LVGL 不支持）
+<!-- engine: honeygui=ready lvgl=unsupported -->
+
+Displays a live stream delivered through an application-managed `stp_transport_t` transport.
+The widget does **not** own the transport — the application creates and destroys it; the widget only
+references it and must not outlive it.  **LVGL projects: do not use (unsupported).**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `codec` | enum | `jpeg` | Frame codec: `jpeg` (MJPEG), `msv1` (MS Video 1, RGB555), `cinepak` (CVID), `raw` (uncompressed) |
+| `transporter` | string | — | `stp_transport_t *` variable name provided by the application |
+| `updateInterval` | number | 40 | Frame-pull interval in milliseconds (40 ms = 25 fps) |
+| `dropMode` | enum | `none` | `none` — oldest-first, never drop; `unconditional` — jump to newest frame |
+
+**Codec notes:**
+- `jpeg` / `raw`: independently decodable — `unconditional` drop mode is safe.
+- `msv1` / `cinepak`: inter-coded — keep `dropMode=none` to avoid decoder-state corruption.
+- `msv1` width/height must be multiples of 4; so must `cinepak`.
+
+- **Default size**: 320×240
+- **C API**: `gui_stream_create`, header: `gui_stream.h`
 
 ---
 
@@ -1167,6 +1194,7 @@ The designer generates C source code from HML. The create function depends on th
 | `hg_image` | `gui_img_create_from_fs` | `lv_image_create` |
 | `hg_gif` | `gui_gif_create_from_fs` | `lv_gif_create` |
 | `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | — (planned) |
+| `hg_streaming` | `gui_stream_create` | — (unsupported) |
 | `hg_lottie` | `gui_lottie_create_from_file` | `lv_lottie_create` |
 | `hg_3d` | `gui_lite3d_create` | — (planned) |
 | `hg_arc` | `gui_arc_create` | `lv_arc_create` |

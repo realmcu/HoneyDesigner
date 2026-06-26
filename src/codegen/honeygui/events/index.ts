@@ -21,6 +21,7 @@ import { CircleEventGenerator } from './CircleEventGenerator';
 import { RectEventGenerator } from './RectEventGenerator';
 import { SvgEventGenerator } from './SvgEventGenerator';
 import { DefaultEventGenerator } from './DefaultEventGenerator';
+import { StreamingEventGenerator } from './StreamingEventGenerator';
 
 export class EventGeneratorFactory {
   private static generators: Map<string, EventCodeGenerator> = new Map();
@@ -47,6 +48,7 @@ export class EventGeneratorFactory {
     
     // Multimedia
     this.generators.set('hg_video', new VideoEventGenerator());
+    this.generators.set('hg_streaming', new StreamingEventGenerator());
     this.generators.set('hg_3d', new Model3DEventGenerator());
     this.generators.set('hg_lottie', new LottieEventGenerator());
     

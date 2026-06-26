@@ -12,6 +12,7 @@ import { DefaultProperties } from './DefaultProperties';
 import { HgParticleProperties } from './HgParticleProperties';
 import { HgMenuCellularProperties } from './HgMenuCellularProperties';
 import { HgQbcodeProperties } from './HgQbcodeProperties';
+import { HgStreamingProperties } from './HgStreamingProperties';
 import { PropertyPanelProps } from './types';
 
 export const propertyPanelRegistry: Record<ComponentType, React.FC<PropertyPanelProps>> = {
@@ -44,6 +45,7 @@ export const propertyPanelRegistry: Record<ComponentType, React.FC<PropertyPanel
   hg_particle: HgParticleProperties,
   hg_menu_cellular: HgMenuCellularProperties,
   hg_qbcode: HgQbcodeProperties,
+  hg_streaming: HgStreamingProperties,
 };
 
 export { HgViewProperties } from './HgViewProperties';
@@ -59,6 +61,7 @@ export { DefaultProperties } from './DefaultProperties';
 export { HgParticleProperties } from './HgParticleProperties';
 export { HgMenuCellularProperties } from './HgMenuCellularProperties';
 export { HgQbcodeProperties } from './HgQbcodeProperties';
+export { HgStreamingProperties } from './HgStreamingProperties';
 export { BaseProperties } from './BaseProperties';
 export { PropertyEditor } from './PropertyEditor';
 export { CollapsibleGroup } from './CollapsibleGroup';

@@ -27,6 +27,7 @@ import { ParticleGenerator } from './ParticleGenerator';
 import { MenuCellularGenerator } from './MenuCellularGenerator';
 import { QbcodeGenerator } from './QbcodeGenerator';
 import { DefaultGenerator } from './DefaultGenerator';
+import { StreamingGenerator } from './StreamingGenerator';
 
 export class ComponentGeneratorFactory {
   private static generators: Map<string, ComponentCodeGenerator> = new Map();
@@ -55,6 +56,7 @@ export class ComponentGeneratorFactory {
     
     // Multimedia
     this.generators.set('hg_video', new VideoGenerator());
+    this.generators.set('hg_streaming', new StreamingGenerator());
     this.generators.set('hg_3d', new Model3DGenerator());
     this.generators.set('hg_lottie', new LottieGenerator());
     

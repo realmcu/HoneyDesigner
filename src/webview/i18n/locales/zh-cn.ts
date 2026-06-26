@@ -955,6 +955,21 @@ const zhCN = {
   // Font Pixel Order (LVGL only)
   'Pixel Order': '像素序',
   'Bit order for glyph bitmap': '字体转换时字形位图的位序',
+
+  // HgStreamingProperties
+  'Stream Source': '流媒体源',
+  'Codec': '编码格式',
+  'Encoded frame format delivered by the transport': '传输层传递的帧编码格式',
+  'Transporter Variable': 'Transporter 变量',
+  'stp_transport_t * variable name (app-owned, must outlive widget)': 'stp_transport_t * 变量名（由应用管理，生命周期须长于控件）',
+  'Update Policy': '更新策略',
+  'Update Interval (ms)': '更新间隔 (ms)',
+  'Frame pull interval in milliseconds (default 40 ms = 25 fps)': '拉帧间隔（毫秒），默认 40 ms = 25 fps',
+  'Drop Mode': '丢帧模式',
+  'None (oldest-first, never drop)': '不丢帧（按序处理）',
+  'Unconditional (jump to newest)': '无条件丢帧（跳到最新帧）',
+  'Only safe for independently decodable frames (RAW / JPEG)': '仅适用于可独立解码的帧（RAW / JPEG）',
+  'Default: process frames in order, never skip': '默认：按序处理，不跳帧',
 };
 
 export default zhCN;
