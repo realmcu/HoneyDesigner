@@ -820,14 +820,21 @@ export class SimulationRunner {
         }
 
         if (deep) {
-            // 深度清理：清理 src 目录，但保留 user/ 和 callbacks/ 子目录
+            // 深度清理：清理 src 目录，但保留 user/ 和 callbacks/ 子目录，以及入口文件
             const srcDir = path.join(this.projectRoot, 'src');
             if (fs.existsSync(srcDir)) {
                 const preserveDirs = ['user', 'callbacks'];
+                // 入口文件 {ProjectName}Entry.c 含有 @protected 保护区，深度清理时需保留以免丢失用户代码
+                const projectConfig = ProjectUtils.loadProjectConfig(this.projectRoot);
+                const preserveFiles = [`${projectConfig.name || 'HoneyGUI'}Entry.c`];
                 const entries = fs.readdirSync(srcDir, { withFileTypes: true });
                 for (const entry of entries) {
                     if (preserveDirs.includes(entry.name)) {
                         this.log(`保留目录: src/${entry.name}`);
+                        continue;
+                    }
+                    if (preserveFiles.includes(entry.name)) {
+                        this.log(`保留入口文件: src/${entry.name}`);
                         continue;
                     }
                     const fullPath = path.join(srcDir, entry.name);
