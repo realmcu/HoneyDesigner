@@ -46,9 +46,14 @@ export class ViewGenerator implements ComponentCodeGenerator {
     let code = '';
     
     // Generate switch_out callback
+    const switchOutFunc = component.data?.switchOutFunctionName as string | undefined;
     code += `${indentStr}static void ${name}_switch_out(gui_view_t *view)\n`;
     code += `${indentStr}{\n`;
-    code += `${indentStr}    GUI_UNUSED(view);\n`;
+    if (switchOutFunc) {
+      code += `${indentStr}    ${switchOutFunc}(view);\n`;
+    } else {
+      code += `${indentStr}    GUI_UNUSED(view);\n`;
+    }
     code += `${indentStr}}\n\n`;
     
     // Generate switch_in callback

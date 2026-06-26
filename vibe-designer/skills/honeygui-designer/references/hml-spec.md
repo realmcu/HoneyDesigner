@@ -294,6 +294,7 @@ The primary top-level container representing a full screen/page.
 | `residentMemory` | boolean | — | Keep in memory when switching away |
 | `animateStep` | number | height/10 | Animation step value |
 | `opacity` | number | 255 | Opacity (0–255) |
+| `switchOutFunctionName` | string | — | User-defined function called inside `_switch_out()`. Must be declared in `*_user.h` with signature `void func_name(gui_view_t *view)` |
 
 - **Default size**: 350×250
 - **C API**: `GUI_VIEW_INSTANCE` macro

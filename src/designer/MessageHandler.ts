@@ -1086,8 +1086,9 @@ export class MessageHandler {
             const eventFuncPattern = /void\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*void\s*\*\s*obj\s*,\s*gui_event_t\s*\*\s*e\s*\)/g;
             const msgFuncPattern = /void\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*gui_obj_t\s*\*\s*obj\s*,\s*const\s+char\s*\*\s*topic\s*,\s*void\s*\*\s*data\s*,\s*uint16_t\s+len\s*\)/g;
             const noteDesignFuncPattern = /void\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*gui_obj_t\s*\*\s*obj\s*,\s*void\s*\*\s*param\s*\)/g;
+            const viewFuncPattern = /void\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*gui_view_t\s*\*\s*\w+\s*\)/g;
 
-            const functions: Array<{ name: string; type: 'event' | 'message' | 'noteDesign' }> = [];
+            const functions: Array<{ name: string; type: 'event' | 'message' | 'noteDesign' | 'view' }> = [];
 
             // 提取事件函数
             let match;
@@ -1105,6 +1106,13 @@ export class MessageHandler {
                 // 避免与 event/message 函数重复
                 if (!functions.some(f => f.name === match![1])) {
                     functions.push({ name: match[1], type: 'noteDesign' });
+                }
+            }
+
+            // 提取 view 生命周期函数 void func(gui_view_t *view)
+            while ((match = viewFuncPattern.exec(content)) !== null) {
+                if (!functions.some(f => f.name === match![1])) {
+                    functions.push({ name: match[1], type: 'view' });
                 }
             }
 

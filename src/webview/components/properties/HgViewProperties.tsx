@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { PropertyPanelProps } from './types';
 import { PropertyEditor } from './PropertyEditor';
 import { BaseProperties } from './BaseProperties';
@@ -9,6 +9,27 @@ import { calculateViewComplexity } from '../../utils/viewComplexity';
 
 export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
+  const [viewFunctions, setViewFunctions] = useState<Array<{ name: string }>>([]);
+  const viewFunctionsLoaded = useRef(false);
+
+  useEffect(() => {
+    window.vscodeAPI?.postMessage({ command: 'getUserFunctions' });
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.command === 'userFunctionsLoaded') {
+        viewFunctionsLoaded.current = true;
+        const fns: Array<{ name: string; type: string }> = message.functions || [];
+        setViewFunctions(fns.filter(f => f.type === 'view'));
+        // Clear stale switchOutFunctionName if the referenced function no longer exists
+        const currentVal = component.data?.switchOutFunctionName;
+        if (currentVal && !fns.some(f => f.name === currentVal && f.type === 'view')) {
+          onUpdate({ data: { ...component.data, switchOutFunctionName: '' } });
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   // 计算默认动画步长（屏幕高度的 1/10）
   const defaultAnimateStep = Math.round(component.position.height / 10);
@@ -127,6 +148,26 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
                   min={0}
                   max={255}
                 />
+              </div>
+              <div className="property-item">
+                <label>{t('Switch Out Callback')}</label>
+                {viewFunctions.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)' }}>
+                    {t('No view functions found, declare in src/user/**_user.h')}
+                  </div>
+                ) : (
+                  <select
+                    value={component.data?.switchOutFunctionName || ''}
+                    onChange={(e) => handleDataChange('switchOutFunctionName', e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="">-- {t('None')} --</option>
+                    {viewFunctions.map(fn => (
+                      <option key={fn.name} value={fn.name}>{fn.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </CollapsibleGroup>
 

@@ -86,6 +86,16 @@ export class UserFileGenerator {
 //     uint16_t index = note->index;
 //     GUI_UNUSED(index);
 // }
+
+// void view_switch_out_callback(gui_view_t *view)
+// {
+//     GUI_UNUSED(view);
+// #ifdef _HONEYGUI_SIMULATOR_
+//     // TODO: cleanup or save state when leaving this view
+// #else
+//     // TODO: cleanup or save state when leaving this view
+// #endif
+// }
 `;
 
     return code;

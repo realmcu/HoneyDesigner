@@ -474,6 +474,8 @@ const en = {
   'action.controlTimer': 'Custom Animation Set',
   // Action editor texts
   'No user functions found, declare in src/user/**_user.h': 'No user functions found. Declare them in src/user/**_user.h',
+  'Switch Out Callback': 'Switch Out Callback',
+  'No view functions found, declare in src/user/**_user.h': 'No view callbacks found. Declare void func(gui_view_t *view) in src/user/**_user.h',
   'No timer components in current view': 'No timer-configured components in current view',
   'Select target component and action (one timer per component)': 'Select target component and action (one timer per component)',
   'Animation Targets': 'Animation Targets',
