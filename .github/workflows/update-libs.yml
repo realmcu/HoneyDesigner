@@ -25,7 +25,9 @@ jobs:
       - name: Clone HoneyGUI SDK
         run: |
           git clone --depth 1 https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
-          git -C /tmp/HoneyGUI fetch --tags --depth=1
+          # describe needs the ancestry back to the nearest tag (~300+ commits),
+          # so unshallow; blob:none keeps it to commit/tree metadata, not file history
+          git -C /tmp/HoneyGUI fetch --tags --unshallow --filter=blob:none
 
       - name: Get SDK commit info
         id: sdk-info
@@ -187,7 +189,9 @@ jobs:
         shell: pwsh
         run: |
           git clone --depth 1 https://github.com/realmcu/HoneyGUI.git C:/tmp/HoneyGUI
-          git -C C:/tmp/HoneyGUI fetch --tags --depth=1
+          # describe needs the ancestry back to the nearest tag (~300+ commits),
+          # so unshallow; blob:none keeps it to commit/tree metadata, not file history
+          git -C C:/tmp/HoneyGUI fetch --tags --unshallow --filter=blob:none
 
       - name: Get SDK commit info
         id: sdk-info
