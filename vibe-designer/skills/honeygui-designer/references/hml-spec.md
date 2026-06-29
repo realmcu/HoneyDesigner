@@ -7,7 +7,7 @@ HML is an XML-based markup language used by HoneyGUI Design to describe embedded
 HML is **one language with two code-generation backends (engines)**: `honeygui` and `lvgl`.
 Each project locks exactly one engine via `project.json` → `targetEngine`. A component may be
 available on both engines, only one, or neither. **Only use components marked available (✓) for
-the current project's engine.** Components marked "暂不支持，勿用" / "planned" / "unsupported"
+the current project's engine.** Components marked "暂不支持，勿用" / "unsupported"
 must NOT be used for that engine.
 
 ## Engine Support Model (READ FIRST)
@@ -19,12 +19,11 @@ Every component section is tagged with its per-engine status, in two synchronize
 
 > ⚠️ The HTML-comment form is **consumed by tooling** (per-engine distribution filter + CI
 > drift-check). Keep its exact format: `<!-- engine: honeygui=<status> lvgl=<status> -->`,
-> where `<status>` ∈ `ready` | `planned` | `unsupported`. Do not free-text it.
+> where `<status>` ∈ `ready` | `unsupported`. Do not free-text it.
 
 | Status | Meaning | Usable? |
 |--------|---------|---------|
 | `ready` | Fully implemented for this engine | ✅ Yes |
-| `planned` | Registered but not implemented — codegen produces a stub/TODO | ❌ No — do not use |
 | `unsupported` | Not available on this engine at all | ❌ No — do not use |
 
 Human-label shorthand used in headings:
@@ -33,13 +32,13 @@ Human-label shorthand used in headings:
 |---------------|---------------------|
 | `引擎: ✓HoneyGUI ✓LVGL` | honeygui=ready, lvgl=ready |
 | `引擎: 仅HoneyGUI` | honeygui=ready, lvgl=unsupported |
-| `引擎: 仅HoneyGUI（LVGL 暂未实现）` | honeygui=ready, lvgl=planned |
-| `引擎: 仅LVGL` | honeygui=planned, lvgl=ready |
-| `引擎: 暂不支持，勿用` | honeygui=planned, lvgl=planned |
+| `引擎: 仅HoneyGUI（LVGL 暂未实现）` | honeygui=ready, lvgl=unsupported |
+| `引擎: 仅LVGL` | honeygui=unsupported, lvgl=ready |
+| `引擎: 暂不支持，勿用` | honeygui=unsupported, lvgl=unsupported |
 
 > **Source of truth is code, not this document.** The matrix is derived from the two codegen
 > registries (`src/codegen/honeygui/components/index.ts`, `src/codegen/lvgl/components/index.ts`)
-> and `ComponentLibrary.tsx`'s `engineSupport`. When they disagree with a `planned` stub
+> and `ComponentLibrary.tsx`'s `engineSupport`. When they disagree with an `unsupported` stub
 > Generator that exists in a registry, `engineSupport` wins (a registered Generator ≠ ready).
 
 
@@ -206,7 +205,7 @@ All components support these base attributes:
 
 ### All Component Types — Engine Matrix
 
-Status legend: ✅ ready · 🚧 planned (do not use) · ❌ unsupported (do not use).
+Status legend: ✅ ready · ❌ unsupported (do not use).
 **Source of truth = code** (see Engine Support Model above). This matrix is a snapshot of
 commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 
@@ -216,18 +215,18 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 | | `hg_window` | ✅ | ✅ |
 | | `hg_list` | ✅ | ✅ |
 | | `hg_list_item` | ✅ | ✅ |
-| | `hg_menu_cellular` | ✅ | 🚧 |
+| | `hg_menu_cellular` | ✅ | ❌ |
 | **Basic** | `hg_button` | ✅ | ✅ |
 | | `hg_label` | ✅ | ✅ |
 | | `hg_time_label` | ✅ | ✅ |
 | | `hg_timer_label` | ✅ | ✅ |
 | | `hg_image` | ✅ | ✅ |
-| **Input** (仅LVGL) | `hg_input` | 🚧 | ✅ |
-| | `hg_checkbox` | 🚧 | ✅ |
-| | `hg_radio` | 🚧 | ✅ |
-| | `hg_switch` | 🚧 | ✅ |
-| | `hg_slider` | 🚧 | ✅ |
-| | `hg_progressbar` | 🚧 | ✅ |
+| **Input** (仅LVGL) | `hg_input` | ❌ | ✅ |
+| | `hg_checkbox` | ❌ | ✅ |
+| | `hg_radio` | ❌ | ✅ |
+| | `hg_switch` | ❌ | ✅ |
+| | `hg_slider` | ❌ | ✅ |
+| | `hg_progressbar` | ❌ | ✅ |
 | **Graphics** | `hg_arc` | ✅ | ✅ |
 | | `hg_circle` | ✅ | ✅ |
 | | `hg_rect` | ✅ | ✅ |
@@ -237,19 +236,19 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 | | `hg_particle` | ✅ | ❌ |
 | **Multimedia** | `hg_image` (见 Basic) | ✅ | ✅ |
 | | `hg_gif` | ✅ | ✅ |
-| | `hg_video` | ✅ | 🚧 |
+| | `hg_video` | ✅ | ❌ |
 | | `hg_streaming` | ✅ | ❌ |
 | | `hg_lottie` | ✅ | ✅ |
-| | `hg_3d` | ✅ | 🚧 |
-| **Not implemented** | `hg_canvas` | 🚧 | 🚧 |
+| | `hg_3d` | ✅ | ❌ |
+| **Not implemented** | `hg_canvas` | ❌ | ❌ |
 
 > **Do NOT exist (never use):** `hg_container`, `hg_grid`, `hg_tab` — not in either codegen
 > registry. If you need layout, use `hg_view` / `hg_window` / `hg_list`.
 
 > **Per-engine reminders:**
-> - **HoneyGUI projects** must not use the 🚧 input family (`hg_input`/`hg_checkbox`/`hg_radio`/
->   `hg_switch`/`hg_slider`/`hg_progressbar`) nor `hg_canvas` — they are planned, codegen emits stubs.
-> - **LVGL projects** must not use `hg_video`/`hg_3d` (planned) nor the ❌ HoneyGUI-only components
+> - **HoneyGUI projects** must not use the ❌ input family (`hg_input`/`hg_checkbox`/`hg_radio`/
+>   `hg_switch`/`hg_slider`/`hg_progressbar`) nor `hg_canvas` — they are unsupported on this engine.
+> - **LVGL projects** must not use `hg_video`/`hg_3d` (unsupported) nor the ❌ HoneyGUI-only components
 >   (`hg_glass`/`hg_particle`/`hg_streaming`) nor `hg_menu_cellular`.
 
 ### Nesting Rules (CRITICAL)
@@ -381,9 +380,9 @@ Child of `hg_list`. Not available in the component library — managed automatic
 ### 6.6 `hg_menu_cellular` — Honeycomb Menu
 
 引擎: 仅HoneyGUI（LVGL 暂未实现）
-<!-- engine: honeygui=ready lvgl=planned -->
+<!-- engine: honeygui=ready lvgl=unsupported -->
 
-A hexagonal scrolling menu. **LVGL projects: do not use (planned).**
+A hexagonal scrolling menu. **LVGL projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -397,10 +396,9 @@ A hexagonal scrolling menu. **LVGL projects: do not use (planned).**
 ### 6.7 `hg_canvas` — Canvas (NOT IMPLEMENTED)
 
 引擎: 暂不支持，勿用
-<!-- engine: honeygui=planned lvgl=planned -->
+<!-- engine: honeygui=unsupported lvgl=unsupported -->
 
-> ⚠️ **Planned on both engines — do NOT use.** Registered in both codegen registries but only
-> emits a stub. Use `hg_image` / `hg_rect` / `hg_arc` / `hg_svg` for drawing instead.
+> ⚠️ **Unsupported on both engines — do NOT use.** Use `hg_image` / `hg_rect` / `hg_arc` / `hg_svg` for drawing instead.
 
 ---
 
@@ -634,10 +632,10 @@ Displays an animated GIF file directly (no format conversion; raw GIF data packe
 ### 7.7 `hg_video` — Video
 
 引擎: 仅HoneyGUI（LVGL 暂未实现）
-<!-- engine: honeygui=ready lvgl=planned -->
+<!-- engine: honeygui=ready lvgl=unsupported -->
 
 Plays a video file using the HoneyGUI video API (standard or Lite Video).
-**LVGL projects: do not use (planned).** The `useMsv1` Lite Video mode is **HoneyGUI-only**.
+**LVGL projects: do not use (unsupported).** The `useMsv1` Lite Video mode is **HoneyGUI-only**.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -688,16 +686,16 @@ references it and must not outlive it.  **LVGL projects: do not use (unsupported
 
 ## 8. Input Controls (LVGL only)
 
-> ⚠️ **All components in this section are `仅LVGL`.** They are `planned` (not implemented) on
-> HoneyGUI — **HoneyGUI projects must NOT use them** (codegen emits a stub). Only use them when
+> ⚠️ **All components in this section are `仅LVGL`.** They are `unsupported` on
+> HoneyGUI — **HoneyGUI projects must NOT use them**. Only use them when
 > `project.json` → `targetEngine` is `lvgl`.
 
 ### 8.1 `hg_input` — Text Input
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-Single-line text entry field. **HoneyGUI projects: do not use (planned).**
+Single-line text entry field. **HoneyGUI projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -709,9 +707,9 @@ Single-line text entry field. **HoneyGUI projects: do not use (planned).**
 ### 8.2 `hg_checkbox` — Checkbox
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-Labeled checkbox. **HoneyGUI projects: do not use (planned).** Inherits text/font attributes
+Labeled checkbox. **HoneyGUI projects: do not use (unsupported).** Inherits text/font attributes
 from `hg_label` (`text`, `color`, `fontFile`, `fontSize`, `fontType`, `renderMode`).
 
 | Attribute | Type | Default | Description |
@@ -725,9 +723,9 @@ from `hg_label` (`text`, `color`, `fontFile`, `fontSize`, `fontType`, `renderMod
 ### 8.3 `hg_radio` — Radio Button
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-Radio option (mutually exclusive within a group). **HoneyGUI projects: do not use (planned).**
+Radio option (mutually exclusive within a group). **HoneyGUI projects: do not use (unsupported).**
 Inherits text/font attributes from `hg_label`.
 
 | Attribute | Type | Default | Description |
@@ -741,9 +739,9 @@ Inherits text/font attributes from `hg_label`.
 ### 8.4 `hg_switch` — Switch
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-On/off toggle switch. **HoneyGUI projects: do not use (planned).**
+On/off toggle switch. **HoneyGUI projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -755,9 +753,9 @@ On/off toggle switch. **HoneyGUI projects: do not use (planned).**
 ### 8.5 `hg_slider` — Slider
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-Draggable value slider. **HoneyGUI projects: do not use (planned).**
+Draggable value slider. **HoneyGUI projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -771,9 +769,9 @@ Draggable value slider. **HoneyGUI projects: do not use (planned).**
 ### 8.6 `hg_progressbar` — Progress Bar
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-Progress indicator bar. **HoneyGUI projects: do not use (planned).**
+Progress indicator bar. **HoneyGUI projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -943,10 +941,10 @@ Plays a Lottie (vector JSON) animation.
 ### 10.2 `hg_3d` — 3D Model
 
 引擎: 仅HoneyGUI（LVGL 暂未实现）
-<!-- engine: honeygui=ready lvgl=planned -->
+<!-- engine: honeygui=ready lvgl=unsupported -->
 
 Renders a 3D model with camera and transform control.
-**LVGL projects: do not use (planned).**
+**LVGL projects: do not use (unsupported).**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -960,7 +958,7 @@ Renders a 3D model with camera and transform control.
 
 - **Default size**: 400×400
 - **C API (HoneyGUI)**: `gui_lite3d_create`
-- **C API (LVGL)**: `lv_gltf_create` (planned — not yet generated)
+- **C API (LVGL)**: `lv_gltf_create` (unsupported — not generated)
 
 ---
 
@@ -1182,7 +1180,7 @@ Transition animations used with `switchView` actions.
 ## 14. Code Generation Mapping
 
 The designer generates C source code from HML. The create function depends on the project's
-`targetEngine`. `—` = not generated for that engine (planned/unsupported; do not use).
+`targetEngine`. `—` = not generated for that engine (unsupported; do not use).
 
 | HML Tag | HoneyGUI Create Function | LVGL Create Function |
 |---------|--------------------------|----------------------|
@@ -1194,10 +1192,10 @@ The designer generates C source code from HML. The create function depends on th
 | `hg_timer_label` | `gui_text_create` (timer) | `lv_label_create` (timer) |
 | `hg_image` | `gui_img_create_from_fs` | `lv_image_create` |
 | `hg_gif` | `gui_gif_create_from_fs` | `lv_gif_create` |
-| `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | — (planned) |
+| `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | — (unsupported) |
 | `hg_streaming` | `gui_stream_create` | — (unsupported) |
 | `hg_lottie` | `gui_lottie_create_from_file` | `lv_lottie_create` |
-| `hg_3d` | `gui_lite3d_create` | — (planned) |
+| `hg_3d` | `gui_lite3d_create` | — (unsupported) |
 | `hg_arc` | `gui_arc_create` | `lv_arc_create` |
 | `hg_circle` | `gui_circle_create` | `lv_obj_create` (circle) |
 | `hg_rect` | `gui_rect_create` | `lv_obj_create` (rect) |
@@ -1205,15 +1203,15 @@ The designer generates C source code from HML. The create function depends on th
 | `hg_list` | `gui_list_create` | `lv_list_create` |
 | `hg_glass` | `gui_glass_create_from_fs` | — (unsupported) |
 | `hg_particle` | `effect_{type}_create` | — (unsupported) |
-| `hg_menu_cellular` | custom generator (`gui_menu_cellular.h`) | — (planned) |
+| `hg_menu_cellular` | custom generator (`gui_menu_cellular.h`) | — (unsupported) |
 | `hg_qbcode` | `gui_qbcode_create` + `gui_qbcode_config` | `lv_qrcode_create` / `lv_barcode_create` |
-| `hg_input` | — (planned) | `lv_textarea_create` |
-| `hg_checkbox` | — (planned) | `lv_checkbox_create` |
-| `hg_radio` | — (planned) | `lv_checkbox_create` (radio) |
-| `hg_switch` | — (planned) | `lv_switch_create` |
-| `hg_slider` | — (planned) | `lv_slider_create` |
-| `hg_progressbar` | — (planned) | `lv_bar_create` |
-| `hg_canvas` | — (planned) | — (planned) |
+| `hg_input` | — (unsupported) | `lv_textarea_create` |
+| `hg_checkbox` | — (unsupported) | `lv_checkbox_create` |
+| `hg_radio` | — (unsupported) | `lv_checkbox_create` (radio) |
+| `hg_switch` | — (unsupported) | `lv_switch_create` |
+| `hg_slider` | — (unsupported) | `lv_slider_create` |
+| `hg_progressbar` | — (unsupported) | `lv_bar_create` |
+| `hg_canvas` | — (unsupported) | — (unsupported) |
 
 ### Generated File Structure
 

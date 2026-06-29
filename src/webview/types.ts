@@ -48,7 +48,7 @@ export type ComponentType =
   | 'hg_qbcode'
   | 'hg_streaming';
 
-export type EngineSupport = 'ready' | 'planned' | 'unsupported';
+export type EngineSupport = 'ready' | 'unsupported';
 
 export interface ComponentDefinition {
   type: ComponentType;
@@ -58,8 +58,7 @@ export interface ComponentDefinition {
   properties: PropertyDefinition[];
   /**
    * Per-engine support status.
-   * - 'ready': fully supported, normal display
-   * - 'planned': planned but not yet implemented, greyed out with TODO badge
+   * - 'ready': supported, shown in component library
    * - 'unsupported': not supported, hidden from component library
    *
    * If omitted, defaults to 'ready' for all engines.

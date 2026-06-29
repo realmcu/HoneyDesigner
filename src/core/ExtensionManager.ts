@@ -273,7 +273,7 @@ export class ExtensionManager {
                 `  本文件由 HoneyGUI Visual Designer 自动分发，请勿手动编辑（每次打开项目会按需覆盖）。\n` +
                 `  当前项目 targetEngine = ${targetEngine}。\n` +
                 `  生成 HML 时：仅使用下方组件矩阵中标注 ${targetEngine} 为 ready(✓) 的组件；\n` +
-                `  标注 planned / unsupported 的组件在本引擎不可用，一律勿用。\n` +
+                `  标注 unsupported 的组件在本引擎不可用，一律勿用。\n` +
                 `-->\n\n`;
 
             // 跳过条件：目标文件存在 且 源未更新 且 引擎头匹配。
@@ -535,7 +535,7 @@ export class ExtensionManager {
 
 ## 不读规范也必须守的底线
 
-- 只用规范中标注当前 targetEngine 为 ready(✓) 的组件；planned / unsupported 一律勿用。
+- 只用规范中标注当前 targetEngine 为 ready(✓) 的组件；unsupported 一律勿用。
 - \`hg_view\` 不可嵌套；非容器组件不可有子组件。
 - 图像路径（\`src\`/\`imageOn\`/\`imageOff\`）以 \`assets/\` 开头，如 \`assets/icon.png\`；字体 \`fontFile\` 以 \`/\` 开头，如 \`/NotoSansSC-Medium.ttf\`。\`hg_label\` 必须有 \`fontFile\`，且字体须在 assets/ 中。
 - 事件用 \`<events><event><action>\` 结构，不用内联 \`onXxx\` 属性。

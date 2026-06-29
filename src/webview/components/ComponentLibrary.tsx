@@ -220,7 +220,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_input',
     name: 'Input',
     icon: '📝',
-    engineSupport: { honeygui: 'planned' },
+    engineSupport: { honeygui: 'unsupported' },
     defaultSize: { width: 200, height: 32 },
     properties: [
       { name: 'placeholder', label: 'Placeholder', type: 'string', group: 'data' },
@@ -240,7 +240,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_checkbox',
     name: 'Checkbox',
     icon: '☑️',
-    engineSupport: { honeygui: 'planned', lvgl: 'ready' },
+    engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 120, height: 24 },
     properties: [
       ...textProps('Checkbox'),
@@ -251,7 +251,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_radio',
     name: 'Radio',
     icon: '⭕',
-    engineSupport: { honeygui: 'planned', lvgl: 'ready' },
+    engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 120, height: 24 },
     properties: [
       ...textProps('Option'),
@@ -262,7 +262,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_switch',
     name: 'Switch',
     icon: '🔀',
-    engineSupport: { honeygui: 'planned', lvgl: 'ready' },
+    engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 50, height: 28 },
     properties: [
       { name: 'value', label: 'Checked', type: 'boolean', defaultValue: false, group: 'data' },
@@ -272,7 +272,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_progressbar',
     name: 'Progress Bar',
     icon: '📊',
-    engineSupport: { honeygui: 'planned', lvgl: 'ready' },
+    engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 200, height: 20 },
     properties: [
       { name: 'value', label: 'Value', type: 'number', defaultValue: 0, group: 'data' },
@@ -287,7 +287,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_slider',
     name: 'Slider',
     icon: '🎚️',
-    engineSupport: { honeygui: 'planned', lvgl: 'ready' },
+    engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 200, height: 20 },
     properties: [
       { name: 'value', label: 'Value', type: 'number', defaultValue: 0, group: 'data' },
@@ -324,7 +324,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_canvas',
     name: 'Canvas',
     icon: '🎨',
-    engineSupport: { honeygui: 'planned', lvgl: 'planned' },
+    engineSupport: { honeygui: 'unsupported', lvgl: 'unsupported' },
     defaultSize: { width: 300, height: 200 },
     properties: [
       { name: 'backgroundColor', label: 'Background Color', type: 'color', defaultValue: '#ffffff', group: 'style', hint: 'Designer only - helps identify container boundaries' },
@@ -362,7 +362,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_video',
     name: 'Video',
     icon: '🎬',
-    engineSupport: { lvgl: 'planned' },
+    engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 320, height: 240 },
     properties: [
       { name: 'src', label: 'Video Path', type: 'string', group: 'data' },
@@ -399,7 +399,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_3d',
     name: '3D Model',
     icon: '🧊',
-    engineSupport: { lvgl: 'planned' },
+    engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 400, height: 400 },
     properties: [
       { name: 'modelPath', label: 'Model Path', type: 'string', group: 'data' },
@@ -536,7 +536,7 @@ const componentDefinitions: ComponentDefinition[] = [
     type: 'hg_menu_cellular',
     name: 'Menu Cellular',
     icon: '⬡',
-    engineSupport: { lvgl: 'planned' },
+    engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 0, height: 0 }, // 创建时动态设置为项目分辨率
     properties: [
       { name: 'iconFolder', label: 'Icon Folder', type: 'string', defaultValue: '', group: 'data' },
@@ -668,8 +668,13 @@ const ComponentLibrary: React.FC<ComponentLibraryProps> = ({ onComponentDragStar
       <div className="library-content">
         {componentCategories.map((category) => {
           const isExpanded = expandedCategories.has(category.name);
-          const components = componentDefinitions.filter(c => category.types.includes(c.type));
-          
+          const components = componentDefinitions.filter(c =>
+            category.types.includes(c.type) &&
+            (c.engineSupport?.[targetEngine] ?? 'ready') === 'ready'
+          );
+
+          if (components.length === 0) return null;
+
           return (
             <div key={category.name} className="component-category">
               <div 
@@ -681,35 +686,19 @@ const ComponentLibrary: React.FC<ComponentLibraryProps> = ({ onComponentDragStar
               </div>
               {isExpanded && (
                 <div className="category-content">
-                  {components
-                    .filter((component) => {
-                      // Hide components that are 'unsupported' for the current engine
-                      const status = component.engineSupport?.[targetEngine] ?? 'ready';
-                      return status !== 'unsupported';
-                    })
-                    .map((component) => {
-                    const status = component.engineSupport?.[targetEngine] ?? 'ready';
-                    const isPlanned = status === 'planned';
-                    return (
+                  {components.map((component) => (
                     <div
                       key={component.type}
-                      className={`component-item${isPlanned ? ' component-item--coming-soon' : ''}`}
-                      draggable={!isPlanned}
-                      onDragStart={(e) => {
-                        if (isPlanned) { e.preventDefault(); return; }
-                        handleDragStart(e, component.type);
-                      }}
+                      className="component-item"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, component.type)}
                       onContextMenu={(e) => handleContextMenu(e, component.type)}
-                      title={isPlanned ? t('Coming Soon' as any) : t(component.name as any)}
+                      title={t(component.name as any)}
                     >
                       <div className="component-icon">{component.icon}</div>
                       <div className="component-name">{t(component.name as any)}</div>
-                      {isPlanned && (
-                        <div className="component-coming-soon-badge">TODO</div>
-                      )}
                     </div>
-                    );
-                  })}
+                    ))}
                 </div>
               )}
             </div>

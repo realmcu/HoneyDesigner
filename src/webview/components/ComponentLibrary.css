@@ -86,34 +86,6 @@
   cursor: grabbing;
 }
 
-/* Coming soon 状态：灰色、禁止拖放 */
-.component-item--coming-soon {
-  opacity: 0.45;
-  cursor: not-allowed;
-  position: relative;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.component-item--coming-soon:hover {
-  transform: none;
-  box-shadow: none;
-  border-color: var(--vscode-panel-border);
-}
-
-.component-coming-soon-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  font-size: 9px;
-  font-weight: bold;
-  color: var(--vscode-badge-foreground);
-  background: var(--vscode-badge-background);
-  border-radius: 3px;
-  padding: 1px 3px;
-  line-height: 1.4;
-  pointer-events: none;
-}
 
 .component-icon {
   font-size: 24px;

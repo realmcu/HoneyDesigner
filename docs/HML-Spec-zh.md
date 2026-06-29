@@ -19,12 +19,11 @@ HML 是**一种语言，配备两个代码生成后端（引擎）**：`honeygui
 
 > ⚠️ HTML 注释形式**由工具消费**（按引擎的分发过滤器 + CI
 > 漂移检查）。请保持其精确格式：`<!-- engine: honeygui=<status> lvgl=<status> -->`，
-> 其中 `<status>` ∈ `ready` | `planned` | `unsupported`。不要随意自由书写。
+> 其中 `<status>` ∈ `ready` | `unsupported`。不要随意自由书写。
 
 | 状态 | 含义 | 可用? |
 |--------|---------|---------|
 | `ready` | 该引擎已完整实现 | ✅ 是 |
-| `planned` | 已注册但未实现 —— 代码生成产出桩/TODO | ❌ 否 — 请勿使用 |
 | `unsupported` | 该引擎完全不可用 | ❌ 否 — 请勿使用 |
 
 标题中使用的可读标签简写：
@@ -33,13 +32,13 @@ HML 是**一种语言，配备两个代码生成后端（引擎）**：`honeygui
 |---------------|---------------------|
 | `引擎: ✓HoneyGUI ✓LVGL` | honeygui=ready, lvgl=ready |
 | `引擎: 仅HoneyGUI` | honeygui=ready, lvgl=unsupported |
-| `引擎: 仅HoneyGUI（LVGL 暂未实现）` | honeygui=ready, lvgl=planned |
-| `引擎: 仅LVGL` | honeygui=planned, lvgl=ready |
-| `引擎: 暂不支持，勿用` | honeygui=planned, lvgl=planned |
+| `引擎: 仅HoneyGUI（LVGL 暂未实现）` | honeygui=ready, lvgl=unsupported |
+| `引擎: 仅LVGL` | honeygui=unsupported, lvgl=ready |
+| `引擎: 暂不支持，勿用` | honeygui=unsupported, lvgl=unsupported |
 
 > **真相来源是代码，而非本文档。** 该矩阵派生自两个代码生成
 > 注册表（`src/codegen/honeygui/components/index.ts`、`src/codegen/lvgl/components/index.ts`）
-> 以及 `ComponentLibrary.tsx` 的 `engineSupport`。当它们与某个存在于注册表中的 `planned` 桩
+> 以及 `ComponentLibrary.tsx` 的 `engineSupport`。当它们与某个存在于注册表中的 `unsupported`
 > Generator 不一致时，以 `engineSupport` 为准（已注册的 Generator ≠ ready）。
 
 
@@ -199,7 +198,7 @@ HML 是**一种语言，配备两个代码生成后端（引擎）**：`honeygui
 
 ### 所有组件类型 — 引擎矩阵
 
-状态图例：✅ 就绪 · 🚧 计划中（请勿使用） · ❌ 不支持（请勿使用）。
+状态图例：✅ 就绪 · ❌ 不支持（请勿使用）。
 **事实来源 = 代码**（参见上文的引擎支持模型）。本矩阵是
 commit `340bc18`（2026-06-15）从 `engineSupport` 重新生成的快照。
 
@@ -209,18 +208,18 @@ commit `340bc18`（2026-06-15）从 `engineSupport` 重新生成的快照。
 | | `hg_window` | ✅ | ✅ |
 | | `hg_list` | ✅ | ✅ |
 | | `hg_list_item` | ✅ | ✅ |
-| | `hg_menu_cellular` | ✅ | 🚧 |
+| | `hg_menu_cellular` | ✅ | ❌ |
 | **基础** | `hg_button` | ✅ | ✅ |
 | | `hg_label` | ✅ | ✅ |
 | | `hg_time_label` | ✅ | ✅ |
 | | `hg_timer_label` | ✅ | ✅ |
 | | `hg_image` | ✅ | ✅ |
-| **输入**（仅 LVGL） | `hg_input` | 🚧 | ✅ |
-| | `hg_checkbox` | 🚧 | ✅ |
-| | `hg_radio` | 🚧 | ✅ |
-| | `hg_switch` | 🚧 | ✅ |
-| | `hg_slider` | 🚧 | ✅ |
-| | `hg_progressbar` | 🚧 | ✅ |
+| **输入**（仅 LVGL） | `hg_input` | ❌ | ✅ |
+| | `hg_checkbox` | ❌ | ✅ |
+| | `hg_radio` | ❌ | ✅ |
+| | `hg_switch` | ❌ | ✅ |
+| | `hg_slider` | ❌ | ✅ |
+| | `hg_progressbar` | ❌ | ✅ |
 | **图形** | `hg_arc` | ✅ | ✅ |
 | | `hg_circle` | ✅ | ✅ |
 | | `hg_rect` | ✅ | ✅ |
@@ -230,18 +229,18 @@ commit `340bc18`（2026-06-15）从 `engineSupport` 重新生成的快照。
 | | `hg_particle` | ✅ | ❌ |
 | **多媒体** | `hg_image`（见基础） | ✅ | ✅ |
 | | `hg_gif` | ✅ | ✅ |
-| | `hg_video` | ✅ | 🚧 |
+| | `hg_video` | ✅ | ❌ |
 | | `hg_lottie` | ✅ | ✅ |
-| | `hg_3d` | ✅ | 🚧 |
-| **未实现** | `hg_canvas` | 🚧 | 🚧 |
+| | `hg_3d` | ✅ | ❌ |
+| **不支持** | `hg_canvas` | ❌ | ❌ |
 
 > **不存在（切勿使用）：** `hg_container`、`hg_grid`、`hg_tab` — 两个 codegen
 > 注册表中都没有。如果需要布局，请使用 `hg_view` / `hg_window` / `hg_list`。
 
 > **各引擎提醒：**
-> - **HoneyGUI 项目** 不得使用 🚧 输入族（`hg_input`/`hg_checkbox`/`hg_radio`/
->   `hg_switch`/`hg_slider`/`hg_progressbar`），也不得使用 `hg_canvas` — 它们仍在计划中，codegen 只会生成桩代码。
-> - **LVGL 项目** 不得使用 `hg_video`/`hg_3d`（计划中），也不得使用 ❌ 仅 HoneyGUI 的组件
+> - **HoneyGUI 项目** 不得使用 ❌ 输入族（`hg_input`/`hg_checkbox`/`hg_radio`/
+>   `hg_switch`/`hg_slider`/`hg_progressbar`），也不得使用 `hg_canvas` — 两个引擎均不支持。
+> - **LVGL 项目** 不得使用 `hg_video`/`hg_3d`（unsupported），也不得使用 ❌ 仅 HoneyGUI 的组件
 >   （`hg_glass`/`hg_particle`）以及 `hg_menu_cellular`。
 
 ### 嵌套规则（关键）
@@ -372,9 +371,9 @@ commit `340bc18`（2026-06-15）从 `engineSupport` 重新生成的快照。
 ### 6.6 `hg_menu_cellular` — 蜂窝菜单
 
 引擎: 仅HoneyGUI（LVGL 暂未实现）
-<!-- engine: honeygui=ready lvgl=planned -->
+<!-- engine: honeygui=ready lvgl=unsupported -->
 
-六边形滚动菜单。**LVGL 项目：请勿使用（计划中）。**
+六边形滚动菜单。**LVGL 项目：请勿使用（unsupported）。**
 
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
@@ -388,10 +387,9 @@ commit `340bc18`（2026-06-15）从 `engineSupport` 重新生成的快照。
 ### 6.7 `hg_canvas` — 画布（未实现）
 
 引擎: 暂不支持，勿用
-<!-- engine: honeygui=planned lvgl=planned -->
+<!-- engine: honeygui=unsupported lvgl=unsupported -->
 
-> ⚠️ **两个引擎均为计划中——请勿使用。** 已在两个引擎的 codegen 注册表中注册，但仅
-> 输出桩代码。请改用 `hg_image` / `hg_rect` / `hg_arc` / `hg_svg` 进行绘制。
+> ⚠️ **两个引擎均不支持——请勿使用。** 请改用 `hg_image` / `hg_rect` / `hg_arc` / `hg_svg` 进行绘制。
 
 ---
 
@@ -625,10 +623,10 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 ### 7.7 `hg_video` — 视频
 
 引擎: 仅HoneyGUI（LVGL 暂未实现）
-<!-- engine: honeygui=ready lvgl=planned -->
+<!-- engine: honeygui=ready lvgl=unsupported -->
 
 使用 HoneyGUI 视频 API（标准或 Lite Video）播放视频文件。
-**LVGL 项目：请勿使用（规划中）。** `useMsv1` Lite Video 模式**仅限 HoneyGUI**。
+**LVGL 项目：请勿使用（unsupported）。** `useMsv1` Lite Video 模式**仅限 HoneyGUI**。
 
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
@@ -653,16 +651,16 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 
 ## 8. 输入控件（仅 LVGL）
 
-> ⚠️ **本节所有组件均为 `仅LVGL`。** 它们在 HoneyGUI 上属于 `planned`（未实现）状态 ——
-> **HoneyGUI 项目不得使用**（代码生成会输出桩代码）。仅当
+> ⚠️ **本节所有组件均为 `仅LVGL`。** 它们在 HoneyGUI 上属于 `unsupported` 状态 ——
+> **HoneyGUI 项目不得使用**。仅当
 > `project.json` → `targetEngine` 为 `lvgl` 时才可使用。
 
 ### 8.1 `hg_input` — 文本输入
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-单行文本输入框。**HoneyGUI 项目：请勿使用（planned）。**
+单行文本输入框。**HoneyGUI 项目：请勿使用（unsupported）。**
 
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
@@ -674,9 +672,9 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 ### 8.2 `hg_checkbox` — 复选框
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-带标签的复选框。**HoneyGUI 项目：请勿使用（planned）。** 继承自 `hg_label` 的文本/字体属性
+带标签的复选框。**HoneyGUI 项目：请勿使用（unsupported）。** 继承自 `hg_label` 的文本/字体属性
 （`text`、`color`、`fontFile`、`fontSize`、`fontType`、`renderMode`）。
 
 | 属性 | 类型 | 默认值 | 说明 |
@@ -690,9 +688,9 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 ### 8.3 `hg_radio` — 单选按钮
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-单选项（同组内互斥）。**HoneyGUI 项目：请勿使用（planned）。**
+单选项（同组内互斥）。**HoneyGUI 项目：请勿使用（unsupported）。**
 继承自 `hg_label` 的文本/字体属性。
 
 | 属性 | 类型 | 默认值 | 说明 |
@@ -706,9 +704,9 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 ### 8.4 `hg_switch` — 开关
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-开/关切换开关。**HoneyGUI 项目：请勿使用（planned）。**
+开/关切换开关。**HoneyGUI 项目：请勿使用（unsupported）。**
 
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
@@ -720,9 +718,9 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 ### 8.5 `hg_slider` — 滑块
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-可拖动的数值滑块。**HoneyGUI 项目：请勿使用（planned）。**
+可拖动的数值滑块。**HoneyGUI 项目：请勿使用（unsupported）。**
 
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
@@ -736,9 +734,9 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 ### 8.6 `hg_progressbar` — 进度条
 
 引擎: 仅LVGL
-<!-- engine: honeygui=planned lvgl=ready -->
+<!-- engine: honeygui=unsupported lvgl=ready -->
 
-进度指示条。**HoneyGUI 项目：请勿使用（planned）。**
+进度指示条。**HoneyGUI 项目：请勿使用（unsupported）。**
 
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
@@ -908,10 +906,10 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 ### 10.2 `hg_3d` — 3D 模型
 
 引擎: 仅HoneyGUI（LVGL 暂未实现）
-<!-- engine: honeygui=ready lvgl=planned -->
+<!-- engine: honeygui=ready lvgl=unsupported -->
 
 渲染带相机和变换控制的 3D 模型。
-**LVGL 项目：请勿使用（计划中）。**
+**LVGL 项目：请勿使用（unsupported）。**
 
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
@@ -925,7 +923,7 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 
 - **默认尺寸**：400×400
 - **C API (HoneyGUI)**: `gui_lite3d_create`
-- **C API (LVGL)**: `lv_gltf_create`（计划中——尚未生成）
+- **C API (LVGL)**: `lv_gltf_create`（unsupported——不生成）
 
 ---
 
@@ -1141,7 +1139,7 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 
 ## 14. 代码生成映射
 
-设计器从 HML 生成 C 源代码。创建函数取决于项目的 `targetEngine`。`—` = 该引擎不生成（计划中/不支持；请勿使用）。
+设计器从 HML 生成 C 源代码。创建函数取决于项目的 `targetEngine`。`—` = 该引擎不生成（不支持；请勿使用）。
 
 | HML Tag | HoneyGUI Create Function | LVGL Create Function |
 |---------|--------------------------|----------------------|
@@ -1153,9 +1151,9 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 | `hg_timer_label` | `gui_text_create` (timer) | `lv_label_create` (timer) |
 | `hg_image` | `gui_img_create_from_fs` | `lv_image_create` |
 | `hg_gif` | `gui_gif_create_from_fs` | `lv_gif_create` |
-| `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | — (planned) |
+| `hg_video` | `gui_video_create_from_fs` (or `gui_lite_video_create_from_fs` when `useMsv1=true`) | — (unsupported) |
 | `hg_lottie` | `gui_lottie_create_from_file` | `lv_lottie_create` |
-| `hg_3d` | `gui_lite3d_create` | — (planned) |
+| `hg_3d` | `gui_lite3d_create` | — (unsupported) |
 | `hg_arc` | `gui_arc_create` | `lv_arc_create` |
 | `hg_circle` | `gui_circle_create` | `lv_obj_create` (circle) |
 | `hg_rect` | `gui_rect_create` | `lv_obj_create` (rect) |
@@ -1163,15 +1161,15 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 | `hg_list` | `gui_list_create` | `lv_list_create` |
 | `hg_glass` | `gui_glass_create_from_fs` | — (unsupported) |
 | `hg_particle` | `effect_{type}_create` | — (unsupported) |
-| `hg_menu_cellular` | custom generator (`gui_menu_cellular.h`) | — (planned) |
+| `hg_menu_cellular` | custom generator (`gui_menu_cellular.h`) | — (unsupported) |
 | `hg_qbcode` | `gui_qbcode_create` + `gui_qbcode_config` | `lv_qrcode_create` / `lv_barcode_create` |
-| `hg_input` | — (planned) | `lv_textarea_create` |
-| `hg_checkbox` | — (planned) | `lv_checkbox_create` |
-| `hg_radio` | — (planned) | `lv_checkbox_create` (radio) |
-| `hg_switch` | — (planned) | `lv_switch_create` |
-| `hg_slider` | — (planned) | `lv_slider_create` |
-| `hg_progressbar` | — (planned) | `lv_bar_create` |
-| `hg_canvas` | — (planned) | — (planned) |
+| `hg_input` | — (unsupported) | `lv_textarea_create` |
+| `hg_checkbox` | — (unsupported) | `lv_checkbox_create` |
+| `hg_radio` | — (unsupported) | `lv_checkbox_create` (radio) |
+| `hg_switch` | — (unsupported) | `lv_switch_create` |
+| `hg_slider` | — (unsupported) | `lv_slider_create` |
+| `hg_progressbar` | — (unsupported) | `lv_bar_create` |
+| `hg_canvas` | — (unsupported) | — (unsupported) |
 
 ### 生成的文件结构
 
