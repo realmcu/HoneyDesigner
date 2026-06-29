@@ -23,7 +23,9 @@ jobs:
           sudo apt-get install -y cmake build-essential
 
       - name: Clone HoneyGUI SDK
-        run: git clone --depth 1 https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
+        run: |
+          git clone --depth 1 https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
+          git -C /tmp/HoneyGUI fetch --tags --depth=1
 
       - name: Get SDK commit info
         id: sdk-info
@@ -182,7 +184,10 @@ jobs:
           & "C:\mingw810\mingw64\bin\gcc.exe" -v 2>&1
 
       - name: Clone HoneyGUI SDK
-        run: git clone --depth 1 https://github.com/realmcu/HoneyGUI.git C:/tmp/HoneyGUI
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/realmcu/HoneyGUI.git C:/tmp/HoneyGUI
+          git -C C:/tmp/HoneyGUI fetch --tags --depth=1
 
       - name: Get SDK commit info
         id: sdk-info
