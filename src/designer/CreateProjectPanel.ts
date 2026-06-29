@@ -154,6 +154,7 @@ export class CreateProjectPanel {
             aiAssetsHint: vscode.l10n.t('Distribute HML-Spec.md and AI agent guides to the project root for vibe coding. Uncheck for pure drag-and-drop use.'),
             comingSoon: vscode.l10n.t('Coming Soon'),
             minimumSdk: vscode.l10n.t('Minimum SDK'),
+            minimumSdkHint: vscode.l10n.t('For project metadata only — the designer always uses the latest built-in HoneyGUI library regardless of this setting.'),
             pixelMode: vscode.l10n.t('Pixel Mode'),
             romfsBaseAddr: vscode.l10n.t('Romfs Base Address (for embedded flash)'),
             create: vscode.l10n.t('Create'),

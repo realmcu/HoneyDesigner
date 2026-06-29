@@ -380,6 +380,7 @@
   "Enable AI collaboration assets": "启用 AI 协作资产",
   "Distribute HML-Spec.md and AI agent guides to the project root for vibe coding. Uncheck for pure drag-and-drop use.": "将 HML-Spec.md 和 AI 智能体指南分发到项目根目录，以支持 Vibe Coding。纯拖拽设计用户可取消勾选。",
   "Minimum SDK": "最低 SDK",
+  "For project metadata only — the designer always uses the latest built-in HoneyGUI library regardless of this setting.": "仅作项目元数据标记用，不影响设计器行为——设计器始终使用内置的最新版 HoneyGUI 库。",
   "Pixel Mode": "像素模式",
   "Romfs Base Address (for embedded flash)": "Romfs 基地址 (用于嵌入式烧录)",
   "Create": "创建",
