@@ -3,6 +3,7 @@ import { PropertyPanelProps } from './types';
 import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
+import { NumberInput } from '../NumberInput';
 import { t } from '../../i18n';
 
 const inputStyle: React.CSSProperties = {
@@ -135,12 +136,13 @@ export const HgVideoProperties: React.FC<PropertyPanelProps> = ({ component, onU
 
               <div className="property-item">
                 <label>{t('Frame Rate (FPS)')}</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="60"
+                <NumberInput
+                  min={1}
+                  max={60}
+                  integer
+                  emptyValue={30}
                   value={frameRate}
-                  onChange={(e) => handlePropertyChange('frameRate', parseInt(e.target.value) || 30)}
+                  onChange={(v) => handlePropertyChange('frameRate', v)}
                   style={inputStyle}
                 />
                 <small style={helpTextStyle}>{t('Output video frame rate')}</small>

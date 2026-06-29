@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import * as fabric from 'fabric';
 import { t } from '../i18n';
+import { NumberInput } from './NumberInput';
 import './CanvasEditorModal.css';
 
 interface CanvasEditorModalProps {
@@ -687,11 +688,11 @@ export const CanvasEditorModal: React.FC<CanvasEditorModalProps> = ({
                   </label>
                   <label className="stroke-width" title={t('Line Width')}>
                     <span>宽</span>
-                    <input type="number" min="1" max="20" value={strokeWidth} onChange={(e) => setStrokeWidth(parseInt(e.target.value) || 1)} />
+                    <NumberInput min={1} max={20} integer emptyValue={1} value={strokeWidth} onChange={(v) => setStrokeWidth(v)} />
                   </label>
                   <label className="stroke-width" title={t('Opacity')}>
                     <span>透</span>
-                    <input type="number" min="0" max="1" step="0.1" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value) || 1)} />
+                    <NumberInput min={0} max={1} emptyValue={1} value={opacity} onChange={(v) => setOpacity(v)} />
                   </label>
                 </div>
 

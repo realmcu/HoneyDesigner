@@ -4,6 +4,7 @@ import { PropertyEditor } from './PropertyEditor';
 import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
+import { NumberInput } from '../NumberInput';
 import { t } from '../../i18n';
 import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES } from '../../../hml/eventTypes';
 import { useDesignerStore } from '../../store';
@@ -38,14 +39,6 @@ export const HgMenuCellularProperties: React.FC<PropertyPanelProps> = ({ compone
   const iconSize: number = typeof data.iconSize === 'number' ? data.iconSize : 64;
   const offsetX: number = typeof data.offsetX === 'number' ? data.offsetX : 0;
   const offsetY: number = typeof data.offsetY === 'number' ? data.offsetY : 0;
-
-  const [offsetXInput, setOffsetXInput] = useState<string>(String(offsetX));
-  const [offsetYInput, setOffsetYInput] = useState<string>(String(offsetY));
-
-  React.useEffect(() => {
-    setOffsetXInput(String(typeof data.offsetX === 'number' ? data.offsetX : 0));
-    setOffsetYInput(String(typeof data.offsetY === 'number' ? data.offsetY : 0));
-  }, [component.id, data.offsetX, data.offsetY]);
 
   const handleDataChange = (property: string, value: any) => {
     onUpdate({ data: { ...component.data, [property]: value } });
@@ -342,35 +335,21 @@ export const HgMenuCellularProperties: React.FC<PropertyPanelProps> = ({ compone
             </div>
             <div className="property-item">
               <label>offset_x</label>
-              <input
-                type="number"
-                value={offsetXInput}
-                onChange={(e) => {
-                  setOffsetXInput(e.target.value);
-                  const num = parseInt(e.target.value);
-                  if (!isNaN(num)) { handleDataChange('offsetX', num); }
-                }}
-                onBlur={() => {
-                  const num = parseInt(offsetXInput);
-                  if (isNaN(num)) { setOffsetXInput('0'); handleDataChange('offsetX', 0); }
-                }}
+              <NumberInput
+                integer
+                emptyValue={0}
+                value={offsetX}
+                onChange={(v) => handleDataChange('offsetX', v)}
                 style={{ ...inputStyle, marginTop: '4px' }}
               />
             </div>
             <div className="property-item">
               <label>offset_y</label>
-              <input
-                type="number"
-                value={offsetYInput}
-                onChange={(e) => {
-                  setOffsetYInput(e.target.value);
-                  const num = parseInt(e.target.value);
-                  if (!isNaN(num)) { handleDataChange('offsetY', num); }
-                }}
-                onBlur={() => {
-                  const num = parseInt(offsetYInput);
-                  if (isNaN(num)) { setOffsetYInput('0'); handleDataChange('offsetY', 0); }
-                }}
+              <NumberInput
+                integer
+                emptyValue={0}
+                value={offsetY}
+                onChange={(v) => handleDataChange('offsetY', v)}
                 style={{ ...inputStyle, marginTop: '4px' }}
               />
             </div>

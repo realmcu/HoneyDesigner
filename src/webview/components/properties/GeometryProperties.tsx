@@ -5,6 +5,7 @@ import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
 import { HelpIcon } from './HelpIcon';
+import { NumberInput } from '../NumberInput';
 import { componentDefinitions } from '../ComponentLibrary';
 import { t } from '../../i18n';
 
@@ -248,13 +249,12 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
                           <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>
                             {t('Position (0-1)')}
                           </label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="1"
-                            step="0.01"
+                          <NumberInput
+                            min={0}
+                            max={1}
+                            emptyValue={0}
                             value={stop.position}
-                            onChange={(e) => handleUpdateGradientStop(index, 'position', parseFloat(e.target.value))}
+                            onChange={(v) => handleUpdateGradientStop(index, 'position', v)}
                             style={{
                               width: '100%',
                               padding: '4px 6px',

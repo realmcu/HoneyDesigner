@@ -3,6 +3,7 @@ import { PropertyPanelProps } from './types';
 import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
+import { NumberInput } from '../NumberInput';
 import { t } from '../../i18n';
 
 const inputStyle: React.CSSProperties = {
@@ -91,12 +92,13 @@ export const HgStreamingProperties: React.FC<PropertyPanelProps> = ({ component,
             <CollapsibleGroup title={t('Update Policy')}>
               <div className="property-item">
                 <label>{t('Update Interval (ms)')}</label>
-                <input
-                  type="number"
-                  min="10"
-                  max="5000"
+                <NumberInput
+                  min={10}
+                  max={5000}
+                  integer
+                  emptyValue={40}
                   value={updateInterval}
-                  onChange={(e) => handlePropertyChange('updateInterval', parseInt(e.target.value) || 40)}
+                  onChange={(v) => handlePropertyChange('updateInterval', v)}
                   style={inputStyle}
                 />
                 <small style={helpTextStyle}>{t('Frame pull interval in milliseconds (default 40 ms = 25 fps)')}</small>

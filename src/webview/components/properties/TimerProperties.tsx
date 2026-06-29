@@ -4,6 +4,7 @@ import { t } from '../../i18n';
 import { TimerConfig, TimerAction, AnimationSegment } from '../../../hml/types';
 import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES } from '../../../hml/eventTypes';
 import { useDesignerStore } from '../../store';
+import { NumberInput } from '../NumberInput';
 import { ChevronDown, ChevronRight, Trash2, Download } from 'lucide-react';
 
 interface TimerPropertiesProps {
@@ -879,10 +880,11 @@ const TimerPresetMode: React.FC<{
                 <label style={{ fontSize: '10px', display: 'block', marginBottom: '4px' }}>
                   {t('Duration (ms)')}
                 </label>
-                <input
-                  type="number"
+                <NumberInput
+                  min={0}
+                  integer
                   value={segment.duration}
-                  onChange={(e) => handleUpdateSegment(segmentIndex, { duration: Number(e.target.value) })}
+                  onChange={(v) => handleUpdateSegment(segmentIndex, { duration: v })}
                   style={{
                     width: '100%',
                     padding: '4px 8px',
@@ -1464,10 +1466,9 @@ const TimerActionEditor: React.FC<{
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From')} W</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.fromW || 0}
-              onChange={(e) => onUpdate({ fromW: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ fromW: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1481,10 +1482,9 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To')} W</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.toW || 0}
-              onChange={(e) => onUpdate({ toW: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ toW: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1498,10 +1498,9 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From')} H</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.fromH || 0}
-              onChange={(e) => onUpdate({ fromH: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ fromH: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1515,10 +1514,9 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To')} H</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.toH || 0}
-              onChange={(e) => onUpdate({ toH: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ toH: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1537,10 +1535,9 @@ const TimerActionEditor: React.FC<{
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From')} X</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.fromX || 0}
-              onChange={(e) => onUpdate({ fromX: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ fromX: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1554,10 +1551,9 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To')} X</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.toX || 0}
-              onChange={(e) => onUpdate({ toX: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ toX: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1571,10 +1567,9 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From')} Y</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.fromY || 0}
-              onChange={(e) => onUpdate({ fromY: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ fromY: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1588,10 +1583,9 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To')} Y</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.toY || 0}
-              onChange={(e) => onUpdate({ toY: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ toY: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1610,25 +1604,13 @@ const TimerActionEditor: React.FC<{
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From')} (0-255)</label>
-            <input
-              type="number"
-              min="0"
-              max="255"
+            <NumberInput
+              min={0}
+              max={255}
+              integer
+              emptyValue={255}
               value={action.from ?? 255}
-              onChange={(e) => {
-                let val = Number(e.target.value);
-                if (isNaN(val)) val = 255;
-                else if (val < 0) val = 0;
-                else if (val > 255) val = 255;
-                onUpdate({ from: val });
-              }}
-              onBlur={(e) => {
-                let val = Number(e.target.value);
-                if (isNaN(val) || e.target.value === '') val = 255;
-                else if (val < 0) val = 0;
-                else if (val > 255) val = 255;
-                onUpdate({ from: val });
-              }}
+              onChange={(v) => onUpdate({ from: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1642,25 +1624,13 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To')} (0-255)</label>
-            <input
-              type="number"
-              min="0"
-              max="255"
+            <NumberInput
+              min={0}
+              max={255}
+              integer
+              emptyValue={128}
               value={action.to ?? 128}
-              onChange={(e) => {
-                let val = Number(e.target.value);
-                if (isNaN(val)) val = 128;
-                else if (val < 0) val = 0;
-                else if (val > 255) val = 255;
-                onUpdate({ to: val });
-              }}
-              onBlur={(e) => {
-                let val = Number(e.target.value);
-                if (isNaN(val) || e.target.value === '') val = 128;
-                else if (val < 0) val = 0;
-                else if (val > 255) val = 255;
-                onUpdate({ to: val });
-              }}
+              onChange={(v) => onUpdate({ to: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1679,10 +1649,10 @@ const TimerActionEditor: React.FC<{
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From')}</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.fromValue ?? 0}
-              onChange={(e) => onUpdate({ fromValue: Number(e.target.value) })}
+              emptyValue={0}
+              onChange={(v) => onUpdate({ fromValue: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1696,10 +1666,10 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To')}</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.toValue ?? 100}
-              onChange={(e) => onUpdate({ toValue: Number(e.target.value) })}
+              emptyValue={100}
+              onChange={(v) => onUpdate({ toValue: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1718,10 +1688,9 @@ const TimerActionEditor: React.FC<{
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From Angle')} (°)</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.angleOrigin || 0}
-              onChange={(e) => onUpdate({ angleOrigin: Number(e.target.value) })}
+              onChange={(v) => onUpdate({ angleOrigin: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1735,10 +1704,10 @@ const TimerActionEditor: React.FC<{
           </div>
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To Angle')} (°)</label>
-            <input
-              type="number"
+            <NumberInput
               value={action.angleTarget || 360}
-              onChange={(e) => onUpdate({ angleTarget: Number(e.target.value) })}
+              emptyValue={360}
+              onChange={(v) => onUpdate({ angleTarget: v })}
               style={{
                 width: '100%',
                 padding: '3px',
@@ -1781,14 +1750,10 @@ const TimerActionEditor: React.FC<{
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
             <div>
               <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From Scale')} X</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
+              <NumberInput
+                min={0}
                 value={action.zoomXOrigin ?? 1.0}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                  const finalVal = isNaN(val) ? 0 : Math.max(0, val);
+                onChange={(finalVal) => {
                   if (proportionalScale) {
                     onUpdate({ zoomXOrigin: finalVal, zoomYOrigin: finalVal });
                   } else {
@@ -1808,14 +1773,10 @@ const TimerActionEditor: React.FC<{
             </div>
             <div>
               <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To Scale')} X</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
+              <NumberInput
+                min={0}
                 value={action.zoomXTarget ?? 2.0}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                  const finalVal = isNaN(val) ? 0 : Math.max(0, val);
+                onChange={(finalVal) => {
                   if (proportionalScale) {
                     onUpdate({ zoomXTarget: finalVal, zoomYTarget: finalVal });
                   } else {
@@ -1835,14 +1796,10 @@ const TimerActionEditor: React.FC<{
             </div>
             <div>
               <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('From Scale')} Y</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
+              <NumberInput
+                min={0}
                 value={action.zoomYOrigin ?? 1.0}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                  const finalVal = isNaN(val) ? 0 : Math.max(0, val);
+                onChange={(finalVal) => {
                   if (proportionalScale) {
                     onUpdate({ zoomYOrigin: finalVal, zoomXOrigin: finalVal });
                   } else {
@@ -1862,14 +1819,10 @@ const TimerActionEditor: React.FC<{
             </div>
             <div>
               <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('To Scale')} Y</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
+              <NumberInput
+                min={0}
                 value={action.zoomYTarget ?? 2.0}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                  const finalVal = isNaN(val) ? 0 : Math.max(0, val);
+                onChange={(finalVal) => {
                   if (proportionalScale) {
                     onUpdate({ zoomYTarget: finalVal, zoomXTarget: finalVal });
                   } else {
