@@ -3,9 +3,9 @@ import * as path from 'path';
 import { Resvg, initWasm } from '@resvg/resvg-wasm';
 
 /**
- * SVG 栅格化服务（AI 设计图像生成管线的第 2 段）
+ * SVG 栅格化服务（图标取材管线的栅格化段）
  *
- * 职责：把 AI 生成的 SVG 字符串栅格化为 PNG，写入项目 assets/，返回供 HML 引用的路径。
+ * 职责：把 SVG 字符串栅格化为 PNG，写入项目 assets/，返回供 HML 引用的路径。
  * - 栅格化引擎：@resvg/resvg-wasm（Rust resvg 编译的 WASM，平台无关，离线）。
  * - 产物到 PNG 即止：PNG → .bin 由仿真/构建期 ImageConverterService 处理，本服务不碰。
  * - assetPath 统一为 `assets/<name>.png`（相对 projectRoot），三处兼容：
@@ -44,11 +44,18 @@ export interface RasterizeOptions {
     width: number;
     /** 可选高度(px)；省略则按 SVG viewBox 宽高比 */
     height?: number;
+    /** 注入字体的绝对路径列表（供含 <text> 的 SVG 用；图标取材的矢量图标用不到） */
+    fontPaths?: string[];
 }
 
 export interface SvgToAssetOptions extends RasterizeOptions {
     /** 同名资源已存在时是否覆盖，默认 false */
     overwrite?: boolean;
+    /**
+     * 自动扫描 projectRoot/assets/*.ttf 并注入为可用字体，默认 true。
+     * 设为 false 时只使用 fontPaths 显式传入的字体。
+     */
+    autoLoadProjectFonts?: boolean;
 }
 
 export interface SvgAssetResult {
@@ -58,6 +65,8 @@ export interface SvgAssetResult {
     width: number;
     height: number;
     bytes: number;
+    /** 本次渲染注入的字体文件名列表（去扩展名）。兼容字段，图标取材一般为默认 fallback 字体 */
+    loadedFonts: string[];
 }
 
 const NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -77,15 +86,26 @@ export class SvgRasterizeService {
 
         await ensureWasmInit();
 
+        // 读取字体 buffer 列表（路径不存在的静默跳过，不中断渲染）
+        const fontBuffers: Uint8Array[] = [];
+        for (const fp of opts.fontPaths ?? []) {
+            try {
+                fontBuffers.push(new Uint8Array(fs.readFileSync(fp)));
+            } catch {
+                // 字体文件缺失不致命，resvg 会用内置 fallback
+            }
+        }
+
         try {
-            const resvg = new Resvg(svg, {
+            const resvgOpts: Record<string, unknown> = {
                 fitTo: { mode: 'width', value: Math.round(opts.width) },
-            });
+                font: { loadSystemFonts: false, ...(fontBuffers.length > 0 ? { fontBuffers } : {}) },
+            };
+            const resvg = new Resvg(svg, resvgOpts);
             const rendered = resvg.render();
             const png = Buffer.from(rendered.asPng());
             const width = rendered.width;
             const height = rendered.height;
-            // 释放 wasm 侧内存（API 存在则调用）
             (rendered as unknown as { free?: () => void }).free?.();
             (resvg as unknown as { free?: () => void }).free?.();
             return { png, width, height };
@@ -122,13 +142,26 @@ export class SvgRasterizeService {
             throw new SvgRasterizeError('ASSET_EXISTS', `Asset already exists: assets/${fileName} (set overwrite=true to replace)`);
         }
 
-        const { png, width, height } = await this.rasterize(svg, opts);
+        // 自动扫描 assets/*.ttf，与调用方显式传入的 fontPaths 合并
+        const autoLoadFonts = opts.autoLoadProjectFonts !== false;
+        const projectTtfs: string[] = [];
+        if (autoLoadFonts && fs.existsSync(assetsDir)) {
+            for (const f of fs.readdirSync(assetsDir)) {
+                if (f.toLowerCase().endsWith('.ttf')) {
+                    projectTtfs.push(path.join(assetsDir, f));
+                }
+            }
+        }
+        const mergedFontPaths = [...(opts.fontPaths ?? []), ...projectTtfs];
+        const loadedFonts = mergedFontPaths.map(fp => path.basename(fp, path.extname(fp)));
+
+        const { png, width, height } = await this.rasterize(svg, { ...opts, fontPaths: mergedFontPaths });
 
         if (!fs.existsSync(assetsDir)) {
             fs.mkdirSync(assetsDir, { recursive: true });
         }
         fs.writeFileSync(absolutePath, png);
-        console.log(`[SvgRasterize] wrote assets/${fileName} (${width}x${height}, ${png.length} bytes)`);
+        console.log(`[SvgRasterize] wrote assets/${fileName} (${width}x${height}, ${png.length} bytes, fonts: ${loadedFonts.join(', ') || 'none'})`);
 
         return {
             assetPath: `assets/${fileName}`,
@@ -136,6 +169,7 @@ export class SvgRasterizeService {
             width,
             height,
             bytes: png.length,
+            loadedFonts,
         };
     }
 }

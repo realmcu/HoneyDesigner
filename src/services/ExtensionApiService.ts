@@ -150,13 +150,15 @@ export class ExtensionApiService implements vscode.Disposable {
             args: ['hmlContent: string | filePath: string'],
             needsUI: false
         },
-        // SVG 栅格化（AI 设计图像生成）
+        // SVG 栅格化（图标取材管线）
         {
             endpoint: 'POST /api/svg-to-image',
             method: 'POST',
             command: '', // 不复用命令，直接调用服务
             title: 'SVG to Image',
-            description: 'Rasterize an SVG to PNG and write it into the project assets/ for AI design. Returns assetPath (assets/<name>.png) for HML reference.',
+            description: 'Rasterize an SVG to PNG and write it into the project assets/. ' +
+                'Returns assetPath (assets/<name>.png) for HML reference. ' +
+                'loadedFonts lists auto-injected assets/*.ttf; icon sourcing uses vector icons without <text>, so it is usually ignorable.',
             args: ['svg: string', 'name: string', 'width: number', 'height?: number', 'overwrite?: boolean'],
             needsUI: false
         }
@@ -252,7 +254,7 @@ export class ExtensionApiService implements vscode.Disposable {
             return this.handleValidateHml(req, res);
         }
 
-        // SVG 栅格化（AI 设计图像生成）
+        // SVG 栅格化（图标取材管线）
         if (method === 'POST' && url === '/api/svg-to-image') {
             return this.handleSvgToImage(req, res);
         }
@@ -353,11 +355,12 @@ export class ExtensionApiService implements vscode.Disposable {
     }
 
     /**
-     * POST /api/svg-to-image - 将 AI 生成的 SVG 栅格化为 PNG 并写入 assets/
+     * POST /api/svg-to-image - 将 SVG 栅格化为 PNG 并写入 assets/
      *
      * 请求体: { svg: string, name: string, width: number, height?: number, overwrite?: boolean }
-     * 响应:   { success: true, data: { assetPath, absolutePath, width, height, bytes } }
-     * 产物到 PNG 即止；PNG→.bin 由仿真/构建期处理。assetPath 形如 assets/<name>.png 供 HML 引用。
+     * 响应:   { success: true, data: { assetPath, absolutePath, width, height, bytes, loadedFonts } }
+     * - 产物到 PNG 即止；PNG→.bin 由仿真/构建期处理。assetPath 形如 assets/<name>.png 供 HML 引用。
+     * - loadedFonts 列出自动注入的 assets/*.ttf 文件名（去扩展名）；图标取材用矢量图标、不涉及 <text>，通常可忽略。
      */
     private async handleSvgToImage(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         const body = await this.readBody(req);

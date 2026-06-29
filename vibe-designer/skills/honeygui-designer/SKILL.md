@@ -89,35 +89,12 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
 
 > 中文文本必须用覆盖 CJK 的字体（如 NotoSansSC）；纯拉丁字体（如 Inter）渲染中文会缺字/豆腐块。
 
-## 按需生成图像（assets 为空时）
+## 按需检索图像（先盘点，确实缺失才取）
 
-新项目 `assets/` 常常没有现成图标/插画。**需要简单的图标、徽标、装饰图形时**，不要引用不存在的文件，
-而是生成矢量 SVG 交给扩展栅格化为 PNG：调用 `POST http://localhost:38912/api/svg-to-image`，
-扩展用内置 resvg 把 SVG 渲染成 PNG 写入 `assets/`，返回可直接写进 HML 的路径。
-
-**SVG 硬约束（必须遵守，否则栅格化结果不可控或失败）：**
-
-- 只用矢量绘制：`<path>`、`<rect>`、`<circle>`、`<polygon>`、`<line>`、`<g>` 等基本图元。
-- **禁止 `<text>`**（无系统字体，渲染不出文字）、**禁止 `<image>` 与任何外部/网络引用**、禁止滤镜（`<filter>`、投影阴影）。
-- 用正方形 `viewBox`（如 `0 0 100 100`），实际尺寸由 `width` 决定；颜色用简单纯色或线性渐变。
-- 图标设计简洁，贴合嵌入式小屏与目标尺寸（图标通常 48–120px）。
-
-**调用与参数：**
-
-```bash
-curl -X POST http://localhost:38912/api/svg-to-image \
-  -H "Content-Type: application/json" \
-  -d '{"svg":"<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"#01BFFE\"/></svg>","name":"icon_bt","width":96}'
-```
-
-- `svg`（必填）：SVG 源字符串。`name`（必填）：资源名，只允许字母/数字/`_`/`-`，不含扩展名与路径。
-- `width`（必填）：目标像素宽；`height`（可选，省略则按 SVG 比例）；`overwrite`（可选，默认 false，同名已存在返回 409）。
-- 返回 `data.assetPath`，形如 `assets/icon_bt.png`。
-
-**写进 HML：** 把返回的 `assetPath` 原样填进 `hg_image` 的 `src`（或 `hg_button` 的 `imageOn`/`imageOff`），
-如 `<hg_image id="icon_bt" src="assets/icon_bt.png" .../>`。**仍需走 validate-hml**。
-
-> 仿真/编译时扩展会把 `assets/*.png` 自动转成 `.bin`，无需手动转换；`src` 只写 `.png` 源，别写 `.bin`。
+**设计前先盘点 `assets/`：已有图像够用就复用**（减法优先）。确实缺失的图标/插画，
+**不要手写 SVG 画**，而是从开源图标库（Iconify 聚合两百多个集）检索现成矢量图，
+经清洗/适配后交扩展栅格化为 PNG。流程：搜索 → 验证（渲染回看）→ 适配（清洗/调色/风格对齐），
+详见 **`references/icon-sourcing.md`**。
 
 ## HML 结构骨架
 
@@ -197,6 +174,7 @@ curl -X POST http://localhost:38912/api/validate-hml \
 ## 文件参考
 
 - **`HML-Spec.md`**（项目根）— **唯一真相源**：全部组件、属性、事件、引擎矩阵。
+- **`references/icon-sourcing.md`** — 图标取材：Iconify 检索 → 验证 → 适配 → 栅格化，版权分类，调用方式。
 - **`references/design-principles.md`** — 嵌入式 UI 设计方法论（spec 不涵盖）。
 - **`references/layout-patterns.md`** — 常见布局模式与代码示例（spec 不涵盖）。
 - **`references/common-mistakes.md`** — 高频错误与修复。
