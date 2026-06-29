@@ -63,6 +63,25 @@ jobs:
             echo "✅ Headers updated"
           fi
 
+      # 上游 win32_sim/ 是唯一真相源 —— 任何本地差异都将被覆盖。
+      # 想保留的修改一律先 PR 给 realmcu/HoneyGUI。
+      - name: Sync win32_sim sources from upstream (port + build scripts)
+        run: |
+          if [ -d /tmp/HoneyGUI/win32_sim ]; then
+            # 用 rsync --delete 保证 design 仓内容 = 上游内容
+            # 排除 build 产物与 design 仓特有的预编译 libgui.a 目录
+            rsync -av --delete \
+              --exclude='build/' \
+              --exclude='*.o' \
+              --exclude='*.exe' \
+              /tmp/HoneyGUI/win32_sim/ \
+              lib/sim/win32_sim/
+            echo "✅ win32_sim sources synced from upstream"
+          else
+            echo "::error::upstream /tmp/HoneyGUI/win32_sim not found"
+            exit 1
+          fi
+
       - name: Get LVGL commit hash
         id: lvgl-info
         run: |
