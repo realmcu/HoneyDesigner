@@ -18,7 +18,10 @@
 #include <string.h>
 #include <stdint.h>
 #include <fcntl.h>
-#include <unistd.h>
+
+#ifndef _WIN32
+#include <unistd.h>  // For POSIX systems: close, read, write, lseek
+#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0
