@@ -1,6 +1,34 @@
 # Changelog
 
+<!-- markdownlint-configure-file {"MD024": {"allow_different_nesting": true}} -->
+
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
+
+## [1.8.3] - 2026-06-29
+
+### Added
+
+- 新增 streaming 组件；同步修复 win32_sim port 以支持该组件
+- view 组件支持配置切出时的自定义回调函数
+- 新增 `/api/svg-to-image` 端点，供 AI 将 SVG 光栅化为 PNG 导入项目
+
+### Changed
+
+- 图标工作流改为从 Iconify 检索现成 SVG 再光栅化，AI 作为检索/适配编排者而非绘图引擎
+- 组件库移除 "planned" 中间态，支持状态改为二元（ready / unsupported），空分类自动隐藏
+- 新建项目向导补全 App ID（#8）与 Minimum SDK（#4）字段说明，明确两者均为元数据、不影响构建行为
+
+### Fixed
+
+- 修正 HML 路径约定：图片路径须以 `assets/` 开头，字体路径以 `/` 开头
+- 修复深度清理时意外删除 entry 文件的问题
+- 修复展开/折叠面板按钮：统一尺寸（20×40 px），改用 onMouseDown + stopPropagation 防止 resize drag 触发导致点击失效
+
+### Internal
+
+- CI 修复 shallow clone 后 `VERSION_TAG=0.0.0`（补 unshallow + fetch tags）
+- win32_sim port 对齐上游 HoneyGUI；CI 新增 rsync 步骤，port 层改由 CI 自动从 upstream 同步
+- 同步仿真库（fix single-line MID alignment and V3 baseline）
 
 ## [1.8.1] - 2026-06-25
 
