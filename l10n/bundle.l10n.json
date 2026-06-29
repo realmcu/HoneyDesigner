@@ -362,6 +362,7 @@
   "Project name": "Project name",
   "Save location": "Save location",
   "APP ID": "APP ID",
+  "Unique app identifier in reverse-domain format (e.g. com.example.myapp). For identification only — does not affect compilation or runtime.": "Unique app identifier in reverse-domain format (e.g. com.example.myapp). For identification only — does not affect compilation or runtime.",
   "Resolution": "Resolution",
   "Custom...": "Custom...",
   "Custom...": "Custom...",

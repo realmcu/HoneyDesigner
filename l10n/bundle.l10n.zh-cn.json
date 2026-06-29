@@ -363,6 +363,7 @@
   "Project name": "项目名称",
   "Save location": "保存位置",
   "APP ID": "APP ID",
+  "Unique app identifier in reverse-domain format (e.g. com.example.myapp). For identification only — does not affect compilation or runtime.": "应用唯一标识符，反向域名格式（如 com.example.myapp）。仅作标识，不影响编译和运行。",
   "Resolution": "分辨率",
   "Create empty project": "创建空白项目",
   "Create template project": "从模板创建项目",

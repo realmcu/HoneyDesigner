@@ -138,6 +138,7 @@ export class CreateProjectPanel {
             projectName: vscode.l10n.t('Project name'),
             saveLocation: vscode.l10n.t('Save location'),
             appId: vscode.l10n.t('APP ID'),
+            appIdHint: vscode.l10n.t('Unique app identifier in reverse-domain format (e.g. com.example.myapp). For identification only — does not affect compilation or runtime.'),
             resolution: vscode.l10n.t('Resolution'),
             custom: vscode.l10n.t('Custom...'),
             width: vscode.l10n.t('Width'),
