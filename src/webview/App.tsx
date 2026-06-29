@@ -1548,9 +1548,9 @@ const App: React.FC = () => {
 
         {/* Left Panel Collapsed Button */}
         {leftPanel.isCollapsed && (
-          <button 
+          <button
             className="expand-button left"
-            onClick={leftPanel.toggle}
+            onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); leftPanel.toggle(); }}
             title="展开左侧面板 (Ctrl+B)"
           >
             ▶
@@ -1571,9 +1571,9 @@ const App: React.FC = () => {
 
         {/* Right Panel Collapsed Button */}
         {rightPanel.isCollapsed && (
-          <button 
+          <button
             className="expand-button right"
-            onClick={rightPanel.toggle}
+            onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); rightPanel.toggle(); }}
             title="展开右侧面板 (Ctrl+Shift+B)"
           >
             ◀
