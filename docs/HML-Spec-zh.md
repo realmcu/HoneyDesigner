@@ -505,6 +505,8 @@ Designer 可从项目级 catalog `i18n/strings.json` 解析 `hg_label` 的预览
 
 对于多页面项目，请优先使用 Designer 多语言管理器，而不是逐个选中 label 编辑。管理器会扫描 `ui/*.hml`，列出所有 `i18nKey` 引用、每种语言的缺失翻译，以及尚未绑定 key 的 `hg_label text`。属性面板仍作为单个 label 的快速编辑入口。
 
+字体转换会自动把 `i18n/strings.json` 中所有 key、所有 locale 的文本字符合并为项目级基础字符集。不要把这份自动字符集写入每个组件的 `characterSets`。`characterSets` 仍用于补充运行时动态文本，例如日期、数字、单位、接口返回内容或用户输入。
+
 V202S 配对界面示例：
 
 ```xml

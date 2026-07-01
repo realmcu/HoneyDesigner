@@ -43,8 +43,11 @@ if (typeof window !== 'undefined' && !listenerRegistered) {
 }
 
 /**
- * 统计「组件文本 + 附加字符集」合并去重后的字符数、预估 font bin 大小，
+ * 统计「组件文本 + 手动字符集 + 自动 i18n 字符集」合并去重后的字符数、预估 font bin 大小，
  * 并检测这些字符在字体文件中是否存在（缺字检测）。
+ *
+ * Callers are responsible for merging manual component `characterSets` with any
+ * generated project-level sources such as the auto i18n charset.
  *
  * 通过后端解析 TTF/OTF 的 cmap 表 + 复用字符集合并逻辑实现。
  * 输入变更后 debounce 300ms 再请求，避免频繁打字时反复触发。

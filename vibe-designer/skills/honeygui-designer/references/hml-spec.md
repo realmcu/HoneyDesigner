@@ -514,6 +514,8 @@ Preview resolution order:
 
 For projects with many pages, use the Designer I18n Manager instead of editing one label at a time. The manager scans `ui/*.hml`, lists all `i18nKey` references, shows missing translations per locale, and lists unbound `hg_label text` values. The selected-component Properties panel remains a quick edit surface for one label.
 
+Font conversion automatically merges all text characters from every key and locale in `i18n/strings.json` into the project base charset. Do not write this generated charset into each component's `characterSets`. Use `characterSets` only for dynamic runtime text such as dates, numbers, units, network responses, or user input.
+
 V202S pairing example:
 
 ```xml

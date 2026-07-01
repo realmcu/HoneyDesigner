@@ -725,6 +725,11 @@ const zhCN = {
   // Character Sets
   'Additional Character Sets': '附加字符集',
   'No additional character sets': '暂无附加字符集',
+  'Auto I18n Charset': '自动多语言字符集',
+  'From all strings in i18n catalog': '来自 i18n/strings.json 的所有文本',
+  'From this label i18n key': '来自当前 label 的多语言 key',
+  'No manual additional character sets': '暂无手动附加字符集',
+  'characters': '个字符',
   'Unicode Range': 'Unicode 范围',
   'String': '字符串',
   'CST File': 'CST 文件',

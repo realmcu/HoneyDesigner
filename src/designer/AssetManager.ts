@@ -2345,8 +2345,9 @@ export class AssetManager extends EventEmitter {
     }
 
     /**
-     * 统计「文本 + 附加字符集」合并去重后的字符数、预估 font bin 大小，
+     * 统计「文本 + 手动字符集 + 自动 i18n 字符集」合并去重后的字符数、预估 font bin 大小，
      * 并检测这些字符在字体文件中是否缺失。
+     * Webview callers send the already-merged characterSets array.
      * 复用 CharsetProcessor 字符集合并逻辑 + parseFontCmap cmap 解析。
      */
     public async handleGetGlyphStats(
@@ -2374,7 +2375,7 @@ export class AssetManager extends EventEmitter {
                 ? ProjectUtils.findProjectRoot(currentFilePath)
                 : undefined;
 
-            // 2. 附加字符集码点
+            // 2. 字符集来源码点（手动附加字符集 + 自动 i18n 字符集）
             // 逐条解析：跳过空值（新增的空行/正在输入的中间态），
             // 单条失败（如未填完整的 range）仅忽略该条，不影响其它条目，
             // 避免一条无效项导致整组字符集被丢弃。

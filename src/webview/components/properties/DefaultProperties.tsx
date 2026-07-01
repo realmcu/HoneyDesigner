@@ -10,6 +10,7 @@ import { t, getLocale } from '../../i18n';
 import { useFontGlyphStats } from '../../hooks/useFontGlyphStats';
 import { PRESET_CHARSETS, PRESET_CODEPAGES, isPresetValue, getPresetLabel } from '../../../common/charsetPresets';
 import { listI18nKeys, resolveLocalizedText, setTranslation } from '../../../project-i18n/catalog';
+import { summarizeI18nAutoCharsetForKeys } from '../../../project-i18n/autoCharset';
 import { detectScripts } from '../../../project-i18n/script';
 import { estimateTextPixelWidth } from '../../../project-i18n/textMetrics';
 import { HelpIcon } from './HelpIcon';
@@ -136,6 +137,10 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const isLvglProject = targetEngine === 'lvgl';
   const isLocalizableLabel = component.type === 'hg_label';
   const i18nKey = String((component.data as any)?.i18nKey || '').trim();
+  const i18nAutoCharset = React.useMemo(
+    () => summarizeI18nAutoCharsetForKeys(projectI18nCatalog, i18nKey ? [i18nKey] : []),
+    [projectI18nCatalog, i18nKey]
+  );
   const defaultLocale = projectI18nCatalog.defaultLocale;
   const i18nEntry = i18nKey ? projectI18nCatalog.strings[i18nKey] : undefined;
   const defaultLocaleText = i18nKey
@@ -143,6 +148,16 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
     : '';
   const currentLocaleText = i18nKey ? i18nEntry?.[previewLocale] ?? '' : '';
   const i18nKeys = listI18nKeys(projectI18nCatalog);
+  const manualCharacterSets = Array.isArray((component.data as any)?.characterSets)
+    ? (component.data as any).characterSets
+    : [];
+  const manualCharacterSetsKey = JSON.stringify(manualCharacterSets);
+  const effectiveCharacterSets = React.useMemo(
+    () => i18nAutoCharset.source
+      ? [...manualCharacterSets, i18nAutoCharset.source]
+      : manualCharacterSets,
+    [manualCharacterSetsKey, i18nAutoCharset.source]
+  );
   const isPreviewLocaleMissing = Boolean(
     i18nKey &&
     previewLocale !== defaultLocale &&
@@ -165,7 +180,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const previewCharsMissingFromFirmwareCharset = Array.from(new Set(Array.from(resolvedPreviewText)))
     .filter((char) => char.trim() !== '')
     .filter((char) => !fallbackTextChars.has(char))
-    .filter((char) => !characterSetsCoverChar((component.data as any)?.characterSets, char));
+    .filter((char) => !characterSetsCoverChar(effectiveCharacterSets, char));
   const labelFontSize = Number((component.data as any)?.fontSize) || 16;
   const labelLetterSpacing = Number((component.style as any)?.letterSpacing) || 0;
   const labelLineSpacing = Number((component.style as any)?.lineSpacing) || 0;
@@ -199,7 +214,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const fontStats = useFontGlyphStats(
     (component.data as any)?.fontFile,
     resolvedPreviewText,
-    (component.data as any)?.characterSets,
+    effectiveCharacterSets,
     (component.data as any)?.fontSize ?? 16,
     Number((component.data as any)?.renderMode) || 4
   );
@@ -638,7 +653,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   ].join('\n');
 
   const renderCharacterSets = () => {
-    const charsets = (component.data as any)?.characterSets || [];
+    const charsets = manualCharacterSets;
     
     // 处理文件浏览
     const handleBrowseCharsetFile = (index: number, type: 'file' | 'codepage') => {
@@ -665,6 +680,25 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
     
     return (
       <div>
+        {i18nAutoCharset.charCount > 0 && (
+          <div style={{
+            marginBottom: '6px',
+            padding: '6px 8px',
+            border: '1px solid var(--vscode-panel-border)',
+            borderRadius: '3px',
+            background: 'var(--vscode-editor-background)',
+            fontSize: '11px',
+            color: 'var(--vscode-descriptionForeground)',
+            lineHeight: 1.4,
+          }}>
+            <div style={{ color: 'var(--vscode-foreground)' }}>
+              {t('Auto I18n Charset')}: {i18nAutoCharset.charCount.toLocaleString()} {t('characters')}
+            </div>
+            <div title={i18nAutoCharset.preview}>
+              {t('From this label i18n key')}
+            </div>
+          </div>
+        )}
         <div style={{
           border: '1px solid var(--vscode-panel-border)',
           borderRadius: '3px',
@@ -680,7 +714,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
               fontSize: '11px',
               color: 'var(--vscode-descriptionForeground)'
             }}>
-              {t('No additional character sets')}
+              {t('No manual additional character sets')}
             </div>
           ) : (
             charsets.map((cs: any, index: number) => (

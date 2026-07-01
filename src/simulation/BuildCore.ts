@@ -15,6 +15,8 @@ import { RomfsConfig } from '../common/RomfsConfig';
 import { buildSConstruct } from './SConstructTemplate';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
+import { loadProjectI18nCatalog } from '../project-i18n/files';
+import { summarizeI18nAutoCharsetForKeys } from '../project-i18n/autoCharset';
 
 /**
  * romfs 打包前需要清理的文件规则
@@ -1972,6 +1974,11 @@ Return('objs')
 
         // 按字体文件+配置分组，合并相同配置的字符集
         const fontGroups = this.groupLabelConfigsByFont(labelConfigs);
+        const projectI18nCatalog = loadProjectI18nCatalog(this.projectRoot);
+        const totalI18nKeyCount = fontGroups.reduce((count, group) => count + group.i18nKeys.length, 0);
+        if (totalI18nKeyCount > 0) {
+            this.logger.log(`自动多语言字符集: ${totalI18nKeyCount} 个字体组 key 引用参与字体转换`);
+        }
         
         const fontConverter = new FontConverterService();
 
@@ -2006,34 +2013,36 @@ Return('objs')
                 continue;
             }
 
+            const groupI18nAutoCharset = summarizeI18nAutoCharsetForKeys(projectI18nCatalog, group.i18nKeys);
+            const mergedCharacterSets = [
+                // 使用合并后的字符集（文本字符）
+                { type: 'string' as const, value: group.characters },
+                ...(groupI18nAutoCharset.source ? [groupI18nAutoCharset.source] : []),
+                // 添加附加字符集，将文件路径转换为绝对路径
+                ...group.additionalCharSets.map(cs => {
+                    // 先解析预置标识符（如 "GBK.cst"/"CP936"）为插件内绝对路径；
+                    // resolver 不改变 type，自定义路径原样返回再按 projectRoot 还原。
+                    const resolved = CharsetSourceResolver.resolve(cs as any);
+                    if ((cs.type === 'file' || cs.type === 'codepage') && resolved.value) {
+                        let absolutePath: string;
+                        if (path.isAbsolute(resolved.value)) {
+                            absolutePath = resolved.value;
+                        } else {
+                            const normalizedPath = path.normalize(resolved.value);
+                            absolutePath = path.resolve(this.projectRoot, normalizedPath);
+                        }
+                        return { type: cs.type, value: absolutePath };
+                    }
+                    return cs;
+                })
+            ];
+
             // 构建转换选项
             const options: FontConvertOptions = {
                 fontSize: group.fontSize,
                 renderMode: group.renderMode,
                 outputFormat: group.fontType,
-                characterSets: [
-                    // 使用合并后的字符集（文本字符）
-                    { type: 'string', value: group.characters },
-                    // 添加附加字符集，将文件路径转换为绝对路径
-                    ...group.additionalCharSets.map(cs => {
-                        // 先解析预置标识符（如 "GBK.cst"/"CP936"）为插件内绝对路径；
-                        // resolver 不改变 type，自定义路径原样返回再按 projectRoot 还原。
-                        const resolved = CharsetSourceResolver.resolve(cs as any);
-                        if ((cs.type === 'file' || cs.type === 'codepage') && resolved.value) {
-                            // 如果是相对路径，转换为相对于项目根目录的绝对路径
-                            let absolutePath: string;
-                            if (path.isAbsolute(resolved.value)) {
-                                absolutePath = resolved.value;
-                            } else {
-                                // 规范化路径，移除 ../ 等相对路径符号
-                                const normalizedPath = path.normalize(resolved.value);
-                                absolutePath = path.resolve(this.projectRoot, normalizedPath);
-                            }
-                            return { type: cs.type, value: absolutePath };
-                        }
-                        return cs;
-                    })
-                ]
+                characterSets: mergedCharacterSets
             };
 
             try {
@@ -2046,6 +2055,9 @@ Return('objs')
                     // 失败时显示详细信息，方便调试
                     this.logger.log(`转换字体: ${group.fontFile} (${group.fontType}, size=${group.fontSize}, bits=${group.renderMode})`);
                     this.logger.log(`  文本字符: "${group.characters.substring(0, 50)}${group.characters.length > 50 ? '...' : ''}" (${group.characters.length} 字符)`);
+                    if (groupI18nAutoCharset.charCount > 0) {
+                        this.logger.log(`  自动多语言字符集: ${groupI18nAutoCharset.charCount} 个字符，来自 ${group.i18nKeys.length} 个 key`);
+                    }
                     if (group.additionalCharSets.length > 0) {
                         this.logger.log(`  附加字符集: ${group.additionalCharSets.length} 个`);
                         group.additionalCharSets.forEach((cs, idx) => {
@@ -2053,11 +2065,11 @@ Return('objs')
                             this.logger.log(`    [${idx + 1}] ${cs.type}: ${cs.value}`);
                         });
                         // 显示转换后的绝对路径（用于调试）
-                        options.characterSets.slice(1).forEach((cs, idx) => {
-                            if (cs.type === 'file' || cs.type === 'codepage') {
+                        options.characterSets
+                            .filter((cs) => cs.type === 'file' || cs.type === 'codepage')
+                            .forEach((cs, idx) => {
                                 this.logger.log(`    [${idx + 1}] file: ${cs.value}`);
-                            }
-                        });
+                            });
                     }
                     this.logger.log(`  ✗ 失败: ${result.error}`, true);
                 }
@@ -2065,6 +2077,9 @@ Return('objs')
                 // 异常时显示详细信息，方便调试
                 this.logger.log(`转换字体: ${group.fontFile} (${group.fontType}, size=${group.fontSize}, bits=${group.renderMode})`);
                 this.logger.log(`  文本字符: "${group.characters.substring(0, 50)}${group.characters.length > 50 ? '...' : ''}" (${group.characters.length} 字符)`);
+                if (groupI18nAutoCharset.charCount > 0) {
+                    this.logger.log(`  自动多语言字符集: ${groupI18nAutoCharset.charCount} 个字符，来自 ${group.i18nKeys.length} 个 key`);
+                }
                 if (group.additionalCharSets.length > 0) {
                     this.logger.log(`  附加字符集: ${group.additionalCharSets.length} 个`);
                     group.additionalCharSets.forEach((cs, idx) => {
@@ -2072,11 +2087,11 @@ Return('objs')
                         this.logger.log(`    [${idx + 1}] ${cs.type}: ${cs.value}`);
                     });
                     // 显示转换后的绝对路径（用于调试）
-                    options.characterSets.slice(1).forEach((cs, idx) => {
-                        if (cs.type === 'file' || cs.type === 'codepage') {
+                    options.characterSets
+                        .filter((cs) => cs.type === 'file' || cs.type === 'codepage')
+                        .forEach((cs, idx) => {
                             this.logger.log(`    [${idx + 1}] file: ${cs.value}`);
-                        }
-                    });
+                        });
                 }
                 results.push({
                     success: false,
@@ -2149,6 +2164,7 @@ Return('objs')
         renderMode: number;
         text: string;
         characterSets: Array<{ type: string; value: string }>;
+        i18nKey?: string;
     }>> {
         const configs: Array<any> = [];
         
@@ -2237,6 +2253,12 @@ Return('objs')
                 // 反转义 XML 实体（&lt; &gt; &amp; &quot; &#39;）
                 config.text = this.unescapeXml(textMatch[1]);
             }
+
+            // 提取 i18nKey 属性
+            const i18nKeyMatch = tagContent.match(/i18nKey\s*=\s*["']([^"']+)["']/);
+            if (i18nKeyMatch) {
+                config.i18nKey = this.unescapeXml(i18nKeyMatch[1]).trim();
+            }
             
             // 时间标签：自动添加时间显示所需的字符（已在创建时添加到 characterSets）
             // 不再在此处自动添加，由前端创建时处理
@@ -2285,6 +2307,7 @@ Return('objs')
         renderMode: number;
         text: string;
         characterSets: Array<{ type: string; value: string }>;
+        i18nKey?: string;
     }>): Array<{
         fontFile: string;
         fontSize: number;
@@ -2292,6 +2315,7 @@ Return('objs')
         renderMode: number;
         characters: string;
         additionalCharSets: Array<{ type: 'range' | 'file' | 'codepage' | 'string'; value: string }>;
+        i18nKeys: string[];
     }> {
         const groups = new Map<string, {
             fontFile: string;
@@ -2300,6 +2324,7 @@ Return('objs')
             renderMode: number;
             charSet: Set<string>;
             additionalCharSets: Set<string>;
+            i18nKeys: Set<string>;
         }>();
 
         for (const config of configs) {
@@ -2315,7 +2340,8 @@ Return('objs')
                     fontType: config.fontType,
                     renderMode: config.fontType === 'vector' ? 8 : config.renderMode,
                     charSet: new Set(),
-                    additionalCharSets: new Set()
+                    additionalCharSets: new Set(),
+                    i18nKeys: new Set()
                 });
             }
             
@@ -2329,6 +2355,11 @@ Return('objs')
             // 将文本中的每个字符添加到字符集
             for (const char of config.text) {
                 group.charSet.add(char);
+            }
+
+            const cleanI18nKey = typeof config.i18nKey === 'string' ? config.i18nKey.trim() : '';
+            if (cleanI18nKey) {
+                group.i18nKeys.add(cleanI18nKey);
             }
             
             // 收集附加字符集（去重）
@@ -2346,6 +2377,7 @@ Return('objs')
             fontType: group.fontType,
             renderMode: group.renderMode,
             characters: Array.from(group.charSet).join(''),
+            i18nKeys: Array.from(group.i18nKeys).sort((a, b) => a.localeCompare(b)),
             additionalCharSets: Array.from(group.additionalCharSets).map(s => {
                 const parsed = JSON.parse(s);
                 return {

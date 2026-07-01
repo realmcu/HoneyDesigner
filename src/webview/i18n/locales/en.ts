@@ -725,6 +725,11 @@ const en = {
   // Character Sets
   'Additional Character Sets': 'Additional Character Sets',
   'No additional character sets': 'No additional character sets',
+  'Auto I18n Charset': 'Auto I18n Charset',
+  'From all strings in i18n catalog': 'From all strings in i18n catalog',
+  'From this label i18n key': 'From this label i18n key',
+  'No manual additional character sets': 'No manual additional character sets',
+  'characters': 'characters',
   'Unicode Range': 'Unicode Range',
   'String': 'String',
   'CST File': 'CST File',

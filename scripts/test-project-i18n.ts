@@ -8,6 +8,12 @@ import {
     setTranslation,
     validateCatalog,
 } from '../src/project-i18n/catalog';
+import {
+    collectI18nCatalogCharacters,
+    collectI18nCatalogCharactersForKeys,
+    summarizeI18nAutoCharset,
+    summarizeI18nAutoCharsetForKeys,
+} from '../src/project-i18n/autoCharset';
 import { buildProjectI18nIndex, suggestI18nKey } from '../src/project-i18n/projectIndex';
 import { detectScripts } from '../src/project-i18n/script';
 import { estimateTextEmWidth } from '../src/project-i18n/textMetrics';
@@ -136,5 +142,50 @@ const projectIndex = buildProjectI18nIndex(catalog, [
 assert.strictEqual(projectIndex.rows.find((row) => row.key === 'pairing.scan_code')?.references.length, 1);
 assert.strictEqual(projectIndex.unboundTexts[0].suggestedKey, 'alone_select_mode_view.asm_skip_text');
 assert.ok(projectIndex.rows.every((row) => Array.isArray(row.missingLocales)));
+
+const autoCharsetText = collectI18nCatalogCharacters(catalog);
+assert.ok(autoCharsetText.includes('S'));
+assert.ok(autoCharsetText.includes('扫'));
+assert.ok(autoCharsetText.includes('配'));
+assert.strictEqual(
+    Array.from(autoCharsetText).filter((char) => char === '配').length,
+    1,
+    'auto i18n charset should de-duplicate repeated characters',
+);
+
+const autoCharsetSummary = summarizeI18nAutoCharset(catalog);
+assert.ok(autoCharsetSummary.source);
+assert.strictEqual(autoCharsetSummary.source?.type, 'string');
+assert.ok(autoCharsetSummary.charCount > 0);
+assert.ok(autoCharsetSummary.stringCount >= 2);
+
+setTranslation(catalog, 'pairing.skip', 'en-US', 'Jump over');
+setTranslation(catalog, 'pairing.skip', 'zh-CN', '跳过');
+setTranslation(catalog, 'unused.language_name', 'en-US', 'Simplified Chinese');
+setTranslation(catalog, 'unused.language_name', 'zh-CN', '简体中文');
+
+const scanOnlyCharsetText = collectI18nCatalogCharactersForKeys(catalog, ['pairing.scan_code']);
+assert.ok(scanOnlyCharsetText.includes('扫'));
+assert.ok(scanOnlyCharsetText.includes('S'));
+assert.ok(!scanOnlyCharsetText.includes('跳'), 'key-scoped charset should not include other referenced keys');
+assert.ok(!scanOnlyCharsetText.includes('简'), 'key-scoped charset should not include unused catalog keys');
+
+const duplicateKeyCharsetText = collectI18nCatalogCharactersForKeys(catalog, [
+    'pairing.scan_code',
+    'pairing.scan_code',
+    'missing.key',
+]);
+assert.strictEqual(duplicateKeyCharsetText, scanOnlyCharsetText);
+
+const scanOnlySummary = summarizeI18nAutoCharsetForKeys(catalog, ['pairing.scan_code']);
+assert.ok(scanOnlySummary.source);
+assert.strictEqual(scanOnlySummary.source?.type, 'string');
+assert.strictEqual(scanOnlySummary.stringCount, 2);
+assert.strictEqual(scanOnlySummary.charCount, Array.from(scanOnlyCharsetText).length);
+
+const emptyKeySummary = summarizeI18nAutoCharsetForKeys(catalog, []);
+assert.strictEqual(emptyKeySummary.source, undefined);
+assert.strictEqual(emptyKeySummary.charCount, 0);
+assert.strictEqual(emptyKeySummary.stringCount, 0);
 
 console.log('project-i18n tests passed');
