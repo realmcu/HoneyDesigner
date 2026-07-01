@@ -75,10 +75,12 @@ export class FontConverterService {
             }
 
             // 构建字符集
-            const characterSets: CharacterSetSource[] = options.characterSets.map(item => ({
-                type: item.type,
-                value: item.value
-            }));
+            const characterSets: CharacterSetSource[] = options.characterSets
+                .filter(item => typeof item.value === 'string' && item.value.trim().length > 0)
+                .map(item => ({
+                    type: item.type,
+                    value: item.value.trim()
+                }));
 
             // 如果没有字符集，默认使用 ASCII
             if (characterSets.length === 0) {

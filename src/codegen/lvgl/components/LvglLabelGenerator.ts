@@ -12,7 +12,7 @@ export class LvglLabelGenerator extends LvglBaseGenerator {
     const { x, y } = this.resolvePosition(component);
     const { width, height } = this.resolveSize(component);
 
-    const text = component.data?.text || '';
+    const text = this.resolveCodegenText(component, ctx);
     const color = parseColorHex(component.style?.color || component.data?.color || '#000000');
     const fontSize = Number(component.style?.fontSize || component.data?.fontSize || 16);
     const fontFile = component.data?.fontFile;
@@ -106,6 +106,27 @@ export class LvglLabelGenerator extends LvglBaseGenerator {
     }
 
     return code;
+  }
+
+  /**
+   * Resolve static codegen text from default-locale catalog text.
+   * Runtime locale switching is intentionally out of scope for C1.
+   */
+  private resolveCodegenText(component: Component, ctx: LvglGeneratorContext): string {
+    const fallbackText = String(component.data?.text || '');
+    const key = typeof component.data?.i18nKey === 'string'
+      ? component.data.i18nKey.trim()
+      : '';
+    const catalog = ctx.projectI18nCatalog;
+
+    if (!catalog || !key) {
+      return fallbackText;
+    }
+
+    const defaultText = catalog.strings[key]?.[catalog.defaultLocale];
+    return typeof defaultText === 'string' && defaultText.length > 0
+      ? defaultText
+      : fallbackText;
   }
 
   /**

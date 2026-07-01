@@ -514,7 +514,9 @@ Preview resolution order:
 
 For projects with many pages, use the Designer I18n Manager instead of editing one label at a time. The manager scans `ui/*.hml`, lists all `i18nKey` references, shows missing translations per locale, and lists unbound `hg_label text` values. The selected-component Properties panel remains a quick edit surface for one label.
 
-Font conversion automatically merges all text characters from every key and locale in `i18n/strings.json` into the project base charset. Do not write this generated charset into each component's `characterSets`. Use `characterSets` only for dynamic runtime text such as dates, numbers, units, network responses, or user input.
+Font conversion automatically merges text characters from HML-referenced `i18nKey` values into the matching font group. A font group is `fontFile + fontSize + fontType + renderMode`; it only receives translations for labels that use that group. Do not write this generated charset into each component's `characterSets`. Use `characterSets` only for dynamic runtime text such as dates, numbers, units, network responses, or user input.
+
+Code generation resolves static label text from the `defaultLocale` entry in `i18n/strings.json` when `i18nKey` is set. If the key is missing or the default-locale text is empty, codegen falls back to the HML `text` attribute. This stage still does not generate firmware runtime language switching or C language tables.
 
 V202S pairing example:
 

@@ -732,8 +732,9 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                     value={cs.type || 'range'}
                     onChange={(e) => {
                       const newCharsets = [...charsets];
-                      // 切换类型时清空内容
-                      newCharsets[index] = { ...cs, type: e.target.value, value: '' };
+                      // 切换类型时重置为该类型的安全默认值，避免空 range 被保存后导致字体转换失败。
+                      const nextType = e.target.value;
+                      newCharsets[index] = { ...cs, type: nextType, value: nextType === 'range' ? '0x20-0x7E' : '' };
                       handleDataChange('characterSets', newCharsets);
                     }}
                     style={{
@@ -865,7 +866,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
         </div>
         <button
           onClick={() => {
-            const newCharsets = [...charsets, { type: 'range', value: '' }];
+            const newCharsets = [...charsets, { type: 'range', value: '0x20-0x7E' }];
             handleDataChange('characterSets', newCharsets);
           }}
           style={{

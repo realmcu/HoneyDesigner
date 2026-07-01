@@ -36,8 +36,8 @@ export class LabelGenerator implements ComponentCodeGenerator {
     const color = component.style?.color || '#ffffff';
     const rgb = this.colorToRgb(color);
     
-    // Plain label: use static text (requires C string escaping)
-    const staticText = String(component.data?.text ?? '');
+    // Plain label: use default-locale catalog text when i18nKey is bound.
+    const staticText = this.resolveCodegenText(component, _context);
     const escapedText = this.escapeCString(staticText);
     const text = `"${escapedText}"`;
     const textLengthExpr = String(this.getUtf8ByteLength(staticText));
@@ -115,6 +115,27 @@ export class LabelGenerator implements ComponentCodeGenerator {
     }
 
     return code;
+  }
+
+  /**
+   * Resolve static codegen text.
+   * C1 is default-locale static codegen only; runtime locale switching is not generated here.
+   */
+  private resolveCodegenText(component: Component, context: GeneratorContext): string {
+    const fallbackText = String(component.data?.text ?? '');
+    const key = typeof component.data?.i18nKey === 'string'
+      ? component.data.i18nKey.trim()
+      : '';
+    const catalog = context.projectI18nCatalog;
+
+    if (!catalog || !key) {
+      return fallbackText;
+    }
+
+    const defaultText = catalog.strings[key]?.[catalog.defaultLocale];
+    return typeof defaultText === 'string' && defaultText.length > 0
+      ? defaultText
+      : fallbackText;
   }
 
   /**

@@ -3,6 +3,7 @@
  */
 import { Component } from '../../hml/types';
 import { LvglResourceManager } from './LvglResourceManager';
+import type { I18nCatalog } from '../../project-i18n/types';
 
 /**
  * Generator context: provides shared state and utility methods across components
@@ -14,6 +15,8 @@ export interface LvglGeneratorContext {
   getParentRef(component: Component): string;
   /** Unified resource manager */
   resources: LvglResourceManager;
+  /** Project i18n catalog for default-locale static text */
+  projectI18nCatalog?: I18nCatalog;
   /** Get built-in image variable name (images converted to C arrays) - backward compatible, delegates to resources */
   getBuiltinImageVar(source: string): string | undefined;
   /** Get built-in font variable name (fonts converted to LVGL format) - backward compatible, delegates to resources */

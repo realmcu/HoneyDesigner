@@ -8,6 +8,7 @@ import { EntryFileGenerator } from '../codegen/EntryFileGenerator';
 import { LvglResourceManager } from '../codegen/lvgl/LvglResourceManager';
 import { Component } from '../hml/types';
 import { logger } from '../utils/Logger';
+import { loadProjectI18nCatalog } from '../project-i18n/files';
 
 export interface GenerationResult {
     success: boolean;
@@ -295,6 +296,7 @@ export class CodeGenerator {
         const projectRoot = ProjectUtils.findProjectRoot(path.dirname(hmlFile));
         const config = projectRoot ? ProjectUtils.loadProjectConfig(projectRoot) : {};
         const targetEngine: TargetEngine = config.targetEngine || 'honeygui';
+        const projectI18nCatalog = projectRoot ? loadProjectI18nCatalog(projectRoot) : undefined;
 
         const generatorOptions: CodeGenOptions = {
             srcDir,
@@ -305,6 +307,7 @@ export class CodeGenerator {
             sharedResourceManager,
             skipResourcePrepare: !!sharedResourceManager,
             projectRoot,
+            projectI18nCatalog,
             romfsBaseAddr: config.romfsBaseAddr,
         };
 

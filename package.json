@@ -264,6 +264,7 @@
     "test": "npm run test:unit",
     "test:unit": "cd tools && npx jest --verbose",
     "test:project-i18n": "ts-node scripts/test-project-i18n.ts",
+    "test:codegen-i18n": "ts-node scripts/test-codegen-i18n.ts",
     "test:e2e": "npm run compile && node ./out/src/test/runTest.js",
     "test:templates": "npm run compile && node ./out/test/templates/run-templates-tests.js",
     "check:deps": "node scripts/check-dependencies.js",

@@ -673,6 +673,7 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     return {
       componentMap: this.componentMap,
       projectRoot,
+      projectI18nCatalog: this.options.projectI18nCatalog,
       getParentRef: (component: Component) => {
         if (!component.parent) return 'NULL';
         const parentComp = this.componentMap.get(component.parent);
