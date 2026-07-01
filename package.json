@@ -141,6 +141,16 @@
         "category": "HoneyGUI"
       },
       {
+        "command": "honeygui.explorerPreviewFocusDown",
+        "title": "%command.explorerPreviewFocusDown%",
+        "category": "HoneyGUI"
+      },
+      {
+        "command": "honeygui.explorerPreviewFocusUp",
+        "title": "%command.explorerPreviewFocusUp%",
+        "category": "HoneyGUI"
+      },
+      {
         "command": "honeygui.newProject",
         "title": "%command.newProject%",
         "category": "HoneyGUI"
@@ -192,6 +202,16 @@
         "key": "ctrl+shift+f5",
         "mac": "cmd+shift+f5",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "honeygui.explorerPreviewFocusDown",
+        "key": "down",
+        "when": "filesExplorerFocus && !inputFocus && resourceExtname == .hml"
+      },
+      {
+        "command": "honeygui.explorerPreviewFocusUp",
+        "key": "up",
+        "when": "filesExplorerFocus && !inputFocus && resourceExtname == .hml"
       }
     ],
     "configuration": {

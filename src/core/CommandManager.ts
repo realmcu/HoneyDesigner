@@ -164,6 +164,15 @@ export class CommandManager {
             }
         });
 
+        // 在资源管理器中用上下键浏览 HML 时，同步打开当前焦点项，触发设计器预览刷新
+        this.registerCommand('honeygui.explorerPreviewFocusDown', async () => {
+            await this.focusExplorerItemAndOpen('down');
+        });
+
+        this.registerCommand('honeygui.explorerPreviewFocusUp', async () => {
+            await this.focusExplorerItemAndOpen('up');
+        });
+
         // 兼容 package.json 的命令: honeygui.openDesigner（无参时打开当前活动HML）
         this.registerCommand('honeygui.openDesigner', async () => {
             try {
@@ -434,6 +443,23 @@ export class CommandManager {
         const disposable = vscode.commands.registerCommand(commandId, callback);
         this.disposables.push(disposable);
         this.context.subscriptions.push(disposable);
+    }
+
+    /**
+     * 保留 VS Code 资源管理器上下键移动焦点的行为，并在移动后立即打开焦点项。
+     */
+    private async focusExplorerItemAndOpen(direction: 'up' | 'down'): Promise<void> {
+        const focusCommand = direction === 'down' ? 'list.focusDown' : 'list.focusUp';
+
+        try {
+            await vscode.commands.executeCommand(focusCommand);
+            await new Promise(resolve => setTimeout(resolve, 30));
+            await vscode.commands.executeCommand('list.select');
+            await new Promise(resolve => setTimeout(resolve, 80));
+            await vscode.commands.executeCommand('workbench.files.action.focusFilesExplorer');
+        } catch (error) {
+            logger.warn(`资源管理器键盘预览失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**

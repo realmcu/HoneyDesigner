@@ -13,6 +13,8 @@
   "command.simulationStop": "HoneyGUI: Stop Simulation",
   "command.openInTextEditor": "Open with Text Editor",
   "command.openInDesigner": "Open with HoneyGUI Designer",
+  "command.explorerPreviewFocusDown": "Preview Next HML in Explorer",
+  "command.explorerPreviewFocusUp": "Preview Previous HML in Explorer",
   "command.refreshEnvironment": "Refresh Environment Check",
   "view.welcome": "WELCOME",
   "view.environment": "ENVIRONMENT",

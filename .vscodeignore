@@ -9,8 +9,10 @@
 .gitmodules
 .github/**
 .workflow/**
+.tmp/**
 .trae/**
 .kiro/**
+log/**
 tsconfig.json
 webpack.config.js
 AGENTS.md
@@ -100,13 +102,25 @@ template-projects/**/*.a
 node_modules/**
 
 # Extension 端核心依赖（Webview 依赖已由 webpack 打包）
+!node_modules/@csstools/css-parser-algorithms/**
+!node_modules/@csstools/css-tokenizer/**
+!node_modules/chokidar/**
+!node_modules/fabric/**
 !node_modules/fast-xml-parser/**
+!node_modules/html2canvas/**
+!node_modules/ini/**
+!node_modules/lottie-react/**
+!node_modules/lucide-react/**
 !node_modules/strnum/**
 !node_modules/mp4box/**
 !node_modules/opentype.js/**
+!node_modules/qrcode-generator/**
 !node_modules/string.prototype.codepointat/**
+!node_modules/three/**
 !node_modules/tiny-inflate/**
 !node_modules/ws/**
+!node_modules/xml-js/**
+!node_modules/zustand/**
 !node_modules/minimatch/**
 !node_modules/@isaacs/**
 

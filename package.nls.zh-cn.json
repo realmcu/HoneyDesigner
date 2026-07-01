@@ -13,6 +13,8 @@
   "command.simulationStop": "HoneyGUI: 停止仿真",
   "command.openInTextEditor": "用文本编辑器打开",
   "command.openInDesigner": "用 HoneyGUI 设计器打开",
+  "command.explorerPreviewFocusDown": "在资源管理器中预览下一个 HML",
+  "command.explorerPreviewFocusUp": "在资源管理器中预览上一个 HML",
   "command.refreshEnvironment": "刷新环境检查",
   "view.welcome": "欢迎",
   "view.environment": "环境",
