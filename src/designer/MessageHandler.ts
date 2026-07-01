@@ -12,7 +12,9 @@ import { CodeGenerationService } from '../services/CodeGenerationService';
 import { ConversionConfigService, ConversionConfig } from '../services/ConversionConfigService';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
 import { normalizeCatalog } from '../project-i18n/catalog';
-import { saveProjectI18nCatalog } from '../project-i18n/files';
+import { loadProjectI18nCatalog, saveProjectI18nCatalog } from '../project-i18n/files';
+import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18n/projectIndex';
+import { HmlParser } from '../hml/HmlParser';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -413,6 +415,10 @@ export class MessageHandler {
 
             case 'saveProjectI18nCatalog':
                 this._handleSaveProjectI18nCatalog(message.catalog, message.previewLocale);
+                break;
+
+            case 'getProjectI18nIndex':
+                await this._handleGetProjectI18nIndex();
                 break;
 
             case 'toggleAlwaysConvert':
@@ -916,6 +922,93 @@ export class MessageHandler {
             logger.error(`[MessageHandler] 保存项目多语言目录失败: ${error}`);
             vscode.window.showErrorMessage(vscode.l10n.t('Failed to save project i18n catalog: {0}', error instanceof Error ? error.message : String(error)));
         }
+    }
+
+    private _collectI18nComponentInputs(
+        filePath: string,
+        components: any[],
+        visited: Set<string> = new Set()
+    ): ProjectI18nComponentInput[] {
+        const result: ProjectI18nComponentInput[] = [];
+        for (const component of components || []) {
+            if (!component?.id || visited.has(component.id)) {
+                continue;
+            }
+
+            visited.add(component.id);
+            result.push({
+                filePath,
+                id: component.id,
+                name: component.name,
+                type: component.type,
+                text: component.data?.text,
+                i18nKey: component.data?.i18nKey,
+            });
+
+            if (component.children && Array.isArray(component.children)) {
+                const childComponents = components.filter((item: any) => component.children.includes(item.id));
+                result.push(...this._collectI18nComponentInputs(filePath, childComponents, visited));
+            }
+        }
+        return result;
+    }
+
+    private async _handleGetProjectI18nIndex(): Promise<void> {
+        const currentFilePath = this._fileManager.currentFilePath;
+        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        if (!projectRoot) {
+            this._panel.webview.postMessage({
+                command: 'projectI18nIndexLoaded',
+                error: 'Cannot find project root',
+            });
+            return;
+        }
+
+        const uiDir = ProjectUtils.getUiDir(projectRoot);
+        if (!fs.existsSync(uiDir)) {
+            this._panel.webview.postMessage({
+                command: 'projectI18nIndexLoaded',
+                error: `Cannot find UI directory: ${uiDir}`,
+            });
+            return;
+        }
+
+        const catalog = loadProjectI18nCatalog(projectRoot);
+        const parser = new HmlParser();
+        const hmlFiles: string[] = [];
+        const walk = (dir: string) => {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    walk(fullPath);
+                } else if (entry.isFile() && entry.name.endsWith('.hml')) {
+                    hmlFiles.push(fullPath);
+                }
+            }
+        };
+        walk(uiDir);
+
+        const components: ProjectI18nComponentInput[] = [];
+        const errors: Array<{ filePath: string; message: string }> = [];
+        for (const file of hmlFiles) {
+            try {
+                const content = fs.readFileSync(file, 'utf-8');
+                const document = parser.parse(content, file);
+                const relativePath = path.relative(projectRoot, file).replace(/\\/g, '/');
+                components.push(...this._collectI18nComponentInputs(relativePath, document.view?.components || []));
+            } catch (error: any) {
+                errors.push({
+                    filePath: path.relative(projectRoot, file).replace(/\\/g, '/'),
+                    message: error?.message || String(error),
+                });
+            }
+        }
+
+        this._panel.webview.postMessage({
+            command: 'projectI18nIndexLoaded',
+            index: buildProjectI18nIndex(catalog, components),
+            errors,
+        });
     }
 
     /**

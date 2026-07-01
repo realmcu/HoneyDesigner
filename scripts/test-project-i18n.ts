@@ -8,6 +8,7 @@ import {
     setTranslation,
     validateCatalog,
 } from '../src/project-i18n/catalog';
+import { buildProjectI18nIndex, suggestI18nKey } from '../src/project-i18n/projectIndex';
 import { detectScripts } from '../src/project-i18n/script';
 import { estimateTextEmWidth } from '../src/project-i18n/textMetrics';
 
@@ -110,5 +111,30 @@ assert.deepStrictEqual(detectScripts('Scan code pairing'), ['Latin']);
 assert.deepStrictEqual(detectScripts('扫码配对'), ['CJK']);
 assert.deepStrictEqual(detectScripts('コードをスキャン'), ['Kana']);
 assert.deepStrictEqual(detectScripts('QR-Code koppeln'), ['Latin']);
+
+assert.strictEqual(
+    suggestI18nKey('ui/alone_select_mode_view.hml', 'asm_scan_text'),
+    'alone_select_mode_view.asm_scan_text',
+);
+
+const projectIndex = buildProjectI18nIndex(catalog, [
+    {
+        filePath: 'ui/alone_select_mode_view.hml',
+        id: 'asm_scan_text',
+        type: 'hg_label',
+        text: 'Scan code pairing',
+        i18nKey: 'pairing.scan_code',
+    },
+    {
+        filePath: 'ui/alone_select_mode_view.hml',
+        id: 'asm_skip_text',
+        type: 'hg_label',
+        text: 'Jump over',
+    },
+]);
+
+assert.strictEqual(projectIndex.rows.find((row) => row.key === 'pairing.scan_code')?.references.length, 1);
+assert.strictEqual(projectIndex.unboundTexts[0].suggestedKey, 'alone_select_mode_view.asm_skip_text');
+assert.ok(projectIndex.rows.every((row) => Array.isArray(row.missingLocales)));
 
 console.log('project-i18n tests passed');

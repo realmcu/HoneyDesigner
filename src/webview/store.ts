@@ -17,6 +17,7 @@ import { generateComponentId } from './utils/componentNaming';
 import { findComponentsWithBrokenRefs, isDropTargetType } from './utils/componentUtils';
 import { setVSCodeAPIInstance } from './store/vscodeAPI';
 import { createEmptyCatalog } from '../project-i18n/catalog';
+import type { ProjectI18nIndex } from '../project-i18n/projectIndex';
 import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
 
 // ============ 层级调整辅助函数 ============
@@ -201,6 +202,9 @@ export interface DesignerStore extends DesignerState {
   saveToFile: () => void;
   setProjectI18nCatalog: (catalog: I18nCatalog) => void;
   setPreviewLocale: (locale: LocaleCode) => void;
+  setProjectI18nIndex: (index?: ProjectI18nIndex, errors?: Array<{ filePath: string; message: string }>) => void;
+  setProjectI18nManagerOpen: (open: boolean) => void;
+  loadProjectI18nIndex: () => void;
   updateProjectI18nCatalog: (catalog: I18nCatalog, options?: { save?: boolean; immediate?: boolean }) => void;
   saveProjectI18nCatalog: (catalog?: I18nCatalog, options?: { immediate?: boolean }) => void;
 
@@ -418,6 +422,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   components: [],
   projectConfig: null as any, // 项目配置（分辨率等）
   projectI18nCatalog: createEmptyCatalog('en-US'),
+  projectI18nIndex: undefined,
+  projectI18nIndexErrors: [],
+  isProjectI18nManagerOpen: false,
   previewLocale: 'en-US',
   allViews: [] as Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}>, // 项目中所有 view（含跳转关系）
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
@@ -1226,6 +1233,18 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     } catch (error) {
       console.warn('[HoneyGUI] Failed to save project preview locale:', error);
     }
+  },
+
+  setProjectI18nIndex: (index, errors) => {
+    set({ projectI18nIndex: index, projectI18nIndexErrors: errors || [] });
+  },
+
+  setProjectI18nManagerOpen: (open) => {
+    set({ isProjectI18nManagerOpen: open });
+  },
+
+  loadProjectI18nIndex: () => {
+    vscodeAPI?.postMessage({ command: 'getProjectI18nIndex' });
   },
 
   updateProjectI18nCatalog: (catalog, options) => {

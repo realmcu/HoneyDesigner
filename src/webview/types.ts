@@ -9,6 +9,7 @@ import type {
   ComponentStyle as HmlComponentStyle,
   ComponentData as HmlComponentData
 } from '../hml/types';
+import type { ProjectI18nIndex } from '../project-i18n/projectIndex';
 import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
 
 export type ComponentPosition = HmlComponentPosition;
@@ -114,6 +115,9 @@ export interface DesignerState {
   redoStack: any[];
   projectConfig?: any; // Project configuration (resolution, etc.)
   projectI18nCatalog: I18nCatalog; // Project text localization catalog
+  projectI18nIndex?: ProjectI18nIndex; // Project-wide localization reference index
+  projectI18nIndexErrors?: Array<{ filePath: string; message: string }>;
+  isProjectI18nManagerOpen: boolean;
   previewLocale: LocaleCode; // Current content preview locale
   assetCategory: 'all' | 'images' | 'svgs' | 'videos' | 'models' | 'fonts' | 'glass' | 'lottie' | 'trmap'; // 资源面板分类
   isSimulationRunning: boolean; // 仿真运行状态

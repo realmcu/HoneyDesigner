@@ -1,0 +1,176 @@
+.project-i18n-manager-backdrop {
+  position: fixed;
+  inset: var(--toolbar-height) 0 0 0;
+  z-index: 5000;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.project-i18n-manager {
+  width: min(1180px, 100%);
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-panel-border);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+}
+
+.project-i18n-manager-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.project-i18n-manager-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.project-i18n-manager-warning {
+  margin: 8px 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  background: var(--vscode-inputValidation-warningBackground);
+  color: var(--vscode-inputValidation-warningForeground);
+  font-size: 12px;
+}
+
+.project-i18n-manager-empty,
+.project-i18n-manager-summary {
+  padding: 12px;
+  font-size: 12px;
+}
+
+.project-i18n-manager-note {
+  padding: 0 12px 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+
+.project-i18n-table-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+.project-i18n-manager-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.project-i18n-manager-tools input {
+  width: 240px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--vscode-input-border);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+}
+
+.project-i18n-manager-tools button {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.project-i18n-manager-tools button.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.project-i18n-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.project-i18n-table th,
+.project-i18n-table td {
+  border-right: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding: 6px;
+  vertical-align: top;
+}
+
+.project-i18n-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--vscode-editor-background);
+  text-align: left;
+  font-weight: 600;
+}
+
+.project-i18n-table textarea {
+  width: 220px;
+  min-height: 42px;
+  resize: vertical;
+  border: 1px solid var(--vscode-input-border);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font: 12px var(--vscode-font-family);
+}
+
+.project-i18n-table .key-cell {
+  min-width: 220px;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.project-i18n-table tr.unused .key-cell {
+  color: var(--vscode-descriptionForeground);
+}
+
+.status-warning {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--vscode-inputValidation-warningBackground);
+  color: var(--vscode-inputValidation-warningForeground);
+}
+
+.project-i18n-unbound-list {
+  overflow: auto;
+  padding: 8px 12px;
+}
+
+.project-i18n-unbound-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.project-i18n-unbound-item button {
+  margin-left: 8px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.project-i18n-unbound-item button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.unbound-main {
+  font-size: 13px;
+}
+
+.unbound-meta {
+  margin-top: 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDesignerStore } from '../store';
-import { Save, Code, RotateCcw, RotateCw, ZoomIn, ZoomOut, Maximize2, GitBranch, Palette, AlignLeft, Grid, Download, Rocket, BrushCleaning, Square, Info, ChevronDown, Package, Check } from 'lucide-react';
+import { Save, Code, RotateCcw, RotateCw, ZoomIn, ZoomOut, Maximize2, GitBranch, Palette, AlignLeft, Grid, Download, Rocket, BrushCleaning, Square, Info, ChevronDown, Package, Check, Languages } from 'lucide-react';
 import { AlignType, DistributeType, ResizeType, getAlignmentConfigsByCategory } from '../utils/alignmentUtils';
 import { t } from '../i18n';
 import ProjectI18nLocaleSelect from './ProjectI18nLocaleSelect';
@@ -32,6 +32,7 @@ const Toolbar: React.FC = () => {
     simulationFlow,
     setSimulationFlow,
     guiVersion,
+    setProjectI18nManagerOpen,
   } = useDesignerStore();
 
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -384,6 +385,14 @@ const Toolbar: React.FC = () => {
 
       <div className="toolbar-section">
         <ProjectI18nLocaleSelect />
+        <button
+          className="toolbar-button"
+          onClick={() => setProjectI18nManagerOpen(true)}
+          title={t('Open I18n Manager')}
+        >
+          <Languages size={16} strokeWidth={1.4} />
+          <span>{t('I18n Manager')}</span>
+        </button>
       </div>
 
       {guiVersion && (

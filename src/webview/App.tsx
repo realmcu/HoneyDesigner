@@ -9,6 +9,7 @@ import AssetsPanel from './components/AssetsPanel';
 import Toolbar from './components/Toolbar';
 import { ViewRelationModal } from './components/ViewRelationModal';
 import { CanvasEditorModal } from './components/CanvasEditorModal';
+import ProjectI18nManagerModal from './components/ProjectI18nManagerModal';
 import { Component, ComponentType } from './types';
 import useKeyboardShortcuts from './utils/keyboardShortcuts';
 import { generateComponentId } from './utils/componentNaming';
@@ -419,6 +420,15 @@ const App: React.FC = () => {
             }
           }
           break;
+
+        case 'projectI18nIndexLoaded': {
+          const state = useDesignerStore.getState();
+          const errors = message.error
+            ? [{ filePath: '', message: message.error }]
+            : (message.errors || []);
+          state.setProjectI18nIndex(message.index, errors);
+          break;
+        }
 
         case 'showMessage':
           // Show success message
@@ -1646,6 +1656,8 @@ const App: React.FC = () => {
         onSave={handleCanvasSvgSave}
         onClose={() => setCanvasEditorOpen(false)}
       />
+
+      <ProjectI18nManagerModal />
 
     </div>
   );

@@ -9,7 +9,7 @@ import { useDesignerStore } from '../../store';
 import { t, getLocale } from '../../i18n';
 import { useFontGlyphStats } from '../../hooks/useFontGlyphStats';
 import { PRESET_CHARSETS, PRESET_CODEPAGES, isPresetValue, getPresetLabel } from '../../../common/charsetPresets';
-import { findUnusedKeys, listI18nKeys, resolveLocalizedText, setTranslation } from '../../../project-i18n/catalog';
+import { listI18nKeys, resolveLocalizedText, setTranslation } from '../../../project-i18n/catalog';
 import { detectScripts } from '../../../project-i18n/script';
 import { estimateTextPixelWidth } from '../../../project-i18n/textMetrics';
 import { HelpIcon } from './HelpIcon';
@@ -143,12 +143,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
     : '';
   const currentLocaleText = i18nKey ? i18nEntry?.[previewLocale] ?? '' : '';
   const i18nKeys = listI18nKeys(projectI18nCatalog);
-  const referencedI18nKeys = new Set(
-    (components || [])
-      .map((item) => String((item.data as any)?.i18nKey || '').trim())
-      .filter(Boolean)
-  );
-  const unusedI18nKeys = findUnusedKeys(projectI18nCatalog, referencedI18nKeys);
   const isPreviewLocaleMissing = Boolean(
     i18nKey &&
     previewLocale !== defaultLocale &&
@@ -958,9 +952,6 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
 
         {isI18nKeyMissing && renderI18nWarning(t('Localized key does not exist yet'))}
         {isPreviewLocaleMissing && renderI18nWarning(t('Current locale is missing and preview is falling back'))}
-        {unusedI18nKeys.length > 0 && renderI18nWarning(
-          `${t('Unused I18n Key')}: ${unusedI18nKeys.slice(0, 3).join(', ')}${unusedI18nKeys.length > 3 ? '...' : ''}`
-        )}
       </>
     );
   };

@@ -503,6 +503,8 @@ Designer 可从项目级 catalog `i18n/strings.json` 解析 `hg_label` 的预览
 
 本阶段 `i18nKey` 只用于 Designer 编辑和 PC 预览，不生成固件运行时语言切换逻辑，也不生成 C 语言表。`text` 必须继续保留默认语言 fallback，以保持现有 codegen 兼容。
 
+对于多页面项目，请优先使用 Designer 多语言管理器，而不是逐个选中 label 编辑。管理器会扫描 `ui/*.hml`，列出所有 `i18nKey` 引用、每种语言的缺失翻译，以及尚未绑定 key 的 `hg_label text`。属性面板仍作为单个 label 的快速编辑入口。
+
 V202S 配对界面示例：
 
 ```xml

@@ -512,6 +512,8 @@ Preview resolution order:
 
 `i18nKey` is for Designer authoring and PC preview in this phase. Runtime firmware language switching and generated C language tables are not produced yet. Keep `text` as the default-locale fallback so existing codegen remains compatible.
 
+For projects with many pages, use the Designer I18n Manager instead of editing one label at a time. The manager scans `ui/*.hml`, lists all `i18nKey` references, shows missing translations per locale, and lists unbound `hg_label text` values. The selected-component Properties panel remains a quick edit surface for one label.
+
 V202S pairing example:
 
 ```xml
