@@ -65,7 +65,9 @@ export function widgetMemo<P extends WidgetProps>(Wrapped: React.ComponentType<P
     if (pc.data !== nc.data) return false;
 
     // style prop 变化（反映选中/悬浮状态）
-    if (prev.style.border !== next.style.border) return false;
+    // 注意：选中框自 outline 迁移（见 componentRenderer.ts）后已不再使用 border 字段，
+    // 此处必须比较 outline，否则选中/取消选中不会触发重渲染，导致选中框残留在旧组件上
+    if (prev.style.outline !== next.style.outline) return false;
     if (prev.style.opacity !== next.style.opacity) return false;
     if (prev.style.backgroundColor !== next.style.backgroundColor) return false;
     if (prev.style.transform !== next.style.transform) return false;
