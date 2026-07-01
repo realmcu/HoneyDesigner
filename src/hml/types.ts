@@ -155,6 +155,7 @@ export interface TimerConfig {
  */
 export interface ComponentData {
   text?: string;
+  i18nKey?: string;
   src?: string;
   value?: string | number | boolean;
   placeholder?: string;

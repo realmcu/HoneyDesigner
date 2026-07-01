@@ -556,7 +556,7 @@ export class HmlParser {
     ]);
 
     const dataProps = new Set([
-      'text', 'src', 'value', 'placeholder', 'options',
+      'text', 'i18nKey', 'src', 'value', 'placeholder', 'options',
       'min', 'max', 'step', 'checked', 'selected',
       // 列表数据属性
       'noteNum',
