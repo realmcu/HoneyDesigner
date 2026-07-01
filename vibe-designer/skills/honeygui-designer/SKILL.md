@@ -171,6 +171,18 @@ curl -X POST http://localhost:38912/api/validate-hml \
 
 详细 API：`references/http-api.md`。
 
+## 从设计器选区编辑（Copy for AI）
+
+用户在设计器里右键「复制给 AI」后，剪贴板会得到一段英文文本包，形如：
+
+- 首行 `# HoneyGUI Designer selection — file: ui/Xxx.hml` 指明要改的 HML 文件。
+- `Screenshot:` 下面是一张 PNG 的**绝对路径**——用你的读文件能力读它；图中**红框=用户选中的控件、框上标签=组件 id**。
+- `Pointed controls:` 列出用户指向的控件：`id (type) parent=.. x=.. y=.. w=.. h=.. 关键属性`。`id` 唯一，可直接在 HML 里定位。
+
+据此修改对应 `ui/*.hml`（`id` 不变，改几何/属性/文本）。改完调用
+`POST http://localhost:38912/api/validate-hml {"filePath":"ui/Xxx.hml"}` 验证；
+组件/属性仍以项目根 `HML-Spec.md` 为准。用户的具体指令在文本包之后另行给出。
+
 ## 文件参考
 
 - **`HML-Spec.md`**（项目根）— **唯一真相源**：全部组件、属性、事件、引擎矩阵。
