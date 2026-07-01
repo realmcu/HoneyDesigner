@@ -470,6 +470,61 @@
   font-size: 12px;
 }
 
+.project-i18n-locale-select {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--vscode-descriptionForeground);
+  background-color: transparent;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 0 2px 0 7px;
+}
+
+.project-i18n-locale-select select {
+  height: 24px;
+  min-width: 82px;
+  max-width: 118px;
+  border: none;
+  outline: none;
+  background-color: transparent;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+}
+
+.project-i18n-locale-select select:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.project-i18n-locale-select .project-i18n-add-locale {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+
+.project-i18n-locale-input {
+  width: 72px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  outline: none;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-size: 12px;
+}
+
+.project-i18n-locale-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.project-i18n-locale-input.invalid {
+  border-color: var(--vscode-inputValidation-errorBorder);
+  background: var(--vscode-inputValidation-errorBackground);
+}
+
 /* GUI 版本标签 */
 .gui-version-badge {
   display: flex;

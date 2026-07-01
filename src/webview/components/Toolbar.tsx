@@ -3,6 +3,7 @@ import { useDesignerStore } from '../store';
 import { Save, Code, RotateCcw, RotateCw, ZoomIn, ZoomOut, Maximize2, GitBranch, Palette, AlignLeft, Grid, Download, Rocket, BrushCleaning, Square, Info, ChevronDown, Package, Check } from 'lucide-react';
 import { AlignType, DistributeType, ResizeType, getAlignmentConfigsByCategory } from '../utils/alignmentUtils';
 import { t } from '../i18n';
+import ProjectI18nLocaleSelect from './ProjectI18nLocaleSelect';
 import './Toolbar.css';
 
 const Toolbar: React.FC = () => {
@@ -380,6 +381,10 @@ const Toolbar: React.FC = () => {
       </div>
 
       <div style={{ flex: 1 }} />
+
+      <div className="toolbar-section">
+        <ProjectI18nLocaleSelect />
+      </div>
 
       {guiVersion && (
         <div className="toolbar-section">

@@ -2,6 +2,9 @@ import * as http from 'http';
 import * as vscode from 'vscode';
 import { HmlValidationService, ValidationResult } from './HmlValidationService';
 import { SvgRasterizeService } from './SvgRasterizeService';
+import { loadProjectI18nCatalog } from '../project-i18n/files';
+import { ProjectUtils } from '../utils/ProjectUtils';
+import type { I18nCatalog } from '../project-i18n/types';
 
 /**
  * 端点配置接口
@@ -460,6 +463,9 @@ export class ExtensionApiService implements vscode.Disposable {
             }
 
             let hmlContent: string;
+            let i18nCatalog: I18nCatalog | undefined;
+            let projectRoot: string | undefined;
+            let previewLocale: string | undefined;
 
             // 方式 1: 从请求体中直接获取 HML 内容
             if ('hmlContent' in body) {
@@ -511,6 +517,13 @@ export class ExtensionApiService implements vscode.Disposable {
                 // 读取文件内容
                 try {
                     hmlContent = fs.readFileSync(absolutePath, 'utf-8');
+                    projectRoot = ProjectUtils.findProjectRoot(absolutePath) || undefined;
+                    if (projectRoot) {
+                        i18nCatalog = loadProjectI18nCatalog(projectRoot);
+                        previewLocale = typeof body.previewLocale === 'string'
+                            ? body.previewLocale
+                            : i18nCatalog.defaultLocale;
+                    }
                 } catch (readError: any) {
                     res.statusCode = 500;
                     res.end(JSON.stringify({
@@ -525,7 +538,11 @@ export class ExtensionApiService implements vscode.Disposable {
             }
 
             // 验证 HML XML
-            const result: ValidationResult = this.hmlValidator.validateHml(hmlContent);
+            const result: ValidationResult = this.hmlValidator.validateHml(hmlContent, {
+                projectRoot,
+                previewLocale,
+                i18nCatalog,
+            });
 
             res.statusCode = 200;
             res.end(JSON.stringify({

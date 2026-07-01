@@ -103,6 +103,26 @@
   font-weight: 400;
 }
 
+.property-warning {
+  margin: 6px 0 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  background: var(--vscode-inputValidation-warningBackground);
+  color: var(--vscode-inputValidation-warningForeground);
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.property-warning-i18n {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.property-diagnostics {
+  margin-bottom: 8px;
+}
+
 /* Position grid */
 .position-grid {
   display: grid;

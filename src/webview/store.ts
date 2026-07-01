@@ -16,6 +16,8 @@ import {
 import { generateComponentId } from './utils/componentNaming';
 import { findComponentsWithBrokenRefs, isDropTargetType } from './utils/componentUtils';
 import { setVSCodeAPIInstance } from './store/vscodeAPI';
+import { createEmptyCatalog } from '../project-i18n/catalog';
+import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
 
 // ============ 层级调整辅助函数 ============
 
@@ -197,6 +199,10 @@ export interface DesignerStore extends DesignerState {
   vscodeAPI: VSCodeAPI | null;
   setVSCodeAPI: (api: VSCodeAPI) => void;
   saveToFile: () => void;
+  setProjectI18nCatalog: (catalog: I18nCatalog) => void;
+  setPreviewLocale: (locale: LocaleCode) => void;
+  updateProjectI18nCatalog: (catalog: I18nCatalog, options?: { save?: boolean; immediate?: boolean }) => void;
+  saveProjectI18nCatalog: (catalog?: I18nCatalog, options?: { immediate?: boolean }) => void;
 
   // Component management
   duplicateComponent: (id: string) => void;
@@ -248,6 +254,7 @@ export interface DesignerStore extends DesignerState {
 }
 
 let vscodeAPI: VSCodeAPI | null = null;
+let saveProjectI18nCatalogTimer: ReturnType<typeof setTimeout> | null = null;
 
 // 解析分辨率字符串
 const parseResolutionStr = (res?: string): { width: number; height: number } => {
@@ -410,6 +417,8 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   // State
   components: [],
   projectConfig: null as any, // 项目配置（分辨率等）
+  projectI18nCatalog: createEmptyCatalog('en-US'),
+  previewLocale: 'en-US',
   allViews: [] as Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}>, // 项目中所有 view（含跳转关系）
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
@@ -1192,6 +1201,65 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         components: state.components,
       },
     });
+  },
+
+  setProjectI18nCatalog: (catalog) => {
+    const currentPreviewLocale = get().previewLocale;
+    const previewLocale = catalog.locales.includes(currentPreviewLocale)
+      ? currentPreviewLocale
+      : catalog.defaultLocale;
+
+    set({
+      projectI18nCatalog: catalog,
+      previewLocale,
+    });
+  },
+
+  setPreviewLocale: (locale) => {
+    const catalog = get().projectI18nCatalog;
+    const previewLocale = catalog.locales.includes(locale) ? locale : catalog.defaultLocale;
+    set({ previewLocale });
+
+    try {
+      const saved = window.vscodeAPI?.getState?.() || {};
+      window.vscodeAPI?.setState?.({ ...saved, projectPreviewLocale: previewLocale });
+    } catch (error) {
+      console.warn('[HoneyGUI] Failed to save project preview locale:', error);
+    }
+  },
+
+  updateProjectI18nCatalog: (catalog, options) => {
+    get().setProjectI18nCatalog(catalog);
+    if (options?.save !== false) {
+      get().saveProjectI18nCatalog(catalog, { immediate: options?.immediate });
+    }
+  },
+
+  saveProjectI18nCatalog: (catalog, options) => {
+    const catalogToSave = catalog || get().projectI18nCatalog;
+    const postSaveMessage = () => {
+      if (!vscodeAPI) return;
+      vscodeAPI.postMessage({
+        command: 'saveProjectI18nCatalog',
+        catalog: catalogToSave,
+        previewLocale: get().previewLocale,
+      });
+    };
+
+    if (saveProjectI18nCatalogTimer) {
+      clearTimeout(saveProjectI18nCatalogTimer);
+      saveProjectI18nCatalogTimer = null;
+    }
+
+    if (options?.immediate) {
+      postSaveMessage();
+      return;
+    }
+
+    saveProjectI18nCatalogTimer = setTimeout(() => {
+      saveProjectI18nCatalogTimer = null;
+      postSaveMessage();
+    }, 400);
   },
 
   // Utility methods

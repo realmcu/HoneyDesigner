@@ -476,6 +476,7 @@ font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified C
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `text` | string | "Label" | Display text |
+| `i18nKey` | string | — | Optional project string key for Designer multilingual preview. `text` remains the firmware/codegen fallback. |
 | `hAlign` | enum | LEFT | Horizontal alignment: `LEFT` / `CENTER` / `RIGHT` |
 | `vAlign` | enum | TOP | Vertical alignment: `TOP` / `MID` |
 | `color` | color | #ffffff | Text color |
@@ -483,6 +484,41 @@ font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified C
 | `lineSpacing` | number | 0 | Line spacing |
 | `wordWrap` | boolean | false | Word wrap |
 | `wordBreak` | boolean | false | Break within words |
+
+#### Project i18n preview
+
+Designer can preview localized `hg_label` text from a project catalog at `i18n/strings.json`:
+
+```json
+{
+  "version": 1,
+  "defaultLocale": "en-US",
+  "locales": ["en-US", "zh-CN"],
+  "strings": {
+    "pairing.scan_code": {
+      "en-US": "Scan code pairing",
+      "zh-CN": "扫码配对"
+    }
+  }
+}
+```
+
+Preview resolution order:
+
+1. `catalog.strings[i18nKey][previewLocale]`
+2. `catalog.strings[i18nKey][catalog.defaultLocale]`
+3. `text`
+4. component name
+
+`i18nKey` is for Designer authoring and PC preview in this phase. Runtime firmware language switching and generated C language tables are not produced yet. Keep `text` as the default-locale fallback so existing codegen remains compatible.
+
+V202S pairing example:
+
+```xml
+<hg_label id="asm_scan_text" x="40" y="110" width="280" height="40"
+          text="Scan code pairing" i18nKey="pairing.scan_code"
+          fontFile="/font/Arial.ttf" fontSize="22" hAlign="CENTER" vAlign="MID" />
+```
 
 #### Font
 
@@ -1365,7 +1401,7 @@ The HML parser categorizes XML attributes into the following buckets:
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `opacity`
 
 ### Data Attributes
-`text`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`
 
 ### Meta Attributes
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`

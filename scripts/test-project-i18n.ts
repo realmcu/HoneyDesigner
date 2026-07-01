@@ -8,6 +8,8 @@ import {
     setTranslation,
     validateCatalog,
 } from '../src/project-i18n/catalog';
+import { detectScripts } from '../src/project-i18n/script';
+import { estimateTextEmWidth } from '../src/project-i18n/textMetrics';
 
 const catalog = createEmptyCatalog('en-US');
 ensureLocale(catalog, 'zh-CN');
@@ -98,5 +100,15 @@ assert.ok(
         diagnostic.locale === 'en-US',
     ),
 );
+
+assert.ok(
+    estimateTextEmWidth('扫码配对') > estimateTextEmWidth('Scan'),
+    'CJK label text should estimate wider than a short Latin label',
+);
+
+assert.deepStrictEqual(detectScripts('Scan code pairing'), ['Latin']);
+assert.deepStrictEqual(detectScripts('扫码配对'), ['CJK']);
+assert.deepStrictEqual(detectScripts('コードをスキャン'), ['Kana']);
+assert.deepStrictEqual(detectScripts('QR-Code koppeln'), ['Latin']);
 
 console.log('project-i18n tests passed');

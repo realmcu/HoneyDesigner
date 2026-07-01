@@ -136,6 +136,7 @@ const componentDefinitions: ComponentDefinition[] = [
     defaultSize: { width: 100, height: 24 },
     properties: [
       { name: 'text', label: 'Display Text', type: 'string', defaultValue: 'Label', group: 'data' },
+      { name: 'i18nKey', label: 'Localized Key', type: 'string', defaultValue: '', group: 'data' },
       { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT', 
         options: ['LEFT', 'CENTER', 'RIGHT'], group: 'style' },
       { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP', 

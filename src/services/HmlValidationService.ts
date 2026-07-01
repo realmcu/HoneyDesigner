@@ -1,6 +1,8 @@
 import { HmlParser } from '../hml/HmlParser';
 import { validateComponentId } from '../webview/utils/validation';
 import { Component } from '../hml/types';
+import { findUnusedKeys } from '../project-i18n/catalog';
+import type { I18nCatalog } from '../project-i18n/types';
 
 /**
  * HML 验证服务
@@ -55,7 +57,7 @@ export class HmlValidationService {
      * 7. 资源路径格式验证：图像 src/imageOn/imageOff 以 'assets/' 开头、字体 fontFile 以 '/' 开头
      * 8. Entry View 唯一性验证：必须有且只有一个 hg_view 的 entry="true"
      */
-    public validateHml(hmlContent: string): ValidationResult {
+    public validateHml(hmlContent: string, context: HmlValidationContext = {}): ValidationResult {
         const errors: ValidationError[] = [];
         const warnings: ValidationWarning[] = [];
         const validationRules: string[] = [];
@@ -137,6 +139,11 @@ export class HmlValidationService {
             // ========================================
             validationRules.push('Entry View 唯一性验证（必须有且只有一个 entry="true"）');
             this.validateEntryView(document.view.components || [], errors);
+
+            if (context.i18nCatalog) {
+                validationRules.push('多语言文本预览警告验证');
+                this.validateI18n(document.view.components || [], context, warnings);
+            }
 
             // ========================================
             // 返回验证结果
@@ -452,6 +459,90 @@ export class HmlValidationService {
             });
         }
     }
+
+    private validateI18n(
+        components: Component[],
+        context: HmlValidationContext,
+        warnings: ValidationWarning[]
+    ): void {
+        const catalog = context.i18nCatalog;
+        if (!catalog) {
+            return;
+        }
+
+        const previewLocale = context.previewLocale || catalog.defaultLocale;
+        const referencedKeys = new Set<string>();
+
+        for (const component of components) {
+            const key = String((component.data as any)?.i18nKey || '').trim();
+            if (!key) {
+                continue;
+            }
+
+            referencedKeys.add(key);
+
+            if (component.type !== 'hg_label') {
+                continue;
+            }
+
+            const entry = catalog.strings[key];
+            if (!entry) {
+                warnings.push({
+                    type: 'i18n',
+                    message: `i18n key '${key}' is not found in i18n/strings.json`,
+                    componentId: component.id,
+                    attribute: 'i18nKey',
+                    key,
+                });
+            } else {
+                if (!entry[catalog.defaultLocale]) {
+                    warnings.push({
+                        type: 'i18n',
+                        message: `i18n key '${key}' is missing default locale text (${catalog.defaultLocale})`,
+                        componentId: component.id,
+                        attribute: 'i18nKey',
+                        locale: catalog.defaultLocale,
+                        key,
+                    });
+                }
+
+                if (previewLocale !== catalog.defaultLocale && !entry[previewLocale]) {
+                    warnings.push({
+                        type: 'i18n',
+                        message: `i18n key '${key}' is missing preview locale text (${previewLocale})`,
+                        componentId: component.id,
+                        attribute: 'i18nKey',
+                        locale: previewLocale,
+                        key,
+                    });
+                }
+            }
+
+            if (!String((component.data as any)?.text || '').trim()) {
+                warnings.push({
+                    type: 'i18n',
+                    message: `i18n key '${key}' is set but fallback text is empty`,
+                    componentId: component.id,
+                    attribute: 'text',
+                    key,
+                });
+            }
+        }
+
+        for (const unusedKey of findUnusedKeys(catalog, referencedKeys)) {
+            warnings.push({
+                type: 'i18n',
+                message: `i18n key '${unusedKey}' is not referenced by this HML file`,
+                key: unusedKey,
+            });
+        }
+    }
+}
+
+export interface HmlValidationContext {
+    projectRoot?: string;
+    previewLocale?: string;
+    i18nCatalog?: I18nCatalog;
 }
 
 /**
@@ -480,7 +571,10 @@ export interface ValidationError {
  * 验证警告接口
  */
 export interface ValidationWarning {
-    type: 'best-practice' | 'performance' | 'compatibility';
+    type: 'best-practice' | 'performance' | 'compatibility' | 'i18n';
     message: string;
     componentId?: string;
+    attribute?: string;
+    locale?: string;
+    key?: string;
 }

@@ -9,10 +9,97 @@ import { useDesignerStore } from '../../store';
 import { t, getLocale } from '../../i18n';
 import { useFontGlyphStats } from '../../hooks/useFontGlyphStats';
 import { PRESET_CHARSETS, PRESET_CODEPAGES, isPresetValue, getPresetLabel } from '../../../common/charsetPresets';
+import { findUnusedKeys, listI18nKeys, resolveLocalizedText, setTranslation } from '../../../project-i18n/catalog';
+import { detectScripts } from '../../../project-i18n/script';
+import { estimateTextPixelWidth } from '../../../project-i18n/textMetrics';
 import { HelpIcon } from './HelpIcon';
 
 // 字体文件扩展名
 const FONT_EXTS = ['ttf', 'otf', 'woff', 'woff2', 'bin'];
+
+function parseRangeValue(value: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  for (const part of value.split(',')) {
+    const trimmed = part.trim();
+    const match = trimmed.match(/^(0x[0-9a-f]+|\d+)(?:\s*-\s*(0x[0-9a-f]+|\d+))?$/i);
+    if (!match) {
+      continue;
+    }
+    const start = Number(match[1]);
+    const end = match[2] ? Number(match[2]) : start;
+    if (!Number.isNaN(start) && !Number.isNaN(end)) {
+      ranges.push([Math.min(start, end), Math.max(start, end)]);
+    }
+  }
+  return ranges;
+}
+
+function presetCharsetCoversChar(value: string, char: string): boolean {
+  const scripts = detectScripts(char);
+  if (scripts.length === 0) {
+    return false;
+  }
+
+  const upper = value.toUpperCase();
+  if (upper.includes('GB') || upper === 'CP936' || upper === 'CP950') {
+    return scripts.includes('CJK') || scripts.includes('Latin');
+  }
+  if (upper === 'CP932') {
+    return scripts.includes('Kana') || scripts.includes('CJK') || scripts.includes('Latin');
+  }
+  if (upper.includes('KSX') || upper === 'CP949') {
+    return scripts.includes('Hangul') || scripts.includes('Latin');
+  }
+  if (upper.includes('KOI8') || upper === 'CP1251') {
+    return scripts.includes('Cyrillic') || scripts.includes('Latin');
+  }
+  if (upper === 'CP1253') {
+    return scripts.includes('Greek') || scripts.includes('Latin');
+  }
+  if (upper === 'CP1255') {
+    return scripts.includes('Hebrew') || scripts.includes('Latin');
+  }
+  if (upper === 'CP1256') {
+    return scripts.includes('Arabic') || scripts.includes('Latin');
+  }
+  if (upper.includes('ISO8859') || upper === 'CP1252' || upper === 'CP1250' || upper === 'CP1254' || upper === 'CP1257' || upper === 'CP1258') {
+    return scripts.includes('Latin');
+  }
+  if (upper.includes('ASCII') || upper === 'CP437') {
+    const codePoint = char.codePointAt(0);
+    return codePoint !== undefined && codePoint >= 0x20 && codePoint <= 0x7E;
+  }
+  return false;
+}
+
+function characterSetsCoverChar(characterSets: any[] | undefined, char: string): boolean {
+  if (!characterSets || characterSets.length === 0) {
+    return false;
+  }
+
+  const codePoint = char.codePointAt(0);
+  if (codePoint === undefined) {
+    return false;
+  }
+
+  return characterSets.some((charset) => {
+    const type = charset?.type;
+    const value = String(charset?.value || '');
+    if (!value) {
+      return false;
+    }
+    if (type === 'string') {
+      return Array.from(value).includes(char);
+    }
+    if (type === 'range') {
+      return parseRangeValue(value).some(([start, end]) => codePoint >= start && codePoint <= end);
+    }
+    if (type === 'file' || type === 'codepage') {
+      return presetCharsetCoversChar(value, char);
+    }
+    return false;
+  });
+}
 
 // 模块级缓存：保留 activeTab 状态，防止组件重挂载时重置
 const activeTabCache = new Map<string, 'properties' | 'events'>();
@@ -39,16 +126,85 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   
   const definition = componentDefinitions.find((d) => d.type === component.type);
   const syncListItems = useDesignerStore((state) => state.syncListItems);
+  const projectI18nCatalog = useDesignerStore((state) => state.projectI18nCatalog);
+  const previewLocale = useDesignerStore((state) => state.previewLocale);
+  const updateProjectI18nCatalog = useDesignerStore((state) => state.updateProjectI18nCatalog);
   
   // 获取项目目标引擎，判断是否是 LVGL 项目
   const projectConfig = useDesignerStore((state) => state.projectConfig);
   const targetEngine = projectConfig?.targetEngine || 'honeygui';
   const isLvglProject = targetEngine === 'lvgl';
+  const isLocalizableLabel = component.type === 'hg_label';
+  const i18nKey = String((component.data as any)?.i18nKey || '').trim();
+  const defaultLocale = projectI18nCatalog.defaultLocale;
+  const i18nEntry = i18nKey ? projectI18nCatalog.strings[i18nKey] : undefined;
+  const defaultLocaleText = i18nKey
+    ? i18nEntry?.[defaultLocale] ?? (component.data as any)?.text ?? ''
+    : '';
+  const currentLocaleText = i18nKey ? i18nEntry?.[previewLocale] ?? '' : '';
+  const i18nKeys = listI18nKeys(projectI18nCatalog);
+  const referencedI18nKeys = new Set(
+    (components || [])
+      .map((item) => String((item.data as any)?.i18nKey || '').trim())
+      .filter(Boolean)
+  );
+  const unusedI18nKeys = findUnusedKeys(projectI18nCatalog, referencedI18nKeys);
+  const isPreviewLocaleMissing = Boolean(
+    i18nKey &&
+    previewLocale !== defaultLocale &&
+    i18nEntry &&
+    !i18nEntry[previewLocale]
+  );
+  const isI18nKeyMissing = Boolean(i18nKey && !i18nEntry);
+  const resolvedPreviewTextResult = resolveLocalizedText(
+    projectI18nCatalog,
+    (component.data as any)?.i18nKey,
+    previewLocale,
+    (component.data as any)?.text,
+    component.name
+  );
+  const resolvedPreviewText = (component.data as any)?.timeFormat === 'HH:mm-split' &&
+    resolvedPreviewTextResult.source === 'componentName'
+    ? '12:34'
+    : resolvedPreviewTextResult.text;
+  const fallbackTextChars = new Set(Array.from(String((component.data as any)?.text || '')));
+  const previewCharsMissingFromFirmwareCharset = Array.from(new Set(Array.from(resolvedPreviewText)))
+    .filter((char) => char.trim() !== '')
+    .filter((char) => !fallbackTextChars.has(char))
+    .filter((char) => !characterSetsCoverChar((component.data as any)?.characterSets, char));
+  const labelFontSize = Number((component.data as any)?.fontSize) || 16;
+  const labelLetterSpacing = Number((component.style as any)?.letterSpacing) || 0;
+  const labelLineSpacing = Number((component.style as any)?.lineSpacing) || 0;
+  const labelEstimatedWidth = estimateTextPixelWidth(resolvedPreviewText, labelFontSize, labelLetterSpacing);
+  const labelWidth = Number(component.position?.width) || 0;
+  const labelHeight = Number(component.position?.height) || 0;
+  const labelEnableScroll = Boolean((component.data as any)?.enableScroll);
+  const labelWordWrap = labelEnableScroll
+    ? (component.data as any)?.scrollDirection === 'vertical'
+    : Boolean((component.style as any)?.wordWrap);
+  const labelLineHeight = labelFontSize + labelLineSpacing;
+  const labelEstimatedHeight = labelWordWrap
+    ? Math.ceil(labelEstimatedWidth / Math.max(labelWidth, 1)) * labelLineHeight
+    : labelLineHeight;
+  const hasLikelyTextOverflow = Boolean(
+    resolvedPreviewText &&
+    labelWidth > 0 &&
+    labelEstimatedWidth > labelWidth &&
+    !labelWordWrap &&
+    !labelEnableScroll
+  );
+  const hasLikelyWrapHeightOverflow = Boolean(
+    resolvedPreviewText &&
+    labelWordWrap &&
+    !labelEnableScroll &&
+    labelHeight > 0 &&
+    labelEstimatedHeight > labelHeight
+  );
 
   // 字体字符统计 + 缺字检测（文本 + 附加字符集，与字体转换时的合并逻辑一致）
   const fontStats = useFontGlyphStats(
     (component.data as any)?.fontFile,
-    (component.data as any)?.text,
+    resolvedPreviewText,
     (component.data as any)?.characterSets,
     (component.data as any)?.fontSize ?? 16,
     Number((component.data as any)?.renderMode) || 4
@@ -149,6 +305,59 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
         syncListItems(componentIdRef.current);
       }, 0);
     }
+  };
+
+  const cloneProjectI18nCatalog = () => JSON.parse(JSON.stringify(projectI18nCatalog));
+
+  const handleI18nKeyChange = (value: string, commit = false) => {
+    const nextKey = value.trim();
+    if (!commit) {
+      handleDataChange('i18nKey', nextKey);
+      return;
+    }
+
+    const existingDefaultText = nextKey ? projectI18nCatalog.strings[nextKey]?.[defaultLocale] : undefined;
+    onUpdate({
+      data: {
+        ...component.data,
+        i18nKey: nextKey,
+        ...(existingDefaultText !== undefined ? { text: existingDefaultText } : {}),
+      },
+    });
+
+    if (!nextKey || existingDefaultText !== undefined) {
+      return;
+    }
+
+    const nextCatalog = cloneProjectI18nCatalog();
+    setTranslation(nextCatalog, nextKey, defaultLocale, (component.data as any)?.text || '');
+    updateProjectI18nCatalog(nextCatalog, { save: true });
+  };
+
+  const handleDefaultLocaleTextChange = (value: string) => {
+    if (!i18nKey) {
+      return;
+    }
+
+    const nextCatalog = cloneProjectI18nCatalog();
+    setTranslation(nextCatalog, i18nKey, defaultLocale, value);
+    updateProjectI18nCatalog(nextCatalog, { save: true });
+    onUpdate({
+      data: {
+        ...component.data,
+        text: value,
+      },
+    });
+  };
+
+  const handleCurrentLocaleTextChange = (value: string) => {
+    if (!i18nKey) {
+      return;
+    }
+
+    const nextCatalog = cloneProjectI18nCatalog();
+    setTranslation(nextCatalog, i18nKey, previewLocale, value);
+    updateProjectI18nCatalog(nextCatalog, { save: true });
   };
 
   const handleGeneralChange = (property: string, value: any) => {
@@ -681,6 +890,115 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
     );
   };
 
+  const renderI18nWarning = (message: string) => (
+    <div className="property-warning property-warning-i18n">
+      {message}
+    </div>
+  );
+
+  const renderLabelI18nProperties = () => {
+    if (!isLocalizableLabel) {
+      return null;
+    }
+
+    const datalistId = `project-i18n-keys-${component.id}`;
+
+    return (
+      <>
+        <div className="property-item">
+          <label>{t('Localized Key')}</label>
+          <input
+            type="text"
+            list={datalistId}
+            value={i18nKey}
+            onChange={(event) => handleI18nKeyChange(event.target.value)}
+            onBlur={(event) => handleI18nKeyChange(event.target.value, true)}
+            placeholder="pairing.scan_code"
+            title={t('Localized Key Hint')}
+            style={{
+              width: '100%',
+              padding: '4px 6px',
+              marginTop: '4px',
+              backgroundColor: 'var(--vscode-input-background)',
+              color: 'var(--vscode-input-foreground)',
+              border: '1px solid var(--vscode-input-border)',
+              borderRadius: '2px',
+            }}
+          />
+          <datalist id={datalistId}>
+            {i18nKeys.map((key) => (
+              <option key={key} value={key} />
+            ))}
+          </datalist>
+        </div>
+
+        <div className="property-item">
+          <label>{`${t('Default Locale Text')} (${defaultLocale})`}</label>
+          <PropertyEditor
+            type="string"
+            value={i18nKey ? defaultLocaleText : ''}
+            onChange={handleDefaultLocaleTextChange}
+            disabled={!i18nKey}
+            title={!i18nKey ? t('Set a localized key before editing translations') : undefined}
+          />
+        </div>
+
+        {previewLocale !== defaultLocale && (
+          <div className="property-item">
+            <label>{`${t('Current Locale Text')} (${previewLocale})`}</label>
+            <PropertyEditor
+              type="string"
+              value={i18nKey ? currentLocaleText : ''}
+              onChange={handleCurrentLocaleTextChange}
+              disabled={!i18nKey}
+              title={!i18nKey ? t('Set a localized key before editing translations') : undefined}
+            />
+          </div>
+        )}
+
+        {isI18nKeyMissing && renderI18nWarning(t('Localized key does not exist yet'))}
+        {isPreviewLocaleMissing && renderI18nWarning(t('Current locale is missing and preview is falling back'))}
+        {unusedI18nKeys.length > 0 && renderI18nWarning(
+          `${t('Unused I18n Key')}: ${unusedI18nKeys.slice(0, 3).join(', ')}${unusedI18nKeys.length > 3 ? '...' : ''}`
+        )}
+      </>
+    );
+  };
+
+  const renderFontDiagnostics = () => {
+    const warnings: string[] = [];
+    const missingGlyphs = fontStats.missingChars.slice(0, 6).join(' ');
+    const missingCharsetChars = previewCharsMissingFromFirmwareCharset.slice(0, 8).join(' ');
+    const textComponent = component.type === 'hg_label' || component.type === 'hg_time_label' || component.type === 'hg_timer_label';
+
+    if (fontStats.missingChars.length > 0) {
+      warnings.push(t('Missing font glyphs', missingGlyphs || String(fontStats.missingChars.length)));
+    }
+    if (previewCharsMissingFromFirmwareCharset.length > 0) {
+      warnings.push(t('Preview characters not included in firmware charset', missingCharsetChars));
+    }
+    if (textComponent && hasLikelyTextOverflow) {
+      warnings.push(t('Likely text overflow'));
+    }
+    if (textComponent && hasLikelyWrapHeightOverflow) {
+      warnings.push(t('Likely wrap height overflow'));
+    }
+
+    if (warnings.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="property-diagnostics">
+        {warnings.map((warning, index) => (
+          <div key={`${warning}-${index}`} className="property-warning property-warning-i18n">
+            {warning}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="properties-tabs">
@@ -1016,9 +1334,13 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             {/* Data Properties */}
             {definition && definition.properties.filter(p => p.group === 'data').length > 0 && (
               <CollapsibleGroup title={t('Content')}>
+                {renderLabelI18nProperties()}
                 {definition.properties
                   .filter(p => p.group === 'data')
                   .filter(p => {
+                    if (isLocalizableLabel && p.name === 'i18nKey') {
+                      return false;
+                    }
                     // Button: show/hide properties based on toggleMode
                     if (component.type === 'hg_button') {
                       const isToggle = component.data?.toggleMode === true;
@@ -1034,7 +1356,11 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                   })
                   .map((property) => (
                     <div key={property.name} className="property-item">
-                      <label>{t(property.label as any)}</label>
+                      <label>
+                        {property.name === 'text' && isLocalizableLabel && i18nKey
+                          ? t('Fallback Text (codegen)')
+                          : t(property.label as any)}
+                      </label>
                       {property.name === 'src' && component.type === 'hg_image' ? (
                         renderImageProperty(
                           (component.data as any)?.[property.name],
@@ -1069,6 +1395,14 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                           (value) => handleDataChange(property.name, value),
                           property.name
                         )
+                      ) : property.name === 'text' && isLocalizableLabel && i18nKey ? (
+                        <PropertyEditor
+                          type="string"
+                          value={(component.data as any)?.text || ''}
+                          onChange={() => undefined}
+                          disabled={true}
+                          title={t('Fallback Text Hint')}
+                        />
                       ) : property.name === 'text' && (component.type === 'hg_timer_label' || component.type === 'hg_time_label') ? (
                         <>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1262,6 +1596,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                   )}
                 </div>
                 )}
+                {renderFontDiagnostics()}
                 {/* 字体大小 */}
                 {definition.properties.some(p => p.name === 'fontSize') && (
                 <div className="property-item">

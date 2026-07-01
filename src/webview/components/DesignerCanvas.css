@@ -76,6 +76,33 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+.label-diagnostic-badges {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  z-index: 2;
+  max-width: calc(100% - 4px);
+}
+
+.label-diagnostic-badge {
+  display: block;
+  max-width: 100%;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(179, 104, 0, 0.92);
+  color: #ffffff;
+  font: 10px/1.3 system-ui, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
 /* Selection box */
 .selection-box {
   position: absolute;

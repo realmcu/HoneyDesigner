@@ -8,6 +8,8 @@ import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
 import { SaveManager } from './SaveManager';
 import { HmlContentComparator } from '../utils/HmlContentComparator';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
+import { createEmptyCatalog } from '../project-i18n/catalog';
+import { loadProjectI18nCatalog } from '../project-i18n/files';
 
 /**
  * 文件管理器 - 处理文件的加载、保存和更新
@@ -521,6 +523,7 @@ export class FileManager {
             // 使用统一的配置加载器
             const projectConfig = ProjectConfigLoader.loadConfig();
             const designerConfig = ProjectConfigLoader.getDesignerConfig(projectConfig);
+            const projectI18nCatalog = createEmptyCatalog('en-US');
             
             // 发送HML内容和配置到Webview
             this._panel.webview.postMessage({
@@ -535,6 +538,8 @@ export class FileManager {
                 },
                 components: frontendComponents,
                 projectConfig: projectConfig,
+                projectI18nCatalog: projectI18nCatalog,
+                previewLocale: projectI18nCatalog.defaultLocale,
                 designerConfig: designerConfig
             });
 
@@ -754,6 +759,9 @@ export class FileManager {
         
         // 获取项目根目录
         const projectRoot = ProjectUtils.findProjectRoot(this._filePath!);
+        const projectI18nCatalog = projectRoot
+            ? loadProjectI18nCatalog(projectRoot)
+            : createEmptyCatalog('en-US');
         
         // 扫描所有 view（统一在此处获取）
         const allViews = await this.scanAllViews(this._filePath!);
@@ -788,6 +796,8 @@ export class FileManager {
             },
             components: frontendComponents,
             projectConfig: projectConfig,
+            projectI18nCatalog: projectI18nCatalog,
+            previewLocale: projectI18nCatalog.defaultLocale,
             designerConfig: designerConfig || { canvasBackgroundColor: '#3c3c3c' },
             projectRoot: projectRoot,
             allViews: allViews,

@@ -272,6 +272,14 @@ const App: React.FC = () => {
               const batchUpdate: any = {
                 currentFilePath: message.currentFilePath,
               };
+
+              if (message.projectI18nCatalog) {
+                const savedPreviewLocale = window.vscodeAPI?.getState?.()?.projectPreviewLocale;
+                batchUpdate.projectI18nCatalog = message.projectI18nCatalog;
+                batchUpdate.previewLocale = message.projectI18nCatalog.locales?.includes(savedPreviewLocale)
+                  ? savedPreviewLocale
+                  : (message.previewLocale || message.projectI18nCatalog.defaultLocale);
+              }
               
               // 添加项目配置
               if (message.projectConfig) {
@@ -357,6 +365,16 @@ const App: React.FC = () => {
             } else {
               // 没有 currentFilePath 的情况（旧逻辑兼容）
               store.setProjectConfig(message.projectConfig || null);
+
+              if (message.projectI18nCatalog) {
+                const savedPreviewLocale = window.vscodeAPI?.getState?.()?.projectPreviewLocale;
+                useDesignerStore.setState({
+                  projectI18nCatalog: message.projectI18nCatalog,
+                  previewLocale: message.projectI18nCatalog.locales?.includes(savedPreviewLocale)
+                    ? savedPreviewLocale
+                    : (message.previewLocale || message.projectI18nCatalog.defaultLocale),
+                });
+              }
               
               if (message.designerConfig?.canvasBackgroundColor) {
                 store.setCanvasBackgroundColor(message.designerConfig.canvasBackgroundColor);
@@ -390,6 +408,16 @@ const App: React.FC = () => {
               setIsLoadingFile(false);
             }
           }, 0);
+          break;
+
+        case 'projectI18nCatalogSaved':
+          if (message.projectI18nCatalog) {
+            const state = useDesignerStore.getState();
+            state.setProjectI18nCatalog(message.projectI18nCatalog);
+            if (message.previewLocale) {
+              state.setPreviewLocale(message.previewLocale);
+            }
+          }
           break;
 
         case 'showMessage':

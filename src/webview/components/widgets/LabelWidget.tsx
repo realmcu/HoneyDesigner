@@ -3,15 +3,28 @@ import { WidgetProps } from './types';
 import { useFontLoader } from '../../hooks/useFontLoader';
 import { useFontGlyphCheck } from '../../hooks/useFontGlyphCheck';
 import { useTextLayout, getTextLayoutParams } from '../../hooks/useTextLayout';
+import { useDesignerStore } from '../../store';
+import { resolveLocalizedText } from '../../../project-i18n/catalog';
+import { estimateTextPixelWidth } from '../../../project-i18n/textMetrics';
 
 export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
   const fontPath = component.data?.fontFile;
   const { fontFamily, isLoading: fontLoading } = useFontLoader(fontPath);
+  const projectI18nCatalog = useDesignerStore((state) => state.projectI18nCatalog);
+  const previewLocale = useDesignerStore((state) => state.previewLocale);
   const timeFormat = component.data?.timeFormat || '';
   const isSplitTime = timeFormat === 'HH:mm-split';
   
-  let displayText = component.data?.text || component.name;
-  if (isSplitTime && !component.data?.text) {
+  const resolvedText = resolveLocalizedText(
+    projectI18nCatalog,
+    (component.data as any)?.i18nKey,
+    previewLocale,
+    component.data?.text,
+    component.name
+  );
+
+  let displayText = resolvedText.text;
+  if (isSplitTime && resolvedText.source === 'componentName') {
     displayText = '12:34';
   }
   const text = displayText;
@@ -51,6 +64,25 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   const actualFontSize = layoutParams.fontSize;
   const containerWidth = typeof style?.width === 'number' ? style.width : 0;
   const containerHeight = typeof style?.height === 'number' ? style.height : 0;
+  const letterSpacing = Number(component.style?.letterSpacing) || 0;
+  const estimatedTextWidth = estimateTextPixelWidth(text, actualFontSize, letterSpacing);
+  const estimatedTextHeight = wordWrap
+    ? Math.ceil(estimatedTextWidth / Math.max(containerWidth, 1)) * lineHeight
+    : lineHeight;
+  const likelyTextOverflow = Boolean(
+    text &&
+    containerWidth > 0 &&
+    estimatedTextWidth > containerWidth &&
+    !wordWrap &&
+    !enableScroll
+  );
+  const likelyWrapHeightOverflow = Boolean(
+    text &&
+    wordWrap &&
+    !enableScroll &&
+    containerHeight > 0 &&
+    estimatedTextHeight > containerHeight
+  );
 
   // 滚动动画效果
   React.useEffect(() => {
@@ -64,13 +96,6 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
       return;
     }
 
-    const letterSpacing = Number(component.style?.letterSpacing) || 0;
-    const textLength = text.length;
-    const estimatedTextWidth = textLength * actualFontSize * 0.6 + (textLength - 1) * letterSpacing;
-    const estimatedTextHeight = wordWrap 
-      ? Math.ceil(estimatedTextWidth / containerWidth) * lineHeight
-      : lineHeight;
-    
     const isHorizontal = scrollDirection === 'horizontal';
     const textSize = isHorizontal ? estimatedTextWidth : estimatedTextHeight;
     const totalScrollDistance = scrollStartOffset + textSize + scrollEndOffset;
@@ -110,16 +135,6 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
     };
   }, [enableScroll, scrollPreview, scrollDirection, scrollReverse, scrollStartOffset, scrollEndOffset, scrollInterval, scrollDuration, text, actualFontSize, containerWidth, containerHeight, lineHeight, wordWrap, component.style?.letterSpacing]);
 
-  const warningStyle: React.CSSProperties = {
-    color: '#ff4444',
-    fontSize: 12,
-    marginTop: 4,
-    fontFamily: 'system-ui, sans-serif',
-    whiteSpace: 'normal',
-    wordBreak: 'break-all',
-    lineHeight: '1.4',
-  };
-
   const scrollTextStyle: React.CSSProperties = {
     fontFamily: fontFamily || 'inherit',
     display: 'inline-block',
@@ -129,6 +144,34 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
         : `translateY(${-scrollOffset}px)`
       : 'none',
     transition: 'none',
+  };
+
+  const diagnosticMessages: string[] = [];
+  if (showWarning) {
+    const chars = missingChars.slice(0, 5).map(c => `"${c}"`).join(' ');
+    diagnosticMessages.push(`缺字 ${chars}${missingChars.length > 5 ? ` 等${missingChars.length}个` : ''}`);
+  }
+  if (likelyTextOverflow) {
+    diagnosticMessages.push('可能溢出');
+  }
+  if (likelyWrapHeightOverflow) {
+    diagnosticMessages.push('换行高度不足');
+  }
+
+  const renderDiagnosticBadges = () => {
+    if (diagnosticMessages.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="label-diagnostic-badges">
+        {diagnosticMessages.map((message, index) => (
+          <span key={`${message}-${index}`} className="label-diagnostic-badge">
+            {message}
+          </span>
+        ))}
+      </div>
+    );
   };
 
   // 拆分时间的特殊渲染
@@ -174,12 +217,7 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
               </div>
             </div>
           </div>
-          {showWarning && (
-            <span style={warningStyle}>
-              ⚠️ 字体缺少字形: {missingChars.slice(0, 5).map(c => `"${c}"`).join(' ')}
-              {missingChars.length > 5 && ` 等${missingChars.length}个字符`}
-            </span>
-          )}
+          {renderDiagnosticBadges()}
           {children}
         </div>
       );
@@ -189,16 +227,9 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   return (
     <div key={component.id} style={containerStyle} {...handlers}>
       <div style={textBlockStyle}>
-        {!showWarning && (
-          <span style={scrollTextStyle}>{text}</span>
-        )}
-        {showWarning && (
-          <span style={warningStyle}>
-            ⚠️ 字体缺少字形: {missingChars.slice(0, 5).map(c => `"${c}"`).join(' ')}
-            {missingChars.length > 5 && ` 等${missingChars.length}个字符`}
-          </span>
-        )}
+        <span style={scrollTextStyle}>{text}</span>
       </div>
+      {renderDiagnosticBadges()}
       {children}
     </div>
   );

@@ -11,6 +11,8 @@ import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
 import { ConversionConfigService, ConversionConfig } from '../services/ConversionConfigService';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
+import { normalizeCatalog } from '../project-i18n/catalog';
+import { saveProjectI18nCatalog } from '../project-i18n/files';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -407,6 +409,10 @@ export class MessageHandler {
 
             case 'saveConversionConfig':
                 this._handleSaveConversionConfig(message.config, message.changedPath, message.changedField);
+                break;
+
+            case 'saveProjectI18nCatalog':
+                this._handleSaveProjectI18nCatalog(message.catalog, message.previewLocale);
                 break;
 
             case 'toggleAlwaysConvert':
@@ -874,6 +880,41 @@ export class MessageHandler {
         } catch (error) {
             logger.error(`[MessageHandler] 保存转换配置失败: ${error}`);
             vscode.window.showErrorMessage(vscode.l10n.t('Failed to save conversion config: {0}', error instanceof Error ? error.message : String(error)));
+        }
+    }
+
+    /**
+     * 处理保存项目多语言文本目录
+     */
+    private _handleSaveProjectI18nCatalog(catalog: unknown, previewLocale?: string): void {
+        try {
+            const projectRoot = this._fileManager.currentFilePath
+                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
+                : undefined;
+
+            if (!projectRoot) {
+                logger.warn('[MessageHandler] 无法保存多语言目录：未找到项目根目录');
+                vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+                return;
+            }
+
+            const normalizedCatalog = normalizeCatalog(catalog, 'en-US');
+            const normalizedPreviewLocale = previewLocale && normalizedCatalog.locales.includes(previewLocale)
+                ? previewLocale
+                : normalizedCatalog.defaultLocale;
+
+            saveProjectI18nCatalog(projectRoot, normalizedCatalog);
+
+            this._panel.webview.postMessage({
+                command: 'projectI18nCatalogSaved',
+                projectI18nCatalog: normalizedCatalog,
+                previewLocale: normalizedPreviewLocale
+            });
+
+            logger.debug('[MessageHandler] 项目多语言目录已保存');
+        } catch (error) {
+            logger.error(`[MessageHandler] 保存项目多语言目录失败: ${error}`);
+            vscode.window.showErrorMessage(vscode.l10n.t('Failed to save project i18n catalog: {0}', error instanceof Error ? error.message : String(error)));
         }
     }
 

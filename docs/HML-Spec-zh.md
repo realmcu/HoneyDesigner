@@ -467,6 +467,7 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
 | `text` | string | "Label" | 显示文本 |
+| `i18nKey` | string | — | 可选的项目字符串 key，用于 Designer 多语言预览。`text` 仍是固件/codegen fallback。 |
 | `hAlign` | enum | LEFT | 水平对齐：`LEFT` / `CENTER` / `RIGHT` |
 | `vAlign` | enum | TOP | 垂直对齐：`TOP` / `MID` |
 | `color` | color | #ffffff | 文本颜色 |
@@ -474,6 +475,41 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 | `lineSpacing` | number | 0 | 行间距 |
 | `wordWrap` | boolean | false | 自动换行 |
 | `wordBreak` | boolean | false | 在单词内断行 |
+
+#### 项目多语言预览
+
+Designer 可从项目级 catalog `i18n/strings.json` 解析 `hg_label` 的预览文本：
+
+```json
+{
+  "version": 1,
+  "defaultLocale": "en-US",
+  "locales": ["en-US", "zh-CN"],
+  "strings": {
+    "pairing.scan_code": {
+      "en-US": "Scan code pairing",
+      "zh-CN": "扫码配对"
+    }
+  }
+}
+```
+
+预览解析顺序：
+
+1. `catalog.strings[i18nKey][previewLocale]`
+2. `catalog.strings[i18nKey][catalog.defaultLocale]`
+3. `text`
+4. 组件名称
+
+本阶段 `i18nKey` 只用于 Designer 编辑和 PC 预览，不生成固件运行时语言切换逻辑，也不生成 C 语言表。`text` 必须继续保留默认语言 fallback，以保持现有 codegen 兼容。
+
+V202S 配对界面示例：
+
+```xml
+<hg_label id="asm_scan_text" x="40" y="110" width="280" height="40"
+          text="Scan code pairing" i18nKey="pairing.scan_code"
+          fontFile="/font/Arial.ttf" fontSize="22" hAlign="CENTER" vAlign="MID" />
+```
 
 #### 字体
 
@@ -1323,7 +1359,7 @@ HML 解析器将 XML 属性归类到以下几组：
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `opacity`
 
 ### 数据属性
-`text`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`
 
 ### 元属性
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`
