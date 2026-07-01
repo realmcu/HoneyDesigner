@@ -622,7 +622,6 @@ export class MessageHandler {
 
             // 2. 写 PNG 到 .honeygui/ai-context/
             const outDir = path.join(projectRoot, '.honeygui', 'ai-context');
-            fs.mkdirSync(outDir, { recursive: true });
             const now = new Date();
             const pad = (n: number) => String(n).padStart(2, '0');
             const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
@@ -630,15 +629,20 @@ export class MessageHandler {
             const screenshotAbsPath = path.join(outDir, `selection-${ts}.png`);
             let screenshotOk = false;
             if (imageDataUrl.startsWith('data:image/png;base64,')) {
-                const base64 = imageDataUrl.replace(/^data:image\/png;base64,/, '');
-                fs.writeFileSync(screenshotAbsPath, Buffer.from(base64, 'base64'));
-                screenshotOk = true;
+                try {
+                    fs.mkdirSync(outDir, { recursive: true });
+                    const base64 = imageDataUrl.replace(/^data:image\/png;base64,/, '');
+                    fs.writeFileSync(screenshotAbsPath, Buffer.from(base64, 'base64'));
+                    screenshotOk = true;
+                } catch (writeErr) {
+                    logger.warn(`[MessageHandler] 截图写入失败，降级为纯文本: ${writeErr}`);
+                }
             }
 
             // 3. 组装英文文本包
             const hmlRelPath = path.relative(projectRoot, filePath).replace(/\\/g, '/');
             const catalog = loadProjectI18nCatalog(projectRoot);
-            const components = (this._hmlController.currentDocument?.view?.components || []) as any[];
+            const components = this._hmlController.currentDocument?.view?.components || [];
             const bundle = composeAiBundle({
                 components,
                 selectedIds,

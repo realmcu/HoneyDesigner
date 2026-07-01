@@ -152,7 +152,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
       const ids = selectedComponents.length > 1 ? selectedComponents : [component.id];
       const el = canvasRef.current;
       if (el) {
-        captureDesignPng(el, components, ids)
+        captureDesignPng(el, components, ids, { zoom, offset: canvasOffset })
           .then((imageDataUrl) => {
             window.vscodeAPI?.postMessage({ command: 'copyForAI', imageDataUrl, selectedIds: ids });
           })
@@ -165,7 +165,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     }
     executeMenuAction(actionId, component, menuActionHelpers);
     hideMenu();
-  }, [hideMenu, updateComponent, removeComponent, onComponentSelect, selectedComponents, components]);
+  }, [hideMenu, updateComponent, removeComponent, onComponentSelect, selectedComponents, components, zoom, canvasOffset]);
   
   // 处理组件右键菜单
   const handleComponentContextMenu = useCallback((e: React.MouseEvent, componentId: string) => {
