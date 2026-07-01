@@ -15,6 +15,7 @@ import { normalizeCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, saveProjectI18nCatalog } from '../project-i18n/files';
 import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18n/projectIndex';
 import { HmlParser } from '../hml/HmlParser';
+import { composeAiBundle } from './aiContextBundle';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -69,40 +70,7 @@ export class MessageHandler {
                 break;
 
             case 'save':
-                logger.debug(`[MessageHandler] 收到保存请求，组件数量: ${message?.content?.components?.length || 0}`);
-
-                try {
-                    // 保存前记录当前状态到撤销栈（直接读文件，避免 VSCode buffer 不同步）
-                    const currentFilePath = this._fileManager.currentFilePath;
-                    if (currentFilePath) {
-                        try {
-                            const currentContent = fs.readFileSync(currentFilePath, 'utf8');
-                            this._fileManager.pushUndoState(currentContent);
-                        } catch (e) {
-                            logger.warn(`[MessageHandler] 记录撤销状态失败: ${e}`);
-                        }
-                    }
-
-                    if (message?.content?.components && Array.isArray(message.content.components)) {
-                        logger.debug('[MessageHandler] 更新组件到HmlController...');
-                        this._hmlController.updateFromFrontendComponents(message.content.components);
-                        logger.debug(`[MessageHandler] 组件更新完成，当前文档组件数: ${this._hmlController.currentDocument?.view?.components?.length || 0}`);
-                    }
-                } catch (syncErr) {
-                    logger.warn(`[MessageHandler] 前端组件同步失败: ${syncErr}`);
-                }
-                const serializedContent = this._hmlController.serializeDocument();
-                logger.debug(`[MessageHandler] 序列化完成，内容长度: ${serializedContent.length}`);
-                await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
-
-                // 保存后通知前端更新撤销/重做状态
-                this._fileManager.sendUndoRedoState();
-
-                // 保存后重新扫描所有视图并更新前端
-                await this._fileManager.updateAllViewsToFrontend();
-
-                // 触发自动代码生成（带防抖）
-                this._scheduleAutoCodeGeneration();
+                await this.handleSave(message);
                 break;
 
             case 'undo':
@@ -149,6 +117,10 @@ export class MessageHandler {
 
             case 'preview':
                 this._handlePreview(message.content);
+                break;
+
+            case 'copyForAI':
+                await this.handleCopyForAI(message);
                 break;
 
             case 'executeCommand':
@@ -588,6 +560,103 @@ export class MessageHandler {
         } catch (error) {
             logger.error(`[MessageHandler] 字符集文件浏览失败: ${error}`);
             vscode.window.showErrorMessage(vscode.l10n.t('File browse failed: {0}', error instanceof Error ? error.message : vscode.l10n.t('Unknown error')));
+        }
+    }
+
+    private async handleSave(message: any): Promise<void> {
+        logger.debug(`[MessageHandler] 收到保存请求，组件数量: ${message?.content?.components?.length || 0}`);
+
+        try {
+            // 保存前记录当前状态到撤销栈（直接读文件，避免 VSCode buffer 不同步）
+            const currentFilePath = this._fileManager.currentFilePath;
+            if (currentFilePath) {
+                try {
+                    const currentContent = fs.readFileSync(currentFilePath, 'utf8');
+                    this._fileManager.pushUndoState(currentContent);
+                } catch (e) {
+                    logger.warn(`[MessageHandler] 记录撤销状态失败: ${e}`);
+                }
+            }
+
+            if (message?.content?.components && Array.isArray(message.content.components)) {
+                logger.debug('[MessageHandler] 更新组件到HmlController...');
+                this._hmlController.updateFromFrontendComponents(message.content.components);
+                logger.debug(`[MessageHandler] 组件更新完成，当前文档组件数: ${this._hmlController.currentDocument?.view?.components?.length || 0}`);
+            }
+        } catch (syncErr) {
+            logger.warn(`[MessageHandler] 前端组件同步失败: ${syncErr}`);
+        }
+        const serializedContent = this._hmlController.serializeDocument();
+        logger.debug(`[MessageHandler] 序列化完成，内容长度: ${serializedContent.length}`);
+        await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
+
+        // 保存后通知前端更新撤销/重做状态
+        this._fileManager.sendUndoRedoState();
+
+        // 保存后重新扫描所有视图并更新前端
+        await this._fileManager.updateAllViewsToFrontend();
+
+        // 触发自动代码生成（带防抖）
+        this._scheduleAutoCodeGeneration();
+    }
+
+    /** 处理「复制给 AI」：保存 HML → 写高亮截图 → 组装英文文本包 → 写系统剪贴板。 */
+    private async handleCopyForAI(message: any): Promise<void> {
+        try {
+            const imageDataUrl: string = message?.imageDataUrl || '';
+            const selectedIds: string[] = Array.isArray(message?.selectedIds) ? message.selectedIds : [];
+
+            // 1. 先保存当前 HML，使磁盘与截图一致
+            await this.handleSave({ command: 'save', content: {} });
+
+            const filePath = this._fileManager.currentFilePath;
+            if (!filePath) {
+                vscode.window.showErrorMessage(vscode.l10n.t('Copy for AI failed: no open HML file.'));
+                return;
+            }
+            const projectRoot = ProjectUtils.findProjectRoot(filePath);
+            if (!projectRoot) {
+                vscode.window.showErrorMessage(vscode.l10n.t('Copy for AI failed: project root not found.'));
+                return;
+            }
+
+            // 2. 写 PNG 到 .honeygui/ai-context/
+            const outDir = path.join(projectRoot, '.honeygui', 'ai-context');
+            fs.mkdirSync(outDir, { recursive: true });
+            const now = new Date();
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
+                `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+            const screenshotAbsPath = path.join(outDir, `selection-${ts}.png`);
+            let screenshotOk = false;
+            if (imageDataUrl.startsWith('data:image/png;base64,')) {
+                const base64 = imageDataUrl.replace(/^data:image\/png;base64,/, '');
+                fs.writeFileSync(screenshotAbsPath, Buffer.from(base64, 'base64'));
+                screenshotOk = true;
+            }
+
+            // 3. 组装英文文本包
+            const hmlRelPath = path.relative(projectRoot, filePath).replace(/\\/g, '/');
+            const catalog = loadProjectI18nCatalog(projectRoot);
+            const components = (this._hmlController.currentDocument?.view?.components || []) as any[];
+            const bundle = composeAiBundle({
+                components,
+                selectedIds,
+                hmlRelPath,
+                screenshotAbsPath: screenshotOk ? screenshotAbsPath : '(screenshot unavailable)',
+                catalog,
+            });
+
+            // 4. 写剪贴板 + 提示
+            await vscode.env.clipboard.writeText(bundle);
+            vscode.window.showInformationMessage(
+                vscode.l10n.t('Copied for AI. Paste into Codex / Claude Code.'),
+            );
+        } catch (error) {
+            logger.error(`[MessageHandler] copyForAI 失败: ${error}`);
+            vscode.window.showErrorMessage(
+                vscode.l10n.t('Copy for AI failed: {0}', error instanceof Error ? error.message : String(error)),
+            );
         }
     }
 
