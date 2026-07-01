@@ -16,6 +16,7 @@ import { MoveHandle } from './MoveHandle';
 import { calculateAlignment } from '../utils/dragAlignmentGuides';
 import { getAbsolutePosition, findComponentAtPosition, isContainerType } from '../utils/componentUtils';
 import { t } from '../i18n';
+import { captureDesignPng } from '../utils/captureDesign';
 import './DesignerCanvas.css';
 
 interface DesignerCanvasProps {
@@ -147,9 +148,24 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
         return;
       }
     }
+    if (actionId === 'copyForAI') {
+      const ids = selectedComponents.length > 1 ? selectedComponents : [component.id];
+      const el = canvasRef.current;
+      if (el) {
+        captureDesignPng(el, components, ids)
+          .then((imageDataUrl) => {
+            window.vscodeAPI?.postMessage({ command: 'copyForAI', imageDataUrl, selectedIds: ids });
+          })
+          .catch((err) => {
+            window.vscodeAPI?.postMessage({ command: 'error', text: `Copy for AI failed: ${String(err)}` });
+          });
+      }
+      hideMenu();
+      return;
+    }
     executeMenuAction(actionId, component, menuActionHelpers);
     hideMenu();
-  }, [hideMenu, updateComponent, removeComponent, onComponentSelect, selectedComponents]);
+  }, [hideMenu, updateComponent, removeComponent, onComponentSelect, selectedComponents, components]);
   
   // 处理组件右键菜单
   const handleComponentContextMenu = useCallback((e: React.MouseEvent, componentId: string) => {

@@ -17,6 +17,7 @@ export interface MenuItem {
  */
 const commonMenuItems: MenuItem[] = [
   { id: 'gotoSlot', label: '跳转到槽函数', dividerAfter: true },
+  { id: 'copyForAI', label: '复制给 AI', dividerAfter: true },
   { id: 'bringToFront', label: '置于顶层' },
   { id: 'sendToBack', label: '置于底层' },
   { id: 'bringForward', label: '上移一层' },
