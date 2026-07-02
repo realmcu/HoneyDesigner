@@ -92,6 +92,31 @@ export function ensureLocale(catalog: I18nCatalog, locale: LocaleCode): I18nCata
     return catalog;
 }
 
+/**
+ * 删除一个语言集合（locale）：从 locales 列表移除，并清理每个 key 下该 locale 的翻译值。
+ *
+ * 必须同时清理 strings 里残留的翻译值——否则 normalizeCatalog 会遍历 strings 中出现过的
+ * locale 并把它重新加回 locales，导致“删了又复活”。
+ * defaultLocale 不允许删除（返回原 catalog 不变）。
+ */
+export function removeLocale(catalog: I18nCatalog, locale: LocaleCode): I18nCatalog {
+    const clean = cleanLocale(locale);
+    if (!clean || clean === catalog.defaultLocale || !catalog.locales.includes(clean)) {
+        return catalog;
+    }
+
+    catalog.locales = catalog.locales.filter((item) => item !== clean);
+
+    for (const key of Object.keys(catalog.strings)) {
+        const entry = catalog.strings[key];
+        if (entry && Object.prototype.hasOwnProperty.call(entry, clean)) {
+            delete entry[clean];
+        }
+    }
+
+    return catalog;
+}
+
 export function setTranslation(
     catalog: I18nCatalog,
     key: I18nKey,

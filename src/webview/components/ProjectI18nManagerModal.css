@@ -115,6 +115,32 @@
   font-weight: 600;
 }
 
+.project-i18n-table th .locale-th {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.project-i18n-table th .locale-code {
+  font-family: var(--vscode-editor-font-family);
+}
+
+.locale-default-badge {
+  flex: none;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 0 4px;
+  border-radius: 2px;
+  color: var(--vscode-descriptionForeground);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.locale-delete-button {
+  flex: none;
+  padding: 2px;
+}
+
 .project-i18n-table textarea {
   width: 220px;
   min-height: 42px;

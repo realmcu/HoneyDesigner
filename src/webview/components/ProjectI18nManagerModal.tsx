@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Trash2 } from 'lucide-react';
-import { setTranslation } from '../../project-i18n/catalog';
+import { setTranslation, removeLocale } from '../../project-i18n/catalog';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
 import './ProjectI18nManagerModal.css';
@@ -27,6 +27,7 @@ const ProjectI18nManagerModal: React.FC = () => {
   const [query, setQuery] = React.useState('');
   const [mode, setMode] = React.useState<'all' | 'missing' | 'unused' | 'unbound'>('all');
   const [pendingDelete, setPendingDelete] = React.useState<{ key: string; refs: number } | null>(null);
+  const [pendingLocaleDelete, setPendingLocaleDelete] = React.useState<{ locale: string } | null>(null);
   const refreshTimerRef = React.useRef<number | null>(null);
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -78,6 +79,26 @@ const ProjectI18nManagerModal: React.FC = () => {
     // Extension：删除 catalog 条目 + 解绑全项目所有引用组件（含未打开文件）。
     deleteProjectI18nKey(key);
     setPendingDelete(null);
+    window.setTimeout(() => loadProjectI18nIndex(), 0);
+  };
+
+  const requestDeleteLocale = (locale: string) => {
+    if (locale === projectI18nCatalog.defaultLocale) {
+      return;
+    }
+    setPendingLocaleDelete({ locale });
+  };
+
+  const confirmDeleteLocale = () => {
+    if (!pendingLocaleDelete) {
+      return;
+    }
+
+    const nextCatalog = cloneCatalog(projectI18nCatalog);
+    removeLocale(nextCatalog, pendingLocaleDelete.locale);
+    // removeLocale 已清理该 locale 下所有翻译值，避免 normalizeCatalog 把语言加回。
+    updateProjectI18nCatalog(nextCatalog, { save: true, immediate: true });
+    setPendingLocaleDelete(null);
     window.setTimeout(() => loadProjectI18nIndex(), 0);
   };
 
@@ -206,9 +227,30 @@ const ProjectI18nManagerModal: React.FC = () => {
                   <thead>
                     <tr>
                       <th>{t('Localized Key')}</th>
-                      {projectI18nIndex.locales.map((locale) => (
-                        <th key={locale}>{locale}</th>
-                      ))}
+                      {projectI18nIndex.locales.map((locale) => {
+                        const isDefault = locale === projectI18nCatalog.defaultLocale;
+                        return (
+                          <th key={locale}>
+                            <div className="locale-th">
+                              <span className="locale-code">{locale}</span>
+                              {isDefault ? (
+                                <span className="locale-default-badge" title={t('Default Locale')}>
+                                  {t('Default')}
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="i18n-delete-button locale-delete-button"
+                                  onClick={() => requestDeleteLocale(locale)}
+                                  title={t('Delete Locale')}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
                       <th>{t('References')}</th>
                       <th>{t('Status')}</th>
                       <th></th>
@@ -263,6 +305,23 @@ const ProjectI18nManagerModal: React.FC = () => {
                   {t('Cancel')}
                 </button>
                 <button type="button" className="danger" onClick={confirmDeleteKey}>
+                  {t('Delete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {pendingLocaleDelete && (
+          <div className="i18n-confirm-backdrop">
+            <div className="i18n-confirm-dialog">
+              <div className="i18n-confirm-message">
+                {t('Delete locale confirm', pendingLocaleDelete.locale)}
+              </div>
+              <div className="i18n-confirm-actions">
+                <button type="button" onClick={() => setPendingLocaleDelete(null)}>
+                  {t('Cancel')}
+                </button>
+                <button type="button" className="danger" onClick={confirmDeleteLocale}>
                   {t('Delete')}
                 </button>
               </div>
