@@ -426,10 +426,14 @@ export class HmlValidationService {
      * 依据：HML-Spec.md Section 6.1（hg_view — View Container）
      */
     private validateViewIds(hmlContent: string, warnings: ValidationWarning[]): void {
+        // 先剔除 XML 注释（含未闭合的尾部注释），避免注释掉的 <hg_view> 触发误报
+        const contentWithoutComments = hmlContent
+            .replace(/<!--[\s\S]*?-->/g, '')
+            .replace(/<!--[\s\S]*$/, '');
         // 匹配每个 <hg_view ...> 开标签（含自闭合），检查其属性里是否声明了 id
         const openTagRe = /<hg_view\b[^>]*>/g;
         let match: RegExpExecArray | null;
-        while ((match = openTagRe.exec(hmlContent)) !== null) {
+        while ((match = openTagRe.exec(contentWithoutComments)) !== null) {
             const openTag = match[0];
             // 属性形如 ` id="..."` / ` id='...'`（\s 前缀避免误中 grid= / uid= 等属性名后缀）
             const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(openTag);
