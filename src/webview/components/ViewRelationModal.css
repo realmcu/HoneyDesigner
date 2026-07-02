@@ -16,19 +16,23 @@
   --vrm-color-ambiguous: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground));
 }
 
+/* T5：绝对定位 + 受控 position/size（打开时居中，可拖拽、可调大小），
+   由组件内联 style 写入 left/top/width/height（最小 640×420，见 ViewRelationModal.tsx） */
 .vrm-dialog {
+  position: absolute;
   background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
   color: var(--vscode-foreground);
   border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
   border-radius: 8px;
-  width: 85%;
-  max-width: 1000px;
-  height: 75%;
-  max-height: 700px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px var(--vscode-widget-shadow);
   overflow: hidden;
+}
+
+/* 拖动/调整大小进行中：隔离画布手势，避免与图内 pan/zoom 冲突 */
+.vrm-dialog-interacting .vrm-canvas {
+  pointer-events: none;
 }
 
 .vrm-header {
@@ -38,6 +42,19 @@
   padding: 10px 16px;
   background: var(--vscode-sideBar-background, var(--vscode-editorWidget-background));
   border-bottom: 1px solid var(--vscode-panel-border);
+  cursor: move;
+  user-select: none;
+}
+
+.vrm-header .vrm-search,
+.vrm-header .vrm-toolbar {
+  cursor: default;
+}
+
+/* 拖动/调整大小期间禁用全局文本选中（组件在 mousedown 时挂到 document.body） */
+body.vrm-noselect,
+body.vrm-noselect * {
+  user-select: none !important;
 }
 
 .vrm-title {
@@ -483,4 +500,34 @@
 .vrm-stats {
   font-variant-numeric: tabular-nums;
   flex: none;
+}
+
+/* ---------------- 右下角调整大小手柄（T5） ---------------- */
+
+.vrm-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  z-index: 6;
+  touch-action: none;
+}
+
+.vrm-resize-handle::before {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--vscode-panel-border);
+  border-bottom: 2px solid var(--vscode-panel-border);
+  opacity: 0.8;
+}
+
+.vrm-resize-handle:hover::before {
+  border-color: var(--vscode-focusBorder);
+  opacity: 1;
 }

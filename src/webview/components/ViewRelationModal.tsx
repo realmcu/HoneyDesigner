@@ -456,6 +456,48 @@ const buildFocusView = (
   return { nodes, edges };
 };
 
+// ---------------- 弹窗:可拖拽 + 可调大小(T5) ----------------
+
+interface DialogRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const DIALOG_MIN_W = 640;
+const DIALOG_MIN_H = 420;
+const DIALOG_DEFAULT_MAX_W = 1200;
+const DIALOG_DEFAULT_MAX_H = 820;
+const DIALOG_VIEWPORT_RATIO_W = 0.9;
+const DIALOG_VIEWPORT_RATIO_H = 0.88;
+
+/** 打开时居中的默认尺寸：min(1200px,90vw) × min(820px,88vh)，不低于最小尺寸 */
+const computeDefaultDialogRect = (): DialogRect => {
+  const width = Math.max(DIALOG_MIN_W, Math.min(DIALOG_DEFAULT_MAX_W, window.innerWidth * DIALOG_VIEWPORT_RATIO_W));
+  const height = Math.max(DIALOG_MIN_H, Math.min(DIALOG_DEFAULT_MAX_H, window.innerHeight * DIALOG_VIEWPORT_RATIO_H));
+  return {
+    width,
+    height,
+    x: Math.max(0, (window.innerWidth - width) / 2),
+    y: Math.max(0, (window.innerHeight - height) / 2),
+  };
+};
+
+/** 拖动后限制标题栏至少部分可见，避免弹窗整体飘出可视区域 */
+const clampDialogPosition = (rect: DialogRect): DialogRect => {
+  const minVisible = 160;
+  const minX = -(rect.width - minVisible);
+  const maxX = window.innerWidth - minVisible;
+  const minY = 0;
+  const maxY = Math.max(0, window.innerHeight - 48);
+  return {
+    ...rect,
+    x: Math.min(maxX, Math.max(minX, rect.x)),
+    y: Math.min(maxY, Math.max(minY, rect.y)),
+  };
+};
+
 // ---------------- 弹窗组件 ----------------
 
 export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, onClose }) => {
@@ -468,6 +510,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const positionsRef = useRef(new Map<string, { x: number; y: number }>());
   const rfInstanceRef = useRef<ReactFlowInstance<ViewFlowNode, ViewFlowEdge> | null>(null);
   const lastSigRef = useRef('');
+
+  // 弹窗可拖拽 + 可调大小（T5）：受控 position/size，打开时居中
+  const [dialogRect, setDialogRect] = useState<DialogRect>(() => computeDefaultDialogRect());
+  // 拖动/调整大小进行中：禁用文本选中、隔离图层 pan/zoom 手势
+  const [isInteracting, setIsInteracting] = useState(false);
 
   // 悬停高亮：悬停某节点时高亮其出/入边与两端节点，其余淡出
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -540,6 +587,98 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       rfInstanceRef.current?.fitView({ padding: 0.2, duration: 200 });
     });
   }, [visible, focusPath]);
+
+  // 打开时居中，尺寸默认 min(1200,90vw) × min(820,88vh)（每次打开重新居中，不跨会话持久化位置）
+  useEffect(() => {
+    if (visible) {
+      setDialogRect(computeDefaultDialogRect());
+    }
+  }, [visible]);
+
+  // webview 面板尺寸变化时，防止已拖动的弹窗整体飘出可视区域
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    const onWindowResize = () => setDialogRect(prev => clampDialogPosition(prev));
+    window.addEventListener('resize', onWindowResize);
+    return () => window.removeEventListener('resize', onWindowResize);
+  }, [visible]);
+
+  // 调整大小 debounce 后重跑 fitView；纯拖动位置不触发（画布可视区域未变）
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      rfInstanceRef.current?.fitView({ padding: isFocusMode ? 0.2 : 0.15, duration: 150 });
+    }, 200);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, dialogRect.width, dialogRect.height]);
+
+  // 标题栏拖动：排除搜索框与工具栏按钮，避免与其内部手势冲突
+  const handleHeaderPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) {
+      return;
+    }
+    const target = e.target as HTMLElement;
+    if (target.closest('.vrm-search') || target.closest('.vrm-toolbar')) {
+      return;
+    }
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startRect = dialogRect;
+    document.body.classList.add('vrm-noselect');
+    setIsInteracting(true);
+
+    const onMove = (ev: PointerEvent) => {
+      setDialogRect(clampDialogPosition({
+        ...startRect,
+        x: startRect.x + (ev.clientX - startX),
+        y: startRect.y + (ev.clientY - startY),
+      }));
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.classList.remove('vrm-noselect');
+      setIsInteracting(false);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [dialogRect]);
+
+  // 右下角手柄调整大小：限制最小尺寸与视口可视范围
+  const handleResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startRect = dialogRect;
+    document.body.classList.add('vrm-noselect');
+    setIsInteracting(true);
+
+    const onMove = (ev: PointerEvent) => {
+      const maxW = Math.max(DIALOG_MIN_W, window.innerWidth - startRect.x - 8);
+      const maxH = Math.max(DIALOG_MIN_H, window.innerHeight - startRect.y - 8);
+      const width = Math.min(maxW, Math.max(DIALOG_MIN_W, startRect.width + (ev.clientX - startX)));
+      const height = Math.min(maxH, Math.max(DIALOG_MIN_H, startRect.height + (ev.clientY - startY)));
+      setDialogRect({ ...startRect, width, height });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.classList.remove('vrm-noselect');
+      setIsInteracting(false);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [dialogRect]);
 
   const onNodesChange = useCallback((changes: NodeChange<ViewFlowNode>[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
@@ -673,8 +812,12 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
 
   return (
     <div className="vrm-overlay" onClick={onClose}>
-      <div className="vrm-dialog" onClick={e => e.stopPropagation()}>
-        <div className="vrm-header">
+      <div
+        className={`vrm-dialog${isInteracting ? ' vrm-dialog-interacting' : ''}`}
+        style={{ left: dialogRect.x, top: dialogRect.y, width: dialogRect.width, height: dialogRect.height }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="vrm-header" onPointerDown={handleHeaderPointerDown}>
           <div className="vrm-title">
             <span className="vrm-icon">🔗</span>
             {t('View Navigation Relations')}
@@ -790,6 +933,13 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
             {t('Views')} {graph.viewCount} · {t('Connections')} {graph.edgeCount}
           </div>
         </div>
+
+        <div
+          className="vrm-resize-handle"
+          onPointerDown={handleResizePointerDown}
+          title={t('Drag to resize')}
+          aria-label={t('Drag to resize')}
+        />
       </div>
     </div>
   );

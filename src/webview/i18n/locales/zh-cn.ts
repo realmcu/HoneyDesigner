@@ -716,6 +716,7 @@ const zhCN = {
   'Search views by name or file': '按名称或文件搜索视图',
   'No matching views': '未找到匹配的视图',
   'Back to full graph': '返回全图',
+  'Drag to resize': '拖拽调整大小',
 
   // Properties Panel Tabs
   'Add Event': '添加事件',

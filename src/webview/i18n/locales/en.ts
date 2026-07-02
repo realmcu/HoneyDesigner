@@ -716,6 +716,7 @@ const en = {
   'Search views by name or file': 'Search views by name or file',
   'No matching views': 'No matching views',
   'Back to full graph': 'Back to full graph',
+  'Drag to resize': 'Drag to resize',
 
   // Properties Panel Tabs
   'Add Event': 'Add Event',
