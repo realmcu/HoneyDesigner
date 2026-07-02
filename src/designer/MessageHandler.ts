@@ -606,9 +606,6 @@ export class MessageHandler {
             const imageDataUrl: string = message?.imageDataUrl || '';
             const selectedIds: string[] = Array.isArray(message?.selectedIds) ? message.selectedIds : [];
 
-            // 1. 先保存当前 HML，使磁盘与截图一致
-            await this.handleSave({ command: 'save', content: {} });
-
             const filePath = this._fileManager.currentFilePath;
             if (!filePath) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Copy for AI failed: no open HML file.'));
@@ -618,6 +615,23 @@ export class MessageHandler {
             if (!projectRoot) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Copy for AI failed: project root not found.'));
                 return;
+            }
+
+            // 1. 仅在有未保存改动时，把当前 HML 写入磁盘（单文件、轻量），使 AI 读到的与设计器一致。
+            //    不复用完整 handleSave —— 避免触发自动代码生成与全量视图重扫，让"复制"动作保持轻快。
+            try {
+                const serialized = this._hmlController.serializeDocument();
+                let onDisk = '';
+                try {
+                    onDisk = fs.readFileSync(filePath, 'utf8');
+                } catch {
+                    // 文件可能尚不存在，下面按需写入
+                }
+                if (serialized !== onDisk) {
+                    await this._fileManager.saveHml(serialized);
+                }
+            } catch (saveErr) {
+                logger.warn(`[MessageHandler] copyForAI 同步磁盘失败（继续用当前内存内容）: ${saveErr}`);
             }
 
             // 2. 写 PNG 到 .honeygui/ai-context/
