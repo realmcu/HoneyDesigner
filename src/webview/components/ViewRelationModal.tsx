@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 import {
   ReactFlow,
   MiniMap,
@@ -19,7 +19,8 @@ import {
 import '@xyflow/react/dist/style.css';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
-import type { ViewInfo } from '../types';
+import type { ViewInfo, ViewEdgeInfo } from '../types';
+import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES } from '../../hml/eventTypes';
 import './ViewRelationModal.css';
 
 interface ViewRelationModalProps {
@@ -35,6 +36,13 @@ const COLOR_AMBIGUOUS = 'var(--vrm-color-ambiguous)';
 const COLOR_CURRENT = 'var(--vscode-focusBorder)';
 const COLOR_NODE_DEFAULT = 'var(--vscode-editorWidget-border, var(--vscode-panel-border))';
 
+// 默认淡出/正常/高亮透明度（全局图默认低透明度，悬停高亮相关边）
+const OVERVIEW_EDGE_OPACITY_DEFAULT = 0.1;
+const OVERVIEW_EDGE_OPACITY_FADED = 0.04;
+const FOCUS_EDGE_OPACITY_DEFAULT = 0.85;
+const FOCUS_EDGE_OPACITY_FADED = 0.3;
+const EDGE_OPACITY_HIGHLIGHT = 1;
+
 // ---------------- 节点数据模型 ----------------
 
 type ViewNodeKind = 'view' | 'missing' | 'ambiguous';
@@ -47,9 +55,24 @@ interface ViewNodeData extends Record<string, unknown> {
   invalidOut: number;     // 出边中无效目标条数
   ambiguousOut: number;   // 出边中歧义目标条数
   autoId: boolean;        // id 为解析器自动生成（建议补显式 id）
+  dimmed?: boolean;       // 悬停淡出态（渲染期计算，不入 state）
 }
 
 type ViewFlowNode = Node<ViewNodeData, 'viewCard'>;
+
+// ---------------- 边数据模型 ----------------
+
+interface ViewEdgeData extends Record<string, unknown> {
+  sourceId: string;
+  targetId: string;
+  isTimer: boolean;
+  invalid: boolean;
+  ambiguous: boolean;
+  shortLabel: string;    // 全局图标签：触发控件 · 手势
+  expandedLabel: string; // 聚焦模式标签：触发控件 · 事件 · 动画
+}
+
+type ViewFlowEdge = Edge<ViewEdgeData>;
 
 // ---------------- 工具函数 ----------------
 
@@ -69,12 +92,36 @@ const eventLabel = (type: string): string => {
   return label === key ? type : label;
 };
 
+const SWITCH_OUT_DEFAULT = 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
+const SWITCH_IN_DEFAULT = 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
+
+/** 切换动画枚举值 → 本地化标签（缺失回退默认动画） */
+const styleLabel = (
+  list: { value: string; labelKey: string }[],
+  value: string | undefined,
+  fallback: string
+): string => {
+  const v = value || fallback;
+  const found = list.find(s => s.value === v);
+  return found ? t(found.labelKey as Parameters<typeof t>[0]) : v;
+};
+
+/** 出/入动画组合标签，用于聚焦模式展开的 `触发控件·事件·动画` */
+const animationLabelOf = (e: ViewEdgeInfo): string => {
+  const out = styleLabel(SWITCH_OUT_STYLES, e.switchOutStyle, SWITCH_OUT_DEFAULT);
+  const inn = styleLabel(SWITCH_IN_STYLES, e.switchInStyle, SWITCH_IN_DEFAULT);
+  return `${out} → ${inn}`;
+};
+
 // ---------------- 自定义节点：屏卡片 ----------------
 
 const ViewCardNode: React.FC<NodeProps<ViewFlowNode>> = ({ data }) => {
   const classes = ['vrm-node', `vrm-node-${data.kind}`];
   if (data.isCurrentFile) {
     classes.push('vrm-node-current');
+  }
+  if (data.dimmed) {
+    classes.push('vrm-node-dimmed');
   }
   const hasBadges = data.invalidOut > 0 || data.ambiguousOut > 0 || data.autoId;
   return (
@@ -126,7 +173,7 @@ interface GraphSeed {
 
 interface GraphModel {
   seeds: GraphSeed[]; // 已按种子布局顺序排序（当前文件优先 → 相对路径 → 名称；占位节点殿后）
-  edges: Edge[];
+  edges: ViewFlowEdge[];
   viewCount: number;
   edgeCount: number;
 }
@@ -163,7 +210,7 @@ const buildGraph = (allViews: ViewInfo[] | undefined, currentFilePath: string | 
     return a.name.localeCompare(b.name);
   });
 
-  const edges: Edge[] = [];
+  const edges: ViewFlowEdge[] = [];
   const edgeIds = new Set<string>();
   // 占位节点：无效 / 歧义目标（保证每条 T2 边都可见）
   const synthetic = new Map<string, GraphSeed>();
@@ -231,12 +278,13 @@ const buildGraph = (allViews: ViewInfo[] | undefined, currentFilePath: string | 
         }
       }
 
-      // 边标签：触发控件 · 手势（定时器边标注"定时器触发"）
+      // 边标签：触发控件 · 手势（定时器边标注"定时器触发"）；聚焦模式再拼接动画
       const controlPart = e.sourceIsView
         ? t('Screen')
         : (e.sourceControlName || e.sourceControlId || '');
       const triggerPart = isTimer ? t('Timer trigger') : eventLabel(e.eventType || e.event);
-      const label = controlPart ? `${controlPart} · ${triggerPart}` : triggerPart;
+      const shortLabel = controlPart ? `${controlPart} · ${triggerPart}` : triggerPart;
+      const expandedLabel = `${shortLabel} · ${animationLabelOf(e)}`;
 
       const color = invalid ? COLOR_INVALID : ambiguous ? COLOR_AMBIGUOUS : COLOR_VALID;
       let edgeId = e.edgeId || `${sourceId}->${e.target}@${ei}`;
@@ -259,14 +307,24 @@ const buildGraph = (allViews: ViewInfo[] | undefined, currentFilePath: string | 
         id: edgeId,
         source: sourceId,
         target: targetNodeId,
-        label,
+        label: shortLabel,
         className: classNames.join(' '),
         style: {
           stroke: color,
           strokeWidth: 1.5,
+          opacity: OVERVIEW_EDGE_OPACITY_DEFAULT,
           ...(isTimer ? { strokeDasharray: '6 4' } : {}),
         },
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
+        data: {
+          sourceId,
+          targetId: targetNodeId,
+          isTimer,
+          invalid,
+          ambiguous,
+          shortLabel,
+          expandedLabel,
+        },
       });
     });
   }
@@ -291,6 +349,10 @@ const buildGraph = (allViews: ViewInfo[] | undefined, currentFilePath: string | 
 // 种子网格布局：≈√(1.6n) 列的紧凑网格（同文件 view 因排序相邻聚拢）
 const GRID_CELL_W = 260;
 const GRID_CELL_H = 130;
+
+// 聚焦子图布局：左入右出（前驱居左，焦点居中，后继居右）
+const FOCUS_COL_GAP = 340;
+const FOCUS_ROW_GAP = 120;
 
 const seedNodes = (
   seeds: GraphSeed[],
@@ -322,6 +384,78 @@ const minimapNodeColor = (node: Node): string => {
   return COLOR_NODE_DEFAULT;
 };
 
+interface FocusView {
+  nodes: ViewFlowNode[];
+  edges: ViewFlowEdge[];
+}
+
+/** 焦点 + 直接前驱 + 直接后继 子图，左入右出布局 */
+const buildFocusView = (
+  focusId: string,
+  seedById: Map<string, GraphSeed>,
+  allEdges: ViewFlowEdge[]
+): FocusView | null => {
+  const focusSeed = seedById.get(focusId);
+  if (!focusSeed) {
+    return null;
+  }
+
+  const predecessorIds: string[] = [];
+  const successorIds: string[] = [];
+  const seenPred = new Set<string>();
+  const seenSucc = new Set<string>();
+  const relatedEdges = new Map<string, ViewFlowEdge>();
+
+  for (const edge of allEdges) {
+    const isIncoming = edge.target === focusId;
+    const isOutgoing = edge.source === focusId;
+    if (!isIncoming && !isOutgoing) {
+      continue;
+    }
+    relatedEdges.set(edge.id, edge);
+    if (isIncoming && edge.source !== focusId && !seenPred.has(edge.source)) {
+      seenPred.add(edge.source);
+      predecessorIds.push(edge.source);
+    }
+    if (isOutgoing && edge.target !== focusId && !seenSucc.has(edge.target)) {
+      seenSucc.add(edge.target);
+      successorIds.push(edge.target);
+    }
+  }
+
+  const nodes: ViewFlowNode[] = [];
+  predecessorIds.forEach((id, i) => {
+    const seed = seedById.get(id);
+    if (!seed) {
+      return;
+    }
+    nodes.push({ id, type: 'viewCard', position: { x: 0, y: i * FOCUS_ROW_GAP }, data: seed.data });
+  });
+
+  const centerRowCount = Math.max(predecessorIds.length, successorIds.length, 1);
+  nodes.push({
+    id: focusId,
+    type: 'viewCard',
+    position: { x: FOCUS_COL_GAP, y: ((centerRowCount - 1) * FOCUS_ROW_GAP) / 2 },
+    data: focusSeed.data,
+  });
+
+  successorIds.forEach((id, i) => {
+    const seed = seedById.get(id);
+    if (!seed) {
+      return;
+    }
+    nodes.push({ id, type: 'viewCard', position: { x: FOCUS_COL_GAP * 2, y: i * FOCUS_ROW_GAP }, data: seed.data });
+  });
+
+  const edges: ViewFlowEdge[] = [...relatedEdges.values()].map(edge => ({
+    ...edge,
+    label: edge.data?.expandedLabel ?? edge.label,
+  }));
+
+  return { nodes, edges };
+};
+
 // ---------------- 弹窗组件 ----------------
 
 export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, onClose }) => {
@@ -332,8 +466,16 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const [nodes, setNodes] = useState<ViewFlowNode[]>([]);
   // 拖动位置暂存（组件内存态；持久化到 .honeygui/nav-layout.json 是 T7）
   const positionsRef = useRef(new Map<string, { x: number; y: number }>());
-  const rfInstanceRef = useRef<ReactFlowInstance<ViewFlowNode, Edge> | null>(null);
+  const rfInstanceRef = useRef<ReactFlowInstance<ViewFlowNode, ViewFlowEdge> | null>(null);
   const lastSigRef = useRef('');
+
+  // 悬停高亮：悬停某节点时高亮其出/入边与两端节点，其余淡出
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  // 聚焦下钻路径（面包屑）：[] = 全图；非空 = 焦点子图，最后一项为当前焦点
+  const [focusPath, setFocusPath] = useState<string[]>([]);
+  // 标题栏搜索
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // 打开弹窗即请求宿主重扫导航图（allViews 常驻 store，多面板同开时会陈旧）
   useEffect(() => {
@@ -342,7 +484,19 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
   }, [visible, refreshNavGraph]);
 
+  // 关闭弹窗时复位交互态，避免下次打开残留聚焦/搜索
+  useEffect(() => {
+    if (!visible) {
+      setFocusPath([]);
+      setHoveredNodeId(null);
+      setSearchQuery('');
+      setSearchOpen(false);
+    }
+  }, [visible]);
+
   const graph = useMemo(() => buildGraph(allViews, currentFilePath), [allViews, currentFilePath]);
+
+  const seedById = useMemo(() => new Map(graph.seeds.map(s => [s.id, s])), [graph.seeds]);
 
   // 打开期间重扫结果到达 → 重建节点（保留用户已拖动的位置）；
   // 节点集合变化时重新 fitView
@@ -360,6 +514,33 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
   }, [visible, graph]);
 
+  const focusId = focusPath.length > 0 ? focusPath[focusPath.length - 1] : null;
+  const isFocusMode = focusId !== null;
+
+  const focusView = useMemo(() => {
+    if (!focusId) {
+      return null;
+    }
+    return buildFocusView(focusId, seedById, graph.edges);
+  }, [focusId, seedById, graph.edges]);
+
+  // 焦点节点因重扫消失（如文件被删）→ 自动回退全图，避免卡在空聚焦
+  useEffect(() => {
+    if (focusId && !seedById.has(focusId)) {
+      setFocusPath([]);
+    }
+  }, [focusId, seedById]);
+
+  // 聚焦路径变化（进入/下钻/返回）→ 重新 fitView
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      rfInstanceRef.current?.fitView({ padding: 0.2, duration: 200 });
+    });
+  }, [visible, focusPath]);
+
   const onNodesChange = useCallback((changes: NodeChange<ViewFlowNode>[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
     for (const change of changes) {
@@ -369,9 +550,122 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
   }, []);
 
-  const onInit = useCallback((instance: ReactFlowInstance<ViewFlowNode, Edge>) => {
+  const onInit = useCallback((instance: ReactFlowInstance<ViewFlowNode, ViewFlowEdge>) => {
     rfInstanceRef.current = instance;
   }, []);
+
+  // 点击屏节点 → 进入/下钻聚焦子图；点击已聚焦节点自身忽略
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: ViewFlowNode) => {
+    setFocusPath(prev => {
+      if (prev.length > 0 && prev[prev.length - 1] === node.id) {
+        return prev;
+      }
+      return [...prev, node.id];
+    });
+  }, []);
+
+  const onNodeMouseEnter = useCallback((_event: React.MouseEvent, node: ViewFlowNode) => {
+    setHoveredNodeId(node.id);
+  }, []);
+
+  const onNodeMouseLeave = useCallback(() => {
+    setHoveredNodeId(null);
+  }, []);
+
+  // Esc 从聚焦子图返回全图（不关闭弹窗）
+  useEffect(() => {
+    if (!visible || !isFocusMode) {
+      return;
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setFocusPath([]);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [visible, isFocusMode]);
+
+  const backToOverview = useCallback(() => setFocusPath([]), []);
+  const jumpToBreadcrumb = useCallback((index: number) => {
+    setFocusPath(prev => prev.slice(0, index + 1));
+  }, []);
+
+  // 悬停高亮集合：当前展示图（全图或聚焦子图）中与悬停节点相连的边/节点
+  const hoverSets = useMemo(() => {
+    if (!hoveredNodeId) {
+      return null;
+    }
+    const edgesForHover = isFocusMode ? (focusView?.edges || []) : graph.edges;
+    const nodeIds = new Set<string>([hoveredNodeId]);
+    const edgeIdSet = new Set<string>();
+    for (const edge of edgesForHover) {
+      if (edge.source === hoveredNodeId || edge.target === hoveredNodeId) {
+        edgeIdSet.add(edge.id);
+        nodeIds.add(edge.source);
+        nodeIds.add(edge.target);
+      }
+    }
+    return { nodeIds, edgeIds: edgeIdSet };
+  }, [hoveredNodeId, isFocusMode, focusView, graph.edges]);
+
+  const displayNodes = useMemo(() => {
+    const base = isFocusMode ? (focusView?.nodes || []) : nodes;
+    if (!hoverSets) {
+      return base;
+    }
+    return base.map(n => ({
+      ...n,
+      data: { ...n.data, dimmed: !hoverSets.nodeIds.has(n.id) },
+    }));
+  }, [isFocusMode, focusView, nodes, hoverSets]);
+
+  const displayEdges = useMemo(() => {
+    const base = isFocusMode ? (focusView?.edges || []) : graph.edges;
+    return base.map(edge => {
+      const highlighted = hoverSets ? hoverSets.edgeIds.has(edge.id) : false;
+      const defaultOpacity = isFocusMode ? FOCUS_EDGE_OPACITY_DEFAULT : OVERVIEW_EDGE_OPACITY_DEFAULT;
+      const fadedOpacity = isFocusMode ? FOCUS_EDGE_OPACITY_FADED : OVERVIEW_EDGE_OPACITY_FADED;
+      const opacity = hoverSets ? (highlighted ? EDGE_OPACITY_HIGHLIGHT : fadedOpacity) : defaultOpacity;
+      // 聚焦模式标签常显；全图模式默认隐藏标签，悬停命中才显示，避免默认满屏文字
+      const labelOpacity = isFocusMode ? 1 : (highlighted ? 1 : 0);
+      return {
+        ...edge,
+        style: { ...edge.style, opacity, strokeWidth: highlighted ? 2.5 : 1.5 },
+        zIndex: highlighted ? 1 : 0,
+        labelStyle: { opacity: labelOpacity, fill: 'var(--vscode-foreground)', fontSize: 10 },
+        labelBgStyle: { opacity: labelOpacity * 0.9 },
+      };
+    });
+  }, [isFocusMode, focusView, graph.edges, hoverSets]);
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      return [];
+    }
+    return graph.seeds
+      .filter(s => s.data.kind === 'view')
+      .filter(s => s.data.name.toLowerCase().includes(q) || s.data.fileLabel.toLowerCase().includes(q))
+      .slice(0, 30);
+  }, [searchQuery, graph.seeds]);
+
+  const selectSearchResult = useCallback((id: string) => {
+    setFocusPath([id]);
+    setSearchQuery('');
+    setSearchOpen(false);
+  }, []);
+
+  const onSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setSearchQuery('');
+      setSearchOpen(false);
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Enter' && searchResults.length > 0) {
+      selectSearchResult(searchResults[0].id);
+    }
+  }, [searchResults, selectSearchResult]);
 
   if (!visible) {
     return null;
@@ -385,29 +679,88 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
             <span className="vrm-icon">🔗</span>
             {t('View Navigation Relations')}
           </div>
+          <div className="vrm-search">
+            <Search size={13} className="vrm-search-icon" />
+            <input
+              type="text"
+              className="vrm-search-input"
+              placeholder={t('Search views by name or file')}
+              aria-label={t('Search views by name or file')}
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => setSearchOpen(false)}
+              onKeyDown={onSearchKeyDown}
+            />
+            {searchOpen && searchQuery.trim() && (
+              <div className="vrm-search-results" onMouseDown={e => e.preventDefault()}>
+                {searchResults.length === 0 ? (
+                  <div className="vrm-search-empty">{t('No matching views')}</div>
+                ) : (
+                  searchResults.map(r => (
+                    <div
+                      key={r.id}
+                      className="vrm-search-result"
+                      onClick={() => selectSearchResult(r.id)}
+                    >
+                      <span className="vrm-search-result-name">{r.data.name}</span>
+                      <span className="vrm-search-result-file">{r.data.fileLabel}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           <div className="vrm-toolbar">
             <button className="vrm-close" onClick={onClose} title={t('Close')}><X size={18} /></button>
           </div>
         </div>
 
         <div className="vrm-canvas">
+          {isFocusMode && (
+            <div className="vrm-focus-bar">
+              <button className="vrm-focus-back" onClick={backToOverview}>
+                {`← ${t('Back to full graph')}`}
+              </button>
+              <div className="vrm-breadcrumb">
+                {focusPath.map((id, i) => {
+                  const name = seedById.get(id)?.data.name || id;
+                  const isLast = i === focusPath.length - 1;
+                  return (
+                    <span key={id} className="vrm-breadcrumb-segment">
+                      {i > 0 && <span className="vrm-breadcrumb-sep">›</span>}
+                      {isLast ? (
+                        <span className="vrm-breadcrumb-current">{name}</span>
+                      ) : (
+                        <button className="vrm-breadcrumb-link" onClick={() => jumpToBreadcrumb(i)}>{name}</button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {graph.viewCount === 0 ? (
             <div className="vrm-empty">
               <div className="vrm-empty-icon">📭</div>
               <div>{t('No views')}</div>
             </div>
           ) : (
-            <ReactFlow<ViewFlowNode, Edge>
+            <ReactFlow<ViewFlowNode, ViewFlowEdge>
               className="vrm-flow"
-              nodes={nodes}
-              edges={graph.edges}
+              nodes={displayNodes}
+              edges={displayEdges}
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
+              onNodeClick={onNodeClick}
+              onNodeMouseEnter={onNodeMouseEnter}
+              onNodeMouseLeave={onNodeMouseLeave}
               onInit={onInit}
               fitView
               fitViewOptions={{ padding: 0.15 }}
               minZoom={0.05}
               maxZoom={2.5}
+              nodesDraggable={!isFocusMode}
               nodesConnectable={false}
               edgesReconnectable={false}
               deleteKeyCode={null}

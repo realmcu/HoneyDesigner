@@ -713,6 +713,9 @@ const en = {
   'Has ambiguous jump target': 'Contains ambiguous jump target',
   'View has no id, consider adding one': 'View id is auto-generated, consider adding an explicit id',
   'Toggle interactivity': 'Toggle interactivity',
+  'Search views by name or file': 'Search views by name or file',
+  'No matching views': 'No matching views',
+  'Back to full graph': 'Back to full graph',
 
   // Properties Panel Tabs
   'Add Event': 'Add Event',

@@ -713,6 +713,9 @@ const zhCN = {
   'Has ambiguous jump target': '含歧义跳转目标',
   'View has no id, consider adding one': '视图 id 为自动生成，建议补充显式 id',
   'Toggle interactivity': '锁定/解锁节点交互',
+  'Search views by name or file': '按名称或文件搜索视图',
+  'No matching views': '未找到匹配的视图',
+  'Back to full graph': '返回全图',
 
   // Properties Panel Tabs
   'Add Event': '添加事件',
