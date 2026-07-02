@@ -3,6 +3,7 @@ import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
 import type { ViewInfo } from '../types';
+import { NavGraphSpike } from './NavGraphSpike';
 import './ViewRelationModal.css';
 
 interface ViewRelationModalProps {
@@ -242,7 +243,10 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
           </div>
         </div>
         
-        <div 
+        {/* T1 spike，T3 重写时移除 */}
+        <NavGraphSpike />
+
+        <div
           ref={containerRef}
           className="vrm-canvas"
           onMouseDown={handleMouseDown}
