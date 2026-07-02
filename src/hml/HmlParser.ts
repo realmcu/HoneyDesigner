@@ -45,6 +45,10 @@ export class HmlParser {
   private xmlParser: XMLParser;
   private xmlParserOrdered: XMLParser;
   private idCounter = 0;
+  /** 当前文件中已被显式使用（或已生成）的 id 集合，用于确定性 id 生成时避免冲突 */
+  private _usedIds: Set<string> = new Set();
+  /** 每个标签名的自增序号，用于生成确定性 id（如 hg_label_auto_0） */
+  private _autoIdCounters: Map<string, number> = new Map();
 
   constructor() {
     // 文本类属性，保留原始值（不 trim）
@@ -92,6 +96,12 @@ export class HmlParser {
     try {
       // 保存当前 HML 路径
       this.currentHmlPath = hmlFilePath || '';
+
+      // 重置确定性 id 生成状态，确保同一实例多次 parse 互不影响，
+      // 且同一文件内容反复解析得到完全相同的 id 序列
+      this.idCounter = 0;
+      this._usedIds = new Set();
+      this._autoIdCounters = new Map();
 
       // 使用普通解析器获取 meta
       const parsed = this.xmlParser.parse(content);
@@ -156,6 +166,10 @@ export class HmlParser {
     if (!viewElement || !viewElement.view) {
       return { components: [] };
     }
+
+    // 先预扫描整棵树，收集所有显式声明的 id，
+    // 避免后续为无 id 组件生成的确定性 id 与文件中后出现的显式 id 冲突（导致误合并）
+    this._collectExplicitIds(viewElement.view);
 
     // 解析 view 中的组件（保持顺序）
     this._parseChildrenOrdered(viewElement.view, componentMap, undefined);
@@ -227,6 +241,35 @@ export class HmlParser {
     }
     
     return normalized;
+  }
+
+  /**
+   * 预扫描：递归收集整棵组件树中所有显式声明的 id（preserveOrder 结构）
+   * 必须在生成任何确定性 id 之前完成，避免自动 id 与文件中后出现的显式 id 冲突
+   */
+  private _collectExplicitIds(elements: any[]): void {
+    if (!Array.isArray(elements)) {
+      return;
+    }
+
+    elements.forEach((element: any) => {
+      const tagName = Object.keys(element).find(key => key !== ':@');
+      if (!tagName) return;
+
+      if (!ComponentRegistry.isValidComponent(tagName)) {
+        return;
+      }
+
+      const rawAttributes = element[':@'] || {};
+      const attributes = this._normalizeAttributes(rawAttributes);
+
+      if (attributes.id) {
+        this._usedIds.add(String(attributes.id));
+      }
+
+      const children = element[tagName] || [];
+      this._collectExplicitIds(children);
+    });
   }
 
   /**
@@ -728,10 +771,24 @@ export class HmlParser {
   }
 
   /**
-   * 生成唯一ID
+   * 生成确定性 id
+   * 规则：按文件内解析顺序生成 `${tagName}_auto_<序号>`；
+   * 若与该文件内已有 id（显式 id 或本次已生成的 id）冲突，则递增序号直至无冲突。
+   * 只要文件内容不变，同一文件反复解析得到的所有组件 id 完全相同。
    */
   private _generateId(prefix: string): string {
-    return `${prefix}_${Date.now()}_${this.idCounter++}`;
+    let counter = this._autoIdCounters.get(prefix) ?? 0;
+    let candidate: string;
+
+    do {
+      candidate = `${prefix}_auto_${counter}`;
+      counter++;
+    } while (this._usedIds.has(candidate));
+
+    this._autoIdCounters.set(prefix, counter);
+    this._usedIds.add(candidate);
+    this.idCounter++;
+    return candidate;
   }
 
   /**
