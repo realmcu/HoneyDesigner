@@ -1181,7 +1181,8 @@ export class ToolsPanel {
         // 构建设置对象
         const settings: any = {
             format: format.toLowerCase(),
-            compression: resolvedConfig.compression
+            compression: resolvedConfig.compression,
+            dither: resolvedConfig.dither
         };
         
         // 如果是 YUV 压缩，添加 YUV 参数
