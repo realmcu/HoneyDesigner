@@ -701,8 +701,18 @@ const zhCN = {
   'Other files': '其他文件',
   'Valid connection': '有效连接',
   'Invalid connection': '无效连接',
+  'Ambiguous connection': '目标歧义连接',
+  'Timer connection': '定时器连接',
   'Views': '视图',
   'Connections': '连接',
+  'Screen': '屏幕',
+  'Timer trigger': '定时器触发',
+  'Target not found': '目标不存在',
+  'Ambiguous target': '目标歧义',
+  'Has invalid jump target': '含无效跳转目标',
+  'Has ambiguous jump target': '含歧义跳转目标',
+  'View has no id, consider adding one': '视图 id 为自动生成，建议补充显式 id',
+  'Toggle interactivity': '锁定/解锁节点交互',
 
   // Properties Panel Tabs
   'Add Event': '添加事件',

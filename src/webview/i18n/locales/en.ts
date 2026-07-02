@@ -701,8 +701,18 @@ const en = {
   'Other files': 'Other files',
   'Valid connection': 'Valid connection',
   'Invalid connection': 'Invalid connection',
+  'Ambiguous connection': 'Ambiguous connection',
+  'Timer connection': 'Timer connection',
   'Views': 'Views',
   'Connections': 'Connections',
+  'Screen': 'Screen',
+  'Timer trigger': 'Timer trigger',
+  'Target not found': 'Target not found',
+  'Ambiguous target': 'Ambiguous target',
+  'Has invalid jump target': 'Contains invalid jump target',
+  'Has ambiguous jump target': 'Contains ambiguous jump target',
+  'View has no id, consider adding one': 'View id is auto-generated, consider adding an explicit id',
+  'Toggle interactivity': 'Toggle interactivity',
 
   // Properties Panel Tabs
   'Add Event': 'Add Event',

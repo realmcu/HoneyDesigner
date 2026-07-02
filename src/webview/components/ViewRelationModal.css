@@ -1,25 +1,33 @@
+/* 视图导航关系弹窗 —— 配色全部走 VS Code 主题变量（亮/暗主题自适应） */
+
 .vrm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.45));
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
   backdrop-filter: blur(2px);
+
+  /* 图内语义色（由主题图表色派生，带回退链） */
+  --vrm-color-valid: var(--vscode-charts-green, var(--vscode-testing-iconPassed, var(--vscode-foreground)));
+  --vrm-color-invalid: var(--vscode-charts-red, var(--vscode-errorForeground));
+  --vrm-color-ambiguous: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground));
 }
 
 .vrm-dialog {
-  background: #1e1e2e;
-  border: 1px solid #333;
-  border-radius: 12px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 8px;
   width: 85%;
   max-width: 1000px;
   height: 75%;
   max-height: 700px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px var(--vscode-widget-shadow);
   overflow: hidden;
 }
 
@@ -27,22 +35,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 20px;
-  background: #252536;
-  border-bottom: 1px solid #333;
+  padding: 10px 16px;
+  background: var(--vscode-sideBar-background, var(--vscode-editorWidget-background));
+  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .vrm-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--vscode-foreground);
 }
 
 .vrm-icon {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .vrm-toolbar {
@@ -54,50 +62,24 @@
 .vrm-toolbar button {
   background: transparent;
   border: none;
-  color: #aaa;
-  padding: 6px 8px;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  padding: 6px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  transition: all 0.15s;
+  transition: background 0.15s;
 }
 
 .vrm-toolbar button:hover {
-  background: #333;
-  color: #fff;
-}
-
-.vrm-zoom {
-  font-size: 12px;
-  color: #888;
-  min-width: 44px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.vrm-divider {
-  width: 1px;
-  height: 20px;
-  background: #444;
-  margin: 0 8px;
-}
-
-.vrm-close {
-  margin-left: 4px;
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-foreground);
 }
 
 .vrm-canvas {
   flex: 1;
   overflow: hidden;
-  background: 
-    radial-gradient(circle at 50% 50%, #252536 0%, #1a1a2e 100%),
-    repeating-linear-gradient(0deg, transparent, transparent 40px, #2a2a3a 40px, #2a2a3a 41px),
-    repeating-linear-gradient(90deg, transparent, transparent 40px, #2a2a3a 40px, #2a2a3a 41px);
-}
-
-.vrm-canvas svg {
-  display: block;
+  position: relative;
 }
 
 .vrm-empty {
@@ -106,7 +88,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: var(--vscode-descriptionForeground);
   gap: 12px;
 }
 
@@ -115,20 +97,185 @@
   opacity: 0.5;
 }
 
+/* ---------------- React Flow 主题变量覆写（默认亮色 → VS Code 主题） ---------------- */
+
+.vrm-flow {
+  --xy-background-color-default: var(--vscode-editor-background);
+  --xy-background-pattern-dots-color-default: var(--vscode-editorIndentGuide-background, var(--vscode-panel-border));
+
+  --xy-edge-stroke-default: var(--vrm-color-valid);
+  --xy-edge-stroke-selected-default: var(--vscode-focusBorder);
+  --xy-edge-label-background-color-default: var(--vscode-editorWidget-background);
+  --xy-edge-label-color-default: var(--vscode-foreground);
+
+  --xy-node-color-default: var(--vscode-foreground);
+  --xy-node-border-default: 1px solid var(--vscode-panel-border);
+  --xy-node-background-color-default: var(--vscode-editor-background);
+  --xy-node-boxshadow-hover-default: 0 2px 8px var(--vscode-widget-shadow);
+  --xy-node-boxshadow-selected-default: 0 0 0 2px var(--vscode-focusBorder);
+
+  --xy-handle-background-color-default: var(--vscode-panel-border);
+  --xy-handle-border-color-default: var(--vscode-panel-border);
+
+  --xy-minimap-background-color-default: var(--vscode-editorWidget-background);
+  --xy-minimap-mask-background-color-default: color-mix(in srgb, var(--vscode-editor-background) 65%, transparent);
+  --xy-minimap-mask-stroke-color-default: var(--vscode-panel-border);
+  --xy-minimap-node-background-color-default: var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  --xy-minimap-node-stroke-color-default: transparent;
+
+  --xy-controls-button-background-color-default: var(--vscode-editorWidget-background);
+  --xy-controls-button-background-color-hover-default: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+  --xy-controls-button-color-default: var(--vscode-icon-foreground, var(--vscode-foreground));
+  --xy-controls-button-color-hover-default: var(--vscode-foreground);
+  --xy-controls-button-border-color-default: var(--vscode-panel-border);
+  --xy-controls-box-shadow-default: 0 2px 8px var(--vscode-widget-shadow);
+
+  --xy-attribution-background-color-default: color-mix(in srgb, var(--vscode-editor-background) 80%, transparent);
+
+  --xy-selection-background-color-default: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+  --xy-selection-border-default: 1px dotted var(--vscode-focusBorder);
+}
+
+.vrm-flow .react-flow__attribution {
+  color: var(--vscode-descriptionForeground);
+}
+
+.vrm-flow .react-flow__attribution a {
+  color: var(--vscode-textLink-foreground);
+}
+
+.vrm-flow .react-flow__edge-text {
+  fill: var(--vscode-foreground);
+  font-size: 10px;
+}
+
+.vrm-flow .react-flow__edge-textbg {
+  fill: var(--vscode-editorWidget-background);
+  opacity: 0.9;
+}
+
+/* T3 只读图：连接把手不可见也不可交互（T11 编辑交互再放开） */
+.vrm-flow .react-flow__handle.vrm-handle {
+  opacity: 0;
+  pointer-events: none;
+  width: 6px;
+  height: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---------------- 屏卡片节点 ---------------- */
+
+.vrm-node {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  width: 190px;
+  box-sizing: border-box;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 2px 6px var(--vscode-widget-shadow);
+}
+
+/* 当前文件高亮 */
+.vrm-node-current {
+  border: 2px solid var(--vscode-focusBorder);
+  padding: 7px 11px; /* 补偿边框加粗，保持整体尺寸 */
+}
+
+/* 无效目标占位节点 */
+.vrm-node-missing {
+  border-style: dashed;
+  border-color: var(--vrm-color-invalid);
+}
+
+/* 歧义目标占位节点 */
+.vrm-node-ambiguous {
+  border-style: dashed;
+  border-color: var(--vrm-color-ambiguous);
+}
+
+.vrm-flow .react-flow__node.selected .vrm-node {
+  box-shadow: 0 0 0 2px var(--vscode-focusBorder);
+}
+
+.vrm-node-name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vrm-node-name-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vrm-node-star {
+  color: var(--vscode-focusBorder);
+  flex: none;
+}
+
+.vrm-node-file {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.vrm-node-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.vrm-badge {
+  font-size: 10px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid;
+  line-height: 16px;
+}
+
+.vrm-badge-invalid {
+  color: var(--vrm-color-invalid);
+  border-color: var(--vrm-color-invalid);
+}
+
+.vrm-badge-ambiguous {
+  color: var(--vrm-color-ambiguous);
+  border-color: var(--vrm-color-ambiguous);
+}
+
+.vrm-badge-autoid {
+  color: var(--vscode-descriptionForeground);
+  border-color: var(--vscode-panel-border);
+}
+
+/* ---------------- 底部图例与统计 ---------------- */
+
 .vrm-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 20px;
-  background: #252536;
-  border-top: 1px solid #333;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--vscode-sideBar-background, var(--vscode-editorWidget-background));
+  border-top: 1px solid var(--vscode-panel-border);
   font-size: 12px;
-  color: #888;
+  color: var(--vscode-descriptionForeground);
 }
 
 .vrm-legend {
   display: flex;
-  gap: 16px;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .vrm-legend-item {
@@ -141,32 +288,38 @@
   width: 10px;
   height: 10px;
   border-radius: 3px;
+  box-sizing: border-box;
 }
 
 .vrm-dot-current {
-  background: #1a1a2e;
-  border: 2px solid #4CAF50;
-}
-
-.vrm-dot-other {
-  background: #2d2d44;
-  border: 1px dashed #555;
+  background: var(--vscode-editor-background);
+  border: 2px solid var(--vscode-focusBorder);
 }
 
 .vrm-line {
   width: 20px;
-  height: 3px;
-  border-radius: 2px;
+  height: 0;
+  border-top: 2px solid;
 }
 
 .vrm-line-valid {
-  background: #4CAF50;
+  border-color: var(--vrm-color-valid);
 }
 
 .vrm-line-invalid {
-  background: #f44336;
+  border-color: var(--vrm-color-invalid);
+}
+
+.vrm-line-ambiguous {
+  border-color: var(--vrm-color-ambiguous);
+}
+
+.vrm-line-timer {
+  border-top-style: dashed;
+  border-color: var(--vrm-color-valid);
 }
 
 .vrm-stats {
   font-variant-numeric: tabular-nums;
+  flex: none;
 }
