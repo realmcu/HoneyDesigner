@@ -456,6 +456,18 @@ const App: React.FC = () => {
           }
           break;
 
+        case 'navLayoutLoaded':
+          // 导航图持久化布局回推（T7：打开弹窗时请求）
+          useDesignerStore.setState({ navLayout: message.layout || {} });
+          break;
+
+        case 'navLayoutSaveFailed':
+          // 布局写入失败，不阻塞交互，仅提示（T7）；具体文案由 ViewRelationModal 走 t() 渲染
+          useDesignerStore.setState({
+            navLayoutSaveError: message.error ? String(message.error) : '',
+          });
+          break;
+
         case 'error':
           // Show error message
           console.error(message.text);

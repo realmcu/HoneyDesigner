@@ -126,12 +126,23 @@ export interface ViewInfo {
   fileHash?: string;     // 扫描时文件内容 hash（sha1）
 }
 
+// 导航图节点布局坐标（T7：持久化到 <projectRoot>/.honeygui/nav-layout.json）
+export interface NavLayoutEntry {
+  x: number;
+  y: number;
+}
+
+// 复合键（relPath#viewId）→ 坐标
+export type NavLayoutMap = Record<string, NavLayoutEntry>;
+
 export interface DesignerState {
   components: Component[];
   allViews?: ViewInfo[]; // 项目中所有 view（含跳转关系）
   allHmlFiles?: Array<{path: string, name: string, relativePath: string}>; // 项目中所有 HML 文件
   otherFileComponentIds?: string[]; // 其他 HML 文件中的组件 ID（跨文件命名去重）
   currentFilePath?: string; // 当前打开的文件路径
+  navLayout: NavLayoutMap | null; // 导航图持久化布局；null = 尚未从宿主读取
+  navLayoutSaveError: string | null; // 布局写入失败的提示文案（不阻塞，仅展示）
   selectedComponent: string | null;
   selectedComponents: string[];
   hoveredComponent: string | null;

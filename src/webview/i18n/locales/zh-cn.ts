@@ -717,6 +717,8 @@ const zhCN = {
   'No matching views': '未找到匹配的视图',
   'Back to full graph': '返回全图',
   'Drag to resize': '拖拽调整大小',
+  'Failed to save navigation layout': '导航布局保存失败',
+  'Dismiss': '关闭',
 
   // Properties Panel Tabs
   'Add Event': '添加事件',

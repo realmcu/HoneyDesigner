@@ -16,6 +16,7 @@ import { loadProjectI18nCatalog, saveProjectI18nCatalog } from '../project-i18n/
 import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18n/projectIndex';
 import { HmlParser } from '../hml/HmlParser';
 import { composeAiBundle } from './aiContextBundle';
+import { NavLayoutService, NavLayoutMap } from '../services/NavLayoutService';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -408,6 +409,16 @@ export class MessageHandler {
             case 'refreshNavGraph':
                 // webview 主动请求重扫导航图（打开视图关系弹窗时触发，解决 allViews 陈旧）
                 await this._fileManager.updateAllViewsToFrontend();
+                break;
+
+            case 'getNavLayout':
+                // 导航图弹窗打开时请求持久化布局（T7）
+                await this._handleGetNavLayout();
+                break;
+
+            case 'saveNavLayout':
+                // 拖动节点结束后防抖上报，只携带本次被拖动过的 key（T7）
+                await this._handleSaveNavLayout(message.layout);
                 break;
 
             default:
@@ -1374,6 +1385,60 @@ export class MessageHandler {
             this._panel.webview.postMessage({
                 command: 'userFunctionsLoaded',
                 functions: [],
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * 读取导航图持久化布局（T7），回推 navLayoutLoaded。
+     * 找不到项目根目录或读取失败一律回退空对象（不阻塞弹窗打开）。
+     */
+    private async _handleGetNavLayout(): Promise<void> {
+        try {
+            const currentFile = this._fileManager.currentFilePath;
+            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+
+            if (!projectRoot) {
+                logger.warn('[MessageHandler] 无法读取导航布局：未找到项目根目录');
+                this._panel.webview.postMessage({ command: 'navLayoutLoaded', layout: {} });
+                return;
+            }
+
+            const layout = NavLayoutService.getInstance().loadLayout(projectRoot);
+            this._panel.webview.postMessage({ command: 'navLayoutLoaded', layout });
+        } catch (error) {
+            logger.error(`[MessageHandler] 读取导航布局失败: ${error}`);
+            this._panel.webview.postMessage({ command: 'navLayoutLoaded', layout: {} });
+        }
+    }
+
+    /**
+     * 写入导航图持久化布局（T7）：按 projectRoot 串行化，read-modify-write 只合并本次
+     * 传来的 key（防多面板互相覆盖）。写失败不阻塞交互，postMessage 提示前端展示。
+     */
+    private async _handleSaveNavLayout(layout: NavLayoutMap | undefined): Promise<void> {
+        if (!layout || Object.keys(layout).length === 0) {
+            return;
+        }
+        try {
+            const currentFile = this._fileManager.currentFilePath;
+            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+
+            if (!projectRoot) {
+                logger.warn('[MessageHandler] 无法保存导航布局：未找到项目根目录');
+                this._panel.webview.postMessage({
+                    command: 'navLayoutSaveFailed',
+                    error: vscode.l10n.t('Cannot find project root (project.json)')
+                });
+                return;
+            }
+
+            await NavLayoutService.getInstance().saveLayoutPatch(projectRoot, layout);
+        } catch (error) {
+            logger.error(`[MessageHandler] 保存导航布局失败: ${error}`);
+            this._panel.webview.postMessage({
+                command: 'navLayoutSaveFailed',
                 error: error instanceof Error ? error.message : String(error)
             });
         }

@@ -43,6 +43,9 @@ const FOCUS_EDGE_OPACITY_DEFAULT = 0.85;
 const FOCUS_EDGE_OPACITY_FADED = 0.3;
 const EDGE_OPACITY_HIGHLIGHT = 1;
 
+// 节点拖动结束后的布局写盘防抖间隔（T7）
+const LAYOUT_SAVE_DEBOUNCE_MS = 800;
+
 // ---------------- 节点数据模型 ----------------
 
 type ViewNodeKind = 'view' | 'missing' | 'ambiguous';
@@ -504,12 +507,23 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const allViews = useDesignerStore(s => s.allViews);
   const currentFilePath = useDesignerStore(s => s.currentFilePath);
   const refreshNavGraph = useDesignerStore(s => s.refreshNavGraph);
+  // 节点布局持久化（T7）：宿主读回 <projectRoot>/.honeygui/nav-layout.json
+  const navLayout = useDesignerStore(s => s.navLayout);
+  const requestNavLayout = useDesignerStore(s => s.requestNavLayout);
+  const saveNavLayout = useDesignerStore(s => s.saveNavLayout);
+  const navLayoutSaveError = useDesignerStore(s => s.navLayoutSaveError);
+  const clearNavLayoutSaveError = useDesignerStore(s => s.clearNavLayoutSaveError);
 
   const [nodes, setNodes] = useState<ViewFlowNode[]>([]);
-  // 拖动位置暂存（组件内存态；持久化到 .honeygui/nav-layout.json 是 T7）
+  // 拖动位置暂存（组件内存态；已加载的持久化布局在到达时合并进来，未知 key 回退种子布局）
   const positionsRef = useRef(new Map<string, { x: number; y: number }>());
   const rfInstanceRef = useRef<ReactFlowInstance<ViewFlowNode, ViewFlowEdge> | null>(null);
   const lastSigRef = useRef('');
+  // T7：已应用过的持久化布局对象引用，避免同一份 navLayout 重复合并
+  const appliedNavLayoutRef = useRef<Record<string, { x: number; y: number }> | null>(null);
+  // T7：拖动结束后待写盘的 key（防抖聚合，只上报被拖动过的节点）
+  const pendingLayoutSaveRef = useRef(new Map<string, { x: number; y: number }>());
+  const layoutSaveTimerRef = useRef<number | null>(null);
 
   // 弹窗可拖拽 + 可调大小（T5）：受控 position/size，打开时居中
   const [dialogRect, setDialogRect] = useState<DialogRect>(() => computeDefaultDialogRect());
@@ -524,26 +538,57 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // 打开弹窗即请求宿主重扫导航图（allViews 常驻 store，多面板同开时会陈旧）
+  // 打开弹窗即请求宿主重扫导航图（allViews 常驻 store，多面板同开时会陈旧）+ 请求持久化布局
   useEffect(() => {
     if (visible) {
       refreshNavGraph();
+      requestNavLayout();
     }
-  }, [visible, refreshNavGraph]);
+  }, [visible, refreshNavGraph, requestNavLayout]);
 
-  // 关闭弹窗时复位交互态，避免下次打开残留聚焦/搜索
+  // 关闭弹窗时复位交互态，避免下次打开残留聚焦/搜索；并把未落盘的拖动立即冲刷
   useEffect(() => {
     if (!visible) {
       setFocusPath([]);
       setHoveredNodeId(null);
       setSearchQuery('');
       setSearchOpen(false);
+      if (layoutSaveTimerRef.current !== null) {
+        window.clearTimeout(layoutSaveTimerRef.current);
+        layoutSaveTimerRef.current = null;
+        if (pendingLayoutSaveRef.current.size > 0) {
+          const patch = Object.fromEntries(pendingLayoutSaveRef.current);
+          pendingLayoutSaveRef.current.clear();
+          saveNavLayout(patch);
+        }
+      }
+      // 下次打开是新一轮 getNavLayout 请求-回填，避免残留上次的"已应用"标记
+      appliedNavLayoutRef.current = null;
     }
-  }, [visible]);
+  }, [visible, saveNavLayout]);
 
   const graph = useMemo(() => buildGraph(allViews, currentFilePath), [allViews, currentFilePath]);
 
   const seedById = useMemo(() => new Map(graph.seeds.map(s => [s.id, s])), [graph.seeds]);
+
+  // 持久化布局到达 → 合并进内存位置（仅回填种子布局尚未覆盖的 key，多余 key 天然被忽略，
+  // 因为 seedNodes 只按 graph.seeds 出节点）；随后重建节点应用新位置。
+  useEffect(() => {
+    if (!visible || !navLayout || navLayout === appliedNavLayoutRef.current) {
+      return;
+    }
+    appliedNavLayoutRef.current = navLayout;
+    let changed = false;
+    for (const [key, pos] of Object.entries(navLayout)) {
+      if (!positionsRef.current.has(key)) {
+        positionsRef.current.set(key, pos);
+        changed = true;
+      }
+    }
+    if (changed) {
+      setNodes(seedNodes(graph.seeds, positionsRef.current));
+    }
+  }, [visible, navLayout, graph]);
 
   // 打开期间重扫结果到达 → 重建节点（保留用户已拖动的位置）；
   // 节点集合变化时重新 fitView
@@ -692,6 +737,32 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const onInit = useCallback((instance: ReactFlowInstance<ViewFlowNode, ViewFlowEdge>) => {
     rfInstanceRef.current = instance;
   }, []);
+
+  // 冲刷待写盘的拖动位置：只发本次被拖动过的 key，宿主按 key 合并写入（不覆盖其他节点/其他面板）
+  const flushLayoutSave = useCallback(() => {
+    if (pendingLayoutSaveRef.current.size === 0) {
+      return;
+    }
+    const patch = Object.fromEntries(pendingLayoutSaveRef.current);
+    pendingLayoutSaveRef.current.clear();
+    saveNavLayout(patch);
+  }, [saveNavLayout]);
+
+  // 拖动结束（T7）：占位节点（missing/ambiguous，无真实 viewKey）不持久化；
+  // 真实屏节点防抖 ~800ms 后批量上报
+  const onNodeDragStop = useCallback((_event: MouseEvent | TouchEvent, node: ViewFlowNode) => {
+    if (node.data.kind !== 'view') {
+      return;
+    }
+    pendingLayoutSaveRef.current.set(node.id, { x: node.position.x, y: node.position.y });
+    if (layoutSaveTimerRef.current !== null) {
+      window.clearTimeout(layoutSaveTimerRef.current);
+    }
+    layoutSaveTimerRef.current = window.setTimeout(() => {
+      layoutSaveTimerRef.current = null;
+      flushLayoutSave();
+    }, LAYOUT_SAVE_DEBOUNCE_MS);
+  }, [flushLayoutSave]);
 
   // 点击屏节点 → 进入/下钻聚焦子图；点击已聚焦节点自身忽略
   const onNodeClick = useCallback((_event: React.MouseEvent, node: ViewFlowNode) => {
@@ -859,6 +930,23 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
           </div>
         </div>
 
+        {navLayoutSaveError !== null && (
+          <div className="vrm-layout-save-warning" role="alert">
+            <span>
+              {t('Failed to save navigation layout')}
+              {navLayoutSaveError ? `: ${navLayoutSaveError}` : ''}
+            </span>
+            <button
+              className="vrm-layout-save-warning-dismiss"
+              onClick={clearNavLayoutSaveError}
+              title={t('Dismiss')}
+              aria-label={t('Dismiss')}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         <div className="vrm-canvas">
           {isFocusMode && (
             <div className="vrm-focus-bar">
@@ -896,6 +984,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
               onNodeClick={onNodeClick}
+              onNodeDragStop={onNodeDragStop}
               onNodeMouseEnter={onNodeMouseEnter}
               onNodeMouseLeave={onNodeMouseLeave}
               onInit={onInit}

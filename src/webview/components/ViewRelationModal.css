@@ -51,6 +51,37 @@
   cursor: default;
 }
 
+/* T7：布局写入失败提示条（不阻塞交互，用户可关闭） */
+.vrm-layout-save-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  background: var(--vscode-inputValidation-warningBackground, var(--vscode-editorWidget-background));
+  color: var(--vscode-inputValidation-warningForeground, var(--vscode-foreground));
+  border-bottom: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-panel-border));
+}
+
+.vrm-layout-save-warning-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+.vrm-layout-save-warning-dismiss:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+
 /* 拖动/调整大小期间禁用全局文本选中（组件在 mousedown 时挂到 document.body） */
 body.vrm-noselect,
 body.vrm-noselect * {

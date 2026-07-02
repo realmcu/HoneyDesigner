@@ -717,6 +717,8 @@ const en = {
   'No matching views': 'No matching views',
   'Back to full graph': 'Back to full graph',
   'Drag to resize': 'Drag to resize',
+  'Failed to save navigation layout': 'Failed to save navigation layout',
+  'Dismiss': 'Dismiss',
 
   // Properties Panel Tabs
   'Add Event': 'Add Event',

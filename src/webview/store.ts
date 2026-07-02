@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo } from './types';
+import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo, NavLayoutMap } from './types';
 import {
   alignComponents,
   distributeComponents,
@@ -170,6 +170,12 @@ export interface DesignerStore extends DesignerState {
   setShowViewRelationModal: (show: boolean) => void;
   /** 请求宿主重扫导航图（allViews），结果经 updateAllViews 消息回推 */
   refreshNavGraph: () => void;
+  /** 请求宿主读取导航图布局（.honeygui/nav-layout.json），结果经 navLayoutLoaded 消息回推 */
+  requestNavLayout: () => void;
+  /** 拖动结束后防抖调用：只发被拖动过的 key，宿主按 key 合并写入 */
+  saveNavLayout: (patch: NavLayoutMap) => void;
+  /** 清除布局写入失败提示（用户关闭提示条时调用） */
+  clearNavLayoutSaveError: () => void;
 
   // Alignment guides
   showAlignmentGuides: boolean;
@@ -429,6 +435,8 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   isProjectI18nManagerOpen: false,
   previewLocale: 'en-US',
   allViews: [] as ViewInfo[], // 项目中所有 view（含跳转关系，含控件级/定时器边）
+  navLayout: null, // 导航图持久化布局；null = 尚未从宿主读取（T7）
+  navLayoutSaveError: null, // 布局写入失败提示（不阻塞）
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
   currentFilePath: '' as string, // 当前打开的文件路径
@@ -988,6 +996,17 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
       vscodeAPI.postMessage({ command: 'refreshNavGraph' });
     }
   },
+  requestNavLayout: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'getNavLayout' });
+    }
+  },
+  saveNavLayout: (patch) => {
+    if (vscodeAPI && patch && Object.keys(patch).length > 0) {
+      vscodeAPI.postMessage({ command: 'saveNavLayout', layout: patch });
+    }
+  },
+  clearNavLayoutSaveError: () => set({ navLayoutSaveError: null }),
   setShowAlignmentGuides: (show) => set({ showAlignmentGuides: show }),
   setAssetCategory: (category) => set({ assetCategory: category }),
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),
