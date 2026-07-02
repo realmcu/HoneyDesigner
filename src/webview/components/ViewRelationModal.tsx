@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
@@ -41,95 +41,50 @@ const eventTypeToLabel: Record<string, string> = {
   'onClick': 'Click',
 };
 
-// 基于方向的智能布局
-const layoutNodes = (views: ViewInfo[], edges: ViewEdge[], currentFile: string): ViewNode[] => {
+// 紧凑网格布局：按文件分组 + 近似正方形排布
+// 说明：早期版本让"每个文件占一列"，当项目里有几十个各含 1~2 个 view 的
+// 文件时会退化成一条超宽的横排（宽度 = 文件数 × 列距），自动缩放只能压到
+// 个位数百分比、全部糊成一条线。这里改成全局网格：先按 (当前文件优先, 文件名)
+// 排序让同文件的 view 相邻聚拢，再按 ≈√n 的列数铺成接近正方形的二维网格，
+// 无论 view / 文件如何分布都能保持紧凑可读。
+const layoutNodes = (views: ViewInfo[], currentFile: string): ViewNode[] => {
   const nodeWidth = 140;
   const nodeHeight = 56;
-  const spacingX = 200;
-  const spacingY = 120;
-  
+  const gapX = 64;   // 列间距（除节点宽度外的空隙）
+  const gapY = 60;   // 行间距（除节点高度外的空隙）
+  const cellW = nodeWidth + gapX;
+  const cellH = nodeHeight + gapY;
+  const margin = 40;
+
   if (views.length === 0) return [];
 
-  // 按文件分组
-  const fileGroups = new Map<string, ViewInfo[]>();
-  views.forEach(v => {
-    const list = fileGroups.get(v.file) || [];
-    list.push(v);
-    fileGroups.set(v.file, list);
+  // 当前文件优先，其次按文件名分组，使同文件 view 在网格中连续相邻
+  const ordered = [...views].sort((a, b) => {
+    const aCur = a.file === currentFile;
+    const bCur = b.file === currentFile;
+    if (aCur !== bCur) return aCur ? -1 : 1;
+    if (a.file !== b.file) return a.file.localeCompare(b.file);
+    return a.name.localeCompare(b.name);
   });
 
-  const nodes: ViewNode[] = [];
-  let groupX = 80;
+  const n = ordered.length;
+  // 网格宽高比略偏横向，贴合弹窗画布（宽 > 高）
+  const cols = Math.max(1, Math.round(Math.sqrt(n * 1.6)));
 
-  // 当前文件优先显示在左侧
-  const sortedFiles = Array.from(fileGroups.keys()).sort((a, b) => {
-    if (a === currentFile) return -1;
-    if (b === currentFile) return 1;
-    return a.localeCompare(b);
+  return ordered.map((v, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    return {
+      id: v.id,
+      name: v.name,
+      file: v.file,
+      x: margin + col * cellW,
+      y: margin + row * cellH,
+      width: nodeWidth,
+      height: nodeHeight,
+      isCurrentFile: v.file === currentFile,
+    };
   });
-
-  sortedFiles.forEach(file => {
-    const groupViews = fileGroups.get(file) || [];
-    groupViews.forEach((v, i) => {
-      nodes.push({
-        id: v.id,
-        name: v.name,
-        file: v.file,
-        x: groupX,
-        y: 80 + i * spacingY,
-        width: nodeWidth,
-        height: nodeHeight,
-        isCurrentFile: v.file === currentFile,
-      });
-    });
-    groupX += spacingX;
-  });
-
-  // 力导向微调
-  const iterations = 30;
-  for (let iter = 0; iter < iterations; iter++) {
-    const forces: Record<string, { fx: number; fy: number }> = {};
-    nodes.forEach(n => forces[n.id] = { fx: 0, fy: 0 });
-
-    // 节点间斥力
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[j].x - nodes[i].x;
-        const dy = nodes[j].y - nodes[i].y;
-        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 50);
-        if (dist < 180) {
-          const force = 2000 / (dist * dist);
-          forces[nodes[i].id].fx -= (dx / dist) * force;
-          forces[nodes[i].id].fy -= (dy / dist) * force;
-          forces[nodes[j].id].fx += (dx / dist) * force;
-          forces[nodes[j].id].fy += (dy / dist) * force;
-        }
-      }
-    }
-
-    // 边的引力
-    edges.forEach(edge => {
-      const from = nodes.find(n => n.id === edge.from);
-      const to = nodes.find(n => n.id === edge.to);
-      if (from && to) {
-        const dx = to.x - from.x;
-        const dy = to.y - from.y;
-        forces[from.id].fx += dx * 0.02;
-        forces[from.id].fy += dy * 0.02;
-        forces[to.id].fx -= dx * 0.02;
-        forces[to.id].fy -= dy * 0.02;
-      }
-    });
-
-    nodes.forEach(n => {
-      n.x += forces[n.id].fx * 0.1;
-      n.y += forces[n.id].fy * 0.1;
-      n.x = Math.max(40, n.x);
-      n.y = Math.max(40, n.y);
-    });
-  }
-
-  return nodes;
 };
 
 export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, onClose }) => {
@@ -172,26 +127,41 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     return { views, edges };
   }, [allViews]);
 
-  const nodes = useMemo(() => layoutNodes(views, edges, currentFile), [views, edges, currentFile]);
+  const nodes = useMemo(() => layoutNodes(views, currentFile), [views, currentFile]);
 
-  // 自动适应视图
+  // 缩放边界
+  const MIN_ZOOM = 0.1;
+  const MAX_ZOOM = 2.5;
+
+  // 适应窗口：把整张图居中并缩放到刚好放进画布
+  const fitToView = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || nodes.length === 0) return;
+    const minX = Math.min(...nodes.map(n => n.x));
+    const minY = Math.min(...nodes.map(n => n.y));
+    const maxX = Math.max(...nodes.map(n => n.x + n.width));
+    const maxY = Math.max(...nodes.map(n => n.y + n.height));
+    const graphW = maxX - minX || 1;
+    const graphH = maxY - minY || 1;
+    const pad = 32;
+    const scaleX = (container.clientWidth - pad * 2) / graphW;
+    const scaleY = (container.clientHeight - pad * 2) / graphH;
+    const newZoom = Math.max(MIN_ZOOM, Math.min(scaleX, scaleY, 1.2));
+    setZoom(newZoom);
+    setPan({
+      x: (container.clientWidth - graphW * newZoom) / 2 - minX * newZoom,
+      y: (container.clientHeight - graphH * newZoom) / 2 - minY * newZoom,
+    });
+  }, [nodes]);
+
+  // 打开或数据变化时自动适应
   useEffect(() => {
-    if (visible && nodes.length > 0 && containerRef.current) {
-      const container = containerRef.current;
-      const maxX = Math.max(...nodes.map(n => n.x + n.width)) + 80;
-      const maxY = Math.max(...nodes.map(n => n.y + n.height)) + 80;
-      const scaleX = container.clientWidth / maxX;
-      const scaleY = container.clientHeight / maxY;
-      const newZoom = Math.min(scaleX, scaleY, 1) * 0.9;
-      setZoom(newZoom);
-      setPan({ x: 20, y: 20 });
+    if (visible && nodes.length > 0) {
+      fitToView();
     }
-  }, [visible, nodes]);
+  }, [visible, nodes, fitToView]);
 
-  const handleReset = () => {
-    setZoom(1);
-    setPan({ x: 20, y: 20 });
-  };
+  const handleReset = fitToView;
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 0) {
@@ -210,7 +180,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    setZoom(z => Math.max(0.3, Math.min(2, z * (e.deltaY > 0 ? 0.9 : 1.1))));
+    setZoom(z => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * (e.deltaY > 0 ? 0.9 : 1.1))));
   };
 
   if (!visible) return null;
@@ -263,9 +233,9 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
             {t('View Navigation Relations')}
           </div>
           <div className="vrm-toolbar">
-            <button onClick={() => setZoom(z => Math.min(2, z * 1.2))} title={t('Zoom In')}><ZoomIn size={16} /></button>
+            <button onClick={() => setZoom(z => Math.min(MAX_ZOOM, z * 1.2))} title={t('Zoom In')}><ZoomIn size={16} /></button>
             <span className="vrm-zoom">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.max(0.3, z / 1.2))} title={t('Zoom Out')}><ZoomOut size={16} /></button>
+            <button onClick={() => setZoom(z => Math.max(MIN_ZOOM, z / 1.2))} title={t('Zoom Out')}><ZoomOut size={16} /></button>
             <button onClick={handleReset} title={t('Fit to window')}><Maximize2 size={16} /></button>
             <div className="vrm-divider" />
             <button className="vrm-close" onClick={onClose}><X size={18} /></button>
