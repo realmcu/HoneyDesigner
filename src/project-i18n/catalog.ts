@@ -145,6 +145,29 @@ export function removeI18nKey(catalog: I18nCatalog, key: I18nKey): I18nCatalog {
     return catalog;
 }
 
+/**
+ * 词条改名：把 oldKey 的翻译整体搬到 newKey 名下并删除旧名。
+ *
+ * 冲突保护：newKey 已存在时不覆盖（调用方负责冲突校验并给出提示）。
+ * 组件引用（HML 里各组件的 i18nKey）由调用方另行改写，此函数只动 catalog。
+ */
+export function renameI18nKey(catalog: I18nCatalog, oldKey: I18nKey, newKey: I18nKey): I18nCatalog {
+    const from = oldKey.trim();
+    const to = newKey.trim();
+    if (!from || !to || from === to) {
+        return catalog;
+    }
+
+    const entry = catalog.strings[from];
+    if (!entry || catalog.strings[to]) {
+        return catalog;
+    }
+
+    catalog.strings[to] = entry;
+    delete catalog.strings[from];
+    return catalog;
+}
+
 export function listI18nKeys(catalog: I18nCatalog): string[] {
     return Object.keys(catalog.strings).sort((a, b) => a.localeCompare(b));
 }

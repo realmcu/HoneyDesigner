@@ -11,7 +11,7 @@ import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
 import { ConversionConfigService, ConversionConfig } from '../services/ConversionConfigService';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
-import { normalizeCatalog, removeI18nKey } from '../project-i18n/catalog';
+import { normalizeCatalog, removeI18nKey, renameI18nKey } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, saveProjectI18nCatalog } from '../project-i18n/files';
 import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18n/projectIndex';
 import { HmlParser } from '../hml/HmlParser';
@@ -396,6 +396,10 @@ export class MessageHandler {
 
             case 'deleteProjectI18nKey':
                 await this._handleDeleteProjectI18nKey(message.key);
+                break;
+
+            case 'renameProjectI18nKey':
+                await this._handleRenameProjectI18nKey(message.oldKey, message.newKey);
                 break;
 
             case 'toggleAlwaysConvert':
@@ -1186,6 +1190,97 @@ export class MessageHandler {
         } catch (error) {
             logger.error(`[MessageHandler] 删除多语言 key 失败: ${error}`);
             vscode.window.showErrorMessage(vscode.l10n.t('Failed to delete i18n key: {0}', error instanceof Error ? error.message : String(error)));
+        }
+    }
+
+    /**
+     * 词条改名：在 catalog 里把 oldKey 的翻译搬到 newKey，并扫描全项目 HML，
+     * 把所有引用 oldKey 的组件 i18nKey 改写为 newKey（含未打开的文件）。
+     */
+    private async _handleRenameProjectI18nKey(rawOldKey: unknown, rawNewKey: unknown): Promise<void> {
+        const oldKey = typeof rawOldKey === 'string' ? rawOldKey.trim() : '';
+        const newKey = typeof rawNewKey === 'string' ? rawNewKey.trim() : '';
+        if (!oldKey || !newKey || oldKey === newKey) {
+            return;
+        }
+
+        const currentFilePath = this._fileManager.currentFilePath;
+        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        if (!projectRoot) {
+            logger.warn('[MessageHandler] 无法重命名多语言 key：未找到项目根目录');
+            vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+            return;
+        }
+
+        try {
+            // 1) catalog 改名并写盘（目标名已存在则拒绝，避免覆盖已有翻译）
+            const catalog = loadProjectI18nCatalog(projectRoot);
+            if (!catalog.strings[oldKey]) {
+                logger.warn(`[MessageHandler] 重命名多语言 key 跳过：源 key '${oldKey}' 不存在`);
+                await this._handleGetProjectI18nIndex();
+                return;
+            }
+            if (catalog.strings[newKey]) {
+                vscode.window.showErrorMessage(vscode.l10n.t('I18n key "{0}" already exists', newKey));
+                return;
+            }
+            renameI18nKey(catalog, oldKey, newKey);
+            saveProjectI18nCatalog(projectRoot, catalog);
+
+            // 2) 扫描全项目 HML，把引用 oldKey 的组件 i18nKey 改写为 newKey
+            const uiDir = ProjectUtils.getUiDir(projectRoot);
+            if (fs.existsSync(uiDir)) {
+                const parser = new HmlParser();
+                const serializer = new HmlSerializer();
+                const hmlFiles: string[] = [];
+                const walk = (dir: string) => {
+                    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                        const fullPath = path.join(dir, entry.name);
+                        if (entry.isDirectory()) {
+                            walk(fullPath);
+                        } else if (entry.isFile() && entry.name.endsWith('.hml')) {
+                            hmlFiles.push(fullPath);
+                        }
+                    }
+                };
+                walk(uiDir);
+
+                let rewrittenComponentCount = 0;
+                for (const file of hmlFiles) {
+                    try {
+                        const content = fs.readFileSync(file, 'utf-8');
+                        const document = parser.parse(content, file);
+                        const components = document.view?.components || [];
+                        let changed = false;
+                        for (const component of components) {
+                            if (String((component.data as any)?.i18nKey || '').trim() === oldKey) {
+                                (component.data as any).i18nKey = newKey;
+                                changed = true;
+                                rewrittenComponentCount++;
+                            }
+                        }
+                        if (changed) {
+                            await serializer.serializeToFile(document, file);
+                        }
+                    } catch (error: any) {
+                        logger.warn(`[MessageHandler] 重命名多语言 key 时跳过文件 ${file}: ${error?.message || error}`);
+                    }
+                }
+
+                if (rewrittenComponentCount > 0) {
+                    logger.debug(`[MessageHandler] 已将 ${rewrittenComponentCount} 个组件的 i18nKey 从 '${oldKey}' 改为 '${newKey}'`);
+                }
+            }
+
+            // 3) 回发权威 catalog，并刷新项目索引
+            this._panel.webview.postMessage({
+                command: 'projectI18nCatalogSaved',
+                projectI18nCatalog: catalog,
+            });
+            await this._handleGetProjectI18nIndex();
+        } catch (error) {
+            logger.error(`[MessageHandler] 重命名多语言 key 失败: ${error}`);
+            vscode.window.showErrorMessage(vscode.l10n.t('Failed to rename i18n key: {0}', error instanceof Error ? error.message : String(error)));
         }
     }
 

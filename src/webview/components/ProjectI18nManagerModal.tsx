@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trash2, Plus, Search, Check } from 'lucide-react';
+import { X, Trash2, Plus, Search, Check, Pencil, AlertTriangle, Unlink } from 'lucide-react';
 import { setTranslation, removeLocale, ensureLocale } from '../../project-i18n/catalog';
 import {
   LOCALE_PRESETS,
@@ -28,6 +28,7 @@ const ProjectI18nManagerModal: React.FC = () => {
     projectI18nCatalog,
     updateProjectI18nCatalog,
     deleteProjectI18nKey,
+    renameProjectI18nKey,
     components,
     currentFilePath,
     updateComponent,
@@ -38,6 +39,10 @@ const ProjectI18nManagerModal: React.FC = () => {
   const [query, setQuery] = React.useState('');
   const [mode, setMode] = React.useState<'all' | 'missing' | 'unused' | 'unbound'>('all');
   const [pendingDelete, setPendingDelete] = React.useState<{ key: string; refs: number; fallbackText: string } | null>(null);
+  const [renameTarget, setRenameTarget] = React.useState<{ key: string } | null>(null);
+  const [renameNewName, setRenameNewName] = React.useState('');
+  const [renameError, setRenameError] = React.useState('');
+  const renameInputRef = React.useRef<HTMLInputElement>(null);
   const [pendingLocaleDelete, setPendingLocaleDelete] = React.useState<{ locale: string } | null>(null);
   const refreshTimerRef = React.useRef<number | null>(null);
 
@@ -178,6 +183,57 @@ const ProjectI18nManagerModal: React.FC = () => {
     setQuery('');
     setMode('all');
     setHighlightKey(key);
+    window.setTimeout(() => loadProjectI18nIndex(), 0);
+  };
+
+  const openRename = (key: string) => {
+    setRenameTarget({ key });
+    setRenameNewName(key);
+    setRenameError('');
+    window.setTimeout(() => renameInputRef.current?.select(), 0);
+  };
+
+  const confirmRename = () => {
+    if (!renameTarget) {
+      return;
+    }
+    const oldKey = renameTarget.key;
+    const newKey = renameNewName.trim();
+
+    if (!newKey) {
+      setRenameError(t('I18n key name required'));
+      return;
+    }
+    // 未改动：直接关闭，不做任何写操作
+    if (newKey === oldKey) {
+      setRenameTarget(null);
+      return;
+    }
+    if (!KEY_PATTERN.test(newKey)) {
+      setRenameError(t('Invalid i18n key'));
+      return;
+    }
+    if (projectI18nCatalog.strings[newKey]) {
+      setRenameError(t('I18n key already exists', newKey));
+      return;
+    }
+
+    // 即时改写当前打开文件中引用该 key 的组件（UI/预览立即同步）；
+    // 其他文件的组件由 Extension 侧扫描全项目 HML 统一改写。
+    for (const component of components) {
+      if (String((component.data as any)?.i18nKey || '').trim() === oldKey) {
+        updateComponent(component.id, {
+          data: { ...component.data, i18nKey: newKey } as any,
+        });
+      }
+    }
+
+    renameProjectI18nKey(oldKey, newKey);
+    setRenameTarget(null);
+    // 清空过滤条件确保改名后的行可见，随后滚动定位并高亮
+    setQuery('');
+    setMode('all');
+    setHighlightKey(newKey);
     window.setTimeout(() => loadProjectI18nIndex(), 0);
   };
 
@@ -573,24 +629,47 @@ const ProjectI18nManagerModal: React.FC = () => {
                             <textarea
                               value={projectI18nCatalog.strings[row.key]?.[locale] || ''}
                               onChange={(event) => handleTranslationChange(row.key, locale, event.target.value)}
-                              rows={2}
+                              rows={1}
                             />
                           </td>
                         ))}
                         <td className="ref-cell">{row.references.length}</td>
                         <td className="status-cell">
-                          {row.isUnused && <span className="status-warning">{t('Unused I18n Key')}</span>}
-                          {row.missingLocales.length > 0 && <span className="status-warning">{t('Missing Translation')}</span>}
+                          <div className="project-i18n-status-icons">
+                            {row.isUnused && (
+                              <span className="status-icon unused" title={t('Unused I18n Key')}>
+                                <Unlink size={14} strokeWidth={1.8} />
+                              </span>
+                            )}
+                            {row.missingLocales.length > 0 && (
+                              <span
+                                className="status-icon missing"
+                                title={`${t('Missing Translation')}: ${row.missingLocales.join(', ')}`}
+                              >
+                                <AlertTriangle size={14} strokeWidth={1.8} />
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="action-cell">
-                          <button
-                            type="button"
-                            className="i18n-delete-button"
-                            onClick={() => requestDeleteKey(row.key, row.references.length)}
-                            title={t('Delete I18n Key')}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="i18n-row-actions">
+                            <button
+                              type="button"
+                              className="i18n-icon-button"
+                              onClick={() => openRename(row.key)}
+                              title={t('Rename I18n Key')}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="i18n-icon-button i18n-delete-button"
+                              onClick={() => requestDeleteKey(row.key, row.references.length)}
+                              title={t('Delete I18n Key')}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -646,6 +725,41 @@ const ProjectI18nManagerModal: React.FC = () => {
                 </button>
                 <button type="button" className="primary" onClick={confirmCreateKey}>
                   {t('Create')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {renameTarget && (
+          <div className="i18n-confirm-backdrop">
+            <div className="i18n-confirm-dialog i18n-create-dialog">
+              <div className="i18n-create-title">{t('Rename I18n Key')}</div>
+              <div className="i18n-create-field">
+                <label>{t('I18n Key Name')}</label>
+                <input
+                  ref={renameInputRef}
+                  value={renameNewName}
+                  onChange={(event) => {
+                    setRenameNewName(event.target.value);
+                    setRenameError('');
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      confirmRename();
+                    }
+                    if (event.key === 'Escape') {
+                      setRenameTarget(null);
+                    }
+                  }}
+                />
+              </div>
+              {renameError && <div className="i18n-create-error">{renameError}</div>}
+              <div className="i18n-confirm-actions">
+                <button type="button" onClick={() => setRenameTarget(null)}>
+                  {t('Cancel')}
+                </button>
+                <button type="button" className="primary" onClick={confirmRename}>
+                  {t('Rename')}
                 </button>
               </div>
             </div>

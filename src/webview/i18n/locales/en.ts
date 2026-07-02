@@ -271,6 +271,7 @@ const en = {
   'I18n Key Name': 'Key name',
   'Default Text (optional)': 'Default text (optional)',
   'Create': 'Create',
+  'Rename I18n Key': 'Rename key',
   'I18n key name required': 'Key name is required',
   'Invalid i18n key': 'Only letters, digits, dot (.), underscore (_) and hyphen (-) are allowed',
   'I18n key already exists': 'Key "{0}" already exists',

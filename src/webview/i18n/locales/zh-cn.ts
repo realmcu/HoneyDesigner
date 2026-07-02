@@ -271,6 +271,7 @@ const zhCN = {
   'I18n Key Name': '词条名',
   'Default Text (optional)': '默认文本（可选）',
   'Create': '创建',
+  'Rename I18n Key': '重命名词条',
   'I18n key name required': '请填写词条名',
   'Invalid i18n key': '只允许字母、数字及 . _ - 符号',
   'I18n key already exists': '词条「{0}」已存在',
