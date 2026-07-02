@@ -49,6 +49,15 @@ export class HmlParser {
   private _usedIds: Set<string> = new Set();
   /** 每个标签名的自增序号，用于生成确定性 id（如 hg_label_auto_0） */
   private _autoIdCounters: Map<string, number> = new Map();
+  /**
+   * fallback id 的种子（通常为 sanitize 后的文件 basename）。
+   * 无种子时 fallback id 只在文件内唯一；codegen 会用 component.id 命名
+   * 各 {name}_ui.c 中的非 static C 全局变量，两个文件若生成相同的
+   * fallback id（如都叫 hg_view_auto_0）会在链接期产生重复符号。
+   * codegen 输出文件本就按 basename 命名（{name}_ui.c），basename 全局
+   * 唯一是既有生态假设，因此以 basename 为种子即可保证全局唯一。
+   */
+  private _idSeed = '';
 
   constructor() {
     // 文本类属性，保留原始值（不 trim）
@@ -90,9 +99,13 @@ export class HmlParser {
   /**
    * 解析HML内容
    * @param content HML 文件内容
-   * @param hmlFilePath 可选，HML 文件路径（用于加载相对路径的 SVG 文件）
+   * @param hmlFilePath 可选，HML 文件路径（用于加载相对路径的 SVG 文件；
+   *                    未显式提供 idSeed 时也用于派生 fallback id 种子）
+   * @param options 可选项：
+   *   - idSeed：fallback id 种子，显式传入时优先生效（传空字符串可强制无种子）；
+   *     缺省时从 hmlFilePath 的 basename 派生；两者都没有则维持无种子行为
    */
-  parse(content: string, hmlFilePath?: string): Document {
+  parse(content: string, hmlFilePath?: string, options?: { idSeed?: string }): Document {
     try {
       // 保存当前 HML 路径
       this.currentHmlPath = hmlFilePath || '';
@@ -102,6 +115,9 @@ export class HmlParser {
       this.idCounter = 0;
       this._usedIds = new Set();
       this._autoIdCounters = new Map();
+      this._idSeed = options?.idSeed !== undefined
+        ? options.idSeed
+        : HmlParser.deriveIdSeed(hmlFilePath);
 
       // 使用普通解析器获取 meta
       const parsed = this.xmlParser.parse(content);
@@ -737,22 +753,28 @@ export class HmlParser {
       }
     });
 
-    // 兼容旧版定时器格式：如果存在旧版字段但没有 timers 数组，自动转换
-    if (!data.timers && data.timerEnabled === true) {
+    // 兼容旧版定时器格式：如果存在旧版字段但没有 timers 数组，自动转换。
+    // 注意：timerEnabled 不在共享属性定义中，convertAttributeValue 不会做布尔转换，
+    // 从 HML 属性解析出来的是字符串 "true"，必须同时兼容字符串与布尔两种形态
+    if (!data.timers && (data.timerEnabled === true || data.timerEnabled === 'true')) {
       const timerMode = data.timerMode || 'custom';
-      const timerId = `timer_${Date.now()}`;
+      // 确定性 id（每组件至多一个 legacy timer，不会冲突）：
+      // 避免 Date.now() 导致每次解析 timer.id 变化，进而使 codegen 回调名
+      // （${component.id}_${timer.id}_cb）与导航图 edgeId 跨解析不稳定
+      const timerId = 'timer_legacy';
       
+      // legacy 数值/布尔字段同样以字符串形态出现（不在共享属性定义中），显式转换
       data.timers = [{
         id: timerId,
         name: timerMode === 'preset' ? '预设动作定时器' : '自定义定时器',
         enabled: true,
-        interval: data.timerInterval || 1000,
-        reload: data.timerReload !== false,
+        interval: Number(data.timerInterval) || 1000,
+        reload: data.timerReload !== false && data.timerReload !== 'false',
         mode: timerMode,
         actions: data.timerActions || [],
         callback: data.timerCallback,
-        duration: data.timerDuration || 1000,
-        stopOnComplete: data.timerStopOnComplete !== false,
+        duration: Number(data.timerDuration) || 1000,
+        stopOnComplete: data.timerStopOnComplete !== false && data.timerStopOnComplete !== 'false',
         delayStart: 0
       }];
       
@@ -772,16 +794,18 @@ export class HmlParser {
 
   /**
    * 生成确定性 id
-   * 规则：按文件内解析顺序生成 `${tagName}_auto_<序号>`；
+   * 规则：按文件内解析顺序生成 `${idSeed}_${tagName}_auto_<序号>`（无种子时省略前缀）；
    * 若与该文件内已有 id（显式 id 或本次已生成的 id）冲突，则递增序号直至无冲突。
-   * 只要文件内容不变，同一文件反复解析得到的所有组件 id 完全相同。
+   * 只要文件内容与种子不变，同一文件反复解析得到的所有组件 id 完全相同；
+   * 种子取自 basename（全局唯一的既有生态假设），保证 fallback id 跨文件不撞车。
    */
   private _generateId(prefix: string): string {
+    const seededPrefix = this._idSeed ? `${this._idSeed}_${prefix}` : prefix;
     let counter = this._autoIdCounters.get(prefix) ?? 0;
     let candidate: string;
 
     do {
-      candidate = `${prefix}_auto_${counter}`;
+      candidate = `${seededPrefix}_auto_${counter}`;
       counter++;
     } while (this._usedIds.has(candidate));
 
@@ -789,6 +813,25 @@ export class HmlParser {
     this._usedIds.add(candidate);
     this.idCounter++;
     return candidate;
+  }
+
+  /**
+   * 从 HML 文件路径派生 fallback id 种子：
+   * 取 basename（不含扩展名），非字母数字字符转下划线；
+   * 首字符为数字时补前导下划线（id 会成为 C 变量名，须是合法 C 标识符）。
+   * 无路径时返回空串（维持无种子行为）。
+   */
+  static deriveIdSeed(hmlFilePath?: string): string {
+    if (!hmlFilePath) {
+      return '';
+    }
+    const base = hmlFilePath.replace(/\\/g, '/').split('/').pop() || '';
+    const stem = base.replace(/\.[^.]*$/, '');
+    let seed = stem.replace(/[^A-Za-z0-9]/g, '_');
+    if (/^[0-9]/.test(seed)) {
+      seed = `_${seed}`;
+    }
+    return seed;
   }
 
   /**

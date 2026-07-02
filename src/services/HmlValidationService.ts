@@ -144,9 +144,11 @@ export class HmlValidationService {
             // 规则 9: hg_view id 必填警告（HML-Spec Section 6.1）
             // - id 在 hg_view 上是 required（不同于其他组件的 auto-generated）
             // - switchView 的 target 依赖 view id 做导航引用，缺失 id 会导致无法被稳定引用
+            // - 必须检测原始 XML：HmlParser 解析时已回填确定性 fallback id，
+            //   解析后的组件上 !component.id 永远为假
             // ========================================
             validationRules.push('hg_view id 必填警告验证');
-            this.validateViewIds(document.view.components || [], warnings);
+            this.validateViewIds(hmlContent, warnings);
 
             if (context.i18nCatalog) {
                 validationRules.push('多语言文本预览警告验证');
@@ -418,15 +420,24 @@ export class HmlValidationService {
      * - hg_view 的 id 是 required（HML-Spec Section 6.1），不同于其他组件的 auto-generated
      * - switchView 的 target 引用 view id 做导航跳转，缺失 id 的 view 无法被稳定引用
      *
+     * 实现说明：必须对**原始 XML 内容**做检测。HmlParser 会为无 id 的组件回填
+     * 确定性 fallback id，解析后的组件树上 id 恒为非空，基于组件树的检测是死代码。
+     *
      * 依据：HML-Spec.md Section 6.1（hg_view — View Container）
      */
-    private validateViewIds(components: Component[], warnings: ValidationWarning[]): void {
-        for (const component of components) {
-            if (component.type === 'hg_view' && (!component.id || component.id.trim() === '')) {
+    private validateViewIds(hmlContent: string, warnings: ValidationWarning[]): void {
+        // 匹配每个 <hg_view ...> 开标签（含自闭合），检查其属性里是否声明了 id
+        const openTagRe = /<hg_view\b[^>]*>/g;
+        let match: RegExpExecArray | null;
+        while ((match = openTagRe.exec(hmlContent)) !== null) {
+            const openTag = match[0];
+            // 属性形如 ` id="..."` / ` id='...'`（\s 前缀避免误中 grid= / uid= 等属性名后缀）
+            const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(openTag);
+            const idValue = idAttr ? (idAttr[1] ?? idAttr[2] ?? '') : '';
+            if (!idAttr || idValue.trim() === '') {
                 warnings.push({
                     type: 'best-practice',
-                    message: 'hg_view is missing an id — switchView targets and navigation edges reference views by id, so this view cannot be reliably targeted for navigation',
-                    componentId: component.id
+                    message: 'hg_view is missing an id — switchView targets and navigation edges reference views by id, so this view cannot be reliably targeted for navigation'
                 });
             }
         }
