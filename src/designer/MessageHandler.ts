@@ -11,7 +11,7 @@ import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
 import { ConversionConfigService, ConversionConfig } from '../services/ConversionConfigService';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
-import { normalizeCatalog } from '../project-i18n/catalog';
+import { normalizeCatalog, removeI18nKey } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, saveProjectI18nCatalog } from '../project-i18n/files';
 import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18n/projectIndex';
 import { HmlParser } from '../hml/HmlParser';
@@ -391,6 +391,10 @@ export class MessageHandler {
 
             case 'getProjectI18nIndex':
                 await this._handleGetProjectI18nIndex();
+                break;
+
+            case 'deleteProjectI18nKey':
+                await this._handleDeleteProjectI18nKey(message.key);
                 break;
 
             case 'toggleAlwaysConvert':
@@ -1096,6 +1100,87 @@ export class MessageHandler {
             index: buildProjectI18nIndex(catalog, components),
             errors,
         });
+    }
+
+    /**
+     * 删除多语言 key：从 catalog 移除该 key 的翻译，并扫描全项目 HML，
+     * 解绑所有引用该 key 的组件（清除其 i18nKey，含未打开的文件）。
+     */
+    private async _handleDeleteProjectI18nKey(rawKey: unknown): Promise<void> {
+        const key = typeof rawKey === 'string' ? rawKey.trim() : '';
+        if (!key) {
+            return;
+        }
+
+        const currentFilePath = this._fileManager.currentFilePath;
+        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        if (!projectRoot) {
+            logger.warn('[MessageHandler] 无法删除多语言 key：未找到项目根目录');
+            vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+            return;
+        }
+
+        try {
+            // 1) 从 catalog 移除 key 并写盘
+            const catalog = loadProjectI18nCatalog(projectRoot);
+            removeI18nKey(catalog, key);
+            saveProjectI18nCatalog(projectRoot, catalog);
+
+            // 2) 扫描全项目 HML，解绑引用该 key 的组件
+            const uiDir = ProjectUtils.getUiDir(projectRoot);
+            if (fs.existsSync(uiDir)) {
+                const parser = new HmlParser();
+                const serializer = new HmlSerializer();
+                const hmlFiles: string[] = [];
+                const walk = (dir: string) => {
+                    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                        const fullPath = path.join(dir, entry.name);
+                        if (entry.isDirectory()) {
+                            walk(fullPath);
+                        } else if (entry.isFile() && entry.name.endsWith('.hml')) {
+                            hmlFiles.push(fullPath);
+                        }
+                    }
+                };
+                walk(uiDir);
+
+                let unboundComponentCount = 0;
+                for (const file of hmlFiles) {
+                    try {
+                        const content = fs.readFileSync(file, 'utf-8');
+                        const document = parser.parse(content, file);
+                        const components = document.view?.components || [];
+                        let changed = false;
+                        for (const component of components) {
+                            if (String((component.data as any)?.i18nKey || '').trim() === key) {
+                                delete (component.data as any).i18nKey;
+                                changed = true;
+                                unboundComponentCount++;
+                            }
+                        }
+                        if (changed) {
+                            await serializer.serializeToFile(document, file);
+                        }
+                    } catch (error: any) {
+                        logger.warn(`[MessageHandler] 解绑多语言 key 时跳过文件 ${file}: ${error?.message || error}`);
+                    }
+                }
+
+                if (unboundComponentCount > 0) {
+                    logger.debug(`[MessageHandler] 已解绑 ${unboundComponentCount} 个引用 '${key}' 的组件`);
+                }
+            }
+
+            // 3) 回发权威 catalog，并刷新项目索引
+            this._panel.webview.postMessage({
+                command: 'projectI18nCatalogSaved',
+                projectI18nCatalog: catalog,
+            });
+            await this._handleGetProjectI18nIndex();
+        } catch (error) {
+            logger.error(`[MessageHandler] 删除多语言 key 失败: ${error}`);
+            vscode.window.showErrorMessage(vscode.l10n.t('Failed to delete i18n key: {0}', error instanceof Error ? error.message : String(error)));
+        }
     }
 
     /**

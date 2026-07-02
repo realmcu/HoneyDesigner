@@ -10,6 +10,7 @@
 }
 
 .project-i18n-manager {
+  position: relative;
   width: min(1180px, 100%);
   min-height: 420px;
   display: flex;
@@ -140,6 +141,83 @@
   border-radius: 2px;
   background: var(--vscode-inputValidation-warningBackground);
   color: var(--vscode-inputValidation-warningForeground);
+}
+
+.project-i18n-table .action-cell {
+  width: 36px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.i18n-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.i18n-delete-button:hover {
+  background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.15));
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+
+.i18n-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.i18n-confirm-dialog {
+  width: min(420px, 90%);
+  padding: 16px;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.i18n-confirm-message {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  word-break: break-word;
+}
+
+.i18n-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.i18n-confirm-actions button {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+}
+
+.i18n-confirm-actions button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.i18n-confirm-actions button.danger {
+  background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+  color: var(--vscode-errorForeground, #f14c4c);
+  border-color: var(--vscode-errorForeground, #f14c4c);
+}
+
+.i18n-confirm-actions button.danger:hover {
+  filter: brightness(1.15);
 }
 
 .project-i18n-unbound-list {

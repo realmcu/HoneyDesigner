@@ -207,6 +207,7 @@ export interface DesignerStore extends DesignerState {
   loadProjectI18nIndex: () => void;
   updateProjectI18nCatalog: (catalog: I18nCatalog, options?: { save?: boolean; immediate?: boolean }) => void;
   saveProjectI18nCatalog: (catalog?: I18nCatalog, options?: { immediate?: boolean }) => void;
+  deleteProjectI18nKey: (key: string) => void;
 
   // Component management
   duplicateComponent: (id: string) => void;
@@ -1245,6 +1246,23 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
 
   loadProjectI18nIndex: () => {
     vscodeAPI?.postMessage({ command: 'getProjectI18nIndex' });
+  },
+
+  deleteProjectI18nKey: (key) => {
+    const cleanKey = key.trim();
+    if (!cleanKey) {
+      return;
+    }
+
+    // 乐观更新本地 catalog（Extension 回发会再覆盖为权威值）
+    const nextCatalog = JSON.parse(JSON.stringify(get().projectI18nCatalog)) as I18nCatalog;
+    if (nextCatalog.strings[cleanKey]) {
+      delete nextCatalog.strings[cleanKey];
+      set({ projectI18nCatalog: nextCatalog });
+    }
+
+    // 交给 Extension：删除 catalog 条目 + 解绑全项目所有引用组件（含未打开文件）
+    vscodeAPI?.postMessage({ command: 'deleteProjectI18nKey', key: cleanKey });
   },
 
   updateProjectI18nCatalog: (catalog, options) => {

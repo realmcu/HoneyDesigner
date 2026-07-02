@@ -112,6 +112,14 @@ export function setTranslation(
     return catalog;
 }
 
+export function removeI18nKey(catalog: I18nCatalog, key: I18nKey): I18nCatalog {
+    const cleanKey = key.trim();
+    if (cleanKey && catalog.strings[cleanKey]) {
+        delete catalog.strings[cleanKey];
+    }
+    return catalog;
+}
+
 export function listI18nKeys(catalog: I18nCatalog): string[] {
     return Object.keys(catalog.strings).sort((a, b) => a.localeCompare(b));
 }

@@ -930,15 +930,12 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
       return null;
     }
 
-    const datalistId = `project-i18n-keys-${component.id}`;
-
     return (
       <>
         <div className="property-item">
           <label>{t('Localized Key')}</label>
           <input
             type="text"
-            list={datalistId}
             value={i18nKey}
             onChange={(event) => handleI18nKeyChange(event.target.value)}
             onBlur={(event) => handleI18nKeyChange(event.target.value, true)}
@@ -954,11 +951,32 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
               borderRadius: '2px',
             }}
           />
-          <datalist id={datalistId}>
-            {i18nKeys.map((key) => (
-              <option key={key} value={key} />
-            ))}
-          </datalist>
+          {i18nKeys.length > 0 && (
+            <select
+              value={i18nKeys.includes(i18nKey) ? i18nKey : ''}
+              onChange={(event) => {
+                if (event.target.value) {
+                  handleI18nKeyChange(event.target.value, true);
+                }
+              }}
+              title={t('Pick an existing i18n key')}
+              style={{
+                width: '100%',
+                padding: '4px 6px',
+                marginTop: '4px',
+                backgroundColor: 'var(--vscode-dropdown-background)',
+                color: 'var(--vscode-dropdown-foreground)',
+                border: '1px solid var(--vscode-dropdown-border)',
+                borderRadius: '2px',
+                fontSize: '12px',
+              }}
+            >
+              <option value="">{t('Pick an existing i18n key')}</option>
+              {i18nKeys.map((key) => (
+                <option key={key} value={key}>{key}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="property-item">

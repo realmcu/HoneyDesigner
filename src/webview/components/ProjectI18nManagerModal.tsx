@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import { setTranslation } from '../../project-i18n/catalog';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
@@ -18,6 +18,7 @@ const ProjectI18nManagerModal: React.FC = () => {
     projectI18nIndexErrors,
     projectI18nCatalog,
     updateProjectI18nCatalog,
+    deleteProjectI18nKey,
     components,
     currentFilePath,
     updateComponent,
@@ -25,6 +26,7 @@ const ProjectI18nManagerModal: React.FC = () => {
 
   const [query, setQuery] = React.useState('');
   const [mode, setMode] = React.useState<'all' | 'missing' | 'unused' | 'unbound'>('all');
+  const [pendingDelete, setPendingDelete] = React.useState<{ key: string; refs: number } | null>(null);
   const refreshTimerRef = React.useRef<number | null>(null);
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -50,6 +52,33 @@ const ProjectI18nManagerModal: React.FC = () => {
     const nextCatalog = cloneCatalog(projectI18nCatalog);
     setTranslation(nextCatalog, key, locale, value);
     updateProjectI18nCatalog(nextCatalog, { save: true });
+  };
+
+  const requestDeleteKey = (key: string, referenceCount: number) => {
+    setPendingDelete({ key, refs: referenceCount });
+  };
+
+  const confirmDeleteKey = () => {
+    if (!pendingDelete) {
+      return;
+    }
+
+    const key = pendingDelete.key;
+
+    // 即时解绑当前打开文件中引用该 key 的组件（UI/预览立即同步）；
+    // 其他文件的组件由 Extension 侧扫描全项目 HML 统一解绑。
+    for (const component of components) {
+      if (String((component.data as any)?.i18nKey || '').trim() === key) {
+        const nextData = { ...component.data } as Record<string, unknown>;
+        delete nextData.i18nKey;
+        updateComponent(component.id, { data: nextData as any });
+      }
+    }
+
+    // Extension：删除 catalog 条目 + 解绑全项目所有引用组件（含未打开文件）。
+    deleteProjectI18nKey(key);
+    setPendingDelete(null);
+    window.setTimeout(() => loadProjectI18nIndex(), 0);
   };
 
   const bindCurrentFileComponent = (componentId: string, key: string, text: string) => {
@@ -182,6 +211,7 @@ const ProjectI18nManagerModal: React.FC = () => {
                       ))}
                       <th>{t('References')}</th>
                       <th>{t('Status')}</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -202,6 +232,16 @@ const ProjectI18nManagerModal: React.FC = () => {
                           {row.isUnused && <span className="status-warning">{t('Unused I18n Key')}</span>}
                           {row.missingLocales.length > 0 && <span className="status-warning">{t('Missing Translation')}</span>}
                         </td>
+                        <td className="action-cell">
+                          <button
+                            type="button"
+                            className="i18n-delete-button"
+                            onClick={() => requestDeleteKey(row.key, row.references.length)}
+                            title={t('Delete I18n Key')}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -209,6 +249,25 @@ const ProjectI18nManagerModal: React.FC = () => {
               </div>
             )}
           </>
+        )}
+        {pendingDelete && (
+          <div className="i18n-confirm-backdrop">
+            <div className="i18n-confirm-dialog">
+              <div className="i18n-confirm-message">
+                {pendingDelete.refs > 0
+                  ? t('Delete i18n key confirm with refs', pendingDelete.key, String(pendingDelete.refs))
+                  : t('Delete i18n key confirm', pendingDelete.key)}
+              </div>
+              <div className="i18n-confirm-actions">
+                <button type="button" onClick={() => setPendingDelete(null)}>
+                  {t('Cancel')}
+                </button>
+                <button type="button" className="danger" onClick={confirmDeleteKey}>
+                  {t('Delete')}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
