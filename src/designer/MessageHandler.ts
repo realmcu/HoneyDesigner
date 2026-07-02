@@ -15,6 +15,7 @@ import { normalizeCatalog, removeI18nKey } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, saveProjectI18nCatalog } from '../project-i18n/files';
 import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18n/projectIndex';
 import { HmlParser } from '../hml/HmlParser';
+import { HmlSerializer } from '../hml/HmlSerializer';
 import { composeAiBundle } from './aiContextBundle';
 
 /**
