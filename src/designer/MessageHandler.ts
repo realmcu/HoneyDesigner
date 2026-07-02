@@ -1122,8 +1122,9 @@ export class MessageHandler {
         }
 
         try {
-            // 1) 从 catalog 移除 key 并写盘
+            // 1) 从 catalog 移除 key 并写盘（移除前先取默认语言文本，用于解绑时回写）
             const catalog = loadProjectI18nCatalog(projectRoot);
+            const fallbackText = String(catalog.strings[key]?.[catalog.defaultLocale] ?? '');
             removeI18nKey(catalog, key);
             saveProjectI18nCatalog(projectRoot, catalog);
 
@@ -1155,6 +1156,10 @@ export class MessageHandler {
                         for (const component of components) {
                             if (String((component.data as any)?.i18nKey || '').trim() === key) {
                                 delete (component.data as any).i18nKey;
+                                // 回写默认语言文本，使组件删 key 后仍显示有意义的内容
+                                if (fallbackText) {
+                                    (component.data as any).text = fallbackText;
+                                }
                                 changed = true;
                                 unboundComponentCount++;
                             }
