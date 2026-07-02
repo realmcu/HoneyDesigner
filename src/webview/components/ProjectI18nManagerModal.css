@@ -373,8 +373,10 @@
 }
 
 .project-i18n-table textarea {
-  width: 220px;
+  width: 100%;
+  min-width: 0;
   min-height: 42px;
+  box-sizing: border-box;
   resize: vertical;
   border: 1px solid var(--vscode-input-border);
   background: var(--vscode-input-background);
@@ -382,9 +384,26 @@
   font: 12px var(--vscode-font-family);
 }
 
-.project-i18n-table .key-cell {
-  min-width: 220px;
+.project-i18n-table th.key-cell,
+.project-i18n-table td.key-cell {
+  position: sticky;
+  left: 0;
+  background: var(--vscode-editor-background);
+  min-width: 120px;
+  width: 150px;
   font-family: var(--vscode-editor-font-family);
+}
+
+.project-i18n-table th.key-cell {
+  z-index: 3;
+}
+
+.project-i18n-table td.key-cell {
+  z-index: 2;
+}
+
+.project-i18n-table .translation-cell {
+  min-width: 140px;
 }
 
 .project-i18n-table tr.unused .key-cell {
@@ -415,10 +434,37 @@
   color: var(--vscode-inputValidation-warningForeground);
 }
 
-.project-i18n-table .action-cell {
+.project-i18n-table th.action-cell,
+.project-i18n-table td.action-cell {
+  position: sticky;
+  right: 0;
+  background: var(--vscode-editor-background);
   width: 36px;
   text-align: center;
   vertical-align: middle;
+}
+
+.project-i18n-table th.action-cell {
+  z-index: 3;
+}
+
+.project-i18n-table td.action-cell {
+  z-index: 2;
+}
+
+.project-i18n-table .ref-cell {
+  width: 44px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.project-i18n-table .status-cell {
+  min-width: 110px;
+}
+
+.project-i18n-table .status-cell .status-warning {
+  display: block;
+  margin-bottom: 2px;
 }
 
 .i18n-delete-button {

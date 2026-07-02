@@ -539,11 +539,11 @@ const ProjectI18nManagerModal: React.FC = () => {
                 <table className="project-i18n-table">
                   <thead>
                     <tr>
-                      <th>{t('Localized Key')}</th>
+                      <th className="key-cell">{t('Localized Key')}</th>
                       {projectI18nIndex.locales.map((locale) => {
                         const isDefault = locale === projectI18nCatalog.defaultLocale;
                         return (
-                          <th key={locale}>
+                          <th key={locale} className="translation-cell">
                             <div className="locale-th">
                               <span className="locale-code">{locale}</span>
                               {isDefault && (
@@ -555,9 +555,9 @@ const ProjectI18nManagerModal: React.FC = () => {
                           </th>
                         );
                       })}
-                      <th>{t('References')}</th>
-                      <th>{t('Status')}</th>
-                      <th></th>
+                      <th className="ref-cell">{t('References')}</th>
+                      <th className="status-cell">{t('Status')}</th>
+                      <th className="action-cell"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -569,7 +569,7 @@ const ProjectI18nManagerModal: React.FC = () => {
                       >
                         <td className="key-cell">{row.key}</td>
                         {projectI18nIndex.locales.map((locale) => (
-                          <td key={locale}>
+                          <td key={locale} className="translation-cell">
                             <textarea
                               value={projectI18nCatalog.strings[row.key]?.[locale] || ''}
                               onChange={(event) => handleTranslationChange(row.key, locale, event.target.value)}
@@ -577,8 +577,8 @@ const ProjectI18nManagerModal: React.FC = () => {
                             />
                           </td>
                         ))}
-                        <td>{row.references.length}</td>
-                        <td>
+                        <td className="ref-cell">{row.references.length}</td>
+                        <td className="status-cell">
                           {row.isUnused && <span className="status-warning">{t('Unused I18n Key')}</span>}
                           {row.missingLocales.length > 0 && <span className="status-warning">{t('Missing Translation')}</span>}
                         </td>
