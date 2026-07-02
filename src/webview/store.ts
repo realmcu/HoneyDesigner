@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings } from './types';
+import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo } from './types';
 import {
   alignComponents,
   distributeComponents,
@@ -168,6 +168,8 @@ export interface DesignerStore extends DesignerState {
   setShowViewConnections: (show: boolean) => void;
   showViewRelationModal: boolean;
   setShowViewRelationModal: (show: boolean) => void;
+  /** 请求宿主重扫导航图（allViews），结果经 updateAllViews 消息回推 */
+  refreshNavGraph: () => void;
 
   // Alignment guides
   showAlignmentGuides: boolean;
@@ -426,7 +428,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   projectI18nIndexErrors: [],
   isProjectI18nManagerOpen: false,
   previewLocale: 'en-US',
-  allViews: [] as Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}>, // 项目中所有 view（含跳转关系）
+  allViews: [] as ViewInfo[], // 项目中所有 view（含跳转关系，含控件级/定时器边）
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
   currentFilePath: '' as string, // 当前打开的文件路径
@@ -981,6 +983,11 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   setCanvasBackgroundColor: (color) => set({ canvasBackgroundColor: color }),
   setShowViewConnections: (show) => set({ showViewConnections: show }),
   setShowViewRelationModal: (show) => set({ showViewRelationModal: show }),
+  refreshNavGraph: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'refreshNavGraph' });
+    }
+  },
   setShowAlignmentGuides: (show) => set({ showAlignmentGuides: show }),
   setAssetCategory: (category) => set({ assetCategory: category }),
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),

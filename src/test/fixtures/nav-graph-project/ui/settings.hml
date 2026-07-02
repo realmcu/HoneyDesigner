@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>Nav Graph Settings</title>
+    <project>
+      <name>nav-graph-test</name>
+      <resolution>240X240</resolution>
+      <pixelMode>RGB565</pixelMode>
+    </project>
+  </meta>
+
+  <view id="settings">
+    <!-- 场景：无效目标跳转 -->
+    <hg_view id="view_settings" x="0" y="0" w="240" h="240">
+      <hg_button id="btn_broken" x="20" y="20" w="100" h="40" text="Broken">
+        <events>
+          <event type="onClick">
+            <action type="switchView" target="view_missing" switchOutStyle="SWITCH_OUT_TO_LEFT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_RIGHT_USE_TRANSLATION" />
+          </event>
+        </events>
+      </hg_button>
+    </hg_view>
+    <!-- 场景：无 id 的 hg_view（解析器确定性 fallback id：hg_view_auto_0） -->
+    <hg_view x="0" y="0" w="240" h="240">
+      <hg_label id="lbl_no_id_view" x="60" y="100" w="120" h="40" text="no id view" fontSize="16" color="#FFFFFF" />
+    </hg_view>
+  </view>
+</hml>

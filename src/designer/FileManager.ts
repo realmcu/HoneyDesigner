@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { logger } from '../utils/Logger';
+import type { Component, TimerAction } from '../hml/types';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { HmlController } from '../hml/HmlController';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
@@ -10,6 +12,90 @@ import { HmlContentComparator } from '../utils/HmlContentComparator';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog } from '../project-i18n/files';
+
+/**
+ * 视图跳转边（导航图数据模型）
+ *
+ * 旧字段 target/event/switchOutStyle/switchInStyle 保持向后兼容
+ * （ViewRelationModal / EventsPanel 等仍在消费）；
+ * 新字段全部可选，供导航图渲染与写事务定位使用。
+ */
+export interface ViewNavEdge {
+    /** 目标 view 裸 id（旧字段，向后兼容） */
+    target: string;
+    /** 事件类型（旧字段，向后兼容；定时器边为 'timer'） */
+    event: string;
+    switchOutStyle?: string;
+    switchInStyle?: string;
+
+    /** 稳定标识：由定位字段 hash 生成 */
+    edgeId?: string;
+    /** 源文件绝对路径 */
+    sourceFilePath?: string;
+    /** 源文件相对项目根路径（正斜杠） */
+    sourceFileRelative?: string;
+    /** 源 view 复合键：relPath#viewId */
+    sourceViewKey?: string;
+    /** 携带该 switchView 的控件 id（view 自身手势时为 view id） */
+    sourceControlId?: string;
+    sourceControlName?: string;
+    sourceControlType?: string;
+    /** 边配置在 hg_view 自身（屏手势） */
+    sourceIsView?: boolean;
+    /** 定时器触发的边（只读，不可编辑） */
+    sourceIsTimer?: boolean;
+    /** 原始事件类型（控件/view 边 = eventConfig.type；定时器边 = 'timer'） */
+    eventType?: string;
+    /** 控件/view 边：eventConfigs 下标；定时器边：data.timers 下标 */
+    eventConfigIndex?: number;
+    /** action 在所属 actions 数组中的下标 */
+    actionIndex?: number;
+    /** 定时器边：timer id */
+    timerId?: string;
+    /** 定时器边：segment 下标（-1 表示旧版单段 actions） */
+    segmentIndex?: number;
+    /** target 唯一解析出的目标复合键（撞名/无效时缺省） */
+    targetViewKey?: string;
+    /** target 在多个文件的 view id 中撞名 */
+    targetAmbiguous?: boolean;
+    /** target 能解析到至少一个已知 view */
+    isValid?: boolean;
+    /** 扫描时源文件 mtime（ms，写事务快照校验用） */
+    sourceFileMtime?: number;
+    /** 扫描时源文件内容 hash（sha1，写事务快照校验用） */
+    sourceFileHash?: string;
+}
+
+/**
+ * 视图节点（导航图数据模型）
+ * 旧字段 id/name/file/edges 保持向后兼容；新字段全部可选。
+ */
+export interface ViewNavNode {
+    id: string;
+    name: string;
+    /** 旧字段：文件名去 .hml（向后兼容；跨目录可能撞名，新逻辑请用 viewKey） */
+    file: string;
+    edges: ViewNavEdge[];
+    /** 复合键：relPath#viewId */
+    viewKey?: string;
+    /** 所属文件绝对路径 */
+    filePath?: string;
+    /** 所属文件相对项目根路径（正斜杠） */
+    fileRelative?: string;
+    /** 扫描时文件 mtime（ms） */
+    fileMtime?: number;
+    /** 扫描时文件内容 hash（sha1） */
+    fileHash?: string;
+}
+
+/** 采集边时的单文件上下文 */
+interface ViewScanFileContext {
+    filePath: string;
+    fileRelative: string;
+    fileMtime: number;
+    fileHash: string;
+    viewKey: string;
+}
 
 /**
  * 文件管理器 - 处理文件的加载、保存和更新
@@ -400,8 +486,13 @@ export class FileManager {
 
     /**
      * 扫描项目中所有 HML 文件的 view（包含跳转关系）
+     *
+     * 组件是扁平模型（children 是 id 数组、parent 是 id 引用），
+     * 这里对每个 hg_view 沿 parent→children 索引向下遍历，
+     * 收集自身 + 后代控件（含定时器）的 switchView 边；
+     * 遇嵌套 hg_view 剪枝——子屏的边归子屏节点。
      */
-    private async scanAllViews(currentFilePath: string): Promise<Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}>> {
+    private async scanAllViews(currentFilePath: string): Promise<ViewNavNode[]> {
         const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
         if (!projectRoot) {
             return [];
@@ -409,59 +500,221 @@ export class FileManager {
 
         const uiDir = ProjectUtils.getUiDir(projectRoot);
         const hmlFiles = this.scanHmlFilesRecursive(uiDir, projectRoot);
-        const allViews: Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}> = [];
+        const allViews: ViewNavNode[] = [];
+        // 全局 viewId → 复合键列表（第二遍解析 target 有效性/跨文件撞名）
+        const viewKeysById = new Map<string, string[]>();
+        const pendingEdges: ViewNavEdge[] = [];
 
         for (const hmlFile of hmlFiles) {
             try {
-                const tempController = new HmlController();
-                const doc = await tempController.loadFile(hmlFile.path);
-                
-                // 从相对路径提取文件标识（去掉 .hml 后缀）
+                const content = fs.readFileSync(hmlFile.path, 'utf-8');
+                const fileMtime = fs.statSync(hmlFile.path).mtimeMs;
+                const fileHash = crypto.createHash('sha1').update(content, 'utf8').digest('hex');
+                const fileRelative = hmlFile.relativePath.replace(/\\/g, '/');
+                // 旧字段：文件名去 .hml（向后兼容）
                 const fileId = hmlFile.name.replace('.hml', '');
-                
-                // 提取所有 hg_view 及其跳转关系
-                const extractViews = (components: any[]): void => {
-                    for (const comp of components) {
-                        if (comp.type === 'hg_view') {
-                            // 提取跳转边
-                            const edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}> = [];
-                            if (comp.eventConfigs) {
-                                for (const eventConfig of comp.eventConfigs) {
-                                    for (const action of eventConfig.actions || []) {
-                                        if (action.type === 'switchView' && action.target) {
-                                            edges.push({
-                                                target: action.target,
-                                                event: eventConfig.type,
-                                                switchOutStyle: action.switchOutStyle,
-                                                switchInStyle: action.switchInStyle,
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            allViews.push({
-                                id: comp.id,
-                                name: comp.name || comp.id,
-                                file: fileId,
-                                edges,
-                            });
-                        }
-                        if (comp.children && comp.children.length > 0) {
-                            extractViews(comp.children);
+
+                const tempController = new HmlController();
+                const doc = tempController.parseContent(content, hmlFile.path);
+                const components: Component[] = doc.view?.components || [];
+
+                // 扁平模型 → id→component 与 parent→children[] 索引
+                const byId = new Map<string, Component>();
+                const childrenOf = new Map<string, Component[]>();
+                for (const comp of components) {
+                    if (comp?.id) {
+                        byId.set(comp.id, comp);
+                    }
+                }
+                for (const comp of components) {
+                    if (comp?.parent && byId.has(comp.parent)) {
+                        const siblings = childrenOf.get(comp.parent);
+                        if (siblings) {
+                            siblings.push(comp);
+                        } else {
+                            childrenOf.set(comp.parent, [comp]);
                         }
                     }
-                };
-                
-                if (doc.view && doc.view.components) {
-                    extractViews(doc.view.components);
+                }
+
+                for (const comp of components) {
+                    if (comp?.type !== 'hg_view') {
+                        continue;
+                    }
+
+                    const viewKey = `${fileRelative}#${comp.id}`;
+                    viewKeysById.set(comp.id, [...(viewKeysById.get(comp.id) || []), viewKey]);
+
+                    const fileCtx: ViewScanFileContext = {
+                        filePath: hmlFile.path,
+                        fileRelative,
+                        fileMtime,
+                        fileHash,
+                        viewKey,
+                    };
+
+                    const edges: ViewNavEdge[] = [];
+                    // 1) view 自身（屏手势事件 + 定时器）
+                    this._collectComponentSwitchViewEdges(comp, true, fileCtx, edges);
+                    // 2) 后代控件，遇嵌套 hg_view 剪枝（子屏的边归子屏）
+                    const queue: Component[] = [...(childrenOf.get(comp.id) || [])];
+                    while (queue.length > 0) {
+                        const child = queue.shift()!;
+                        if (child.type === 'hg_view') {
+                            continue;
+                        }
+                        this._collectComponentSwitchViewEdges(child, false, fileCtx, edges);
+                        queue.push(...(childrenOf.get(child.id) || []));
+                    }
+
+                    pendingEdges.push(...edges);
+                    allViews.push({
+                        id: comp.id,
+                        name: comp.name || comp.id,
+                        file: fileId,
+                        edges,
+                        viewKey,
+                        filePath: hmlFile.path,
+                        fileRelative,
+                        fileMtime,
+                        fileHash,
+                    });
                 }
             } catch (err) {
                 logger.warn(`扫描 ${hmlFile.path} 失败: ${err}`);
             }
         }
 
+        // 第二遍：解析 target → 有效性 / 跨文件撞名 / 目标复合键
+        // 注：同文件重复 id 已被 parser 静默合并，采集端无法还原（已知限制）
+        for (const edge of pendingEdges) {
+            const targetKeys = viewKeysById.get(edge.target) || [];
+            edge.isValid = targetKeys.length >= 1;
+            edge.targetAmbiguous = targetKeys.length > 1;
+            edge.targetViewKey = targetKeys.length === 1 ? targetKeys[0] : undefined;
+        }
+
         return allViews;
+    }
+
+    /**
+     * 采集单个组件上的所有 switchView 边（事件动作 + 定时器动作）
+     */
+    private _collectComponentSwitchViewEdges(
+        comp: Component,
+        sourceIsView: boolean,
+        fileCtx: ViewScanFileContext,
+        out: ViewNavEdge[]
+    ): void {
+        // 事件动作里的 switchView
+        (comp.eventConfigs || []).forEach((eventConfig, eventConfigIndex) => {
+            (eventConfig.actions || []).forEach((action, actionIndex) => {
+                if (action.type !== 'switchView' || !action.target) {
+                    return;
+                }
+                out.push(this._buildNavEdge(comp, fileCtx, {
+                    target: action.target,
+                    eventType: eventConfig.type,
+                    eventConfigIndex,
+                    actionIndex,
+                    sourceIsView,
+                    sourceIsTimer: false,
+                    switchOutStyle: action.switchOutStyle,
+                    switchInStyle: action.switchInStyle,
+                }));
+            });
+        });
+
+        // 定时器动作里的 switchView（只读边）
+        (comp.data?.timers || []).forEach((timer, timerIndex) => {
+            // 自定义回调模式下预设动作不生效，不采集
+            if (!timer || timer.mode === 'custom') {
+                return;
+            }
+            const pushTimerEdge = (action: TimerAction, segmentIndex: number, actionIndex: number): void => {
+                if (action?.type !== 'switchView' || !action.target) {
+                    return;
+                }
+                out.push(this._buildNavEdge(comp, fileCtx, {
+                    target: action.target,
+                    eventType: 'timer',
+                    eventConfigIndex: timerIndex,
+                    actionIndex,
+                    sourceIsView,
+                    sourceIsTimer: true,
+                    timerId: timer.id,
+                    segmentIndex,
+                    switchOutStyle: action.switchOutStyle,
+                    switchInStyle: action.switchInStyle,
+                }));
+            };
+            // 旧版单段动作列表（segmentIndex = -1）
+            (timer.actions || []).forEach((action, i) => pushTimerEdge(action, -1, i));
+            // 新版多段动画
+            (timer.segments || []).forEach((segment, segIdx) => {
+                (segment?.actions || []).forEach((action, i) => pushTimerEdge(action, segIdx, i));
+            });
+        });
+    }
+
+    /**
+     * 构造一条导航边，edgeId 由定位字段 hash 生成（跨扫描稳定）
+     */
+    private _buildNavEdge(
+        comp: Component,
+        fileCtx: ViewScanFileContext,
+        info: {
+            target: string;
+            eventType: string;
+            eventConfigIndex: number;
+            actionIndex: number;
+            sourceIsView: boolean;
+            sourceIsTimer: boolean;
+            timerId?: string;
+            segmentIndex?: number;
+            switchOutStyle?: string;
+            switchInStyle?: string;
+        }
+    ): ViewNavEdge {
+        const locator = [
+            fileCtx.fileRelative,
+            fileCtx.viewKey,
+            comp.id,
+            info.sourceIsTimer ? 'timer' : 'event',
+            info.timerId ?? '',
+            info.segmentIndex ?? '',
+            info.eventType,
+            info.eventConfigIndex,
+            info.actionIndex,
+            info.target,
+        ].join('|');
+        const edgeId = crypto.createHash('sha1').update(locator, 'utf8').digest('hex').slice(0, 16);
+
+        return {
+            // 旧字段（向后兼容）
+            target: info.target,
+            event: info.eventType,
+            switchOutStyle: info.switchOutStyle,
+            switchInStyle: info.switchInStyle,
+            // 新字段
+            edgeId,
+            sourceFilePath: fileCtx.filePath,
+            sourceFileRelative: fileCtx.fileRelative,
+            sourceViewKey: fileCtx.viewKey,
+            sourceControlId: comp.id,
+            sourceControlName: comp.name || comp.id,
+            sourceControlType: comp.type,
+            sourceIsView: info.sourceIsView,
+            sourceIsTimer: info.sourceIsTimer,
+            eventType: info.eventType,
+            eventConfigIndex: info.eventConfigIndex,
+            actionIndex: info.actionIndex,
+            timerId: info.timerId,
+            segmentIndex: info.segmentIndex,
+            // isValid / targetAmbiguous / targetViewKey 由第二遍全局解析填充
+            sourceFileMtime: fileCtx.fileMtime,
+            sourceFileHash: fileCtx.fileHash,
+        };
     }
 
     /**

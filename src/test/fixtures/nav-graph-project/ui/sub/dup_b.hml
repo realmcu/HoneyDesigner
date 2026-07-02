@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>Nav Graph Dup B</title>
+    <project>
+      <name>nav-graph-test</name>
+      <resolution>240X240</resolution>
+      <pixelMode>RGB565</pixelMode>
+    </project>
+  </meta>
+
+  <view id="dup_b">
+    <!-- 场景：与 sub/dup_a.hml 中的 view id 跨文件撞名（本文件无出边） -->
+    <hg_view id="view_dup" x="0" y="0" w="240" h="240">
+      <hg_label id="lbl_dup_b" x="60" y="100" w="120" h="40" text="dup b" fontSize="16" color="#FFFFFF" />
+    </hg_view>
+  </view>
+</hml>

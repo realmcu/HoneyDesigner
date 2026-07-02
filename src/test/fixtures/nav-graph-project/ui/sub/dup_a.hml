@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>Nav Graph Dup A</title>
+    <project>
+      <name>nav-graph-test</name>
+      <resolution>240X240</resolution>
+      <pixelMode>RGB565</pixelMode>
+    </project>
+  </meta>
+
+  <view id="dup_a">
+    <!-- 场景：与 sub/dup_b.hml 中的 view id 跨文件撞名 -->
+    <hg_view id="view_dup" x="0" y="0" w="240" h="240">
+      <hg_button id="btn_dup_home" x="20" y="20" w="100" h="40" text="Home">
+        <events>
+          <event type="onClick">
+            <action type="switchView" target="view_home" switchOutStyle="SWITCH_OUT_TO_RIGHT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_LEFT_USE_TRANSLATION" />
+          </event>
+        </events>
+      </hg_button>
+    </hg_view>
+  </view>
+</hml>

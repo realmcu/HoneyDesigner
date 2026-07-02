@@ -405,6 +405,11 @@ export class MessageHandler {
                 this._handleGetUserFunctions();
                 break;
 
+            case 'refreshNavGraph':
+                // webview 主动请求重扫导航图（打开视图关系弹窗时触发，解决 allViews 陈旧）
+                await this._fileManager.updateAllViewsToFrontend();
+                break;
+
             default:
                 logger.warn(`[MessageHandler] 未知消息命令: ${message.command}`);
         }
