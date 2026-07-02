@@ -3,7 +3,6 @@ import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
 import type { ViewInfo } from '../types';
-import { NavGraphSpike } from './NavGraphSpike';
 import './ViewRelationModal.css';
 
 interface ViewRelationModalProps {
@@ -242,9 +241,6 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
             <button className="vrm-close" onClick={onClose}><X size={18} /></button>
           </div>
         </div>
-        
-        {/* T1 spike，T3 重写时移除 */}
-        <NavGraphSpike />
 
         <div
           ref={containerRef}
