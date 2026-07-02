@@ -283,8 +283,15 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 
 The primary top-level container representing a full screen/page.
 
+> **`id` is REQUIRED on `hg_view`** (unlike other components, where `id` is auto-generated).
+> `switchView` actions and navigation edges reference a target view by its `id`; a view without a
+> stable, explicit `id` cannot be reliably targeted for navigation and may break references if the
+> id is later regenerated. Always assign a meaningful, stable `id` (e.g. `view_home`,
+> `view_settings`) to every `hg_view`.
+
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
+| `id` | string | **required** | Globally unique view identifier — referenced by `switchView` `target` and navigation edges. See note above. |
 | `entry` | boolean | false | Entry view — the first screen shown on app launch. Exactly ONE view should have `entry="true"` |
 | `backgroundColor` | color | #000000 | Background color |
 | `borderRadius` | number | 20 | Border radius |

@@ -140,6 +140,14 @@ export class HmlValidationService {
             validationRules.push('Entry View 唯一性验证（必须有且只有一个 entry="true"）');
             this.validateEntryView(document.view.components || [], errors);
 
+            // ========================================
+            // 规则 9: hg_view id 必填警告（HML-Spec Section 6.1）
+            // - id 在 hg_view 上是 required（不同于其他组件的 auto-generated）
+            // - switchView 的 target 依赖 view id 做导航引用，缺失 id 会导致无法被稳定引用
+            // ========================================
+            validationRules.push('hg_view id 必填警告验证');
+            this.validateViewIds(document.view.components || [], warnings);
+
             if (context.i18nCatalog) {
                 validationRules.push('多语言文本预览警告验证');
                 this.validateI18n(document.view.components || [], context, warnings);
@@ -399,6 +407,27 @@ export class HmlValidationService {
                         });
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * 验证 hg_view 的 id 是否已填写（best-practice 警告）
+     *
+     * 验证内容：
+     * - hg_view 的 id 是 required（HML-Spec Section 6.1），不同于其他组件的 auto-generated
+     * - switchView 的 target 引用 view id 做导航跳转，缺失 id 的 view 无法被稳定引用
+     *
+     * 依据：HML-Spec.md Section 6.1（hg_view — View Container）
+     */
+    private validateViewIds(components: Component[], warnings: ValidationWarning[]): void {
+        for (const component of components) {
+            if (component.type === 'hg_view' && (!component.id || component.id.trim() === '')) {
+                warnings.push({
+                    type: 'best-practice',
+                    message: 'hg_view is missing an id — switchView targets and navigation edges reference views by id, so this view cannot be reliably targeted for navigation',
+                    componentId: component.id
+                });
             }
         }
     }
