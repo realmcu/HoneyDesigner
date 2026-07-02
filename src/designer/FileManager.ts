@@ -501,8 +501,14 @@ export class FileManager {
         const uiDir = ProjectUtils.getUiDir(projectRoot);
         const hmlFiles = this.scanHmlFilesRecursive(uiDir, projectRoot);
         const allViews: ViewNavNode[] = [];
-        // 全局 viewId → 复合键列表（第二遍解析 target 有效性/跨文件撞名）
+        // 全局 viewId / viewName → 复合键列表（第二遍解析 target 有效性/撞名）。
+        // 需要双查找的语义根据：codegen 按 view 的 **name** 注册视图
+        // （ViewGenerator GUI_VIEW_INSTANCE("${component.name}")），同文件 target
+        // 会被 codegen 映射 id→name，跨文件 target 原样透传——运行时按 name 跳转。
+        // 手写 HML 中 name≠id 时，target 写 id 或 name 都可能是用户意图，
+        // 命中任一且唯一才算 valid；跨 id/name 命中多个 view 视为歧义
         const viewKeysById = new Map<string, string[]>();
+        const viewKeysByName = new Map<string, string[]>();
         const pendingEdges: ViewNavEdge[] = [];
 
         for (const hmlFile of hmlFiles) {
@@ -544,6 +550,9 @@ export class FileManager {
 
                     const viewKey = `${fileRelative}#${comp.id}`;
                     viewKeysById.set(comp.id, [...(viewKeysById.get(comp.id) || []), viewKey]);
+                    if (comp.name) {
+                        viewKeysByName.set(comp.name, [...(viewKeysByName.get(comp.name) || []), viewKey]);
+                    }
 
                     const fileCtx: ViewScanFileContext = {
                         filePath: hmlFile.path,
@@ -585,13 +594,19 @@ export class FileManager {
             }
         }
 
-        // 第二遍：解析 target → 有效性 / 跨文件撞名 / 目标复合键
+        // 第二遍：解析 target → 有效性 / 撞名 / 目标复合键。
+        // id 与 name 双查找（语义根据见上方 viewKeysByName 注释：运行时按 name
+        // 注册/跳转，target 命中 id 或 name 任一且唯一 → valid；同一 view 的
+        // id===name 时两个 map 落到相同复合键，用 Set 去重不算歧义）
         // 注：同文件重复 id 已被 parser 静默合并，采集端无法还原（已知限制）
         for (const edge of pendingEdges) {
-            const targetKeys = viewKeysById.get(edge.target) || [];
-            edge.isValid = targetKeys.length >= 1;
-            edge.targetAmbiguous = targetKeys.length > 1;
-            edge.targetViewKey = targetKeys.length === 1 ? targetKeys[0] : undefined;
+            const targetKeys = new Set<string>([
+                ...(viewKeysById.get(edge.target) || []),
+                ...(viewKeysByName.get(edge.target) || []),
+            ]);
+            edge.isValid = targetKeys.size >= 1;
+            edge.targetAmbiguous = targetKeys.size > 1;
+            edge.targetViewKey = targetKeys.size === 1 ? [...targetKeys][0] : undefined;
         }
 
         return allViews;
@@ -648,12 +663,19 @@ export class FileManager {
                     switchInStyle: action.switchInStyle,
                 }));
             };
-            // 旧版单段动作列表（segmentIndex = -1）
-            (timer.actions || []).forEach((action, i) => pushTimerEdge(action, -1, i));
-            // 新版多段动画
-            (timer.segments || []).forEach((segment, segIdx) => {
-                (segment?.actions || []).forEach((action, i) => pushTimerEdge(action, segIdx, i));
-            });
+            // 对齐 codegen 语义（CallbackFileGenerator.generatePresetTimerCallbackFromConfig）：
+            // segments 非空时只生成多段动画、忽略 actions；否则走旧版单段 actions。
+            // 采集端若无条件遍历两者，actions/segments 并存时会产出运行时不存在的幽灵重复边
+            const segments = timer.segments || [];
+            if (segments.length > 0) {
+                // 新版多段动画
+                segments.forEach((segment, segIdx) => {
+                    (segment?.actions || []).forEach((action, i) => pushTimerEdge(action, segIdx, i));
+                });
+            } else {
+                // 旧版单段动作列表（segmentIndex = -1）
+                (timer.actions || []).forEach((action, i) => pushTimerEdge(action, -1, i));
+            }
         });
     }
 
