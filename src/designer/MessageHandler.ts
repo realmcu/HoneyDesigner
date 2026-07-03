@@ -1435,6 +1435,8 @@ export class MessageHandler {
             }
 
             await NavLayoutService.getInstance().saveLayoutPatch(projectRoot, layout);
+            // 成功回执：前端据此清除之前的"保存失败"横幅（失败横幅不会自己消失）
+            this._panel.webview.postMessage({ command: 'navLayoutSaved' });
         } catch (error) {
             logger.error(`[MessageHandler] 保存导航布局失败: ${error}`);
             this._panel.webview.postMessage({

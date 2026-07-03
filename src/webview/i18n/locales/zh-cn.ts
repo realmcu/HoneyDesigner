@@ -719,6 +719,8 @@ const zhCN = {
   'Drag to resize': '拖拽调整大小',
   'Failed to save navigation layout': '导航布局保存失败',
   'Dismiss': '关闭',
+  'Bidirectional': '双向',
+  'Both predecessor and successor of the focused view': '既是该屏的前驱也是后继',
 
   // Properties Panel Tabs
   'Add Event': '添加事件',

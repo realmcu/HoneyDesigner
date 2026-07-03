@@ -467,6 +467,12 @@ body.vrm-noselect * {
   border-color: var(--vscode-panel-border);
 }
 
+/* 聚焦子图：既是前驱又是后继的邻居（只放左列）的"双向"徽记 */
+.vrm-badge-bidirectional {
+  color: var(--vscode-focusBorder);
+  border-color: var(--vscode-focusBorder);
+}
+
 /* ---------------- 底部图例与统计 ---------------- */
 
 .vrm-footer {

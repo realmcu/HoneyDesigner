@@ -719,6 +719,8 @@ const en = {
   'Drag to resize': 'Drag to resize',
   'Failed to save navigation layout': 'Failed to save navigation layout',
   'Dismiss': 'Dismiss',
+  'Bidirectional': 'Bidirectional',
+  'Both predecessor and successor of the focused view': 'Both predecessor and successor of the focused view',
 
   // Properties Panel Tabs
   'Add Event': 'Add Event',

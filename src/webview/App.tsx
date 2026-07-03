@@ -468,6 +468,11 @@ const App: React.FC = () => {
           });
           break;
 
+        case 'navLayoutSaved':
+          // 布局写入成功回执：清除之前的失败横幅（若有）
+          useDesignerStore.setState({ navLayoutSaveError: null });
+          break;
+
         case 'error':
           // Show error message
           console.error(message.text);

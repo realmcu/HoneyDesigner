@@ -59,6 +59,7 @@ interface ViewNodeData extends Record<string, unknown> {
   ambiguousOut: number;   // 出边中歧义目标条数
   autoId: boolean;        // id 为解析器自动生成（建议补显式 id）
   dimmed?: boolean;       // 悬停淡出态（渲染期计算，不入 state）
+  bidirectional?: boolean; // 聚焦子图中既是前驱又是后继（只放左列并标徽记，渲染期计算）
 }
 
 type ViewFlowNode = Node<ViewNodeData, 'viewCard'>;
@@ -126,7 +127,7 @@ const ViewCardNode: React.FC<NodeProps<ViewFlowNode>> = ({ data }) => {
   if (data.dimmed) {
     classes.push('vrm-node-dimmed');
   }
-  const hasBadges = data.invalidOut > 0 || data.ambiguousOut > 0 || data.autoId;
+  const hasBadges = data.invalidOut > 0 || data.ambiguousOut > 0 || data.autoId || data.bidirectional === true;
   return (
     <div className={classes.join(' ')}>
       <Handle type="target" position={Position.Left} className="vrm-handle" isConnectable={false} />
@@ -156,6 +157,11 @@ const ViewCardNode: React.FC<NodeProps<ViewFlowNode>> = ({ data }) => {
           {data.autoId && (
             <span className="vrm-badge vrm-badge-autoid" title={t('View has no id, consider adding one')}>
               id?
+            </span>
+          )}
+          {data.bidirectional === true && (
+            <span className="vrm-badge vrm-badge-bidirectional" title={t('Both predecessor and successor of the focused view')}>
+              ⇄ {t('Bidirectional')}
             </span>
           )}
         </div>
@@ -426,16 +432,27 @@ const buildFocusView = (
     }
   }
 
+  // 同一邻居既是前驱又是后继时只放一列（左列）并标"双向"徽记：
+  // 同一 id 出现在两列会产生重复节点 id，React Flow nodeLookup 去重后只渲染
+  // 后注册的那份，左列该行空缺、前驱边反向画回交点。两条边都保留指向该节点。
+  const successorOnlyIds = successorIds.filter(id => !seenPred.has(id));
+
   const nodes: ViewFlowNode[] = [];
   predecessorIds.forEach((id, i) => {
     const seed = seedById.get(id);
     if (!seed) {
       return;
     }
-    nodes.push({ id, type: 'viewCard', position: { x: 0, y: i * FOCUS_ROW_GAP }, data: seed.data });
+    const bidirectional = seenSucc.has(id);
+    nodes.push({
+      id,
+      type: 'viewCard',
+      position: { x: 0, y: i * FOCUS_ROW_GAP },
+      data: bidirectional ? { ...seed.data, bidirectional: true } : seed.data,
+    });
   });
 
-  const centerRowCount = Math.max(predecessorIds.length, successorIds.length, 1);
+  const centerRowCount = Math.max(predecessorIds.length, successorOnlyIds.length, 1);
   nodes.push({
     id: focusId,
     type: 'viewCard',
@@ -443,7 +460,7 @@ const buildFocusView = (
     data: focusSeed.data,
   });
 
-  successorIds.forEach((id, i) => {
+  successorOnlyIds.forEach((id, i) => {
     const seed = seedById.get(id);
     if (!seed) {
       return;
@@ -529,6 +546,15 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const [dialogRect, setDialogRect] = useState<DialogRect>(() => computeDefaultDialogRect());
   // 拖动/调整大小进行中：禁用文本选中、隔离图层 pan/zoom 手势
   const [isInteracting, setIsInteracting] = useState(false);
+  // 拖动/缩放在遮罩上释放指针时，浏览器会派发一次合成 click（target=遮罩），
+  // 会误触发遮罩的关闭逻辑——拖拽结束后一帧内忽略遮罩 click
+  const suppressOverlayClickRef = useRef(false);
+  const armSuppressOverlayClick = useCallback(() => {
+    suppressOverlayClickRef.current = true;
+    window.requestAnimationFrame(() => {
+      suppressOverlayClickRef.current = false;
+    });
+  }, []);
 
   // 悬停高亮：悬停某节点时高亮其出/入边与两端节点，其余淡出
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -546,6 +572,21 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
   }, [visible, refreshNavGraph, requestNavLayout]);
 
+  // 冲刷待写盘的拖动位置：取消防抖计时器并立即上报 pending patch。
+  // 只发本次被拖动过的 key，宿主按 key 合并写入（不覆盖其他节点/其他面板）
+  const flushLayoutSave = useCallback(() => {
+    if (layoutSaveTimerRef.current !== null) {
+      window.clearTimeout(layoutSaveTimerRef.current);
+      layoutSaveTimerRef.current = null;
+    }
+    if (pendingLayoutSaveRef.current.size === 0) {
+      return;
+    }
+    const patch = Object.fromEntries(pendingLayoutSaveRef.current);
+    pendingLayoutSaveRef.current.clear();
+    saveNavLayout(patch);
+  }, [saveNavLayout]);
+
   // 关闭弹窗时复位交互态，避免下次打开残留聚焦/搜索；并把未落盘的拖动立即冲刷
   useEffect(() => {
     if (!visible) {
@@ -553,19 +594,17 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       setHoveredNodeId(null);
       setSearchQuery('');
       setSearchOpen(false);
-      if (layoutSaveTimerRef.current !== null) {
-        window.clearTimeout(layoutSaveTimerRef.current);
-        layoutSaveTimerRef.current = null;
-        if (pendingLayoutSaveRef.current.size > 0) {
-          const patch = Object.fromEntries(pendingLayoutSaveRef.current);
-          pendingLayoutSaveRef.current.clear();
-          saveNavLayout(patch);
-        }
-      }
+      flushLayoutSave();
       // 下次打开是新一轮 getNavLayout 请求-回填，避免残留上次的"已应用"标记
       appliedNavLayoutRef.current = null;
     }
-  }, [visible, saveNavLayout]);
+  }, [visible, flushLayoutSave]);
+
+  // 防抖窗口内组件被卸载（关面板 / webview reload）→ unmount cleanup 同步冲刷，
+  // 否则 800ms 内的拖动位置会静默丢失（visible→false 的冲刷路径不会跑到）
+  useEffect(() => () => {
+    flushLayoutSave();
+  }, [flushLayoutSave]);
 
   const graph = useMemo(() => buildGraph(allViews, currentFilePath), [allViews, currentFilePath]);
 
@@ -659,7 +698,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       rfInstanceRef.current?.fitView({ padding: isFocusMode ? 0.2 : 0.15, duration: 150 });
     }, 200);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 依赖有意省略 isFocusMode：聚焦切换有自己的 fitView effect，此处只响应尺寸变化
   }, [visible, dialogRect.width, dialogRect.height]);
 
   // 标题栏拖动：排除搜索框与工具栏按钮，避免与其内部手势冲突
@@ -690,10 +729,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       window.removeEventListener('pointerup', onUp);
       document.body.classList.remove('vrm-noselect');
       setIsInteracting(false);
+      armSuppressOverlayClick();
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  }, [dialogRect]);
+  }, [dialogRect, armSuppressOverlayClick]);
 
   // 右下角手柄调整大小：限制最小尺寸与视口可视范围
   const handleResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -720,10 +760,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       window.removeEventListener('pointerup', onUp);
       document.body.classList.remove('vrm-noselect');
       setIsInteracting(false);
+      armSuppressOverlayClick();
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  }, [dialogRect]);
+  }, [dialogRect, armSuppressOverlayClick]);
 
   const onNodesChange = useCallback((changes: NodeChange<ViewFlowNode>[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
@@ -738,23 +779,27 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     rfInstanceRef.current = instance;
   }, []);
 
-  // 冲刷待写盘的拖动位置：只发本次被拖动过的 key，宿主按 key 合并写入（不覆盖其他节点/其他面板）
-  const flushLayoutSave = useCallback(() => {
-    if (pendingLayoutSaveRef.current.size === 0) {
-      return;
-    }
-    const patch = Object.fromEntries(pendingLayoutSaveRef.current);
-    pendingLayoutSaveRef.current.clear();
-    saveNavLayout(patch);
-  }, [saveNavLayout]);
-
   // 拖动结束（T7）：占位节点（missing/ambiguous，无真实 viewKey）不持久化；
-  // 真实屏节点防抖 ~800ms 后批量上报
-  const onNodeDragStop = useCallback((_event: MouseEvent | TouchEvent, node: ViewFlowNode) => {
-    if (node.data.kind !== 'view') {
+  // 真实屏节点防抖 ~800ms 后批量上报。
+  // 多选拖动时 React Flow 第三参数 nodes 是本次被拖动的全部节点，
+  // 只写第二参数 node 会丢掉其余被拖节点的位置——必须全部进 patch
+  const onNodeDragStop = useCallback((
+    _event: MouseEvent | TouchEvent,
+    node: ViewFlowNode,
+    nodes: ViewFlowNode[]
+  ) => {
+    const dragged = nodes && nodes.length > 0 ? nodes : [node];
+    let touched = false;
+    for (const n of dragged) {
+      if (n.data.kind !== 'view') {
+        continue;
+      }
+      pendingLayoutSaveRef.current.set(n.id, { x: n.position.x, y: n.position.y });
+      touched = true;
+    }
+    if (!touched) {
       return;
     }
-    pendingLayoutSaveRef.current.set(node.id, { x: node.position.x, y: node.position.y });
     if (layoutSaveTimerRef.current !== null) {
       window.clearTimeout(layoutSaveTimerRef.current);
     }
@@ -789,6 +834,12 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // 搜索框内的 Esc 归搜索框（清空搜索），捕获阶段不拦截，
+        // 否则 stopPropagation 会吞掉输入框自己的 Esc 处理
+        const target = e.target as HTMLElement | null;
+        if (target && typeof target.closest === 'function' && target.closest('.vrm-search')) {
+          return;
+        }
         e.stopPropagation();
         setFocusPath([]);
       }
@@ -882,7 +933,17 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   }
 
   return (
-    <div className="vrm-overlay" onClick={onClose}>
+    <div
+      className="vrm-overlay"
+      onClick={e => {
+        // 只响应遮罩自身的点击（冒泡自弹窗内部的不算），且拖拽/缩放刚结束的
+        // 合成 click 一帧内忽略，避免拖到遮罩上释放误关弹窗（T5 回归）
+        if (e.target !== e.currentTarget || suppressOverlayClickRef.current) {
+          return;
+        }
+        onClose();
+      }}
+    >
       <div
         className={`vrm-dialog${isInteracting ? ' vrm-dialog-interacting' : ''}`}
         style={{ left: dialogRect.x, top: dialogRect.y, width: dialogRect.width, height: dialogRect.height }}
