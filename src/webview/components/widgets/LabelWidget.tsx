@@ -157,6 +157,9 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   if (likelyWrapHeightOverflow) {
     diagnosticMessages.push('换行高度不足');
   }
+  if (resolvedText.source === 'componentName' && !isSplitTime) {
+    diagnosticMessages.push('文本为空，设备上将显示空白');
+  }
 
   const renderDiagnosticBadges = () => {
     if (diagnosticMessages.length === 0) {

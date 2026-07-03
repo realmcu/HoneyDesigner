@@ -165,6 +165,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
     !i18nEntry[previewLocale]
   );
   const isI18nKeyMissing = Boolean(i18nKey && !i18nEntry);
+  const isDefaultTextEmpty = Boolean(i18nKey && !defaultLocaleText);
   const resolvedPreviewTextResult = resolveLocalizedText(
     projectI18nCatalog,
     (component.data as any)?.i18nKey,
@@ -979,32 +980,20 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
           )}
         </div>
 
-        <div className="property-item">
-          <label>{`${t('Default Locale Text')} (${defaultLocale})`}</label>
-          <PropertyEditor
-            type="string"
-            value={i18nKey ? defaultLocaleText : ''}
-            onChange={handleDefaultLocaleTextChange}
-            disabled={!i18nKey}
-            title={!i18nKey ? t('Set a localized key before editing translations') : undefined}
-          />
-        </div>
-
-        {previewLocale !== defaultLocale && (
+        {i18nKey && (
           <div className="property-item">
-            <label>{`${t('Current Locale Text')} (${previewLocale})`}</label>
+            <label>{`${t('Locale Text')} (${previewLocale})`}</label>
             <PropertyEditor
               type="string"
-              value={i18nKey ? currentLocaleText : ''}
-              onChange={handleCurrentLocaleTextChange}
-              disabled={!i18nKey}
-              title={!i18nKey ? t('Set a localized key before editing translations') : undefined}
+              value={previewLocale === defaultLocale ? defaultLocaleText : currentLocaleText}
+              onChange={previewLocale === defaultLocale ? handleDefaultLocaleTextChange : handleCurrentLocaleTextChange}
             />
           </div>
         )}
 
         {isI18nKeyMissing && renderI18nWarning(t('Localized key does not exist yet'))}
         {isPreviewLocaleMissing && renderI18nWarning(t('Current locale is missing and preview is falling back'))}
+        {!isI18nKeyMissing && isDefaultTextEmpty && renderI18nWarning(t('Default locale text is empty and firmware will render blank'))}
       </>
     );
   };
