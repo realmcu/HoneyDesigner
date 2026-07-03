@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo, NavLayoutMap } from './types';
+import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo, NavLayoutMap, ViewControlInfo } from './types';
 import {
   alignComponents,
   distributeComponents,
@@ -176,6 +176,10 @@ export interface DesignerStore extends DesignerState {
   saveNavLayout: (patch: NavLayoutMap) => void;
   /** 清除布局写入失败提示（用户关闭提示条时调用） */
   clearNavLayoutSaveError: () => void;
+  /** 请求宿主枚举某 view 下可交互控件（T9），结果经 viewControlsLoaded 消息回推 */
+  requestViewControls: (viewKey: string) => void;
+  /** 清除控件枚举结果/失败提示（关闭新建跳转选择器时调用） */
+  clearViewControls: () => void;
 
   // Alignment guides
   showAlignmentGuides: boolean;
@@ -442,6 +446,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   allViews: [] as ViewInfo[], // 项目中所有 view（含跳转关系，含控件级/定时器边）
   navLayout: null, // 导航图持久化布局；null = 尚未从宿主读取（T7）
   navLayoutSaveError: null, // 布局写入失败提示（不阻塞）
+  viewControls: null, // getViewControls 回推的控件列表（T9）
+  viewControlsForKey: null, // viewControls 对应的 viewKey
+  viewControlsError: null, // getViewControls 失败提示（不阻塞）
   isDirty: false, // store 内容相对磁盘是否有未保存改动
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
@@ -1013,6 +1020,12 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     }
   },
   clearNavLayoutSaveError: () => set({ navLayoutSaveError: null }),
+  requestViewControls: (viewKey) => {
+    if (vscodeAPI && viewKey) {
+      vscodeAPI.postMessage({ command: 'getViewControls', viewKey });
+    }
+  },
+  clearViewControls: () => set({ viewControls: null, viewControlsForKey: null, viewControlsError: null }),
   setShowAlignmentGuides: (show) => set({ showAlignmentGuides: show }),
   setAssetCategory: (category) => set({ assetCategory: category }),
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),

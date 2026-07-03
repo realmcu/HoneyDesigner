@@ -481,6 +481,15 @@ const App: React.FC = () => {
           useDesignerStore.setState({ navLayoutSaveError: null });
           break;
 
+        case 'viewControlsLoaded':
+          // getViewControls 回执（T9，UI 用在 T11）
+          useDesignerStore.setState({
+            viewControls: message.controls || [],
+            viewControlsForKey: message.viewKey ?? null,
+            viewControlsError: message.error ? String(message.error) : null,
+          });
+          break;
+
         case 'error':
           // Show error message
           console.error(message.text);

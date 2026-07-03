@@ -427,6 +427,11 @@ export class MessageHandler {
                 await this._handleSaveNavLayout(message.layout);
                 break;
 
+            case 'getViewControls':
+                // 给定 viewKey 枚举该 view 下可交互控件（T9，新建跳转前置）
+                await this._handleGetViewControls(message.viewKey);
+                break;
+
             default:
                 logger.warn(`[MessageHandler] 未知消息命令: ${message.command}`);
         }
@@ -1459,6 +1464,44 @@ export class MessageHandler {
             logger.error(`[MessageHandler] 保存导航布局失败: ${error}`);
             this._panel.webview.postMessage({
                 command: 'navLayoutSaveFailed',
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * 给定 viewKey（relPath#viewId），枚举该 view 下（剪枝到嵌套子屏前）可交互
+     * 控件列表，回推 viewControlsLoaded（T9，新建跳转前置，UI 用在 T11）。
+     * 找不到 view / 解析失败一律回推空数组（不阻塞交互），并带 error 供前端提示。
+     */
+    private async _handleGetViewControls(viewKey: string | undefined): Promise<void> {
+        if (!viewKey) {
+            this._panel.webview.postMessage({
+                command: 'viewControlsLoaded',
+                viewKey,
+                controls: [],
+                error: 'Missing viewKey'
+            });
+            return;
+        }
+        try {
+            const controls = await this._fileManager.getViewControls(viewKey);
+            if (!controls) {
+                this._panel.webview.postMessage({
+                    command: 'viewControlsLoaded',
+                    viewKey,
+                    controls: [],
+                    error: `View not found: ${viewKey}`
+                });
+                return;
+            }
+            this._panel.webview.postMessage({ command: 'viewControlsLoaded', viewKey, controls });
+        } catch (error) {
+            logger.error(`[MessageHandler] getViewControls 失败: ${error}`);
+            this._panel.webview.postMessage({
+                command: 'viewControlsLoaded',
+                viewKey,
+                controls: [],
                 error: error instanceof Error ? error.message : String(error)
             });
         }

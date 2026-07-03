@@ -11,6 +11,7 @@ import type {
 } from '../hml/types';
 import type { ProjectI18nIndex } from '../project-i18n/projectIndex';
 import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
+import type { EventType } from '../hml/eventTypes';
 
 export type ComponentPosition = HmlComponentPosition;
 export type ComponentStyle = HmlComponentStyle;
@@ -135,6 +136,17 @@ export interface NavLayoutEntry {
 // 复合键（relPath#viewId）→ 坐标
 export type NavLayoutMap = Record<string, NavLayoutEntry>;
 
+// 单个 view 下可交互控件的枚举描述（T9，用于 T11 新建跳转选择器）
+// 与 src/designer/FileManager.ts 的 ViewControlInfo 保持同步。
+export interface ViewControlInfo {
+  id: string;
+  name: string;
+  type: string;
+  supportedEvents: EventType[];
+  occupiedSwitchViewEvents: EventType[];
+  sourceIsView: boolean;
+}
+
 export interface DesignerState {
   components: Component[];
   allViews?: ViewInfo[]; // 项目中所有 view（含跳转关系）
@@ -143,6 +155,9 @@ export interface DesignerState {
   currentFilePath?: string; // 当前打开的文件路径
   navLayout: NavLayoutMap | null; // 导航图持久化布局；null = 尚未从宿主读取
   navLayoutSaveError: string | null; // 布局写入失败的提示文案（不阻塞，仅展示）
+  viewControls: ViewControlInfo[] | null; // 请求 getViewControls 后回推的控件列表（T9，UI 用在 T11）
+  viewControlsForKey: string | null; // 上面 viewControls 对应的 viewKey，用于校验请求-响应是否匹配
+  viewControlsError: string | null; // getViewControls 失败提示（不阻塞，仅展示）
   isDirty: boolean; // store 内容相对磁盘是否有未保存改动（变化时经 dirtyStateChanged 消息同步给宿主）
   selectedComponent: string | null;
   selectedComponents: string[];

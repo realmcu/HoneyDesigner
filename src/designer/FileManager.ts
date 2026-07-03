@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { logger } from '../utils/Logger';
 import type { Component, TimerAction } from '../hml/types';
+import { getSupportedEvents } from '../hml/eventTypes';
+import type { EventType } from '../hml/eventTypes';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { HmlController } from '../hml/HmlController';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
@@ -87,6 +89,22 @@ export interface ViewNavNode {
     fileMtime?: number;
     /** 扫描时文件内容 hash（sha1） */
     fileHash?: string;
+}
+
+/**
+ * 单个 view 下可交互控件的枚举描述（T9 getViewControls）
+ * 与 src/webview/types.ts 的 ViewControlInfo 保持同步。
+ */
+export interface ViewControlInfo {
+    id: string;
+    name: string;
+    type: string;
+    /** 该组件类型支持的事件（COMPONENT_SUPPORTED_EVENTS/DEFAULT_SUPPORTED_EVENTS） */
+    supportedEvents: EventType[];
+    /** 已配置 switchView action 的事件类型（新建跳转时据此禁用已占用事件） */
+    occupiedSwitchViewEvents: EventType[];
+    /** true = 该项是 view 自身（屏手势跳转），非后代控件 */
+    sourceIsView: boolean;
 }
 
 /** 采集边时的单文件上下文 */
@@ -580,24 +598,8 @@ export class FileManager {
                 const doc = tempController.parseContent(content, hmlFile.path);
                 const components: Component[] = doc.view?.components || [];
 
-                // 扁平模型 → id→component 与 parent→children[] 索引
-                const byId = new Map<string, Component>();
-                const childrenOf = new Map<string, Component[]>();
-                for (const comp of components) {
-                    if (comp?.id) {
-                        byId.set(comp.id, comp);
-                    }
-                }
-                for (const comp of components) {
-                    if (comp?.parent && byId.has(comp.parent)) {
-                        const siblings = childrenOf.get(comp.parent);
-                        if (siblings) {
-                            siblings.push(comp);
-                        } else {
-                            childrenOf.set(comp.parent, [comp]);
-                        }
-                    }
-                }
+                // 扁平模型 → id→component 与 parent→children[] 索引（T9 getViewControls 复用）
+                const { byId, childrenOf } = this._buildComponentIndex(components);
 
                 for (const comp of components) {
                     if (comp?.type !== 'hg_view') {
@@ -666,6 +668,118 @@ export class FileManager {
         }
 
         return allViews;
+    }
+
+    /**
+     * 扁平组件表 → id→component 与 parent→children[] 索引（T2/T9 共用）
+     */
+    private _buildComponentIndex(components: Component[]): {
+        byId: Map<string, Component>;
+        childrenOf: Map<string, Component[]>;
+    } {
+        const byId = new Map<string, Component>();
+        const childrenOf = new Map<string, Component[]>();
+        for (const comp of components) {
+            if (comp?.id) {
+                byId.set(comp.id, comp);
+            }
+        }
+        for (const comp of components) {
+            if (comp?.parent && byId.has(comp.parent)) {
+                const siblings = childrenOf.get(comp.parent);
+                if (siblings) {
+                    siblings.push(comp);
+                } else {
+                    childrenOf.set(comp.parent, [comp]);
+                }
+            }
+        }
+        return { byId, childrenOf };
+    }
+
+    /**
+     * 给定 viewKey（relPath#viewId），返回该 view 下（剪枝到嵌套子屏前）
+     * 可交互控件列表（含 view 自身，sourceIsView 语义 = 屏手势跳转）。
+     * 复用 T2 scanAllViews 的 id→component / parent→children[] 索引遍历逻辑。
+     * 找不到项目根目录 / 文件 / view 时返回 null。
+     */
+    public async getViewControls(viewKey: string): Promise<ViewControlInfo[] | null> {
+        if (!this._filePath) {
+            return null;
+        }
+        const projectRoot = ProjectUtils.findProjectRoot(this._filePath);
+        if (!projectRoot) {
+            return null;
+        }
+
+        const hashIndex = viewKey.indexOf('#');
+        if (hashIndex < 0) {
+            logger.warn(`[FileManager] getViewControls: 非法 viewKey（缺少 #）: ${viewKey}`);
+            return null;
+        }
+        const fileRelative = viewKey.slice(0, hashIndex);
+        const viewId = viewKey.slice(hashIndex + 1);
+        if (!fileRelative || !viewId) {
+            return null;
+        }
+
+        const absPath = path.join(projectRoot, ...fileRelative.split('/'));
+
+        let components: Component[];
+        try {
+            const content = fs.readFileSync(absPath, 'utf-8');
+            const tempController = new HmlController();
+            const doc = tempController.parseContent(content, absPath);
+            components = doc.view?.components || [];
+        } catch (err) {
+            logger.warn(`[FileManager] getViewControls: 读取/解析 ${absPath} 失败: ${err}`);
+            return null;
+        }
+
+        const { byId, childrenOf } = this._buildComponentIndex(components);
+        const viewComp = byId.get(viewId);
+        if (!viewComp || viewComp.type !== 'hg_view') {
+            logger.warn(`[FileManager] getViewControls: 未找到 view ${viewKey}`);
+            return null;
+        }
+
+        const result: ViewControlInfo[] = [this._describeControl(viewComp, true)];
+
+        // 后代控件，遇嵌套 hg_view 剪枝（子屏控件不属于本屏）
+        const queue: Component[] = [...(childrenOf.get(viewComp.id) || [])];
+        while (queue.length > 0) {
+            const child = queue.shift()!;
+            if (child.type === 'hg_view') {
+                continue;
+            }
+            result.push(this._describeControl(child, false));
+            queue.push(...(childrenOf.get(child.id) || []));
+        }
+
+        return result;
+    }
+
+    /**
+     * 构造单个控件的枚举描述：支持事件（COMPONENT_SUPPORTED_EVENTS/DEFAULT_SUPPORTED_EVENTS）
+     * + 已配置 switchView action 的事件类型列表（occupiedSwitchViewEvents）
+     */
+    private _describeControl(comp: Component, sourceIsView: boolean): ViewControlInfo {
+        const supportedEvents = getSupportedEvents(comp.type);
+        const occupiedSet = new Set<EventType>();
+        for (const eventConfig of comp.eventConfigs || []) {
+            const hasSwitchView = (eventConfig.actions || []).some(action => action.type === 'switchView');
+            if (hasSwitchView) {
+                occupiedSet.add(eventConfig.type);
+            }
+        }
+        return {
+            id: comp.id,
+            name: comp.name || comp.id,
+            type: comp.type,
+            supportedEvents,
+            occupiedSwitchViewEvents: [...occupiedSet],
+            sourceIsView,
+        };
     }
 
     /**
