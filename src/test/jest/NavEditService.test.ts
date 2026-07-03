@@ -381,6 +381,91 @@ describe('NavEditService.applyNavEdit', () => {
     expect(afterRollback).toBe(CLEAN_CONTENT); // 逐字节恢复到写前原文
   });
 
+  it("needsConfirm(nameAttributes) still fires when an attribute value containing '>' precedes the name attribute (H2)", async () => {
+    // 老实现用 /<tag([^>]*)/ 提取属性，text="a > b" 的 '>' 截断标签，
+    // 其后的 name 检测漏报 → 不弹确认直接写盘，静默斩断跨文件 name 引用
+    const content = CLEAN_CONTENT.replace(
+      '<hg_button id="btn_a" x="10" y="10" w="80" h="30" text="Go">',
+      '<hg_button id="btn_a" x="10" y="10" w="80" h="30" text="a > b" name="named_target">'
+    );
+    fs.writeFileSync(filePath, content, 'utf-8');
+    const service = new NavEditService(noOpHooks());
+
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(content),
+      },
+    }, projectRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.needsConfirm).toBe(true);
+    expect(result.confirmReasons).toContain('nameAttributes');
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(content); // 未确认前磁盘不动
+  });
+
+  it("needsConfirm(nameAttributes) fires when the name attribute precedes an attribute value containing '>' (H2)", async () => {
+    const content = CLEAN_CONTENT.replace(
+      '<hg_button id="btn_a" x="10" y="10" w="80" h="30" text="Go">',
+      '<hg_button id="btn_a" name="named_target" x="10" y="10" w="80" h="30" text="a > b">'
+    );
+    fs.writeFileSync(filePath, content, 'utf-8');
+    const service = new NavEditService(noOpHooks());
+
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(content),
+      },
+    }, projectRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.needsConfirm).toBe(true);
+    expect(result.confirmReasons).toContain('nameAttributes');
+  });
+
+  it("an attribute value containing '>' alone (no name attribute) does not trigger needsConfirm and the edit applies (H2)", async () => {
+    const content = CLEAN_CONTENT.replace(
+      'text="Go"',
+      'text="a > b"'
+    );
+    fs.writeFileSync(filePath, content, 'utf-8');
+    const service = new NavEditService(noOpHooks());
+
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(content),
+      },
+    }, projectRoot);
+
+    // 不应因引号内容触发 needsConfirm，直接写盘成功
+    expect(result.needsConfirm).toBeUndefined();
+    expect(result.success).toBe(true);
+    expect(fs.readFileSync(filePath, 'utf-8')).toMatch(/target="view_a"/);
+  });
+
   it('pushes the pre-write snapshot into the panel undo stack and reloads the panel when a panel adapter exists', async () => {
     const pushUndoSnapshot = jest.fn((_content: string) => undefined);
     const reloadFromContent = jest.fn(async (_content: string) => undefined);

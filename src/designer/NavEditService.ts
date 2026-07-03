@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { logger } from '../utils/Logger';
 import { HmlParser, ComponentRegistry } from '../hml/HmlParser';
 import { HmlSerializer } from '../hml/HmlSerializer';
+import { scanOpenTags } from '../hml/tagScan';
 import type { Document as HmlDocument, Component } from '../hml/types';
 import type { Action, EventConfig, EventType } from '../hml/eventTypes';
 import { getSupportedEvents } from '../hml/eventTypes';
@@ -470,21 +471,21 @@ export class NavEditService {
         const start = original.search(/<view[\s>]/);
         const end = original.lastIndexOf('</view>');
         if (start >= 0 && end > start) {
-            // 剔除注释后再扫标签，避免注释内容误报
+            // 剔除注释后再扫标签，避免注释内容误报。标签扫描必须尊重引号：
+            // 属性值含 '>'（如 text="a > b"）时 [^>]* 一类正则会截断标签，
+            // 漏检其后的 name 属性——与 validateViewIds 共用 scanOpenTags
             const viewXml = original.slice(start, end).replace(/<!--[\s\S]*?-->/g, '');
             const structural = new Set(['view', 'events', 'event', 'action']);
-            const tagRe = /<([A-Za-z_][A-Za-z0-9_.:-]*)([^>]*)/g;
             const unknown = new Set<string>();
             const namedTags = new Set<string>();
-            let m: RegExpExecArray | null;
-            while ((m = tagRe.exec(viewXml)) !== null) {
-                const tag = m[1];
+            for (const openTag of scanOpenTags(viewXml)) {
+                const tag = openTag.name;
                 if (structural.has(tag)) {
                     continue;
                 }
                 if (!ComponentRegistry.isValidComponent(tag)) {
                     unknown.add(tag);
-                } else if (/\sname\s*=\s*["']/.test(m[2] || '')) {
+                } else if (/\sname\s*=\s*["']/.test(openTag.attrsText)) {
                     namedTags.add(tag);
                 }
             }
