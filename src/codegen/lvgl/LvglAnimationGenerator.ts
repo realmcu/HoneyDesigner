@@ -417,7 +417,17 @@ export class LvglAnimationGenerator {
     return code;
   }
 
-  /** Shared timeline-add emission (used inline and inside start helpers). */
+  /**
+   * Shared timeline-add emission (used inline and inside start helpers).
+   *
+   * Each anim gets `early_apply` disabled: LVGL's timeline defaults to applying a
+   * descriptor's start_value while act_time is still before its slot (lv_anim
+   * early_apply=1). When several segments drive the SAME object property (e.g. a
+   * progressbar value going 0->100 then 100->0), a later segment would clobber an
+   * earlier one that is still playing, so only the last segment is ever visible.
+   * Turning early_apply off makes each segment act strictly within its own slot,
+   * which is the correct timeline semantics.
+   */
   private emitTimelineAdds(objId: string, index: number, segments: Segment[], tlVar: string, componentType = ''): string {
     let code = '';
     let startTime = 0;
@@ -429,6 +439,7 @@ export class LvglAnimationGenerator {
         const prefix = `a_${objId}_t${index}_s${segIdx}_${actionIdx}`;
         this.actionToAnimSpecs(action, prefix, componentType).forEach(s => {
           code += this.buildAnim(s.name, objId, s.helper, s.from, s.to, effDuration,
+            `    lv_anim_set_early_apply(&${s.name}, false);\n` +
             `    lv_anim_timeline_add(${tlVar}, ${startTime}, &${s.name});\n`);
         });
       });
