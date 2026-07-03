@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useDesignerStore } from './store';
+import { useDesignerStore, applyHostComponents } from './store';
 import DesignerCanvas from './components/DesignerCanvas';
 import ComponentLibrary, { componentDefinitions } from './components/ComponentLibrary';
 import PropertiesPanel from './components/PropertiesPanel';
@@ -221,7 +221,7 @@ const App: React.FC = () => {
           // 首次加载时清空旧组件并显示加载状态，保存后刷新时保持当前状态
           if (!hadComponentsBefore) {
             setIsLoadingFile(true);
-            useDesignerStore.setState({ components: [] });
+            applyHostComponents(() => useDesignerStore.setState({ components: [] }));
           }
           
           // Set locale if provided（同时保存到状态）
@@ -343,7 +343,13 @@ const App: React.FC = () => {
               }
               
               // 【关键】一次性更新所有状态，只触发一次渲染
-              useDesignerStore.setState(batchUpdate);
+              // （宿主推送的内容，components 变化不记为未保存改动）
+              applyHostComponents(() => useDesignerStore.setState(batchUpdate));
+
+              // 应用宿主内容后 store 与磁盘同步，复位脏状态并通知宿主
+              if (message.components) {
+                useDesignerStore.getState().resetDirty();
+              }
               
               // 【关键】延迟隐藏加载状态，确保渲染完成
               requestAnimationFrame(() => {
@@ -398,13 +404,15 @@ const App: React.FC = () => {
               }
               
               if (message.components) {
-                store.setComponents(message.components);
+                // 宿主推送的内容，components 变化不记为未保存改动
+                applyHostComponents(() => store.setComponents(message.components));
+                useDesignerStore.getState().resetDirty();
                 // 仅首次加载时自适应居中
                 if (!hadComponentsBefore) {
                   setTimeout(() => { store.fitContentToView(); }, 0);
                 }
               }
-              
+
               // 隐藏加载状态
               setIsLoadingFile(false);
             }
@@ -664,6 +672,13 @@ const App: React.FC = () => {
               redoStack: message.canRedo ? ['placeholder'] : [],
             });
           }
+          break;
+
+        case 'hmlSaved':
+          // 宿主保存成功回执：复位本地脏标记，使后续编辑能再次触发
+          // dirtyStateChanged(true)（markDirty 只在 false→true 变化时发消息）。
+          // 宿主侧缓存已由 handleSave 按 dirty 序号清除，这里不再回发消息
+          useDesignerStore.setState({ isDirty: false });
           break;
       }
     });

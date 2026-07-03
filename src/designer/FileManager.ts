@@ -12,6 +12,7 @@ import { HmlContentComparator } from '../utils/HmlContentComparator';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog } from '../project-i18n/files';
+import { PendingWriteRegistry } from './PendingWriteRegistry';
 
 /**
  * 视图跳转边（导航图数据模型）
@@ -117,9 +118,21 @@ export class FileManager {
     
     // 事件发射器
     private readonly _onDidUpdateTitle = new vscode.EventEmitter<string>();
-    
+    private readonly _onDidChangeFilePath = new vscode.EventEmitter<string | undefined>();
+
     // 事件
     public readonly onDidUpdateTitle = this._onDidUpdateTitle.event;
+    /** 当前文件路径变化（面板创建加载 / 另存为 / 新建空白文档），DesignerPanel 据此维护路径→面板索引 */
+    public readonly onDidChangeFilePath = this._onDidChangeFilePath.event;
+
+    // webview（Zustand store）侧的未保存改动状态。
+    // 设计器编辑只存在于 webview store 中、显式保存才落盘，对 TextDocument
+    // dirty 检测不可见（设计文档约束 5），因此由 webview 在脏状态变化时发
+    // dirtyStateChanged 消息、宿主在此缓存，供写事务前置校验查询。
+    private _webviewDirty = false;
+    // 单调递增序号：防止「保存进行中又产生新改动」时，保存成功回调把新改动的
+    // dirty 标记误清掉（保存开始时记录序号，成功后仅在序号未变时清除）。
+    private _webviewDirtySeq = 0;
 
     // project.json 文件监听器
     private _projectConfigWatcher: vscode.FileSystemWatcher | undefined;
@@ -232,7 +245,50 @@ export class FileManager {
     }
 
     public set currentFilePath(path: string | undefined) {
-        this._filePath = path;
+        this._setFilePath(path);
+    }
+
+    /**
+     * 统一的文件路径赋值入口：路径变化时触发 onDidChangeFilePath
+     * （所有 _filePath 赋值必须经此，保证面板路径索引不漏更新）
+     */
+    private _setFilePath(filePath: string | undefined): void {
+        if (this._filePath === filePath) {
+            return;
+        }
+        this._filePath = filePath;
+        this._onDidChangeFilePath.fire(filePath);
+    }
+
+    /** webview 是否有未保存改动（缓存自 dirtyStateChanged 消息） */
+    public get hasUnsavedWebviewChanges(): boolean {
+        return this._webviewDirty;
+    }
+
+    /** 由 MessageHandler 在收到 dirtyStateChanged 消息时调用 */
+    public setWebviewDirty(dirty: boolean): void {
+        if (dirty) {
+            this._webviewDirty = true;
+            this._webviewDirtySeq++;
+        } else {
+            this._webviewDirty = false;
+        }
+        logger.debug(`[FileManager] webview dirty 状态: ${this._webviewDirty} (seq=${this._webviewDirtySeq})`);
+    }
+
+    /** 当前 dirty 序号（保存开始前记录，配合 clearWebviewDirtyIfUnchanged 使用） */
+    public get webviewDirtySeq(): number {
+        return this._webviewDirtySeq;
+    }
+
+    /**
+     * 保存成功后清除 webview dirty 缓存——仅在保存期间没有新改动到达
+     * （dirty 序号未变）时清除，防止把保存内容之外的新改动标记误清
+     */
+    public clearWebviewDirtyIfUnchanged(seqAtSaveStart: number): void {
+        if (this._webviewDirtySeq === seqAtSaveStart) {
+            this._webviewDirty = false;
+        }
     }
 
     /**
@@ -833,7 +889,7 @@ export class FileManager {
 
             // 更新面板标题
             this._onDidUpdateTitle.fire('HoneyGUI 设计器 - 未命名');
-            this._filePath = undefined;
+            this._setFilePath(undefined);
 
         } catch (error) {
             logger.error(`创建新文档失败: ${error}`);
@@ -846,7 +902,11 @@ export class FileManager {
      * 不立即发送，等待前端 ready 消息后由 reloadCurrentDocument() 发送
      */
     public async loadFromDocument(document: vscode.TextDocument): Promise<void> {
-        this._filePath = document.uri.fsPath;
+        this._setFilePath(document.uri.fsPath);
+
+        // 即将把磁盘内容推给 webview（loadHml），store 将与磁盘同步；
+        // webview 应用后也会回发 dirtyStateChanged(false)，此处先行清除避免陈旧 true
+        this.setWebviewDirty(false);
 
         logger.info(`[FileManager] loadFromDocument: 开始加载文件 ${this._filePath}`);
 
@@ -918,6 +978,13 @@ export class FileManager {
         }
 
         if (this._filePath) {
+            // 命中跨面板「预期写入登记表」：本次磁盘变化是宿主写事务（如导航图
+            // 边编辑）自己写入的，跳过重载回灌并消费该登记（时间窗/宽限期语义
+            // 见 PendingWriteRegistry）。写事务完成后由其回执负责刷新各面板。
+            if (PendingWriteRegistry.getInstance().consumeIfPending(this._filePath)) {
+                logger.info(`[FileManager] updateFromDocument: 命中预期写入登记，跳过本次重载: ${this._filePath}`);
+                return;
+            }
             try {
                 logger.debug(`[FileManager] updateFromDocument: 重新加载文件 ${this._filePath}`);
                 const document = await vscode.workspace.openTextDocument(this._filePath);
@@ -977,7 +1044,7 @@ export class FileManager {
                 // 提示用户选择保存位置
                 const selectedPath = await this._saveManager.promptSaveLocation(content);
                 if (selectedPath) {
-                    this._filePath = selectedPath;
+                    this._setFilePath(selectedPath);
 
                     // 更新面板标题
                     const fileName = path.basename(selectedPath);

@@ -143,6 +143,7 @@ export interface DesignerState {
   currentFilePath?: string; // 当前打开的文件路径
   navLayout: NavLayoutMap | null; // 导航图持久化布局；null = 尚未从宿主读取
   navLayoutSaveError: string | null; // 布局写入失败的提示文案（不阻塞，仅展示）
+  isDirty: boolean; // store 内容相对磁盘是否有未保存改动（变化时经 dirtyStateChanged 消息同步给宿主）
   selectedComponent: string | null;
   selectedComponents: string[];
   hoveredComponent: string | null;

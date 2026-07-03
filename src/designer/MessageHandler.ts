@@ -74,6 +74,12 @@ export class MessageHandler {
                 await this.handleSave(message);
                 break;
 
+            case 'dirtyStateChanged':
+                // webview store 脏状态变化（编辑产生 → true；loadHml 应用完成 → false）。
+                // 宿主按面板缓存，供 DesignerPanel.isFileOpenWithUnsavedChanges 静态查询
+                this._fileManager.setWebviewDirty(message.dirty === true);
+                break;
+
             case 'undo':
                 logger.debug('[MessageHandler] 收到撤销请求');
                 const undoSuccess = await this._fileManager.undo();
@@ -582,6 +588,10 @@ export class MessageHandler {
     private async handleSave(message: any): Promise<void> {
         logger.debug(`[MessageHandler] 收到保存请求，组件数量: ${message?.content?.components?.length || 0}`);
 
+        // 记录保存开始时的 dirty 序号：保存期间若 webview 又报新改动（seq 变化），
+        // 保存成功后不清除 dirty 缓存（新改动不在本次落盘内容中）
+        const dirtySeqAtStart = this._fileManager.webviewDirtySeq;
+
         try {
             // 保存前记录当前状态到撤销栈（直接读文件，避免 VSCode buffer 不同步）
             const currentFilePath = this._fileManager.currentFilePath;
@@ -604,7 +614,15 @@ export class MessageHandler {
         }
         const serializedContent = this._hmlController.serializeDocument();
         logger.debug(`[MessageHandler] 序列化完成，内容长度: ${serializedContent.length}`);
-        await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
+        const saved = await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
+
+        if (saved) {
+            // 保存成功：清宿主侧 dirty 缓存（seq 未变时），并回执 webview 复位其
+            // 本地 isDirty——否则 webview 的 markDirty 只在 false→true 变化时发消息，
+            // 「编辑→保存→再编辑」的第二次编辑不会再通知宿主，宿主缓存会漏报 dirty
+            this._fileManager.clearWebviewDirtyIfUnchanged(dirtySeqAtStart);
+            this._panel.webview.postMessage({ command: 'hmlSaved' });
+        }
 
         // 保存后通知前端更新撤销/重做状态
         this._fileManager.sendUndoRedoState();

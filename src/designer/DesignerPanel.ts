@@ -12,6 +12,7 @@ import { WebviewContentProvider } from './WebviewContentProvider';
 import { DesignerService } from './DesignerService';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
+import { PendingWriteRegistry } from './PendingWriteRegistry';
 
 /**
  * 设计器Webview面板管理类
@@ -19,9 +20,17 @@ import { CodeGenerationService } from '../services/CodeGenerationService';
 export class DesignerPanel {
     /** @deprecated Use panelRegistry instead for multi-file support */
     public static currentPanel: DesignerPanel | undefined;
-    /** Registry of all active panels by file path */
+    /**
+     * 「规范化文件路径 → 面板」索引。
+     * 键统一用 PendingWriteRegistry.normalizePathKey 规范化；由面板在
+     * 创建/切换文件/dispose 时经 _syncPanelRegistry 自动维护。
+     * 注：同一文件被分屏打开成多个自定义编辑器时后注册者覆盖前者（记录最近一个）。
+     */
     private static panelRegistry: Map<string, DesignerPanel> = new Map();
     public static readonly viewType = 'honeyguiDesigner';
+
+    /** 本面板当前在 panelRegistry 中占用的键（规范化路径），无文件时为 undefined */
+    private _registeredPathKey: string | undefined;
 
     private readonly _panel: vscode.WebviewPanel;
     private readonly _extensionUri: vscode.Uri;
@@ -54,17 +63,43 @@ export class DesignerPanel {
     }
 
     /**
-     * 获取指定文件路径的面板
+     * 获取当前打开指定文件的面板（路径经规范化比较）
      */
     public static getPanel(filePath: string): DesignerPanel | undefined {
-        return DesignerPanel.panelRegistry.get(filePath);
+        return DesignerPanel.panelRegistry.get(PendingWriteRegistry.normalizePathKey(filePath));
     }
 
     /**
-     * 注册面板到 registry
+     * 静态查询：此文件是否被某个设计器面板打开且有未保存改动（webview store 内存态）。
+     * 供写事务（T10）前置校验使用——设计器编辑对 TextDocument dirty 检测不可见。
      */
-    public static registerPanel(filePath: string, panel: DesignerPanel): void {
-        DesignerPanel.panelRegistry.set(filePath, panel);
+    public static isFileOpenWithUnsavedChanges(filePath: string): boolean {
+        const panel = DesignerPanel.getPanel(filePath);
+        return !!panel && panel.hasUnsavedWebviewChanges;
+    }
+
+    /** 本面板 webview 是否有未保存改动（缓存自 dirtyStateChanged 消息） */
+    public get hasUnsavedWebviewChanges(): boolean {
+        return this._fileManager.hasUnsavedWebviewChanges;
+    }
+
+    /**
+     * 维护「规范化文件路径 → 面板」索引：面板创建（带文件）/切换文件/dispose 时调用。
+     * 传 undefined 表示本面板不再关联任何文件（新建空白文档或 dispose）。
+     */
+    private _syncPanelRegistry(filePath: string | undefined): void {
+        const newKey = filePath ? PendingWriteRegistry.normalizePathKey(filePath) : undefined;
+        if (this._registeredPathKey === newKey) {
+            return;
+        }
+        // 只删除仍指向自己的旧条目（避免误删后来居上的其他面板）
+        if (this._registeredPathKey && DesignerPanel.panelRegistry.get(this._registeredPathKey) === this) {
+            DesignerPanel.panelRegistry.delete(this._registeredPathKey);
+        }
+        if (newKey) {
+            DesignerPanel.panelRegistry.set(newKey, this);
+        }
+        this._registeredPathKey = newKey;
     }
 
     /**
@@ -106,6 +141,11 @@ export class DesignerPanel {
         // Initialize WebviewContentProvider
         this._webviewContentProvider = new WebviewContentProvider(context.extensionUri);
         
+        // 文件路径变化（创建加载/另存为/新建空白）时维护「路径 → 面板」索引
+        this._disposables.push(
+            this._fileManager.onDidChangeFilePath(filePath => this._syncPanelRegistry(filePath))
+        );
+
         // 如果有文档，设置文件路径
         if (document) {
             this._fileManager.currentFilePath = document.uri.fsPath;
@@ -211,11 +251,8 @@ export class DesignerPanel {
     }
     
     public dispose(): void {
-        // 从 registry 中移除
-        const filePath = this._fileManager.currentFilePath;
-        if (filePath) {
-            DesignerPanel.panelRegistry.delete(filePath);
-        }
+        // 从「路径 → 面板」索引中移除自己
+        this._syncPanelRegistry(undefined);
         DesignerPanel.currentPanel = undefined;
 
         // 清理 project.json watcher

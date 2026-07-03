@@ -208,6 +208,11 @@ export interface DesignerStore extends DesignerState {
   vscodeAPI: VSCodeAPI | null;
   setVSCodeAPI: (api: VSCodeAPI) => void;
   saveToFile: () => void;
+
+  // 未保存改动（脏状态）跟踪：markDirty 由 components 变化订阅自动触发；
+  // resetDirty 在应用宿主推送内容（loadHml）后调用；两者变化时向宿主发 dirtyStateChanged
+  markDirty: () => void;
+  resetDirty: () => void;
   setProjectI18nCatalog: (catalog: I18nCatalog) => void;
   setPreviewLocale: (locale: LocaleCode) => void;
   setProjectI18nIndex: (index?: ProjectI18nIndex, errors?: Array<{ filePath: string; message: string }>) => void;
@@ -437,6 +442,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   allViews: [] as ViewInfo[], // 项目中所有 view（含跳转关系，含控件级/定时器边）
   navLayout: null, // 导航图持久化布局；null = 尚未从宿主读取（T7）
   navLayoutSaveError: null, // 布局写入失败提示（不阻塞）
+  isDirty: false, // store 内容相对磁盘是否有未保存改动
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
   currentFilePath: '' as string, // 当前打开的文件路径
@@ -1234,6 +1240,24 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         components: state.components,
       },
     });
+  },
+
+  // 脏状态跟踪：只在 false→true 变化时发消息（拖拽等高频改动不会刷消息）。
+  // 复位路径有二：①保存成功——宿主 handleSave 清自身缓存并回执 hmlSaved，
+  // webview 收到后本地复位（App.tsx）；②应用宿主推送内容（loadHml）——
+  // 调用 resetDirty（本地复位 + 通知宿主）
+  markDirty: () => {
+    if (get().isDirty) return;
+    set({ isDirty: true });
+    vscodeAPI?.postMessage({ command: 'dirtyStateChanged', dirty: true });
+  },
+
+  resetDirty: () => {
+    if (get().isDirty) {
+      set({ isDirty: false });
+    }
+    // 无条件通知宿主，保证宿主缓存与 webview 同步（如宿主重载后陈旧的 true）
+    vscodeAPI?.postMessage({ command: 'dirtyStateChanged', dirty: false });
   },
 
   setProjectI18nCatalog: (catalog) => {
@@ -2347,6 +2371,35 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   },
 
 };
+});
+
+// ============ 脏状态跟踪 ============
+
+// 应用宿主推送内容（loadHml 等）期间置位，抑制脏状态订阅误判为用户编辑
+let suppressDirtyTracking = false;
+
+/**
+ * 在回调内应用宿主推送的组件内容（loadHml 等），期间 components 变化
+ * 不会被记为「未保存改动」。仅供消息处理入口（App.tsx）使用。
+ */
+export function applyHostComponents<T>(fn: () => T): T {
+  suppressDirtyTracking = true;
+  try {
+    return fn();
+  } finally {
+    suppressDirtyTracking = false;
+  }
+}
+
+// 集中订阅 components 引用变化 → 标脏。
+// 好处：无需在每个会改动组件的 action 里逐一埋点（现有 20+ 处 set 组件的
+// action，逐一埋点必漏）；宿主推送经 applyHostComponents 包裹不触发。
+// markDirty 内部 set() 会重入本订阅，但那次 components 引用未变，不会递归。
+useDesignerStore.subscribe((state, prevState) => {
+  if (suppressDirtyTracking) return;
+  if (state.components !== prevState.components) {
+    useDesignerStore.getState().markDirty();
+  }
 });
 
 // Helper function to generate unique ID
