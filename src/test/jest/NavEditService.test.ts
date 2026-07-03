@@ -9,6 +9,7 @@ import {
   NavEditRequest,
 } from '../../designer/NavEditService';
 import { HmlSerializer } from '../../hml/HmlSerializer';
+import { PendingWriteRegistry } from '../../designer/PendingWriteRegistry';
 
 /**
  * NavEditService 写事务核心测试（对应设计文档 T10）。
@@ -97,6 +98,8 @@ describe('NavEditService.applyNavEdit', () => {
   });
 
   afterEach(() => {
+    // 写事务会在全局单例登记表登记本文件；清掉避免跨用例串扰
+    PendingWriteRegistry.getInstance().unregister(filePath);
     fs.rmSync(projectRoot, { recursive: true, force: true });
     jest.restoreAllMocks();
   });
@@ -464,6 +467,113 @@ describe('NavEditService.applyNavEdit', () => {
     expect(result.needsConfirm).toBeUndefined();
     expect(result.success).toBe(true);
     expect(fs.readFileSync(filePath, 'utf-8')).toMatch(/target="view_a"/);
+  });
+
+  it('unregisters the pending-write registration when the disk write fails (H1)', async () => {
+    const service = new NavEditService(noOpHooks());
+    jest
+      .spyOn(HmlSerializer.prototype, 'serializeToFile')
+      .mockImplementation(async () => {
+        throw new Error('simulated disk write failure');
+      });
+
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(CLEAN_CONTENT),
+      },
+    }, projectRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('writeFailed');
+    // 失败后登记必须被注销：3s 窗口内真实外部编辑不得被 consumeIfPending 吞掉
+    expect(PendingWriteRegistry.getInstance().hasPending(filePath)).toBe(false);
+    expect(PendingWriteRegistry.getInstance().consumeIfPending(filePath)).toBe(false);
+  });
+
+  it('unregisters the pending-write registration even when the rollback also fails (H1)', async () => {
+    const service = new NavEditService(noOpHooks());
+    jest
+      .spyOn(HmlSerializer.prototype, 'serializeToFile')
+      .mockImplementation(async () => {
+        throw new Error('simulated disk write failure');
+      });
+    // 回滚也失败（fs.writeFileSync 在新版 Node 不可 spy，mock 私有 _rollback 返回失败原因）
+    jest
+      .spyOn(NavEditService.prototype as any, '_rollback')
+      .mockReturnValue('simulated rollback failure');
+
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(CLEAN_CONTENT),
+      },
+    }, projectRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('rollbackFailed');
+    expect(PendingWriteRegistry.getInstance().hasPending(filePath)).toBe(false);
+  });
+
+  it('keeps the pending-write registration after a successful write (watcher suppression window)', async () => {
+    const service = new NavEditService(noOpHooks());
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(CLEAN_CONTENT),
+      },
+    }, projectRoot);
+
+    expect(result.success).toBe(true);
+    expect(PendingWriteRegistry.getInstance().hasPending(filePath)).toBe(true);
+  });
+
+  it('aborts with fileDirty when the panel becomes dirty between precheck and write (TOCTOU recheck)', async () => {
+    // 第一次（第 1 步前置校验）返回干净，第二次（写盘前紧邻复查）返回 dirty
+    const dirtyAnswers = [false, true];
+    const service = new NavEditService(noOpHooks({
+      isFileOpenWithUnsavedChanges: () => dirtyAnswers.shift() ?? true,
+    }));
+
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(CLEAN_CONTENT),
+      },
+    }, projectRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('fileDirty');
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(CLEAN_CONTENT); // 磁盘未动
+    expect(PendingWriteRegistry.getInstance().hasPending(filePath)).toBe(false); // 未走到登记
   });
 
   it('pushes the pre-write snapshot into the panel undo stack and reloads the panel when a panel adapter exists', async () => {

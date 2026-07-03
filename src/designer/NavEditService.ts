@@ -414,18 +414,35 @@ export class NavEditService {
         }
 
         // ---- 7. 写盘（登记抑制 watcher 回灌；绝不触发 codegen） ----
+        // TOCTOU 收窄：第 1 步 dirty 前置校验与写盘之间隔着解析/序列化（约百毫秒），
+        // 期间面板/TextDocument 可能刚产生未保存改动——写盘前紧邻处再查一次
+        // （不追求完美原子性，只把盲窗压缩到最小）
+        if (this._hooks.isFileOpenWithUnsavedChanges(absPath)) {
+            return fail('fileDirty', 'designer panel became dirty before write');
+        }
+        if (this._hooks.isTextDocumentDirty(absPath)) {
+            return fail('fileDirty', 'text document became dirty before write');
+        }
+
         const registry = PendingWriteRegistry.getInstance();
         registry.register(absPath);
         try {
             await new HmlSerializer().serializeToFile(doc, absPath);
         } catch (writeErr) {
             // ---- 9. 失败回滚（.hml + SVG 逐字节恢复） ----
-            const rollbackError = this._rollback(absPath, original, svgBackups);
-            if (rollbackError) {
-                return fail('rollbackFailed',
-                    `写盘失败且回滚失败: ${rollbackError}; 原始错误: ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`);
+            // 失败路径（含回滚后）必须注销登记：否则 3s 时间窗内真实的外部编辑
+            // 会被各面板 watcher 的 consumeIfPending 吞掉，面板静默保留旧内容
+            // 与磁盘分叉。回滚自写触发的 watcher 重载会回灌回滚后的原文，无害。
+            try {
+                const rollbackError = this._rollback(absPath, original, svgBackups);
+                if (rollbackError) {
+                    return fail('rollbackFailed',
+                        `写盘失败且回滚失败: ${rollbackError}; 原始错误: ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`);
+                }
+                return fail('writeFailed', writeErr instanceof Error ? writeErr.message : String(writeErr));
+            } finally {
+                registry.unregister(absPath);
             }
-            return fail('writeFailed', writeErr instanceof Error ? writeErr.message : String(writeErr));
         }
 
         // ---- 8. undo 一致性 + 面板同步 ----
