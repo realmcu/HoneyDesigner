@@ -173,7 +173,10 @@ const App: React.FC = () => {
             const store = useDesignerStore.getState();
             store.setProjectConfig(message.projectConfig);
 
-            // 同步所有 hg_view 的尺寸为新的分辨率（与 cornerRadius 逻辑一致）
+            // 即时刷新画布：把内存中所有 hg_view 尺寸对齐新分辨率，让用户立即看到变化。
+            // 注意：这里【不】落盘。磁盘写入统一由后端 FileManager._syncAllViewSizes 负责
+            // （含当前文件），避免前端 saveToFile 与后端写盘对同一文件产生双写竞态。
+            // 后端写盘后会触发 reload，最终以 sendLoadHmlMessage 规范化后的数据为准。
             const res = message.projectConfig.resolution;
             if (res) {
               const parts = res.split('X');
@@ -181,14 +184,11 @@ const App: React.FC = () => {
               const newHeight = parseInt(parts[1], 10);
               if (newWidth > 0 && newHeight > 0) {
                 const views = store.components.filter(c => c.type === 'hg_view');
-                if (views.length > 0) {
-                  views.forEach(v => {
-                    store.updateComponent(v.id, {
-                      position: { ...v.position, width: newWidth, height: newHeight }
-                    }, { save: false });
-                  });
-                  store.saveToFile();
-                }
+                views.forEach(v => {
+                  store.updateComponent(v.id, {
+                    position: { ...v.position, width: newWidth, height: newHeight }
+                  }, { save: false });
+                });
               }
             }
           }

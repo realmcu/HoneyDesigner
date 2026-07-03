@@ -77,9 +77,11 @@ export class FileManager {
                 });
 
                 // 如果 resolution 发生变化，批量更新所有 HML 文件中的 hg_view 尺寸
+                // （含当前文件，统一由后端落盘，不再依赖前端 save）
                 if (newConfig.resolution && newConfig.resolution !== lastResolution) {
                     lastResolution = newConfig.resolution;
-                    this._syncAllViewSizes(filePath, newConfig.resolution);
+                    void this._syncAllViewSizes(filePath, newConfig.resolution).catch(err =>
+                        logger.warn(`[FileManager] 同步 hg_view 尺寸失败: ${err}`));
                 }
             }
         };
@@ -91,7 +93,7 @@ export class FileManager {
     /**
      * 批量更新项目所有 HML 文件中 hg_view 的尺寸
      */
-    private _syncAllViewSizes(currentFilePath: string, resolution: string): void {
+    private async _syncAllViewSizes(currentFilePath: string, resolution: string): Promise<void> {
         const { width, height } = ProjectUtils.parseResolution(resolution);
         if (!width || !height) { return; }
 
@@ -119,13 +121,16 @@ export class FileManager {
 
                 if (!changed) { continue; }
 
-                // 重新序列化并写回文件（当前文件由前端 save 消息处理，跳过避免冲突）
-                if (path.resolve(hmlFile.path) === path.resolve(currentFilePath)) {
-                    continue;
-                }
-
                 const newContent = controller.serializeDocument();
-                fs.writeFileSync(hmlFile.path, newContent, 'utf-8');
+
+                // 当前文件在 VSCode 中有活跃的 TextDocument，必须通过 TextDocument API 写入，
+                // 否则磁盘与文档版本不同步会触发 "content is newer" 冲突（参见 _writeViaTextDocument）。
+                // 其余文件无活跃文档，直接写盘即可。
+                if (path.resolve(hmlFile.path) === path.resolve(currentFilePath)) {
+                    await this._writeViaTextDocument(hmlFile.path, newContent);
+                } else {
+                    fs.writeFileSync(hmlFile.path, newContent, 'utf-8');
+                }
                 logger.info(`[FileManager] 已更新 hg_view 尺寸: ${hmlFile.path}`);
             } catch (err) {
                 logger.warn(`[FileManager] 更新 hg_view 尺寸失败 ${hmlFile.path}: ${err}`);
@@ -753,10 +758,26 @@ export class FileManager {
      */
     private async sendLoadHmlMessage(hmlDocument: any, hmlContent: string): Promise<void> {
         const frontendComponents = this._hmlController.prepareComponentsForFrontend(hmlDocument);
-        
+
         const projectConfig = ProjectConfigLoader.loadConfig(this._filePath!);
         const designerConfig = ProjectConfigLoader.getDesignerConfig(projectConfig);
-        
+
+        // 加载时统一将所有 hg_view 尺寸对齐到当前项目分辨率。
+        // 这是唯一可靠的自愈点：无论首次打开、切换 tab 重载还是 undo/redo，
+        // 前端拿到的 hg_view 尺寸始终与 project.json 分辨率一致，且不依赖 webview 是否存活。
+        // hg_view 尺寸不参与 C 代码生成（GUI_VIEW_INSTANCE 不吃宽高），此处仅保证画布显示正确。
+        if (projectConfig?.resolution) {
+            const { width, height } = ProjectUtils.parseResolution(projectConfig.resolution);
+            if (width > 0 && height > 0) {
+                for (const comp of frontendComponents) {
+                    if (comp.type === 'hg_view' && comp.position &&
+                        (comp.position.width !== width || comp.position.height !== height)) {
+                        comp.position = { ...comp.position, width, height };
+                    }
+                }
+            }
+        }
+
         // 获取项目根目录
         const projectRoot = ProjectUtils.findProjectRoot(this._filePath!);
         const projectI18nCatalog = projectRoot
