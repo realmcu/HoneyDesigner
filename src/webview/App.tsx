@@ -490,6 +490,26 @@ const App: React.FC = () => {
           });
           break;
 
+        case 'navEditResult':
+          // 导航写事务回执（T11）：requestId 由 ViewRelationModal 生成并校验匹配；
+          // 成功时宿主已另行重扫并回推 updateAllViews 刷新图
+          useDesignerStore.setState({
+            navEditPending: false,
+            navEditResult: {
+              requestId: message.requestId,
+              success: message.success === true,
+              op: message.op,
+              needsConfirm: message.needsConfirm,
+              confirmReasons: message.confirmReasons,
+              confirmDetail: message.confirmDetail,
+              errorCode: message.errorCode,
+              errorDetail: message.errorDetail,
+              usedFileHistory: message.usedFileHistory,
+              hintKey: message.hintKey,
+            },
+          });
+          break;
+
         case 'error':
           // Show error message
           console.error(message.text);

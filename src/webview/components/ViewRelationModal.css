@@ -355,14 +355,28 @@ body.vrm-noselect * {
   opacity: 0.9;
 }
 
-/* T3 只读图：连接把手不可见也不可交互（T11 编辑交互再放开） */
+/* T11 编辑交互：真实屏节点的连接把手可交互；
+   占位节点 isConnectable=false（无 connectable 类）保持隐藏不可点 */
 .vrm-flow .react-flow__handle.vrm-handle {
-  opacity: 0;
-  pointer-events: none;
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
   min-width: 0;
   min-height: 0;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 2px solid var(--vscode-focusBorder);
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+
+.vrm-node:hover .vrm-handle,
+.vrm-flow .react-flow__handle.vrm-handle.connectingto,
+.vrm-flow .react-flow__handle.vrm-handle.valid {
+  opacity: 1;
+}
+
+.vrm-flow .react-flow__handle.vrm-handle:not(.connectable) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ---------------- 屏卡片节点 ---------------- */
@@ -537,6 +551,286 @@ body.vrm-noselect * {
 .vrm-stats {
   font-variant-numeric: tabular-nums;
   flex: none;
+}
+
+/* ---------------- T11 编辑交互：状态条 / 子弹窗 / 右键菜单 / 边悬停提示 ---------------- */
+
+/* 写事务状态条：成功/信息短暂提示，失败常驻可关闭 */
+.vrm-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.vrm-status-info,
+.vrm-status-success {
+  background: var(--vscode-inputValidation-infoBackground, var(--vscode-editorWidget-background));
+  color: var(--vscode-inputValidation-infoForeground, var(--vscode-foreground));
+  border-bottom-color: var(--vscode-inputValidation-infoBorder, var(--vscode-panel-border));
+}
+
+.vrm-status-error {
+  background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorWidget-background));
+  color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
+  border-bottom-color: var(--vscode-inputValidation-errorBorder, var(--vscode-panel-border));
+}
+
+/* 子弹窗（删除确认 / 新建跳转选择器 / round-trip 差异确认）：盖住整个弹窗内容 */
+.vrm-subdialog-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--vscode-editor-background) 55%, transparent);
+}
+
+.vrm-subdialog {
+  width: min(440px, calc(100% - 48px));
+  max-height: calc(100% - 48px);
+  overflow: auto;
+  box-sizing: border-box;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--vscode-widget-shadow);
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vrm-create-dialog {
+  width: min(560px, calc(100% - 48px));
+}
+
+.vrm-subdialog-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vrm-subdialog-desc {
+  color: var(--vscode-descriptionForeground);
+  word-break: break-all;
+}
+
+.vrm-subdialog-warning {
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--vscode-inputValidation-warningBackground, transparent);
+  color: var(--vscode-inputValidation-warningForeground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-panel-border));
+  line-height: 1.5;
+}
+
+.vrm-subdialog-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vrm-subdialog-detail {
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family, monospace);
+  word-break: break-all;
+}
+
+.vrm-subdialog-hint {
+  color: var(--vscode-descriptionForeground);
+}
+
+.vrm-subdialog-loading,
+.vrm-subdialog-empty {
+  color: var(--vscode-descriptionForeground);
+  padding: 8px 0;
+}
+
+.vrm-subdialog-error {
+  color: var(--vscode-errorForeground);
+  word-break: break-all;
+}
+
+.vrm-subdialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.vrm-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  background: var(--vscode-button-secondaryBackground, transparent);
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.vrm-btn:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground));
+}
+
+.vrm-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.vrm-btn-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-border, transparent);
+}
+
+.vrm-btn-primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+}
+
+.vrm-btn-danger {
+  background: var(--vscode-inputValidation-errorBackground, transparent);
+  color: var(--vscode-errorForeground);
+  border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+}
+
+/* 新建跳转选择器：控件列 + 事件列 */
+.vrm-create-body {
+  display: flex;
+  gap: 12px;
+  min-height: 180px;
+  max-height: 320px;
+}
+
+.vrm-create-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vrm-create-col-title {
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+}
+
+.vrm-create-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vrm-create-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 12px;
+  flex: none;
+}
+
+.vrm-create-item:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.vrm-create-item.vrm-create-item-selected {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+  border-color: var(--vscode-focusBorder);
+}
+
+.vrm-create-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.vrm-create-item-name {
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vrm-create-item-sub {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.vrm-create-item.vrm-create-item-selected .vrm-create-item-sub {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* 边右键菜单 */
+.vrm-edge-menu {
+  position: fixed;
+  z-index: 10002;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  box-shadow: 0 4px 12px var(--vscode-widget-shadow);
+  padding: 4px;
+  min-width: 140px;
+}
+
+.vrm-edge-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.vrm-edge-menu-item:hover:not(:disabled) {
+  background: var(--vscode-menu-selectionBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-menu-selectionForeground, inherit);
+}
+
+.vrm-edge-menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 不可编辑边的悬停原因提示 */
+.vrm-edge-tooltip {
+  position: fixed;
+  z-index: 10002;
+  max-width: 320px;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  pointer-events: none;
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow);
 }
 
 /* ---------------- 右下角调整大小手柄（T5） ---------------- */

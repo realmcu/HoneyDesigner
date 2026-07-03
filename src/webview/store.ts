@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo, NavLayoutMap, ViewControlInfo } from './types';
+import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo, NavLayoutMap, ViewControlInfo, NavEditRequestPayload } from './types';
 import {
   alignComponents,
   distributeComponents,
@@ -180,6 +180,10 @@ export interface DesignerStore extends DesignerState {
   requestViewControls: (viewKey: string) => void;
   /** 清除控件枚举结果/失败提示（关闭新建跳转选择器时调用） */
   clearViewControls: () => void;
+  /** 导航写事务（T11）：经宿主 applyNavEdit 执行，回执经 navEditResult 消息回推 */
+  applyNavEdit: (payload: NavEditRequestPayload) => void;
+  /** 清除已消费的 navEditResult 回执（ViewRelationModal 处理完后调用） */
+  clearNavEditResult: () => void;
 
   // Alignment guides
   showAlignmentGuides: boolean;
@@ -449,6 +453,8 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   viewControls: null, // getViewControls 回推的控件列表（T9）
   viewControlsForKey: null, // viewControls 对应的 viewKey
   viewControlsError: null, // getViewControls 失败提示（不阻塞）
+  navEditPending: false, // 导航写事务进行中（T11）
+  navEditResult: null, // 最近一次 navEditResult 回执（T11）
   isDirty: false, // store 内容相对磁盘是否有未保存改动
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
@@ -1026,6 +1032,13 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     }
   },
   clearViewControls: () => set({ viewControls: null, viewControlsForKey: null, viewControlsError: null }),
+  applyNavEdit: (payload) => {
+    if (vscodeAPI && payload?.requestId && payload.op) {
+      set({ navEditPending: true, navEditResult: null });
+      vscodeAPI.postMessage({ command: 'applyNavEdit', ...payload });
+    }
+  },
+  clearNavEditResult: () => set({ navEditResult: null }),
   setShowAlignmentGuides: (show) => set({ showAlignmentGuides: show }),
   setAssetCategory: (category) => set({ assetCategory: category }),
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),

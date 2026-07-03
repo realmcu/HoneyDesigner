@@ -147,6 +147,59 @@ export interface ViewControlInfo {
   sourceIsView: boolean;
 }
 
+// ---------------- 导航写事务（T10/T11）----------------
+// 与 src/designer/NavEditService.ts 的请求/回执结构保持同步。
+
+export type NavEditOp = 'retarget' | 'delete' | 'create';
+
+// 边定位字段（retarget/delete 入参）：取自 ViewEdgeInfo 的定位子集
+export interface NavEditEdgeLocator {
+  sourceViewKey: string;
+  sourceControlId: string;
+  eventType: string;
+  eventConfigIndex: number;
+  actionIndex: number;
+  target: string;
+  sourceIsView?: boolean;
+  sourceIsTimer?: boolean;
+  sourceFileMtime?: number;
+  sourceFileHash?: string;
+}
+
+// 新建跳转入参（快照字段取自源 ViewInfo 的 fileMtime/fileHash）
+export interface NavEditCreateSpec {
+  sourceViewKey: string;
+  sourceControlId: string;
+  eventType: string;
+  target: string;
+  sourceFileMtime?: number;
+  sourceFileHash?: string;
+}
+
+// webview → 宿主 applyNavEdit 消息负载（requestId 用于回执匹配）
+export interface NavEditRequestPayload {
+  requestId: string;
+  op: NavEditOp;
+  edge?: NavEditEdgeLocator;
+  newTarget?: string;
+  create?: NavEditCreateSpec;
+  confirmed?: boolean;
+}
+
+// 宿主 → webview navEditResult 回执（NavEditService.NavEditResult + requestId）
+export interface NavEditResultMessage {
+  requestId?: string;
+  success: boolean;
+  op?: NavEditOp;
+  needsConfirm?: boolean;
+  confirmReasons?: Array<'comments' | 'unknownTags' | 'nameAttributes'>;
+  confirmDetail?: string;
+  errorCode?: string;
+  errorDetail?: string;
+  usedFileHistory?: boolean;
+  hintKey?: string;
+}
+
 export interface DesignerState {
   components: Component[];
   allViews?: ViewInfo[]; // 项目中所有 view（含跳转关系）
@@ -158,6 +211,8 @@ export interface DesignerState {
   viewControls: ViewControlInfo[] | null; // 请求 getViewControls 后回推的控件列表（T9，UI 用在 T11）
   viewControlsForKey: string | null; // 上面 viewControls 对应的 viewKey，用于校验请求-响应是否匹配
   viewControlsError: string | null; // getViewControls 失败提示（不阻塞，仅展示）
+  navEditPending: boolean; // 导航写事务进行中（T11：编辑操作互斥）
+  navEditResult: NavEditResultMessage | null; // 最近一次 navEditResult 回执（消费后由 modal 清除）
   isDirty: boolean; // store 内容相对磁盘是否有未保存改动（变化时经 dirtyStateChanged 消息同步给宿主）
   selectedComponent: string | null;
   selectedComponents: string[];
