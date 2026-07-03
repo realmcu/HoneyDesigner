@@ -69,8 +69,8 @@ export const HgStreamingProperties: React.FC<PropertyPanelProps> = ({ component,
                 >
                   <option value="jpeg">JPEG / MJPEG</option>
                   <option value="msv1">MSV1 (Microsoft Video 1)</option>
-                  <option value="cinepak">Cinepak (CVID)</option>
                   <option value="raw">RAW (Uncompressed)</option>
+                  <option value="h264">H.264 (Annex-B)</option>
                 </select>
                 <small style={helpTextStyle}>{t('Encoded frame format delivered by the transport')}</small>
               </div>

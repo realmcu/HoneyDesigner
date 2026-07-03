@@ -7,8 +7,8 @@ import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 const CODEC_MAP: Record<string, string> = {
   jpeg:    'GUI_STREAM_CODEC_JPEG',
   msv1:    'GUI_STREAM_CODEC_MSV1',
-  cinepak: 'GUI_STREAM_CODEC_CINEPAK',
   raw:     'GUI_STREAM_CODEC_RAW',
+  h264:    'GUI_STREAM_CODEC_H264',
 };
 
 const DROP_MAP: Record<string, string> = {

@@ -711,15 +711,16 @@ references it and must not outlive it.  **LVGL projects: do not use (unsupported
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `codec` | enum | `jpeg` | Frame codec: `jpeg` (MJPEG), `msv1` (MS Video 1, RGB555), `cinepak` (CVID), `raw` (uncompressed) |
+| `codec` | enum | `jpeg` | Frame codec: `jpeg` (MJPEG), `msv1` (MS Video 1, RGB555), `raw` (uncompressed), `h264` (H.264 Annex-B) |
 | `transporter` | string | — | `stp_transport_t *` variable name provided by the application |
 | `updateInterval` | number | 40 | Frame-pull interval in milliseconds (40 ms = 25 fps) |
 | `dropMode` | enum | `none` | `none` — oldest-first, never drop; `unconditional` — jump to newest frame |
 
 **Codec notes:**
 - `jpeg` / `raw`: independently decodable — `unconditional` drop mode is safe.
-- `msv1` / `cinepak`: inter-coded — keep `dropMode=none` to avoid decoder-state corruption.
-- `msv1` width/height must be multiples of 4; so must `cinepak`.
+- `msv1` / `h264`: inter-coded — keep `dropMode=none` to avoid decoder-state corruption.
+- `msv1` width/height must be multiples of 4.
+- `h264`: Annex-B byte-stream, one Access Unit (one full frame) per transport buffer.
 
 - **Default size**: 320×240
 - **C API**: `gui_stream_create`, header: `gui_stream.h`

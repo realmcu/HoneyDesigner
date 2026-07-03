@@ -378,7 +378,7 @@ const componentDefinitions: ComponentDefinition[] = [
     engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 320, height: 240 },
     properties: [
-      { name: 'codec',          label: 'Codec',                    type: 'select', defaultValue: 'jpeg',  options: ['jpeg', 'msv1', 'cinepak', 'raw'], group: 'data' },
+      { name: 'codec',          label: 'Codec',                    type: 'select', defaultValue: 'jpeg',  options: ['jpeg', 'msv1', 'raw', 'h264'], group: 'data' },
       { name: 'transporter',    label: 'Transporter Variable',     type: 'string', group: 'data' },
       { name: 'updateInterval', label: 'Update Interval (ms)',     type: 'number', defaultValue: 40,      min: 10, max: 5000, group: 'data' },
       { name: 'dropMode',       label: 'Drop Mode',                type: 'select', defaultValue: 'none',  options: ['none', 'unconditional'], group: 'data' },
