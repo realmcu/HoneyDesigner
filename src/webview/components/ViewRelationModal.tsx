@@ -632,6 +632,17 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       suppressOverlayClickRef.current = false;
     });
   }, []);
+  // React Flow 的 Handle 连线拖拽（onConnect / onReconnect 路径）走
+  // @xyflow/system XYHandle 的 document 级 mousemove/mouseup，不吞随后的合成
+  // click——从节点 Handle 拉线到遮罩上松手时，合成 click 命中遮罩会直接
+  // onClose()，半路的新建/改目标操作与聚焦状态全丢。连线拖拽开始即武装抑制
+  // 标志，结束时重新武装并在下一帧解除（与标题栏拖动/缩放手柄复用同一 ref）
+  const onConnectDragStart = useCallback(() => {
+    suppressOverlayClickRef.current = true;
+  }, []);
+  const onConnectDragEnd = useCallback(() => {
+    armSuppressOverlayClick();
+  }, [armSuppressOverlayClick]);
 
   // 悬停高亮：悬停某节点时高亮其出/入边与两端节点，其余淡出
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -1533,7 +1544,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
               onNodeMouseEnter={onNodeMouseEnter}
               onNodeMouseLeave={onNodeMouseLeave}
               onConnect={onConnect}
+              onConnectStart={onConnectDragStart}
+              onConnectEnd={onConnectDragEnd}
               onReconnect={onReconnect}
+              onReconnectStart={onConnectDragStart}
+              onReconnectEnd={onConnectDragEnd}
               isValidConnection={isValidConnection}
               onEdgeClick={onEdgeClick}
               onEdgeContextMenu={onEdgeContextMenu}
