@@ -629,11 +629,16 @@ export class MessageHandler {
         const saved = await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
 
         if (saved) {
-            // 保存成功：清宿主侧 dirty 缓存（seq 未变时），并回执 webview 复位其
-            // 本地 isDirty——否则 webview 的 markDirty 只在 false→true 变化时发消息，
-            // 「编辑→保存→再编辑」的第二次编辑不会再通知宿主，宿主缓存会漏报 dirty
+            // 保存成功：清宿主侧 dirty 缓存（仅当保存期间无新改动、seq 未变时——
+            // webview 在发 save 时已乐观复位本地 isDirty，保存窗口内的新编辑会
+            // 重新上报 dirty(true) 使 seq 递增，这里就不会误清）并回执 webview
             this._fileManager.clearWebviewDirtyIfUnchanged(dirtySeqAtStart);
             this._panel.webview.postMessage({ command: 'hmlSaved' });
+        } else {
+            // 保存失败：磁盘没有落下 webview 要保存的内容。webview 发 save 时
+            // 已乐观复位本地 isDirty，必须回执让它置回，否则后续无新编辑时
+            // 本地永远漏报 dirty（宿主缓存未清，仍为 dirty，方向安全）
+            this._panel.webview.postMessage({ command: 'hmlSaveFailed' });
         }
 
         // 保存后通知前端更新撤销/重做状态

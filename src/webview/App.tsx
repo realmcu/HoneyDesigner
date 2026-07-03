@@ -704,10 +704,17 @@ const App: React.FC = () => {
           break;
 
         case 'hmlSaved':
-          // 宿主保存成功回执：复位本地脏标记，使后续编辑能再次触发
-          // dirtyStateChanged(true)（markDirty 只在 false→true 变化时发消息）。
-          // 宿主侧缓存已由 handleSave 按 dirty 序号清除，这里不再回发消息
-          useDesignerStore.setState({ isDirty: false });
+          // 宿主保存成功回执：本地脏标记已在发出 save 消息时乐观复位
+          // （markSaveRequested，H4），这里不得再无条件清零——保存窗口内的
+          // 新编辑已把 isDirty 置回 true 并上报宿主（seq 递增），此时清零会
+          // 让本地漏报后续 dirty。宿主侧缓存由 handleSave 按 dirty 序号清除
+          break;
+
+        case 'hmlSaveFailed':
+          // 宿主保存失败回执：磁盘没有落下我们要保存的内容，把乐观复位的
+          // 本地脏标记置回（markDirty 兼发 dirtyStateChanged(true) 同步宿主；
+          // 已因保存期间新编辑为 true 时是幂等 no-op）（H4）
+          useDesignerStore.getState().markDirty();
           break;
       }
     });

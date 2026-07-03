@@ -221,6 +221,11 @@ export interface DesignerStore extends DesignerState {
   // resetDirty 在应用宿主推送内容（loadHml）后调用；两者变化时向宿主发 dirtyStateChanged
   markDirty: () => void;
   resetDirty: () => void;
+  // 发出 save 消息后立即乐观复位本地 isDirty（不通知宿主）——保存窗口内的
+  // 新编辑才能再次触发 false→true 的 dirtyStateChanged（宿主 dirty 序号递增，
+  // clearWebviewDirtyIfUnchanged 因 seq 不等而不清缓存）。所有发 save 消息的
+  // 入口（saveToFile / Ctrl+S / 工具栏）都必须调用
+  markSaveRequested: () => void;
   setProjectI18nCatalog: (catalog: I18nCatalog) => void;
   setPreviewLocale: (locale: LocaleCode) => void;
   setProjectI18nIndex: (index?: ProjectI18nIndex, errors?: Array<{ filePath: string; message: string }>) => void;
@@ -1266,12 +1271,16 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         components: state.components,
       },
     });
+    get().markSaveRequested();
   },
 
   // 脏状态跟踪：只在 false→true 变化时发消息（拖拽等高频改动不会刷消息）。
-  // 复位路径有二：①保存成功——宿主 handleSave 清自身缓存并回执 hmlSaved，
-  // webview 收到后本地复位（App.tsx）；②应用宿主推送内容（loadHml）——
-  // 调用 resetDirty（本地复位 + 通知宿主）
+  // 复位路径有二：①发出 save 消息时乐观复位（markSaveRequested，本地复位、
+  // 不通知宿主）——保存期间的新编辑会再次 false→true 发 dirtyStateChanged，
+  // 宿主 dirty 序号递增，保存回执的 clearWebviewDirtyIfUnchanged 因 seq 不等
+  // 而不清缓存，导航写事务前置校验不会误放行；保存失败宿主回执 hmlSaveFailed，
+  // App.tsx 收到后 markDirty 置回。②应用宿主推送内容（loadHml）——调用
+  // resetDirty（本地复位 + 通知宿主）
   markDirty: () => {
     if (get().isDirty) return;
     set({ isDirty: true });
@@ -1284,6 +1293,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     }
     // 无条件通知宿主，保证宿主缓存与 webview 同步（如宿主重载后陈旧的 true）
     vscodeAPI?.postMessage({ command: 'dirtyStateChanged', dirty: false });
+  },
+
+  // 乐观复位（只动本地标记，不发消息）：宿主缓存的清除仍由保存结果驱动
+  // （成功且 seq 未变 → clearWebviewDirtyIfUnchanged；失败 → 保持 dirty）
+  markSaveRequested: () => {
+    if (get().isDirty) {
+      set({ isDirty: false });
+    }
   },
 
   setProjectI18nCatalog: (catalog) => {
