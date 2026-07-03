@@ -40,4 +40,14 @@ module.exports = [
       'no-console': 'off',
     },
   },
+
+  // Jest test files (src/test/jest/**): expose jest globals (describe/it/expect/...)
+  {
+    files: ['src/test/jest/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+  },
 ];

@@ -261,8 +261,9 @@
     }
   },
   "scripts": {
-    "test": "npm run test:unit",
+    "test": "npm run test:unit && npm run test:src",
     "test:unit": "cd tools && npx jest --verbose",
+    "test:src": "jest --config jest.config.js --verbose",
     "test:project-i18n": "ts-node scripts/test-project-i18n.ts",
     "test:codegen-i18n": "ts-node scripts/test-codegen-i18n.ts",
     "test:ai-bundle": "ts-node scripts/test-ai-context-bundle.ts",
