@@ -17,6 +17,8 @@ import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18
 import { HmlParser } from '../hml/HmlParser';
 import { composeAiBundle } from './aiContextBundle';
 import { NavLayoutService, NavLayoutMap } from '../services/NavLayoutService';
+import { NavEditService, NavEditHostHooks, NavEditRequest, NavEditResult } from './NavEditService';
+import { PendingWriteRegistry } from './PendingWriteRegistry';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -430,6 +432,11 @@ export class MessageHandler {
             case 'getViewControls':
                 // 给定 viewKey 枚举该 view 下可交互控件（T9，新建跳转前置）
                 await this._handleGetViewControls(message.viewKey);
+                break;
+
+            case 'applyNavEdit':
+                // 导航图边编辑写事务（T10：改目标/删除/新建，当前文件与跨文件统一走此路）
+                await this._handleApplyNavEdit(message);
                 break;
 
             default:
@@ -1505,6 +1512,85 @@ export class MessageHandler {
                 error: error instanceof Error ? error.message : String(error)
             });
         }
+    }
+
+    /**
+     * 导航图写事务（T10）：宿主端统一写路径。
+     * 协议十步在 NavEditService 内实现；本方法负责：解析项目根目录、注入宿主
+     * 钩子（面板 dirty 查询 / TextDocument dirty / 面板适配器）、成功后重扫
+     * allViews 回推刷新图（第 10 步）、回执 navEditResult。
+     * **绝不触发 codegen**（设计文档约束 11）——本路径不调用
+     * _scheduleAutoCodeGeneration，回执用 hintKey 提示"代码将在下次代码生成
+     * 时更新"。
+     */
+    private async _handleApplyNavEdit(message: any): Promise<void> {
+        const requestId = message?.requestId;
+        const op = message?.op;
+        const respond = (result: NavEditResult): void => {
+            this._panel.webview.postMessage({ command: 'navEditResult', requestId, ...result });
+        };
+
+        try {
+            const currentFile = this._fileManager.currentFilePath;
+            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+            if (!projectRoot) {
+                respond({ success: false, op, errorCode: 'noProjectRoot' });
+                return;
+            }
+
+            const request: NavEditRequest = {
+                op,
+                edge: message?.edge,
+                newTarget: message?.newTarget,
+                create: message?.create,
+                confirmed: message?.confirmed === true,
+            };
+            const service = new NavEditService(this._buildNavEditHooks());
+            const result = await service.applyNavEdit(request, projectRoot);
+
+            if (result.success) {
+                // 第 10 步：重扫 allViews 回推刷新图（目标文件面板已由服务内部同步）
+                await this._fileManager.updateAllViewsToFrontend();
+            }
+            respond(result);
+        } catch (error) {
+            logger.error(`[MessageHandler] applyNavEdit 失败: ${error}`);
+            respond({
+                success: false,
+                op,
+                errorCode: 'writeFailed',
+                errorDetail: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    /**
+     * 构造导航写事务的宿主钩子。DesignerPanel 用延迟 require 获取，
+     * 避免 DesignerPanel → MessageHandler → DesignerPanel 的模块初始化环。
+     */
+    private _buildNavEditHooks(): NavEditHostHooks {
+        const { DesignerPanel } = require('./DesignerPanel') as typeof import('./DesignerPanel');
+        return {
+            isFileOpenWithUnsavedChanges: (filePath: string) =>
+                DesignerPanel.isFileOpenWithUnsavedChanges(filePath),
+            isTextDocumentDirty: (filePath: string) => {
+                const key = PendingWriteRegistry.normalizePathKey(filePath);
+                return vscode.workspace.textDocuments.some(doc =>
+                    doc.uri.scheme === 'file'
+                    && PendingWriteRegistry.normalizePathKey(doc.uri.fsPath) === key
+                    && doc.isDirty);
+            },
+            getPanelAdapter: (filePath: string) => {
+                const panel = DesignerPanel.getPanel(filePath);
+                if (!panel) {
+                    return undefined;
+                }
+                return {
+                    pushUndoSnapshot: (content: string) => panel.pushNavUndoSnapshot(content),
+                    reloadFromContent: (content: string) => panel.reloadAfterNavEdit(content),
+                };
+            },
+        };
     }
 
     dispose(): void {

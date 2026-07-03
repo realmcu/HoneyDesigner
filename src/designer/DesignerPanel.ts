@@ -84,6 +84,23 @@ export class DesignerPanel {
     }
 
     /**
+     * 导航写事务（T10）第 8 步：把写前快照无防抖地压入本面板 undo 栈，
+     * 使 Ctrl+Z 可整步回退导航边编辑（设计文档约束 8）。
+     */
+    public pushNavUndoSnapshot(content: string): void {
+        this._fileManager.pushUndoSnapshotImmediate(content);
+        this._fileManager.sendUndoRedoState();
+    }
+
+    /**
+     * 导航写事务（T10）写盘后同步本面板：watcher 回灌被登记表抑制，
+     * 由写事务用落盘内容显式刷新（前置校验已保证本面板无未保存改动）。
+     */
+    public async reloadAfterNavEdit(content: string): Promise<void> {
+        await this._fileManager.reloadFromContent(content);
+    }
+
+    /**
      * 维护「规范化文件路径 → 面板」索引：面板创建（带文件）/切换文件/dispose 时调用。
      * 传 undefined 表示本面板不再关联任何文件（新建空白文档或 dispose）。
      */

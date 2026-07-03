@@ -383,6 +383,40 @@ export class FileManager {
     }
     
     /**
+     * 无防抖地记录一次撤销快照（导航写事务 T10 专用）。
+     * pushUndoState 的 500ms 滑动窗口会把紧邻普通编辑的快照合并掉，
+     * 而导航写事务要求"Ctrl+Z 恰好整步回退本次边编辑"，必须强制入栈。
+     */
+    public pushUndoSnapshotImmediate(hmlContent: string): void {
+        if (this._undoStack.length > 0 && this._undoStack[this._undoStack.length - 1] === hmlContent) {
+            return;
+        }
+        this._undoStack.push(hmlContent);
+        if (this._undoStack.length > this._maxHistorySize) {
+            this._undoStack.shift();
+        }
+        this._redoStack = [];
+        this._lastUndoPushTime = Date.now();
+        logger.debug(`[FileManager] 记录撤销快照（导航写事务），当前栈深度: ${this._undoStack.length}`);
+    }
+
+    /**
+     * 用磁盘上的新内容同步本面板（导航写事务 T10 写盘后调用）。
+     * 面板 watcher 回灌已被 PendingWriteRegistry 抑制，由写事务显式同步：
+     * 解析新内容 → 推 loadHml；同时更新快照并复位 dirty 缓存
+     * （写事务前置校验已保证本面板无未保存改动，覆盖是安全的）。
+     */
+    public async reloadFromContent(content: string): Promise<void> {
+        if (!this._filePath) {
+            return;
+        }
+        this.setWebviewDirty(false);
+        this._hmlController.parseContent(content, this._filePath);
+        this._lastSerializedSnapshot = content;
+        await this.reloadCurrentDocument();
+    }
+
+    /**
      * 撤销
      */
     public async undo(): Promise<boolean> {
