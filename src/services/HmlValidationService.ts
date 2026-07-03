@@ -85,7 +85,9 @@ export class HmlValidationService {
             // 会自动检查：标签闭合、属性格式、XML 声明等
             // ========================================
             validationRules.push('XML 语法验证');
-            const document = this.parser.parse(hmlContent);
+            // 传入文件路径（若调用方提供）：无 id 组件的 fallback id 以 basename 为种子，
+            // 保证校验解析出的组件 id 与设计器/scanAllViews/codegen 对同一文件一致
+            const document = this.parser.parse(hmlContent, context.filePath);
 
             // ========================================
             // 规则 3: 文档结构验证
@@ -430,11 +432,10 @@ export class HmlValidationService {
         const contentWithoutComments = hmlContent
             .replace(/<!--[\s\S]*?-->/g, '')
             .replace(/<!--[\s\S]*$/, '');
-        // 匹配每个 <hg_view ...> 开标签（含自闭合），检查其属性里是否声明了 id
-        const openTagRe = /<hg_view\b[^>]*>/g;
-        let match: RegExpExecArray | null;
-        while ((match = openTagRe.exec(contentWithoutComments)) !== null) {
-            const openTag = match[0];
+        // 逐个提取 <hg_view ...> 开标签（含自闭合），检查其属性里是否声明了 id。
+        // 不能用 /<hg_view\b[^>]*>/ 一把梭：属性值里出现 '>'（如 name="a > b"）是
+        // 合法 XML，正则会在首个 '>' 处截断标签导致误报缺 id——必须尊重引号扫描
+        for (const openTag of this.extractViewOpenTags(contentWithoutComments)) {
             // 属性形如 ` id="..."` / ` id='...'`（\s 前缀避免误中 grid= / uid= 等属性名后缀）
             const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(openTag);
             const idValue = idAttr ? (idAttr[1] ?? idAttr[2] ?? '') : '';
@@ -445,6 +446,38 @@ export class HmlValidationService {
                 });
             }
         }
+    }
+
+    /**
+     * 轻量级标签扫描：定位每个 `<hg_view` 开标签，逐字符前进并跳过引号内内容，
+     * 找到真正的标签结束 '>'（引号内的 '>' 不算），返回完整开标签文本。
+     * 未闭合的标签（扫描到文件末尾仍无 '>'）按截到末尾处理。
+     */
+    private extractViewOpenTags(content: string): string[] {
+        const tags: string[] = [];
+        const startRe = /<hg_view\b/g;
+        let match: RegExpExecArray | null;
+        while ((match = startRe.exec(content)) !== null) {
+            let i = startRe.lastIndex;
+            let quote: '"' | "'" | null = null;
+            while (i < content.length) {
+                const ch = content[i];
+                if (quote) {
+                    if (ch === quote) {
+                        quote = null;
+                    }
+                } else if (ch === '"' || ch === "'") {
+                    quote = ch;
+                } else if (ch === '>') {
+                    break;
+                }
+                i++;
+            }
+            tags.push(content.slice(match.index, Math.min(i + 1, content.length)));
+            // 从标签结束处继续找下一个，避免重复扫描引号内容
+            startRe.lastIndex = Math.min(i + 1, content.length);
+        }
+        return tags;
     }
 
     /**
@@ -587,6 +620,8 @@ export interface HmlValidationContext {
     projectRoot?: string;
     previewLocale?: string;
     i18nCatalog?: I18nCatalog;
+    /** 被校验 HML 的文件路径（可选）；用于派生 fallback id 种子，保持与设计器/扫描一致 */
+    filePath?: string;
 }
 
 /**

@@ -28,9 +28,17 @@
     <hg_view id="view_extra_id" name="ExtraScreen" x="0" y="0" w="240" h="240">
       <hg_label id="lbl_extra" x="60" y="100" w="120" h="40" text="extra" fontSize="16" color="#FFFFFF" />
     </hg_view>
-    <!-- 场景：旧格式定时器（timerEnabled="true" + timerActions JSON 属性），parser 应转换为 data.timers 并产出跳转边 -->
+    <!-- 场景：旧格式定时器（字符串形式 timerEnabled="true"）。语义仲裁（R1）：codegen 的 legacy
+         分支要求布尔 true，字符串形式在 master 上从不生成 timer 代码（"休眠"）；parser 不转换、
+         导航图不采集其边——边显示当且仅当 codegen 实际会生成该跳转 -->
     <hg_view id="view_legacy_timer" x="0" y="0" w="240" h="240">
       <hg_label id="lbl_legacy_timer" x="20" y="20" w="120" h="30" text="legacy timer" fontSize="16" color="#FFFFFF" timerEnabled="true" timerMode="preset" timerInterval="2000" timerActions='[{"type":"switchView","target":"view_home","switchOutStyle":"SWITCH_OUT_TO_RIGHT_USE_TRANSLATION","switchInStyle":"SWITCH_IN_FROM_LEFT_USE_TRANSLATION"}]' />
+    </hg_view>
+    <!-- 场景（R5）：timer 采集与 codegen 绑定谓词对齐——
+         enabled:false（codegen 不绑定）与缺 mode（codegen 跳过非 preset）都不得出边 -->
+    <hg_view id="view_timer_filter" x="0" y="0" w="240" h="240">
+      <hg_label id="lbl_timer_disabled" x="20" y="20" w="120" h="30" text="disabled timer" fontSize="16" color="#FFFFFF" timers='[{"id":"timer_off","name":"off","enabled":false,"interval":1000,"reload":false,"mode":"preset","actions":[{"type":"switchView","target":"view_home","switchOutStyle":"SWITCH_OUT_TO_LEFT_USE_TRANSLATION","switchInStyle":"SWITCH_IN_FROM_RIGHT_USE_TRANSLATION"}]}]' />
+      <hg_label id="lbl_timer_no_mode" x="20" y="60" w="120" h="30" text="no mode timer" fontSize="16" color="#FFFFFF" timers='[{"id":"timer_nomode","name":"nomode","enabled":true,"interval":1000,"reload":false,"actions":[{"type":"switchView","target":"view_home","switchOutStyle":"SWITCH_OUT_TO_LEFT_USE_TRANSLATION","switchInStyle":"SWITCH_IN_FROM_RIGHT_USE_TRANSLATION"}]}]' />
     </hg_view>
   </view>
 </hml>

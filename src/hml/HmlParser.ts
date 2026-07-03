@@ -754,9 +754,18 @@ export class HmlParser {
     });
 
     // 兼容旧版定时器格式：如果存在旧版字段但没有 timers 数组，自动转换。
-    // 注意：timerEnabled 不在共享属性定义中，convertAttributeValue 不会做布尔转换，
-    // 从 HML 属性解析出来的是字符串 "true"，必须同时兼容字符串与布尔两种形态
-    if (!data.timers && (data.timerEnabled === true || data.timerEnabled === 'true')) {
+    //
+    // 【语义仲裁结论，勿改】此处**有意**只接受布尔 true、不接受字符串 'true'：
+    // timerEnabled 不在共享属性定义中，convertAttributeValue 不做布尔转换，
+    // 从 HML 属性解析出的恒为字符串 "true"，因此本分支对磁盘上的 legacy HML
+    // 永远不命中——这与 codegen 的 legacy 分支（HoneyGuiCCodeGenerator:733、
+    // CallbackFileGenerator:516 等处的 `timerEnabled === true`）行为一致：
+    // 字符串形式的 legacy 定时器在 master 上从不生成任何 timer C 代码（实测
+    // master 与本分支 codegen 输出逐字节对比确认）。若此处转换字符串形式，
+    // 老项目"休眠"的定时器（含 switchView 跳转）会在用户未做任何编辑的情况下
+    // 被重新 codegen 唤醒运行——这是行为回归。字符串形式 legacy 字段保持原样
+    // 留在 data 中（序列化时原样写回，磁盘格式不变），导航图扫描也不采集其边。
+    if (!data.timers && data.timerEnabled === true) {
       const timerMode = data.timerMode || 'custom';
       // 确定性 id（每组件至多一个 legacy timer，不会冲突）：
       // 避免 Date.now() 导致每次解析 timer.id 变化，进而使 codegen 回调名

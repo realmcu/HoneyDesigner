@@ -111,9 +111,10 @@ export class SaveManager {
 
             logger.info(`[SaveManager] 执行保存: ${path.basename(filePath)}, 事务ID: ${transactionId}`);
 
-            // 1. 验证HML内容
+            // 1. 验证HML内容（传目标路径：解析结果会被 saveDocument 序列化落盘，
+            // 无 id 组件的 fallback id 必须带 basename 种子，避免无种子 id 永久写盘）
             try {
-                this._hmlController.parseContent(content);
+                this._hmlController.parseContent(content, filePath);
                 logger.debug('[SaveManager] HML内容验证通过');
             } catch (parseError) {
                 logger.error(`[SaveManager] HML内容验证失败: ${parseError}`);

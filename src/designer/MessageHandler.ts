@@ -699,8 +699,8 @@ export class MessageHandler {
      */
     private async _handlePreview(content: string): Promise<void> {
         try {
-            // 解析HML内容
-            this._hmlController.parseContent(content);
+            // 解析HML内容（传当前文件路径，保证 fallback id 带 basename 种子）
+            this._hmlController.parseContent(content, this._fileManager.currentFilePath);
 
             // TODO: 实现预览逻辑
             vscode.window.showInformationMessage(vscode.l10n.t('Preview feature is under development...'));

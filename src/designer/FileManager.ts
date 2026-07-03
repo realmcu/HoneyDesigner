@@ -326,8 +326,8 @@ export class FileManager {
             // 弹出上一个状态
             const previousContent = this._undoStack.pop()!;
             
-            // 解析并更新 hmlController（与正常加载一致）
-            this._hmlController.parseContent(previousContent);
+            // 解析并更新 hmlController（与正常加载一致；传路径保证 fallback id 带种子）
+            this._hmlController.parseContent(previousContent, this._filePath);
             
             // 通过 VSCode TextDocument API 写入，保持版本同步，防止 "content is newer" 冲突
             await this._writeViaTextDocument(this._filePath, previousContent);
@@ -366,8 +366,8 @@ export class FileManager {
             // 弹出重做状态
             const nextContent = this._redoStack.pop()!;
             
-            // 解析并更新 hmlController
-            this._hmlController.parseContent(nextContent);
+            // 解析并更新 hmlController（传路径保证 fallback id 带种子）
+            this._hmlController.parseContent(nextContent, this._filePath);
             
             // 通过 VSCode TextDocument API 写入，保持版本同步
             await this._writeViaTextDocument(this._filePath, nextContent);
@@ -640,10 +640,23 @@ export class FileManager {
             });
         });
 
-        // 定时器动作里的 switchView（只读边）
+        // 定时器动作里的 switchView（只读边）。
+        // 采集条件逐字对齐 codegen 的 timer 绑定谓词——边显示当且仅当 codegen
+        // 实际会生成 gui_obj_create_timer 绑定（callback 实现即使生成，无绑定也不会跑）：
+        // - hg_view 自身：ViewGenerator.generateViewTimerBindings 用 `enabled !== false`
+        //   （enabled 缺省/字符串 'false' 都会绑定——与 codegen 现状保持一致）；
+        // - 其余组件：HoneyGuiCCodeGenerator.generateTimerBindings 与
+        //   ListGenerator.generateNoteTimerBindings 用 `enabled === true`（严格布尔）；
+        // - 仅 mode === 'preset' 且 segments/actions 非空才生成预设回调（含跳转），
+        //   custom 模式走用户回调、mode 缺失被 codegen 跳过，均不出边。
         (comp.data?.timers || []).forEach((timer, timerIndex) => {
-            // 自定义回调模式下预设动作不生效，不采集
-            if (!timer || timer.mode === 'custom') {
+            if (!timer || timer.mode !== 'preset') {
+                return;
+            }
+            const bindsInCodegen = sourceIsView
+                ? timer.enabled !== false
+                : (timer.enabled as unknown) === true;
+            if (!bindsInCodegen) {
                 return;
             }
             const pushTimerEdge = (action: TimerAction, segmentIndex: number, actionIndex: number): void => {
@@ -860,8 +873,10 @@ export class FileManager {
                 }
             }
 
-            // 解析文档内容
-            const hmlDocument = this._hmlController.parseContent(content);
+            // 解析文档内容（必须传文件路径：无 id 组件的 fallback id 以 basename 为种子，
+            // 不传则设计器画布拿到无种子 id（hg_view_auto_0），保存即永久落盘且跨文件撞车，
+            // 与 scanAllViews/codegen 对同一文件解析出的带种子 id 不一致）
+            const hmlDocument = this._hmlController.parseContent(content, this._filePath);
             logger.info(`[FileManager] 解析完成，获得 ${hmlDocument.view?.components?.length || 0} 个组件`);
 
             // 为前端准备组件数据（预处理，等待 ready 消息后发送）
