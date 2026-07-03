@@ -1128,7 +1128,9 @@ export class FileManager {
         if (this._filePath) {
             // 命中跨面板「预期写入登记表」：本次磁盘变化是宿主写事务（如导航图
             // 边编辑）自己写入的，跳过重载回灌并消费该登记（时间窗/宽限期语义
-            // 见 PendingWriteRegistry）。写事务完成后由其回执负责刷新各面板。
+            // 见 PendingWriteRegistry；带内容 hash 的登记会读磁盘现值比对，磁盘
+            // 已被外部方再次改写时不吞、正常放行重载）。写事务完成后由其回执
+            // 负责刷新各面板。
             if (PendingWriteRegistry.getInstance().consumeIfPending(this._filePath)) {
                 logger.info(`[FileManager] updateFromDocument: 命中预期写入登记，跳过本次重载: ${this._filePath}`);
                 return;

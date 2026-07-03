@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+import * as fs from 'fs';
 import * as path from 'path';
 
 /**
@@ -8,6 +10,11 @@ interface PendingWriteEntry {
     registeredAt: number;
     /** 首次被消费的时间戳（ms）；未消费则为 undefined */
     consumedAt?: number;
+    /**
+     * 自写内容的 hash（hashContent）。带 hash 的登记在消费时会读磁盘现值
+     * 比对——只吞「磁盘就是我们写的内容」的回调；不带 hash 退化为纯时间窗。
+     */
+    contentHash?: string;
 }
 
 /**
@@ -25,6 +32,11 @@ interface PendingWriteEntry {
  * 消费语义：
  * - 时间窗（默认 3s）：登记只在窗口内有效，过期自动清除——陈旧登记不会
  *   抑制之后真正的外部编辑重载。
+ * - 内容校验（H3）：登记可携带自写内容的 hash。纯时间窗是「盲窗」——外部方
+ *   （AI agent / git checkout）在 watcher ~1s 防抖窗内再写同一文件时，两次
+ *   写事件合并成一次回调，会连外部更新一起吞掉。带 hash 的登记在消费时读
+ *   磁盘现值比对：一致（磁盘就是我们写的）才吞；不一致视为外部变更，删除
+ *   登记并放行重载。读盘失败按不一致处理（宁可多重载，不可吞更新）。
  * - 首次命中即标记消费；但同一次磁盘写入可能触发多路 watcher 回调
  *   （FileSystemWatcher 与 onDidChangeTextDocument 各自防抖 1s 后几乎同时
  *   落进同一个重载入口），因此消费后保留一个短暂宽限期（默认 750ms），
@@ -43,14 +55,21 @@ export class PendingWriteRegistry {
     private readonly _windowMs: number;
     private readonly _graceMs: number;
     private readonly _now: () => number;
+    private readonly _readFileText: (filePath: string) => string;
 
     /**
-     * @param options 仅测试用：可注入时间窗/宽限期/时钟
+     * @param options 仅测试用：可注入时间窗/宽限期/时钟/读盘函数
      */
-    public constructor(options?: { windowMs?: number; graceMs?: number; now?: () => number }) {
+    public constructor(options?: {
+        windowMs?: number;
+        graceMs?: number;
+        now?: () => number;
+        readFileText?: (filePath: string) => string;
+    }) {
         this._windowMs = options?.windowMs ?? PendingWriteRegistry.DEFAULT_WINDOW_MS;
         this._graceMs = options?.graceMs ?? PendingWriteRegistry.DEFAULT_CONSUME_GRACE_MS;
         this._now = options?.now ?? Date.now;
+        this._readFileText = options?.readFileText ?? ((filePath: string) => fs.readFileSync(filePath, 'utf-8'));
     }
 
     /** 获取全局单例 */
@@ -71,14 +90,24 @@ export class PendingWriteRegistry {
         return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
     }
 
+    /** 内容 hash（sha1 hex）：register 的 contentHash 参数与磁盘现值比对共用 */
+    public static hashContent(content: string): string {
+        return crypto.createHash('sha1').update(content, 'utf8').digest('hex');
+    }
+
     /**
      * 写盘前登记「即将由宿主自写该文件」。
      * 重复登记同一路径会重置时间窗并清除已消费标记。
+     *
+     * @param contentHash 自写内容的 hash（hashContent）。提供时消费端会读磁盘
+     *   现值比对，只吞磁盘确实是该内容的回调（见类注释「内容校验」）；写盘
+     *   前内容未知可先不带 hash 登记，写成后用读回内容重登记升级。
      */
-    public register(filePath: string): void {
+    public register(filePath: string, contentHash?: string): void {
         this._prune();
         this._entries.set(PendingWriteRegistry.normalizePathKey(filePath), {
             registeredAt: this._now(),
+            contentHash,
         });
     }
 
@@ -97,6 +126,21 @@ export class PendingWriteRegistry {
         const entry = this._entries.get(key);
         if (!entry) {
             return false;
+        }
+        // 内容校验（H3）：带 hash 的登记只吞「磁盘现值就是我们写的内容」的
+        // 回调。外部方在防抖窗内又写了同一文件（两次写合并成一次回调）时
+        // hash 不一致——删除登记并放行重载，外部更新不会被吞。
+        if (entry.contentHash !== undefined) {
+            let diskHash: string | undefined;
+            try {
+                diskHash = PendingWriteRegistry.hashContent(this._readFileText(filePath));
+            } catch {
+                diskHash = undefined; // 读盘失败按不一致处理：宁可多重载，不可吞更新
+            }
+            if (diskHash !== entry.contentHash) {
+                this._entries.delete(key);
+                return false;
+            }
         }
         const now = this._now();
         if (entry.consumedAt === undefined) {

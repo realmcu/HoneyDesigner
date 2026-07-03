@@ -29,7 +29,9 @@ import { PendingWriteRegistry } from './PendingWriteRegistry';
  *   6. 修改 + 序列化 + 复解析校验：改动落在内存文档上，先序列化为字符串并
  *      复解析验证改动真实存在，失败则中止（此时磁盘未动）。
  *   7. 写盘：写前在 PendingWriteRegistry 登记（抑制各面板 watcher 回灌，
- *      T8），经 HmlSerializer.serializeToFile 原子写；**绝不触发 codegen**
+ *      T8；写成后读回落盘内容重登记为带内容 hash——消费端据此只吞真正的
+ *      自写回调，失败路径注销登记），经 HmlSerializer.serializeToFile 原子
+ *      写；**绝不触发 codegen**
  *      （设计文档约束 11——本服务不 import 任何 codegen 模块，调用方也不得
  *      在写事务路径上调度代码生成）。
  *   8. undo 一致性：目标文件有对应面板时把写前快照 push 进该面板
@@ -445,14 +447,25 @@ export class NavEditService {
             }
         }
 
+        // 写盘成功：读回落盘内容，把登记升级为「带内容 hash」（H3）——各面板
+        // watcher 消费该登记时会读磁盘现值比对，只吞确实是本次自写内容的回调；
+        // 外部方在 watcher 防抖窗内又写了同一文件时（hash 不一致）放行重载。
+        // 读回失败则保留写前的纯时间窗登记（退化，不中止事务）。
+        let written: string | undefined;
+        try {
+            written = fs.readFileSync(absPath, 'utf-8');
+            registry.register(absPath, PendingWriteRegistry.hashContent(written));
+        } catch (readErr) {
+            logger.warn(`[NavEditService] 写后读回失败，登记退化为纯时间窗: ${readErr}`);
+        }
+
         // ---- 8. undo 一致性 + 面板同步 ----
         let usedFileHistory = false;
         const adapter = this._hooks.getPanelAdapter(absPath);
         if (adapter) {
             try {
                 adapter.pushUndoSnapshot(original);
-                const written = fs.readFileSync(absPath, 'utf-8');
-                await adapter.reloadFromContent(written);
+                await adapter.reloadFromContent(written ?? fs.readFileSync(absPath, 'utf-8'));
             } catch (err) {
                 // 面板同步失败不回滚写事务（磁盘已是正确内容），仅记录
                 logger.warn(`[NavEditService] 面板同步失败（磁盘内容已正确写入）: ${err}`);

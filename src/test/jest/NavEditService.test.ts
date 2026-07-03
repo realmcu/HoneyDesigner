@@ -547,6 +547,32 @@ describe('NavEditService.applyNavEdit', () => {
 
     expect(result.success).toBe(true);
     expect(PendingWriteRegistry.getInstance().hasPending(filePath)).toBe(true);
+    // 登记带内容 hash：磁盘就是我们写的内容 → 消费成功（吞掉自写回调）
+    expect(PendingWriteRegistry.getInstance().consumeIfPending(filePath)).toBe(true);
+  });
+
+  it('releases the watcher reload when an external party rewrites the file after our write (H3)', async () => {
+    const service = new NavEditService(noOpHooks());
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(CLEAN_CONTENT),
+      },
+    }, projectRoot);
+    expect(result.success).toBe(true);
+
+    // 外部方在 watcher 防抖窗内又写了同一文件（写事务成功后、回调到达前）：
+    // 纯时间盲窗会连外部更新一起吞掉；内容校验必须放行重载
+    fs.writeFileSync(filePath, CLEAN_CONTENT.replace('text="Go"', 'text="External"'), 'utf-8');
+    expect(PendingWriteRegistry.getInstance().consumeIfPending(filePath)).toBe(false);
+    expect(PendingWriteRegistry.getInstance().hasPending(filePath)).toBe(false);
   });
 
   it('aborts with fileDirty when the panel becomes dirty between precheck and write (TOCTOU recheck)', async () => {
