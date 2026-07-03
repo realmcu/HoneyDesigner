@@ -44,8 +44,9 @@ typedef enum
     GUI_STREAM_CODEC_RAW = 0,   /**< Uncompressed, engine-native: copy only.     */
     GUI_STREAM_CODEC_JPEG,      /**< Baseline JPEG / MJPEG frame.                */
     GUI_STREAM_CODEC_MSV1,      /**< Microsoft Video 1, 16-bpp (RGB555) only.    */
+    GUI_STREAM_CODEC_CINEPAK,   /**< Cinepak (CVID).                             */
     GUI_STREAM_CODEC_RLE,       /**< Reserved -- not implemented yet.            */
-    GUI_STREAM_CODEC_H264,      /**< H.264 Annex-B, one Access Unit per frame.   */
+    GUI_STREAM_CODEC_H264,      /**< Placeholder -- not implemented yet.         */
 } gui_stream_codec_t;
 
 /**
@@ -56,7 +57,7 @@ typedef enum
  * never mutates the shared transport configuration.
  *
  * @note Unconditional drop is only safe for independently decodable frames
- *       (RAW / JPEG / intra-only).  For inter-coded streams (MSV1 / H.264)
+ *       (RAW / JPEG / intra-only).  For inter-coded streams (MSV1 / Cinepak)
  *       skipping frames corrupts decoder state, so the default is NONE.
  */
 typedef enum
