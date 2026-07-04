@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { X, Search, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
+import { X, Search, Maximize2, Minimize2, RotateCcw, ScrollText } from 'lucide-react';
 import {
   ReactFlow,
   MiniMap,
@@ -636,6 +636,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   // 右键"打开所在页面"：切文件（加载完成后自动选中控件）/ 同文件直接选中
   const openFileInDesigner = useDesignerStore(s => s.openFileInDesigner);
   const selectComponent = useDesignerStore(s => s.selectComponent);
+  const showHostLog = useDesignerStore(s => s.showHostLog);
 
   const [nodes, setNodes] = useState<ViewFlowNode[]>([]);
   // 拖动位置暂存（组件内存态；已加载的持久化布局在到达时合并进来，未知 key 回退种子布局）
@@ -1497,8 +1498,10 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       return {
         ...edge,
         selected,
+        // 不抬 zIndex：zIndex>0 的边会渲染到节点层之上，其 ~20px 宽的不可见
+        // 交互命中区会盖住悬停中的节点触发 mouseleave → 高亮取消 → mouseenter
+        // 的无限振荡（悬停闪烁的根因）。高亮用透明度 + 加粗表达已足够。
         style: { ...edge.style, opacity, strokeWidth: highlighted ? 2.5 : 1.5 },
-        zIndex: highlighted ? 1 : 0,
         labelStyle: { opacity: labelOpacity, fill: 'var(--vscode-foreground)', fontSize: 10 },
         labelBgStyle: { opacity: labelOpacity * 0.9 },
       };
@@ -1612,6 +1615,14 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
             )}
           </div>
           <div className="vrm-toolbar">
+            <button
+              className="vrm-close"
+              onClick={showHostLog}
+              title={t('Open HoneyGUI log')}
+              aria-label={t('Open HoneyGUI log')}
+            >
+              <ScrollText size={15} />
+            </button>
             <button
               className="vrm-close"
               onClick={triggerUndo}

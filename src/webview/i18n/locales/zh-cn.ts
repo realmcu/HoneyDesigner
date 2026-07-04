@@ -730,6 +730,7 @@ const zhCN = {
   'not found': '不存在',
   'events.targetMissing': '⚠ 目标视图 "{0}" 已不存在（可能被改名或删除），运行时跳转会失败——请重新选择目标或删除该动作',
   'Open this page in the designer': '在设计器中打开该页面',
+  'Open HoneyGUI log': '打开 HoneyGUI 日志（输出面板）',
   'Open the source control\'s page in the designer': '在设计器中打开源控件所在页面',
   'Failed to save navigation layout': '导航布局保存失败',
   'Dismiss': '关闭',

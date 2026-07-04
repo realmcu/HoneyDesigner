@@ -192,6 +192,8 @@ export interface DesignerStore extends DesignerState {
   requestNavUndoState: () => void;
   /** 把 webview 前端日志/错误转发到宿主输出通道（Output → HoneyGUI） */
   hostLog: (level: 'info' | 'warn' | 'error', message: string) => void;
+  /** 打开输出面板的 HoneyGUI 日志通道 */
+  showHostLog: () => void;
   /** 切文件后待选中的组件 id（loadHml 应用完成时消费，导航图"打开所在页面"用） */
   pendingSelectComponentId: string | null;
   setPendingSelectComponent: (id: string | null) => void;
@@ -1073,6 +1075,11 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   hostLog: (level, message) => {
     if (vscodeAPI) {
       vscodeAPI.postMessage({ command: 'webviewLog', level, message });
+    }
+  },
+  showHostLog: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'showHostLog' });
     }
   },
   setPendingSelectComponent: (id) => set({ pendingSelectComponentId: id }),

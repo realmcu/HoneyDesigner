@@ -730,6 +730,7 @@ const en = {
   'not found': 'not found',
   'events.targetMissing': '⚠ Target view "{0}" no longer exists (renamed or deleted) — the jump will fail at runtime. Pick a new target or remove this action',
   'Open this page in the designer': 'Open this page in the designer',
+  'Open HoneyGUI log': 'Open HoneyGUI log (Output panel)',
   'Open the source control\'s page in the designer': 'Open the source control\'s page in the designer',
   'Failed to save navigation layout': 'Failed to save navigation layout',
   'Dismiss': 'Dismiss',

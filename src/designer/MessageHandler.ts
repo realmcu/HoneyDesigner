@@ -454,6 +454,11 @@ export class MessageHandler {
                 this._handleWebviewLog(message);
                 break;
 
+            case 'showHostLog':
+                // 打开输出面板的 HoneyGUI 通道（webview 内"打开日志"按钮）
+                logger.show();
+                break;
+
             default:
                 logger.warn(`[MessageHandler] 未知消息命令: ${message.command}`);
         }
