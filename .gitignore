@@ -23,8 +23,16 @@ dist-ssr
 out
 .webpack_cache
 
-# Claude Code local config
+# AI agent local config directories (developer workflow tools, not project assets)
+# These must stay local and must NOT be committed — vibe-designer/ is the exception
+# (it contains distributable extension assets, not personal agent config).
 .claude/
+.codex/
+.kiro/
+.cursor/
+.windsurf/
+.aider/
+.cline/
 
 # Editor directories and files
 .vscode/*

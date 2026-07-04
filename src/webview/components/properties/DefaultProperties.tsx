@@ -165,6 +165,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
     !i18nEntry[previewLocale]
   );
   const isI18nKeyMissing = Boolean(i18nKey && !i18nEntry);
+  const isDefaultTextEmpty = Boolean(i18nKey && !defaultLocaleText);
   const resolvedPreviewTextResult = resolveLocalizedText(
     projectI18nCatalog,
     (component.data as any)?.i18nKey,
@@ -930,15 +931,12 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
       return null;
     }
 
-    const datalistId = `project-i18n-keys-${component.id}`;
-
     return (
       <>
         <div className="property-item">
           <label>{t('Localized Key')}</label>
           <input
             type="text"
-            list={datalistId}
             value={i18nKey}
             onChange={(event) => handleI18nKeyChange(event.target.value)}
             onBlur={(event) => handleI18nKeyChange(event.target.value, true)}
@@ -954,39 +952,48 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
               borderRadius: '2px',
             }}
           />
-          <datalist id={datalistId}>
-            {i18nKeys.map((key) => (
-              <option key={key} value={key} />
-            ))}
-          </datalist>
+          {i18nKeys.length > 0 && (
+            <select
+              value={i18nKeys.includes(i18nKey) ? i18nKey : ''}
+              onChange={(event) => {
+                if (event.target.value) {
+                  handleI18nKeyChange(event.target.value, true);
+                }
+              }}
+              title={t('Pick an existing i18n key')}
+              style={{
+                width: '100%',
+                padding: '4px 6px',
+                marginTop: '4px',
+                backgroundColor: 'var(--vscode-dropdown-background)',
+                color: 'var(--vscode-dropdown-foreground)',
+                border: '1px solid var(--vscode-dropdown-border)',
+                borderRadius: '2px',
+                fontSize: '12px',
+              }}
+            >
+              <option value="">{t('Pick an existing i18n key')}</option>
+              {i18nKeys.map((key) => (
+                <option key={key} value={key}>{key}</option>
+              ))}
+            </select>
+          )}
         </div>
 
-        <div className="property-item">
-          <label>{`${t('Default Locale Text')} (${defaultLocale})`}</label>
-          <PropertyEditor
-            type="string"
-            value={i18nKey ? defaultLocaleText : ''}
-            onChange={handleDefaultLocaleTextChange}
-            disabled={!i18nKey}
-            title={!i18nKey ? t('Set a localized key before editing translations') : undefined}
-          />
-        </div>
-
-        {previewLocale !== defaultLocale && (
+        {i18nKey && (
           <div className="property-item">
-            <label>{`${t('Current Locale Text')} (${previewLocale})`}</label>
+            <label>{`${t('Locale Text')} (${previewLocale})`}</label>
             <PropertyEditor
               type="string"
-              value={i18nKey ? currentLocaleText : ''}
-              onChange={handleCurrentLocaleTextChange}
-              disabled={!i18nKey}
-              title={!i18nKey ? t('Set a localized key before editing translations') : undefined}
+              value={previewLocale === defaultLocale ? defaultLocaleText : currentLocaleText}
+              onChange={previewLocale === defaultLocale ? handleDefaultLocaleTextChange : handleCurrentLocaleTextChange}
             />
           </div>
         )}
 
         {isI18nKeyMissing && renderI18nWarning(t('Localized key does not exist yet'))}
         {isPreviewLocaleMissing && renderI18nWarning(t('Current locale is missing and preview is falling back'))}
+        {!isI18nKeyMissing && isDefaultTextEmpty && renderI18nWarning(t('Default locale text is empty and firmware will render blank'))}
       </>
     );
   };

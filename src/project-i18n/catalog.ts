@@ -92,6 +92,31 @@ export function ensureLocale(catalog: I18nCatalog, locale: LocaleCode): I18nCata
     return catalog;
 }
 
+/**
+ * 删除一个语言集合（locale）：从 locales 列表移除，并清理每个 key 下该 locale 的翻译值。
+ *
+ * 必须同时清理 strings 里残留的翻译值——否则 normalizeCatalog 会遍历 strings 中出现过的
+ * locale 并把它重新加回 locales，导致“删了又复活”。
+ * defaultLocale 不允许删除（返回原 catalog 不变）。
+ */
+export function removeLocale(catalog: I18nCatalog, locale: LocaleCode): I18nCatalog {
+    const clean = cleanLocale(locale);
+    if (!clean || clean === catalog.defaultLocale || !catalog.locales.includes(clean)) {
+        return catalog;
+    }
+
+    catalog.locales = catalog.locales.filter((item) => item !== clean);
+
+    for (const key of Object.keys(catalog.strings)) {
+        const entry = catalog.strings[key];
+        if (entry && Object.prototype.hasOwnProperty.call(entry, clean)) {
+            delete entry[clean];
+        }
+    }
+
+    return catalog;
+}
+
 export function setTranslation(
     catalog: I18nCatalog,
     key: I18nKey,
@@ -109,6 +134,37 @@ export function setTranslation(
         catalog.strings[cleanKey] = {};
     }
     catalog.strings[cleanKey][cleanLocaleCode] = text;
+    return catalog;
+}
+
+export function removeI18nKey(catalog: I18nCatalog, key: I18nKey): I18nCatalog {
+    const cleanKey = key.trim();
+    if (cleanKey && catalog.strings[cleanKey]) {
+        delete catalog.strings[cleanKey];
+    }
+    return catalog;
+}
+
+/**
+ * 词条改名：把 oldKey 的翻译整体搬到 newKey 名下并删除旧名。
+ *
+ * 冲突保护：newKey 已存在时不覆盖（调用方负责冲突校验并给出提示）。
+ * 组件引用（HML 里各组件的 i18nKey）由调用方另行改写，此函数只动 catalog。
+ */
+export function renameI18nKey(catalog: I18nCatalog, oldKey: I18nKey, newKey: I18nKey): I18nCatalog {
+    const from = oldKey.trim();
+    const to = newKey.trim();
+    if (!from || !to || from === to) {
+        return catalog;
+    }
+
+    const entry = catalog.strings[from];
+    if (!entry || catalog.strings[to]) {
+        return catalog;
+    }
+
+    catalog.strings[to] = entry;
+    delete catalog.strings[from];
     return catalog;
 }
 
