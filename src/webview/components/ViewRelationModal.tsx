@@ -1052,7 +1052,8 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       return;
     }
     // 问题边悬停提示：错在哪 + 怎么修（i18n）；正常边靠标签即可，不加提示
-    const sourceDesc = `${data.raw?.sourceControlName || data.raw?.sourceControlId || ''} · ${data.expandedLabel || data.shortLabel}`;
+    // expandedLabel 已含「触发控件 · 事件 · 动画」，不再重复拼控件名
+    const sourceDesc = data.expandedLabel || data.shortLabel;
     const text = data.invalid
       ? t('navEdge.tooltip.invalid', data.raw?.target ?? data.targetId, sourceDesc)
       : data.ambiguous
