@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { HmlParser } from '../hml/HmlParser';
 import { scanOpenTags } from '../hml/tagScan';
 import { validateComponentId } from '../webview/utils/validation';
@@ -152,6 +154,15 @@ export class HmlValidationService {
             // ========================================
             validationRules.push('hg_view id 必填警告验证');
             this.validateViewIds(hmlContent, warnings);
+
+            // ========================================
+            // 规则 10: switchView 悬空跳转目标警告
+            // - target 引用的 view（按 id 或 name，与运行时/导航图解析语义一致）
+            //   必须存在于本文件或项目内其他 HML 中
+            // - view 改名/删除后引用失去同步是此类错误的主要来源
+            // ========================================
+            validationRules.push('switchView 跳转目标存在性警告验证');
+            this.validateSwitchViewTargets(document.view.components || [], context, warnings);
 
             if (context.i18nCatalog) {
                 validationRules.push('多语言文本预览警告验证');
@@ -448,6 +459,138 @@ export class HmlValidationService {
                 });
             }
         }
+    }
+
+    /**
+     * 规则 10：switchView 悬空跳转目标警告。
+     *
+     * 语义与运行时/导航图一致：target 按 view 的 id **或 name** 解析
+     * （生成的 C 以 name 注册视图、name 缺省等于 id；导航图扫描也做 id/name
+     * 双查找）。已知视图集合 = 本文件解析出的 hg_view ∪ 项目内其他 .hml 的
+     * hg_view（tagScan 原文提取，不做全量解析，单文件读取失败静默跳过）。
+     * 覆盖事件动作与定时器动作里的 switchView（定时器结构有 actions/segments
+     * 两代形态，用递归遍历统一收集）。
+     */
+    private validateSwitchViewTargets(
+        components: Component[],
+        context: HmlValidationContext,
+        warnings: ValidationWarning[]
+    ): void {
+        // 收集本文件的全部 switchView 引用
+        const refs: Array<{ target: string; componentId: string; source: string }> = [];
+        for (const comp of components) {
+            for (const ec of comp.eventConfigs || []) {
+                for (const action of ec.actions || []) {
+                    if (action?.type === 'switchView' && typeof action.target === 'string' && action.target.trim() !== '') {
+                        refs.push({ target: action.target, componentId: comp.id, source: `event "${ec.type}"` });
+                    }
+                }
+            }
+            const timers = (comp.data as Record<string, unknown> | undefined)?.timers;
+            if (timers) {
+                this._collectSwitchViewTargetsDeep(timers, found => {
+                    refs.push({ target: found, componentId: comp.id, source: 'timer' });
+                });
+            }
+        }
+        if (refs.length === 0) {
+            return;
+        }
+
+        // 已知视图 id/name：本文件 + 项目内其他 HML
+        const known = new Set<string>();
+        for (const comp of components) {
+            if (comp.type === 'hg_view') {
+                known.add(comp.id);
+                if (comp.name) {
+                    known.add(comp.name);
+                }
+            }
+        }
+        if (context.projectRoot) {
+            const selfKey = context.filePath ? path.resolve(context.filePath) : null;
+            for (const file of this._findHmlFiles(context.projectRoot)) {
+                if (selfKey && path.resolve(file) === selfKey) {
+                    continue;
+                }
+                try {
+                    const raw = fs.readFileSync(file, 'utf-8')
+                        .replace(/<!--[\s\S]*?-->/g, '')
+                        .replace(/<!--[\s\S]*$/, '');
+                    for (const tag of scanOpenTags(raw, 'hg_view')) {
+                        const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag.attrsText);
+                        const nameAttr = /\sname\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag.attrsText);
+                        const id = idAttr ? (idAttr[1] ?? idAttr[2] ?? '').trim() : '';
+                        const name = nameAttr ? (nameAttr[1] ?? nameAttr[2] ?? '').trim() : '';
+                        if (id) {
+                            known.add(id);
+                        }
+                        if (name) {
+                            known.add(name);
+                        }
+                    }
+                } catch {
+                    // 单文件读取失败不阻塞校验（可能是权限/编码问题，与本规则无关）
+                }
+            }
+        }
+
+        for (const ref of refs) {
+            if (!known.has(ref.target)) {
+                warnings.push({
+                    type: 'best-practice',
+                    componentId: ref.componentId,
+                    message: `switchView target "${ref.target}" does not match any view id or name in the project — the jump will fail at runtime (source: component "${ref.componentId}", ${ref.source}). The target view may have been renamed or deleted; update or remove this action`
+                });
+            }
+        }
+    }
+
+    /** 深度遍历定时器结构，收集所有 { type:'switchView', target } 的 target */
+    private _collectSwitchViewTargetsDeep(node: unknown, onTarget: (target: string) => void): void {
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                this._collectSwitchViewTargetsDeep(item, onTarget);
+            }
+            return;
+        }
+        if (!node || typeof node !== 'object') {
+            return;
+        }
+        const obj = node as Record<string, unknown>;
+        if (obj.type === 'switchView' && typeof obj.target === 'string' && obj.target.trim() !== '') {
+            onTarget(obj.target);
+        }
+        for (const value of Object.values(obj)) {
+            if (value && typeof value === 'object') {
+                this._collectSwitchViewTargetsDeep(value, onTarget);
+            }
+        }
+    }
+
+    /** 递归收集项目内全部 .hml（跳过依赖/产物/版本库目录） */
+    private _findHmlFiles(root: string): string[] {
+        const skip = new Set(['node_modules', 'build', 'out', '.git', '.honeygui']);
+        const results: string[] = [];
+        const walk = (dir: string): void => {
+            let entries: fs.Dirent[];
+            try {
+                entries = fs.readdirSync(dir, { withFileTypes: true });
+            } catch {
+                return;
+            }
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    if (!skip.has(entry.name)) {
+                        walk(path.join(dir, entry.name));
+                    }
+                } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.hml')) {
+                    results.push(path.join(dir, entry.name));
+                }
+            }
+        };
+        walk(root);
+        return results;
     }
 
     /**

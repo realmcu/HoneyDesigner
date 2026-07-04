@@ -633,6 +633,9 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const navUndoCount = useDesignerStore(s => s.navUndoCount);
   const undoNavEdit = useDesignerStore(s => s.undoNavEdit);
   const requestNavUndoState = useDesignerStore(s => s.requestNavUndoState);
+  // 右键"打开所在页面"：切文件（加载完成后自动选中控件）/ 同文件直接选中
+  const openFileInDesigner = useDesignerStore(s => s.openFileInDesigner);
+  const selectComponent = useDesignerStore(s => s.selectComponent);
 
   const [nodes, setNodes] = useState<ViewFlowNode[]>([]);
   // 拖动位置暂存（组件内存态；已加载的持久化布局在到达时合并进来，未知 key 回退种子布局）
@@ -703,6 +706,8 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const [edgeTooltip, setEdgeTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   // 边右键菜单
   const [edgeMenu, setEdgeMenu] = useState<{ x: number; y: number; edgeId: string } | null>(null);
+  // 节点右键菜单（打开所在页面编辑）
+  const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   // 删除确认弹窗（约束 10：明示 callbacks.c 手写代码丢失）
   const [deleteConfirm, setDeleteConfirm] = useState<ViewFlowEdge | null>(null);
   // 新建跳转草稿（onConnect 拖完 → 选择器弹层）
@@ -1043,7 +1048,27 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     event.stopPropagation();
     setSelectedEdgeId(edge.id);
     setEdgeTooltip(null);
+    setNodeMenu(null);
     setEdgeMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
+  }, []);
+
+  // 节点右键：真实屏出自定义菜单（打开所在页面编辑）；占位节点只拦掉默认 Cut/Copy/Paste
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: ViewFlowNode) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setEdgeMenu(null);
+    if (node.data.kind !== 'view') {
+      setNodeMenu(null);
+      return;
+    }
+    setNodeMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+  }, []);
+
+  // 画布空白处右键：拦掉 webview 默认 Cut/Copy/Paste 菜单
+  const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
+    event.preventDefault();
+    setEdgeMenu(null);
+    setNodeMenu(null);
   }, []);
 
   const onEdgeMouseEnter = useCallback((event: React.MouseEvent, edge: ViewFlowEdge) => {
@@ -1070,13 +1095,31 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
 
   // 右键菜单：点击任意其他位置关闭
   useEffect(() => {
-    if (!edgeMenu) {
+    if (!edgeMenu && !nodeMenu) {
       return;
     }
-    const close = () => setEdgeMenu(null);
+    const close = () => {
+      setEdgeMenu(null);
+      setNodeMenu(null);
+    };
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
-  }, [edgeMenu]);
+  }, [edgeMenu, nodeMenu]);
+
+  /** 在设计器中打开某文件并选中控件（同文件直接选中）；随后关闭弹窗进入编辑 */
+  const openPageForEdit = useCallback((filePath: string | undefined, componentId: string) => {
+    if (!filePath) {
+      showStatus('error', t('Graph data is stale, refreshing'));
+      refreshNavGraph();
+      return;
+    }
+    if (currentFilePath && normalizePath(filePath) === normalizePath(currentFilePath)) {
+      selectComponent(componentId);
+    } else {
+      openFileInDesigner(filePath, componentId);
+    }
+    onClose();
+  }, [currentFilePath, selectComponent, openFileInDesigner, onClose, showStatus, refreshNavGraph]);
 
   // 重扫后选中边可能已消失 → 清空选中
   useEffect(() => {
@@ -1671,6 +1714,8 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
               isValidConnection={isValidConnection}
               onEdgeClick={onEdgeClick}
               onEdgeContextMenu={onEdgeContextMenu}
+              onNodeContextMenu={onNodeContextMenu}
+              onPaneContextMenu={onPaneContextMenu}
               onEdgeMouseEnter={onEdgeMouseEnter}
               onEdgeMouseLeave={onEdgeMouseLeave}
               onPaneClick={onPaneClick}
@@ -1845,13 +1890,24 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
           </div>
         )}
 
-        {/* T11：边右键菜单（删除；定时器边禁用并注明原因） */}
+        {/* T11：边右键菜单（打开源控件所在页面 / 删除；定时器边删除禁用并注明原因） */}
         {edgeMenu && menuEdge?.data && (
           <div
             className="vrm-edge-menu"
             style={{ left: edgeMenu.x, top: edgeMenu.y }}
             onMouseDown={e => e.stopPropagation()}
           >
+            <button
+              className="vrm-edge-menu-item"
+              onClick={() => {
+                setEdgeMenu(null);
+                const raw = menuEdge.data!.raw;
+                // 旧数据可能缺 sourceControlId：仍打开页面，只是不预选控件
+                openPageForEdit(raw.sourceFilePath, raw.sourceControlId ?? '');
+              }}
+            >
+              {t('Open the source control\'s page in the designer')}
+            </button>
             <button
               className="vrm-edge-menu-item"
               disabled={menuEdge.data.isTimer || !menuEdge.data.canDelete}
@@ -1866,6 +1922,27 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
               }}
             >
               {t('Delete connection')}
+            </button>
+          </div>
+        )}
+
+        {/* 节点右键菜单：打开该页面编辑 */}
+        {nodeMenu && (
+          <div
+            className="vrm-edge-menu"
+            style={{ left: nodeMenu.x, top: nodeMenu.y }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <button
+              className="vrm-edge-menu-item"
+              onClick={() => {
+                const id = nodeMenu.nodeId;
+                setNodeMenu(null);
+                const view = viewByKey.get(id);
+                openPageForEdit(view?.filePath, view?.id ?? id);
+              }}
+            >
+              {t('Open this page in the designer')}
             </button>
           </div>
         )}

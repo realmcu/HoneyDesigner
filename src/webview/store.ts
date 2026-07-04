@@ -192,6 +192,11 @@ export interface DesignerStore extends DesignerState {
   requestNavUndoState: () => void;
   /** 把 webview 前端日志/错误转发到宿主输出通道（Output → HoneyGUI） */
   hostLog: (level: 'info' | 'warn' | 'error', message: string) => void;
+  /** 切文件后待选中的组件 id（loadHml 应用完成时消费，导航图"打开所在页面"用） */
+  pendingSelectComponentId: string | null;
+  setPendingSelectComponent: (id: string | null) => void;
+  /** 在当前设计器面板打开另一个 HML 文件，加载完成后可选中指定组件 */
+  openFileInDesigner: (filePath: string, selectComponentId?: string) => void;
 
   // Alignment guides
   showAlignmentGuides: boolean;
@@ -469,6 +474,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   navEditPending: false, // 导航写事务进行中（T11）
   navEditResult: null, // 最近一次 navEditResult 回执（T11）
   navUndoCount: 0, // 可撤销的导航编辑条数
+  pendingSelectComponentId: null, // 切文件后待选中的组件（导航图跳转编辑用）
   isDirty: false, // store 内容相对磁盘是否有未保存改动
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
@@ -1067,6 +1073,13 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   hostLog: (level, message) => {
     if (vscodeAPI) {
       vscodeAPI.postMessage({ command: 'webviewLog', level, message });
+    }
+  },
+  setPendingSelectComponent: (id) => set({ pendingSelectComponentId: id }),
+  openFileInDesigner: (filePath, selectComponentId) => {
+    if (vscodeAPI && filePath) {
+      set({ pendingSelectComponentId: selectComponentId ?? null });
+      vscodeAPI.postMessage({ command: 'switchFile', filePath });
     }
   },
   setShowAlignmentGuides: (show) => set({ showAlignmentGuides: show }),

@@ -376,6 +376,13 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
                   onChange={(e) => handleActionUpdate(eventIndex, actionIndex, { target: e.target.value })}
                 >
                   <option value="">-- {t('Select')} --</option>
+                  {/* 当前值不在可选视图里（view 被改名/删除后引用悬空）：
+                      显式渲染无效占位项，避免下拉静默显示为空白 */}
+                  {!!action.target && !views.some(v => v.id === action.target || v.name === action.target) && (
+                    <option value={action.target}>
+                      ⚠ {action.target} ({t('not found')})
+                    </option>
+                  )}
                   {views.map(v => (
                     <option key={v.id} value={v.id}>
                       {v.name} {v.file !== 'current' ? `(${v.file})` : `(${t('Current File')})`}
@@ -383,6 +390,11 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
                   ))}
                 </select>
               </div>
+              {!!action.target && !views.some(v => v.id === action.target || v.name === action.target) && (
+                <div className="param-row events-target-missing">
+                  {t('events.targetMissing', action.target)}
+                </div>
+              )}
               <div className="param-row">
                 <label>{t('Exit Animation')}</label>
                 <select

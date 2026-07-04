@@ -366,6 +366,18 @@ const App: React.FC = () => {
               if (message.components) {
                 useDesignerStore.getState().resetDirty();
               }
+
+              // 导航图"打开所在页面"：文件加载完成后选中目标控件
+              {
+                const pendingSelect = useDesignerStore.getState().pendingSelectComponentId;
+                if (pendingSelect) {
+                  useDesignerStore.getState().setPendingSelectComponent(null);
+                  const loaded = useDesignerStore.getState().components;
+                  if (loaded.some(c => c.id === pendingSelect)) {
+                    useDesignerStore.getState().selectComponent(pendingSelect);
+                  }
+                }
+              }
               
               // 【关键】延迟隐藏加载状态，确保渲染完成
               requestAnimationFrame(() => {
