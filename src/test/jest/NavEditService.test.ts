@@ -631,3 +631,91 @@ describe('NavEditService.applyNavEdit', () => {
     expect(reloadedWith).toMatch(/target="view_a"/); // 同步内容是写盘后的新内容
   });
 });
+
+describe('NavEditService.undoLast', () => {
+  let projectRoot: string;
+  let filePath: string;
+  const relPath = 'ui/home.hml';
+
+  const retargetRequest = (): NavEditRequest => ({
+    op: 'retarget',
+    newTarget: 'view_a',
+    edge: {
+      sourceViewKey: `${relPath}#view_a`,
+      sourceControlId: 'btn_a',
+      eventType: 'onClick',
+      eventConfigIndex: 0,
+      actionIndex: 0,
+      target: 'view_b',
+      sourceFileHash: sha1(CLEAN_CONTENT),
+    },
+  });
+
+  beforeEach(() => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-undo-test-'));
+    fs.mkdirSync(path.join(projectRoot, 'ui'), { recursive: true });
+    filePath = path.join(projectRoot, relPath);
+    fs.writeFileSync(filePath, CLEAN_CONTENT, 'utf-8');
+    NavEditService.clearUndoStackForTest();
+  });
+
+  afterEach(() => {
+    PendingWriteRegistry.getInstance().unregister(filePath);
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+    NavEditService.clearUndoStackForTest();
+    jest.restoreAllMocks();
+  });
+
+  it('undo after a successful edit restores the exact original bytes and drains the stack', async () => {
+    const service = new NavEditService(noOpHooks());
+    const applied = await service.applyNavEdit(retargetRequest(), projectRoot);
+    expect(applied.success).toBe(true);
+    expect(applied.undoCount).toBe(1);
+    expect(fs.readFileSync(filePath, 'utf-8')).toMatch(/target="view_a"/);
+
+    const undone = await service.undoLast();
+    expect(undone.success).toBe(true);
+    expect(undone.op).toBe('undo');
+    expect(undone.undoCount).toBe(0);
+    // 逐字节还原（撤销不经序列化器，原文写回）
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(CLEAN_CONTENT);
+
+    // 栈空后再撤销 → invalidRequest
+    const again = await service.undoLast();
+    expect(again.success).toBe(false);
+    expect(again.errorCode).toBe('invalidRequest');
+  });
+
+  it('undo aborts with fileChanged and discards the entry when the disk was modified after the edit', async () => {
+    const service = new NavEditService(noOpHooks());
+    const applied = await service.applyNavEdit(retargetRequest(), projectRoot);
+    expect(applied.success).toBe(true);
+
+    // 他方（外部编辑器/AI agent）改动了文件
+    const external = fs.readFileSync(filePath, 'utf-8').replace('text="Go"', 'text="Changed"');
+    fs.writeFileSync(filePath, external, 'utf-8');
+
+    const undone = await service.undoLast();
+    expect(undone.success).toBe(false);
+    expect(undone.errorCode).toBe('fileChanged');
+    expect(undone.undoCount).toBe(0); // 条目作废，不反复撞同一条
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(external); // 磁盘未被动过
+  });
+
+  it('undo aborts with fileDirty without popping when the target panel has unsaved changes', async () => {
+    const service = new NavEditService(noOpHooks());
+    const applied = await service.applyNavEdit(retargetRequest(), projectRoot);
+    expect(applied.success).toBe(true);
+
+    const dirtyService = new NavEditService(noOpHooks({ isFileOpenWithUnsavedChanges: () => true }));
+    const undone = await dirtyService.undoLast();
+    expect(undone.success).toBe(false);
+    expect(undone.errorCode).toBe('fileDirty');
+    expect(undone.undoCount).toBe(1); // 不弹栈，保存/放弃后可重试
+
+    // 保存后重试成功
+    const retry = await service.undoLast();
+    expect(retry.success).toBe(true);
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(CLEAN_CONTENT);
+  });
+});

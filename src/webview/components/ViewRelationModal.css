@@ -124,6 +124,16 @@ body.vrm-noselect * {
   color: var(--vscode-foreground);
 }
 
+.vrm-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.vrm-toolbar button:disabled:hover {
+  background: transparent;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+}
+
 /* ---------------- 标题栏搜索框 ---------------- */
 
 .vrm-search {

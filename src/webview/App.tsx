@@ -132,9 +132,23 @@ const App: React.FC = () => {
   useEffect(() => {
     let readySent = false;
     
-    // 添加错误处理
+    // 添加错误处理；同时转发到宿主输出通道（Output → HoneyGUI），
+    // 用户遇到前端问题可直接复制日志，不必截图（同一错误 2 秒内去重）
+    let lastForwarded = '';
+    let lastForwardedAt = 0;
+    const forwardToHost = (message: string) => {
+      const now = Date.now();
+      if (message === lastForwarded && now - lastForwardedAt < 2000) {
+        return;
+      }
+      lastForwarded = message;
+      lastForwardedAt = now;
+      window.vscodeAPI?.postMessage({ command: 'webviewLog', level: 'error', message });
+    };
+
     const handleGlobalError = (e: ErrorEvent) => {
       console.error('[HoneyGUI Designer] Global error:', e.error);
+      forwardToHost(`Global error: ${e.error?.message || e.message || 'Unknown error'}\n${e.error?.stack || ''}`);
       const errorDiv = document.createElement('div');
       errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c62828;color:white;padding:10px;z-index:9999;font-family:monospace;font-size:12px;white-space:pre-wrap;';
       errorDiv.textContent = t('Error') + ': ' + (e.error?.message || 'Unknown error') + '\n' + (e.error?.stack || 'No stack trace');
@@ -143,6 +157,8 @@ const App: React.FC = () => {
 
     const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
       console.error('[HoneyGUI Designer] Unhandled promise rejection:', e.reason);
+      const reason = e.reason instanceof Error ? `${e.reason.message}\n${e.reason.stack || ''}` : String(e.reason);
+      forwardToHost(`Unhandled promise rejection: ${reason}`);
     };
 
     // 检查是否已经有VSCode API实例
@@ -507,7 +523,13 @@ const App: React.FC = () => {
               usedFileHistory: message.usedFileHistory,
               hintKey: message.hintKey,
             },
+            ...(typeof message.undoCount === 'number' ? { navUndoCount: message.undoCount } : {}),
           });
+          break;
+
+        case 'navUndoState':
+          // 可撤销导航编辑条数（弹窗打开时查询回推）
+          useDesignerStore.setState({ navUndoCount: typeof message.count === 'number' ? message.count : 0 });
           break;
 
         case 'error':

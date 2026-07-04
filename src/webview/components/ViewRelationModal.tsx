@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
-import { X, Search } from 'lucide-react';
+import React, { useMemo, useRef, useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { X, Search, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import {
   ReactFlow,
   MiniMap,
@@ -59,7 +59,6 @@ interface ViewNodeData extends Record<string, unknown> {
   invalidOut: number;     // 出边中无效目标条数
   ambiguousOut: number;   // 出边中歧义目标条数
   autoId: boolean;        // id 为解析器自动生成（建议补显式 id）
-  dimmed?: boolean;       // 悬停淡出态（渲染期计算，不入 state）
   bidirectional?: boolean; // 聚焦子图中既是前驱又是后继（只放左列并标徽记，渲染期计算）
 }
 
@@ -165,12 +164,19 @@ const rewriteReasonLabel = (reason: string): string =>
 
 // ---------------- 自定义节点：屏卡片 ----------------
 
-const ViewCardNode: React.FC<NodeProps<ViewFlowNode>> = ({ data, isConnectable }) => {
+// 悬停淡出集合经 Context 下发（值为高亮节点 id 集合；null=无悬停）。
+// 不通过重建 node 对象传 dimmed：React Flow 受控模式下，每次悬停变化都
+// map 出全新 node 对象会让 React Flow 对未测量对象反复派发 dimensions
+// 变更 → onNodesChange → setNodes → 重渲染，形成自激刷新风暴（聚焦模式实测复现）。
+const HoverDimContext = createContext<Set<string> | null>(null);
+
+const ViewCardNode: React.FC<NodeProps<ViewFlowNode>> = ({ id, data, isConnectable }) => {
+  const hoverIds = useContext(HoverDimContext);
   const classes = ['vrm-node', `vrm-node-${data.kind}`];
   if (data.isCurrentFile) {
     classes.push('vrm-node-current');
   }
-  if (data.dimmed) {
+  if (hoverIds !== null && !hoverIds.has(id)) {
     classes.push('vrm-node-dimmed');
   }
   const hasBadges = data.invalidOut > 0 || data.ambiguousOut > 0 || data.autoId || data.bidirectional === true;
@@ -554,12 +560,22 @@ interface DialogRect {
 
 const DIALOG_MIN_W = 640;
 const DIALOG_MIN_H = 420;
-const DIALOG_DEFAULT_MAX_W = 1200;
-const DIALOG_DEFAULT_MAX_H = 820;
-const DIALOG_VIEWPORT_RATIO_W = 0.9;
-const DIALOG_VIEWPORT_RATIO_H = 0.88;
+const DIALOG_DEFAULT_MAX_W = 1680;
+const DIALOG_DEFAULT_MAX_H = 1000;
+// 最大化时距视口边缘的留白
+const DIALOG_MAXIMIZED_MARGIN = 8;
+const DIALOG_VIEWPORT_RATIO_W = 0.94;
+const DIALOG_VIEWPORT_RATIO_H = 0.92;
 
-/** 打开时居中的默认尺寸：min(1200px,90vw) × min(820px,88vh)，不低于最小尺寸 */
+/** 最大化矩形：占满视口，四边留固定留白 */
+const computeMaximizedDialogRect = (): DialogRect => ({
+  x: DIALOG_MAXIMIZED_MARGIN,
+  y: DIALOG_MAXIMIZED_MARGIN,
+  width: Math.max(DIALOG_MIN_W, window.innerWidth - DIALOG_MAXIMIZED_MARGIN * 2),
+  height: Math.max(DIALOG_MIN_H, window.innerHeight - DIALOG_MAXIMIZED_MARGIN * 2),
+});
+
+/** 打开时居中的默认尺寸：min(1680px,94vw) × min(1000px,92vh)，不低于最小尺寸 */
 const computeDefaultDialogRect = (): DialogRect => {
   const width = Math.max(DIALOG_MIN_W, Math.min(DIALOG_DEFAULT_MAX_W, window.innerWidth * DIALOG_VIEWPORT_RATIO_W));
   const height = Math.max(DIALOG_MIN_H, Math.min(DIALOG_DEFAULT_MAX_H, window.innerHeight * DIALOG_VIEWPORT_RATIO_H));
@@ -607,12 +623,18 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const viewControlsError = useDesignerStore(s => s.viewControlsError);
   const requestViewControls = useDesignerStore(s => s.requestViewControls);
   const clearViewControls = useDesignerStore(s => s.clearViewControls);
+  // 图内撤销（宿主全局撤销栈，跨面板；条数经回执/查询回推维护）
+  const navUndoCount = useDesignerStore(s => s.navUndoCount);
+  const undoNavEdit = useDesignerStore(s => s.undoNavEdit);
+  const requestNavUndoState = useDesignerStore(s => s.requestNavUndoState);
 
   const [nodes, setNodes] = useState<ViewFlowNode[]>([]);
   // 拖动位置暂存（组件内存态；已加载的持久化布局在到达时合并进来，未知 key 回退种子布局）
   const positionsRef = useRef(new Map<string, { x: number; y: number }>());
   const rfInstanceRef = useRef<ReactFlowInstance<ViewFlowNode, ViewFlowEdge> | null>(null);
   const lastSigRef = useRef('');
+  // 进入聚焦子图后等待节点完成首次测量再补跑 fitView（防止空白画布）
+  const needsFitRef = useRef(false);
   // T7：已应用过的持久化布局对象引用，避免同一份 navLayout 重复合并
   const appliedNavLayoutRef = useRef<Record<string, { x: number; y: number }> | null>(null);
   // T7：拖动结束后待写盘的 key（防抖聚合，只上报被拖动过的节点）
@@ -621,6 +643,22 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
 
   // 弹窗可拖拽 + 可调大小（T5）：受控 position/size，打开时居中
   const [dialogRect, setDialogRect] = useState<DialogRect>(() => computeDefaultDialogRect());
+  // 最大化/还原（视图多时全屏看图）；还原时回到最大化前的矩形
+  const [isMaximized, setIsMaximized] = useState(false);
+  const restoreRectRef = useRef<DialogRect | null>(null);
+  const toggleMaximize = useCallback(() => {
+    setIsMaximized(prev => {
+      if (prev) {
+        setDialogRect(restoreRectRef.current ? clampDialogPosition(restoreRectRef.current) : computeDefaultDialogRect());
+        return false;
+      }
+      setDialogRect(current => {
+        restoreRectRef.current = current;
+        return computeMaximizedDialogRect();
+      });
+      return true;
+    });
+  }, []);
   // 拖动/调整大小进行中：禁用文本选中、隔离图层 pan/zoom 手势
   const [isInteracting, setIsInteracting] = useState(false);
   // 拖动/缩放在遮罩上释放指针时，浏览器会派发一次合成 click（target=遮罩），
@@ -673,13 +711,15 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const lastRequestRef = useRef<{ requestId: string; message: Omit<NavEditRequestPayload, 'requestId'> } | null>(null);
   const requestSeqRef = useRef(0);
 
-  // 打开弹窗即请求宿主重扫导航图（allViews 常驻 store，多面板同开时会陈旧）+ 请求持久化布局
+  // 打开弹窗即请求宿主重扫导航图（allViews 常驻 store，多面板同开时会陈旧）
+  // + 请求持久化布局 + 查询可撤销条数
   useEffect(() => {
     if (visible) {
       refreshNavGraph();
       requestNavLayout();
+      requestNavUndoState();
     }
-  }, [visible, refreshNavGraph, requestNavLayout]);
+  }, [visible, refreshNavGraph, requestNavLayout, requestNavUndoState]);
 
   // 冲刷待写盘的拖动位置：取消防抖计时器并立即上报 pending patch。
   // 只发本次被拖动过的 key，宿主按 key 合并写入（不覆盖其他节点/其他面板）
@@ -768,6 +808,18 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     applyNavEdit({ requestId, ...message });
   }, [applyNavEdit, showStatus]);
 
+  /** 撤销最近一次导航编辑（回执与写事务共用 navEditResult 通道，op='undo'） */
+  const triggerUndo = useCallback(() => {
+    if (navEditPending || navUndoCount === 0) {
+      return;
+    }
+    const requestId = `navEdit-${++requestSeqRef.current}-${Date.now()}`;
+    // 撤销不会走 needsConfirm 重发，message 仅为回执匹配占位
+    lastRequestRef.current = { requestId, message: { op: 'delete' } as Omit<NavEditRequestPayload, 'requestId'> };
+    showStatus('info', t('Undoing last navigation change'));
+    undoNavEdit(requestId);
+  }, [navEditPending, navUndoCount, showStatus, undoNavEdit]);
+
   /** 宿主错误码 → 可读文案（dirty/过期/定位失败等各有专属提示） */
   const navEditErrorText = useCallback((errorCode?: string, errorDetail?: string): string => {
     let text: string;
@@ -810,11 +862,13 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       setCreateSel({ controlId: null, eventType: null });
       clearViewControls();
       setSelectedEdgeId(null);
-      const opText = navEditResult.op === 'delete'
-        ? t('Jump deleted')
-        : navEditResult.op === 'create'
-          ? t('Jump created')
-          : t('Jump target updated');
+      const opText = navEditResult.op === 'undo'
+        ? t('Navigation change undone')
+        : navEditResult.op === 'delete'
+          ? t('Jump deleted')
+          : navEditResult.op === 'create'
+            ? t('Jump created')
+            : t('Jump target updated');
       const parts = [opText, t('navEdit.codeWillRegenerate')];
       if (navEditResult.usedFileHistory) {
         // 跨文件写成功且目标文件无面板：撤销走 VS Code 文件历史
@@ -1085,26 +1139,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
         changed = true;
       }
     }
-    if (changed) {
+    // 聚焦模式下只合并进 positionsRef，返回全图时统一重建节点应用
+    if (changed && focusPath.length === 0) {
       setNodes(seedNodes(graph.seeds, positionsRef.current));
     }
-  }, [visible, navLayout, graph]);
-
-  // 打开期间重扫结果到达 → 重建节点（保留用户已拖动的位置）；
-  // 节点集合变化时重新 fitView
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    setNodes(seedNodes(graph.seeds, positionsRef.current));
-    const sig = graph.seeds.map(s => s.id).join('|');
-    if (sig !== lastSigRef.current) {
-      lastSigRef.current = sig;
-      window.requestAnimationFrame(() => {
-        rfInstanceRef.current?.fitView({ padding: 0.15 });
-      });
-    }
-  }, [visible, graph]);
+  }, [visible, navLayout, graph, focusPath]);
 
   const focusId = focusPath.length > 0 ? focusPath[focusPath.length - 1] : null;
   const isFocusMode = focusId !== null;
@@ -1116,6 +1155,35 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     return buildFocusView(focusId, seedById, graph.edges);
   }, [focusId, seedById, graph.edges]);
 
+  // 节点单一数据源：全图与聚焦子图都写进同一份受控 nodes state。
+  // React Flow 的 dimensions 变更经 applyNodeChanges 回写到同一份 state，
+  // 已测量尺寸得以保留——聚焦节点若另行派生传入（曾经的实现），每轮渲染的
+  // 全新未测量对象会让 React Flow 无限派发测量变更（悬停刷新风暴的根因）。
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    if (focusView) {
+      setNodes(prev => {
+        const measuredById = new Map(prev.map(n => [n.id, n.measured]));
+        return focusView.nodes.map(n => {
+          const measured = measuredById.get(n.id);
+          return measured ? { ...n, measured } : n;
+        });
+      });
+      return;
+    }
+    // 全图：重扫结果到达 → 重建节点（保留用户已拖动的位置）；节点集合变化时 fitView
+    setNodes(seedNodes(graph.seeds, positionsRef.current));
+    const sig = graph.seeds.map(s => s.id).join('|');
+    if (sig !== lastSigRef.current) {
+      lastSigRef.current = sig;
+      window.requestAnimationFrame(() => {
+        rfInstanceRef.current?.fitView({ padding: 0.15 });
+      });
+    }
+  }, [visible, graph, focusView]);
+
   // 焦点节点因重扫消失（如文件被删）→ 自动回退全图，避免卡在空聚焦
   useEffect(() => {
     if (focusId && !seedById.has(focusId)) {
@@ -1123,32 +1191,43 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
   }, [focusId, seedById]);
 
-  // 聚焦路径变化（进入/下钻/返回）→ 重新 fitView
+  // 聚焦路径变化（进入/下钻/返回）→ 重新 fitView。
+  // 首次进入聚焦时节点可能尚未测量（fitView 拿不到尺寸 → 画布停在空白区），
+  // 置 needsFit 标志，等 onNodesChange 的 dimensions 变更到达后补一次。
   useEffect(() => {
     if (!visible) {
       return;
     }
+    needsFitRef.current = true;
     window.requestAnimationFrame(() => {
       rfInstanceRef.current?.fitView({ padding: 0.2, duration: 200 });
     });
+    const timer = window.setTimeout(() => {
+      needsFitRef.current = false;
+    }, 800);
+    return () => window.clearTimeout(timer);
   }, [visible, focusPath]);
 
-  // 打开时居中，尺寸默认 min(1200,90vw) × min(820,88vh)（每次打开重新居中，不跨会话持久化位置）
+  // 打开时居中（每次打开重新居中并退出最大化，不跨会话持久化位置）
   useEffect(() => {
     if (visible) {
+      setIsMaximized(false);
+      restoreRectRef.current = null;
       setDialogRect(computeDefaultDialogRect());
     }
   }, [visible]);
 
-  // webview 面板尺寸变化时，防止已拖动的弹窗整体飘出可视区域
+  // webview 面板尺寸变化时：最大化态跟随视口，否则防止已拖动的弹窗飘出可视区域
   useEffect(() => {
     if (!visible) {
       return;
     }
-    const onWindowResize = () => setDialogRect(prev => clampDialogPosition(prev));
+    const onWindowResize = () => {
+      setDialogRect(prev => (isMaximized ? computeMaximizedDialogRect() : clampDialogPosition(prev)));
+    };
     window.addEventListener('resize', onWindowResize);
     return () => window.removeEventListener('resize', onWindowResize);
-  }, [visible]);
+  }, [visible, isMaximized]);
 
   // 调整大小 debounce 后重跑 fitView；纯拖动位置不触发（画布可视区域未变）
   useEffect(() => {
@@ -1164,7 +1243,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
 
   // 标题栏拖动：排除搜索框与工具栏按钮，避免与其内部手势冲突
   const handleHeaderPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) {
+    if (e.button !== 0 || isMaximized) {
       return;
     }
     const target = e.target as HTMLElement;
@@ -1194,7 +1273,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  }, [dialogRect, armSuppressOverlayClick]);
+  }, [dialogRect, armSuppressOverlayClick, isMaximized]);
 
   // 右下角手柄调整大小：限制最小尺寸与视口可视范围
   const handleResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -1233,6 +1312,13 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       if (change.type === 'position' && change.position) {
         positionsRef.current.set(change.id, change.position);
       }
+    }
+    // 进入聚焦后节点完成首次测量 → 补跑 fitView（见 focusPath 的 fitView effect）
+    if (needsFitRef.current && changes.some(c => c.type === 'dimensions')) {
+      needsFitRef.current = false;
+      window.requestAnimationFrame(() => {
+        rfInstanceRef.current?.fitView({ padding: 0.2, duration: 150 });
+      });
     }
   }, []);
 
@@ -1332,16 +1418,8 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     return { nodeIds, edgeIds: edgeIdSet };
   }, [hoveredNodeId, isFocusMode, focusView, graph.edges]);
 
-  const displayNodes = useMemo(() => {
-    const base = isFocusMode ? (focusView?.nodes || []) : nodes;
-    if (!hoverSets) {
-      return base;
-    }
-    return base.map(n => ({
-      ...n,
-      data: { ...n.data, dimmed: !hoverSets.nodeIds.has(n.id) },
-    }));
-  }, [isFocusMode, focusView, nodes, hoverSets]);
+  // 节点直接用受控 state（聚焦子图节点也写进同一 state，见上方 effect）；
+  // 悬停淡出经 HoverDimContext 下发到节点组件，不重建 node 对象。
 
   const displayEdges = useMemo(() => {
     const base = isFocusMode ? (focusView?.edges || []) : graph.edges;
@@ -1430,7 +1508,12 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
         style={{ left: dialogRect.x, top: dialogRect.y, width: dialogRect.width, height: dialogRect.height }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="vrm-header" onPointerDown={handleHeaderPointerDown}>
+        <div className="vrm-header" onPointerDown={handleHeaderPointerDown} onDoubleClick={e => {
+          const target = e.target as HTMLElement;
+          if (!target.closest('.vrm-search') && !target.closest('.vrm-toolbar')) {
+            toggleMaximize();
+          }
+        }}>
           <div className="vrm-title">
             <span className="vrm-icon">🔗</span>
             {t('View Navigation Relations')}
@@ -1468,6 +1551,23 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
             )}
           </div>
           <div className="vrm-toolbar">
+            <button
+              className="vrm-close"
+              onClick={triggerUndo}
+              disabled={navUndoCount === 0 || navEditPending}
+              title={navUndoCount > 0 ? `${t('Undo last navigation edit')} (${navUndoCount})` : t('Nothing to undo')}
+              aria-label={t('Undo last navigation edit')}
+            >
+              <RotateCcw size={15} />
+            </button>
+            <button
+              className="vrm-close"
+              onClick={toggleMaximize}
+              title={isMaximized ? t('Restore window size') : t('Maximize')}
+              aria-label={isMaximized ? t('Restore window size') : t('Maximize')}
+            >
+              {isMaximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
             <button className="vrm-close" onClick={onClose} title={t('Close')}><X size={18} /></button>
           </div>
         </div>
@@ -1533,9 +1633,10 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
               <div>{t('No views')}</div>
             </div>
           ) : (
+            <HoverDimContext.Provider value={hoverSets ? hoverSets.nodeIds : null}>
             <ReactFlow<ViewFlowNode, ViewFlowEdge>
               className="vrm-flow"
-              nodes={displayNodes}
+              nodes={nodes}
               edges={displayEdges}
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
@@ -1577,6 +1678,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
               <MiniMap pannable zoomable nodeColor={minimapNodeColor} />
               <Controls />
             </ReactFlow>
+            </HoverDimContext.Provider>
           )}
         </div>
 
@@ -1593,12 +1695,14 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
           </div>
         </div>
 
-        <div
-          className="vrm-resize-handle"
-          onPointerDown={handleResizePointerDown}
-          title={t('Drag to resize')}
-          aria-label={t('Drag to resize')}
-        />
+        {!isMaximized && (
+          <div
+            className="vrm-resize-handle"
+            onPointerDown={handleResizePointerDown}
+            title={t('Drag to resize')}
+            aria-label={t('Drag to resize')}
+          />
+        )}
 
         {/* T11：删除确认（约束 10——明示 callbacks.c 手写回调将在下次代码生成时丢失） */}
         {deleteConfirm?.data && (

@@ -150,7 +150,7 @@ export interface ViewControlInfo {
 // ---------------- 导航写事务（T10/T11）----------------
 // 与 src/designer/NavEditService.ts 的请求/回执结构保持同步。
 
-export type NavEditOp = 'retarget' | 'delete' | 'create';
+export type NavEditOp = 'retarget' | 'delete' | 'create' | 'undo';
 
 // 边定位字段（retarget/delete 入参）：取自 ViewEdgeInfo 的定位子集
 export interface NavEditEdgeLocator {

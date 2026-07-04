@@ -47,7 +47,7 @@ import { PendingWriteRegistry } from './PendingWriteRegistry';
  */
 
 /** 编辑操作类型 */
-export type NavEditOp = 'retarget' | 'delete' | 'create';
+export type NavEditOp = 'retarget' | 'delete' | 'create' | 'undo';
 
 /** 稳定错误码（webview 侧映射 i18n 文案） */
 export type NavEditErrorCode =
@@ -131,6 +131,8 @@ export interface NavEditResult {
     usedFileHistory?: boolean;
     /** 成功提示 key：代码将在下次代码生成时更新 */
     hintKey?: string;
+    /** 当前可撤销的导航编辑条数（成功回执/撤销回执携带，webview 更新撤销按钮） */
+    undoCount?: number;
 }
 
 /** 目标文件对应面板的最小适配面（由调用方基于 DesignerPanel 提供） */
@@ -157,6 +159,21 @@ interface SvgBackupEntry {
     content: string | null;
 }
 
+/** 导航编辑撤销条目（跨面板全局栈；写盘成功且读回成功才入栈） */
+interface NavUndoEntry {
+    filePath: string;
+    fileRelative: string;
+    /** 写前 .hml 原文（撤销 = 原样写回，不经序列化器，逐字节还原） */
+    beforeContent: string;
+    /** 写前 SVG 副产物状态（撤销时一并还原） */
+    svgBackups: SvgBackupEntry[];
+    /** 写后磁盘内容 hash（撤销前校验：磁盘已被他方改动则该条目作废） */
+    afterHash: string;
+    op: NavEditOp;
+    /** 展示标签：控件.事件 */
+    label: string;
+}
+
 /** 定位成功后的编辑上下文 */
 interface LocatedContext {
     doc: HmlDocument;
@@ -166,6 +183,19 @@ interface LocatedContext {
 
 export class NavEditService {
     private readonly _hooks: NavEditHostHooks;
+
+    /** 导航编辑撤销栈（跨面板全局；仅本 VS Code 会话内有效） */
+    private static readonly _undoStack: NavUndoEntry[] = [];
+    private static readonly UNDO_STACK_MAX = 20;
+
+    public static get undoCount(): number {
+        return NavEditService._undoStack.length;
+    }
+
+    /** 测试辅助：清空撤销栈 */
+    public static clearUndoStackForTest(): void {
+        NavEditService._undoStack.length = 0;
+    }
 
     constructor(hooks: NavEditHostHooks) {
         this._hooks = hooks;
@@ -474,9 +504,102 @@ export class NavEditService {
             usedFileHistory = true;
         }
 
+        // 撤销栈：写盘成功且读回成功才入栈（读回失败无法做撤销前一致性校验）
+        if (written !== undefined) {
+            NavEditService._undoStack.push({
+                filePath: absPath,
+                fileRelative,
+                beforeContent: original,
+                svgBackups,
+                afterHash: PendingWriteRegistry.hashContent(written),
+                op,
+                label: `${controlId}.${eventType}`,
+            });
+            if (NavEditService._undoStack.length > NavEditService.UNDO_STACK_MAX) {
+                NavEditService._undoStack.shift();
+            }
+        }
+
         // ---- 10. 成功回执（allViews 重扫回推由调用方完成） ----
         logger.info(`[NavEditService] ${op} 成功: ${fileRelative} ${controlId}.${eventType}`);
-        return { success: true, op, usedFileHistory, hintKey: NAV_EDIT_HINT_CODE_REGEN };
+        return { success: true, op, usedFileHistory, hintKey: NAV_EDIT_HINT_CODE_REGEN, undoCount: NavEditService.undoCount };
+    }
+
+    /**
+     * 撤销最近一次导航编辑：把写前原文逐字节写回（不经序列化器），SVG 副产物
+     * 一并还原。安全前提：目标文件当前磁盘内容 === 该次编辑写后内容（他方已
+     * 改动则条目作废并报 fileChanged）；面板/TextDocument dirty 时中止不弹栈。
+     * 与写事务同样走 PendingWriteRegistry 抑制 watcher 回灌，绝不触发 codegen。
+     */
+    public async undoLast(): Promise<NavEditResult> {
+        const entry = NavEditService._undoStack[NavEditService._undoStack.length - 1];
+        const fail = (errorCode: NavEditErrorCode, errorDetail?: string): NavEditResult => {
+            logger.warn(`[NavEditService] undo 中止: ${errorCode}${errorDetail ? ` (${errorDetail})` : ''}`);
+            return { success: false, op: 'undo', errorCode, errorDetail, undoCount: NavEditService.undoCount };
+        };
+        if (!entry) {
+            return fail('invalidRequest', '撤销栈为空');
+        }
+
+        // 一致性校验：磁盘内容必须仍是该次编辑的写后内容
+        let currentContent: string;
+        try {
+            currentContent = fs.readFileSync(entry.filePath, 'utf-8');
+        } catch (err) {
+            NavEditService._undoStack.pop(); // 文件已不存在，条目作废
+            return fail('fileNotFound', String(err));
+        }
+        if (PendingWriteRegistry.hashContent(currentContent) !== entry.afterHash) {
+            NavEditService._undoStack.pop(); // 他方已改动，条目作废（避免反复撞同一条）
+            return fail('fileChanged', entry.fileRelative);
+        }
+
+        // dirty 前置校验（不弹栈：用户保存/放弃后可重试）
+        if (this._hooks.isFileOpenWithUnsavedChanges(entry.filePath)) {
+            return fail('fileDirty', 'designer panel has unsaved changes');
+        }
+        if (this._hooks.isTextDocumentDirty(entry.filePath)) {
+            return fail('fileDirty', 'text document has unsaved changes');
+        }
+
+        const registry = PendingWriteRegistry.getInstance();
+        registry.register(entry.filePath);
+        try {
+            fs.writeFileSync(entry.filePath, entry.beforeContent, 'utf-8');
+            // 还原写前的 SVG 副产物状态（写前不存在的删除，存在的写回原内容）
+            for (const backup of entry.svgBackups) {
+                if (backup.content === null) {
+                    if (fs.existsSync(backup.filePath)) {
+                        fs.unlinkSync(backup.filePath);
+                    }
+                } else {
+                    fs.writeFileSync(backup.filePath, backup.content, 'utf-8');
+                }
+            }
+            registry.register(entry.filePath, PendingWriteRegistry.hashContent(entry.beforeContent));
+        } catch (err) {
+            registry.unregister(entry.filePath);
+            return fail('writeFailed', err instanceof Error ? err.message : String(err));
+        }
+
+        NavEditService._undoStack.pop();
+
+        // 面板同步：撤销前内容入面板 undo 栈（Ctrl+Z 语义连续），随后重载为还原内容
+        let usedFileHistory = false;
+        const adapter = this._hooks.getPanelAdapter(entry.filePath);
+        if (adapter) {
+            try {
+                adapter.pushUndoSnapshot(currentContent);
+                await adapter.reloadFromContent(entry.beforeContent);
+            } catch (err) {
+                logger.warn(`[NavEditService] 撤销后面板同步失败（磁盘内容已正确还原）: ${err}`);
+            }
+        } else {
+            usedFileHistory = true;
+        }
+
+        logger.info(`[NavEditService] undo 成功: ${entry.fileRelative} ${entry.label}（余 ${NavEditService.undoCount} 条）`);
+        return { success: true, op: 'undo', usedFileHistory, hintKey: NAV_EDIT_HINT_CODE_REGEN, undoCount: NavEditService.undoCount };
     }
 
     /**

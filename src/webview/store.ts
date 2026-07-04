@@ -184,6 +184,14 @@ export interface DesignerStore extends DesignerState {
   applyNavEdit: (payload: NavEditRequestPayload) => void;
   /** 清除已消费的 navEditResult 回执（ViewRelationModal 处理完后调用） */
   clearNavEditResult: () => void;
+  /** 当前可撤销的导航编辑条数（宿主回执/查询回推维护） */
+  navUndoCount: number;
+  /** 撤销最近一次导航编辑（回执经 navEditResult 消息回推，op='undo'） */
+  undoNavEdit: (requestId: string) => void;
+  /** 弹窗打开时查询可撤销条数（结果经 navUndoState 消息回推） */
+  requestNavUndoState: () => void;
+  /** 把 webview 前端日志/错误转发到宿主输出通道（Output → HoneyGUI） */
+  hostLog: (level: 'info' | 'warn' | 'error', message: string) => void;
 
   // Alignment guides
   showAlignmentGuides: boolean;
@@ -460,6 +468,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   viewControlsError: null, // getViewControls 失败提示（不阻塞）
   navEditPending: false, // 导航写事务进行中（T11）
   navEditResult: null, // 最近一次 navEditResult 回执（T11）
+  navUndoCount: 0, // 可撤销的导航编辑条数
   isDirty: false, // store 内容相对磁盘是否有未保存改动
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
@@ -1044,6 +1053,22 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     }
   },
   clearNavEditResult: () => set({ navEditResult: null }),
+  undoNavEdit: (requestId) => {
+    if (vscodeAPI && requestId) {
+      set({ navEditPending: true, navEditResult: null });
+      vscodeAPI.postMessage({ command: 'navEditUndo', requestId });
+    }
+  },
+  requestNavUndoState: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'getNavUndoState' });
+    }
+  },
+  hostLog: (level, message) => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'webviewLog', level, message });
+    }
+  },
   setShowAlignmentGuides: (show) => set({ showAlignmentGuides: show }),
   setAssetCategory: (category) => set({ assetCategory: category }),
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),

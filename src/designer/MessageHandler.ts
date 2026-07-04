@@ -439,6 +439,21 @@ export class MessageHandler {
                 await this._handleApplyNavEdit(message);
                 break;
 
+            case 'navEditUndo':
+                // 撤销最近一次导航编辑（图内撤销按钮）
+                await this._handleNavEditUndo(message);
+                break;
+
+            case 'getNavUndoState':
+                // 弹窗打开时查询可撤销条数
+                this._panel.webview.postMessage({ command: 'navUndoState', count: NavEditService.undoCount });
+                break;
+
+            case 'webviewLog':
+                // webview 前端日志/错误转发到宿主输出通道（Output → HoneyGUI）
+                this._handleWebviewLog(message);
+                break;
+
             default:
                 logger.warn(`[MessageHandler] 未知消息命令: ${message.command}`);
         }
@@ -1566,6 +1581,44 @@ export class MessageHandler {
                 errorCode: 'writeFailed',
                 errorDetail: error instanceof Error ? error.message : String(error),
             });
+        }
+    }
+
+    /**
+     * 撤销最近一次导航编辑：与写事务同样的安全前提（磁盘一致性 + dirty 校验 +
+     * 登记表抑制回灌），成功后重扫 allViews 回推刷新图。回执复用 navEditResult
+     * 通道（op='undo'）。**绝不触发 codegen**。
+     */
+    private async _handleNavEditUndo(message: any): Promise<void> {
+        const requestId = message?.requestId;
+        try {
+            const service = new NavEditService(this._buildNavEditHooks());
+            const result = await service.undoLast();
+            if (result.success) {
+                await this._fileManager.updateAllViewsToFrontend();
+            }
+            this._panel.webview.postMessage({ command: 'navEditResult', requestId, ...result });
+        } catch (error) {
+            logger.error(`[MessageHandler] navEditUndo 失败: ${error}`);
+            this._panel.webview.postMessage({
+                command: 'navEditResult', requestId, success: false, op: 'undo',
+                errorCode: 'writeFailed',
+                errorDetail: error instanceof Error ? error.message : String(error),
+                undoCount: NavEditService.undoCount,
+            });
+        }
+    }
+
+    /**
+     * webview 前端日志转发：统一进宿主 logger（Output 面板的 HoneyGUI 通道），
+     * 用户遇到前端问题时无需截图，直接复制输出即可。
+     */
+    private _handleWebviewLog(message: any): void {
+        const text = `[webview] ${String(message?.message ?? '')}`;
+        switch (message?.level) {
+            case 'error': logger.error(text); break;
+            case 'warn': logger.warn(text); break;
+            default: logger.info(text); break;
         }
     }
 
