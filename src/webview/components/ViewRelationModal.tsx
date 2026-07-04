@@ -180,8 +180,14 @@ const ViewCardNode: React.FC<NodeProps<ViewFlowNode>> = ({ id, data, isConnectab
     classes.push('vrm-node-dimmed');
   }
   const hasBadges = data.invalidOut > 0 || data.ambiguousOut > 0 || data.autoId || data.bidirectional === true;
+  // 占位节点（无效/歧义目标）悬停解释错在哪、怎么修
+  const cardTitle = data.kind === 'missing'
+    ? t('navNode.tooltip.missing', data.name)
+    : data.kind === 'ambiguous'
+      ? t('navNode.tooltip.ambiguous', data.name)
+      : undefined;
   return (
-    <div className={classes.join(' ')}>
+    <div className={classes.join(' ')} title={cardTitle}>
       <Handle type="target" position={Position.Left} className="vrm-handle" isConnectable={isConnectable} />
       <div className="vrm-node-name" title={data.name}>
         {data.isCurrentFile && <span className="vrm-node-star">★</span>}
@@ -1045,12 +1051,15 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     if (!data) {
       return;
     }
-    // 不可重连的边悬停提示原因（i18n）
-    const text = data.isTimer
-      ? t('Timer connections are read-only')
+    // 问题边悬停提示：错在哪 + 怎么修（i18n）；正常边靠标签即可，不加提示
+    const sourceDesc = `${data.raw?.sourceControlName || data.raw?.sourceControlId || ''} · ${data.expandedLabel || data.shortLabel}`;
+    const text = data.invalid
+      ? t('navEdge.tooltip.invalid', data.raw?.target ?? data.targetId, sourceDesc)
       : data.ambiguous
-        ? t('Ambiguous connections cannot be reconnected')
-        : null;
+        ? t('navEdge.tooltip.ambiguous', data.raw?.target ?? data.targetId)
+        : data.isTimer
+          ? t('Timer connections are read-only')
+          : null;
     if (text) {
       setEdgeTooltip({ x: event.clientX, y: event.clientY, text });
     }
@@ -1147,6 +1156,9 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
 
   const focusId = focusPath.length > 0 ? focusPath[focusPath.length - 1] : null;
   const isFocusMode = focusId !== null;
+  // 无依赖回调（onNodesChange/onNodeDragStop）里读聚焦态用的镜像 ref
+  const isFocusModeRef = useRef(false);
+  isFocusModeRef.current = isFocusMode;
 
   const focusView = useMemo(() => {
     if (!focusId) {
@@ -1309,7 +1321,8 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const onNodesChange = useCallback((changes: NodeChange<ViewFlowNode>[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
     for (const change of changes) {
-      if (change.type === 'position' && change.position) {
+      // 聚焦子图内拖动只改临时展示位置，不写进全图布局（坐标系不同）
+      if (change.type === 'position' && change.position && !isFocusModeRef.current) {
         positionsRef.current.set(change.id, change.position);
       }
     }
@@ -1335,6 +1348,10 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     node: ViewFlowNode,
     nodes: ViewFlowNode[]
   ) => {
+    // 聚焦子图的临时位置不持久化（属聚焦布局坐标系，与全图布局互不相干）
+    if (isFocusModeRef.current) {
+      return;
+    }
     const dragged = nodes && nodes.length > 0 ? nodes : [node];
     let touched = false;
     for (const n of dragged) {
@@ -1661,7 +1678,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
               fitViewOptions={{ padding: 0.15 }}
               minZoom={0.05}
               maxZoom={2.5}
-              nodesDraggable={!isFocusMode}
+              nodesDraggable
               nodesConnectable
               edgesReconnectable
               connectionLineStyle={{ stroke: 'var(--vscode-focusBorder)', strokeWidth: 1.5 }}
