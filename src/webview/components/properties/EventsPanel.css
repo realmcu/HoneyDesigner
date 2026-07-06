@@ -234,3 +234,10 @@
 .add-event-btn:hover {
   background: var(--vscode-button-hoverBackground);
 }
+
+/* switchView 目标已失效（view 改名/删除后引用悬空）的警示行 */
+.events-target-missing {
+  color: var(--vscode-errorForeground, #f14c4c);
+  font-size: 11px;
+  line-height: 1.4;
+}

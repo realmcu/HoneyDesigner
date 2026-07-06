@@ -52,6 +52,8 @@ export const useKeyboardShortcuts = () => {
               command: 'save',
               content: {},
             });
+            // 乐观复位本地脏标记：保存窗口内的新编辑才能再次上报 dirty（H4）
+            useDesignerStore.getState().markSaveRequested();
           }
           break;
 

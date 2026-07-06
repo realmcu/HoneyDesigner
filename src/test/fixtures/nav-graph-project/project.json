@@ -1,0 +1,12 @@
+{
+  "$schema": "HoneyGUI",
+  "type": "Designer",
+  "name": "nav-graph-test",
+  "version": "1.0.0",
+  "resolution": "240X240",
+  "pixelMode": "RGB565",
+  "targetEngine": "honeygui",
+  "assetsDir": "assets",
+  "uiDir": "ui",
+  "srcDir": "src"
+}

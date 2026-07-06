@@ -261,8 +261,9 @@
     }
   },
   "scripts": {
-    "test": "npm run test:unit",
+    "test": "npm run test:unit && npm run test:src",
     "test:unit": "cd tools && npx jest --verbose",
+    "test:src": "jest --config jest.config.js --verbose",
     "test:project-i18n": "ts-node scripts/test-project-i18n.ts",
     "test:codegen-i18n": "ts-node scripts/test-codegen-i18n.ts",
     "test:ai-bundle": "ts-node scripts/test-ai-context-bundle.ts",
@@ -304,6 +305,7 @@
     "@types/webpack": "^5.28.5",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
+    "@xyflow/react": "^12.11.1",
     "baseline-browser-mapping": "^2.9.14",
     "css-loader": "^7.1.2",
     "esbuild": "^0.27.0",

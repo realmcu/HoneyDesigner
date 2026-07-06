@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from '../utils/Logger';
+import type { Component } from '../hml/types';
+import { getSupportedEvents } from '../hml/eventTypes';
+import type { EventType } from '../hml/eventTypes';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { HmlController } from '../hml/HmlController';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
@@ -10,6 +13,32 @@ import { HmlContentComparator } from '../utils/HmlContentComparator';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog } from '../project-i18n/files';
+import { PendingWriteRegistry } from './PendingWriteRegistry';
+import { scanAllViews, scanAllHmlFiles, scanHmlFilesRecursive, buildComponentIndex } from './navGraphScanner';
+
+// 视图跳转边（导航图数据模型）迁至 src/shared/navContract.ts 并改判别联合
+// （评审 I6：control 可编辑 / timer 只读）。此处 re-export 保持既有 import 路径不变。
+export type { ViewNavEdge } from '../shared/navContract';
+
+// 导航图扫描（边采集 / 跨文件 target 解析）纯逻辑抽至 ./navGraphScanner（评审 I8：
+// vscode-free，可 jest fixtures 直测）。ViewNavNode 定义随之迁移，此处 re-export 保持既有引用。
+export type { ViewNavNode } from './navGraphScanner';
+
+/**
+ * 单个 view 下可交互控件的枚举描述（T9 getViewControls）
+ * 与 src/webview/types.ts 的 ViewControlInfo 保持同步。
+ */
+export interface ViewControlInfo {
+    id: string;
+    name: string;
+    type: string;
+    /** 该组件类型支持的事件（COMPONENT_SUPPORTED_EVENTS/DEFAULT_SUPPORTED_EVENTS） */
+    supportedEvents: EventType[];
+    /** 已配置 switchView action 的事件类型（新建跳转时据此禁用已占用事件） */
+    occupiedSwitchViewEvents: EventType[];
+    /** true = 该项是 view 自身（屏手势跳转），非后代控件 */
+    sourceIsView: boolean;
+}
 
 /**
  * 文件管理器 - 处理文件的加载、保存和更新
@@ -31,9 +60,21 @@ export class FileManager {
     
     // 事件发射器
     private readonly _onDidUpdateTitle = new vscode.EventEmitter<string>();
-    
+    private readonly _onDidChangeFilePath = new vscode.EventEmitter<string | undefined>();
+
     // 事件
     public readonly onDidUpdateTitle = this._onDidUpdateTitle.event;
+    /** 当前文件路径变化（面板创建加载 / 另存为 / 新建空白文档），DesignerPanel 据此维护路径→面板索引 */
+    public readonly onDidChangeFilePath = this._onDidChangeFilePath.event;
+
+    // webview（Zustand store）侧的未保存改动状态。
+    // 设计器编辑只存在于 webview store 中、显式保存才落盘，对 TextDocument
+    // dirty 检测不可见（设计文档约束 5），因此由 webview 在脏状态变化时发
+    // dirtyStateChanged 消息、宿主在此缓存，供写事务前置校验查询。
+    private _webviewDirty = false;
+    // 单调递增序号：防止「保存进行中又产生新改动」时，保存成功回调把新改动的
+    // dirty 标记误清掉（保存开始时记录序号，成功后仅在序号未变时清除）。
+    private _webviewDirtySeq = 0;
 
     // project.json 文件监听器
     private _projectConfigWatcher: vscode.FileSystemWatcher | undefined;
@@ -97,7 +138,7 @@ export class FileManager {
         const { width, height } = ProjectUtils.parseResolution(resolution);
         if (!width || !height) { return; }
 
-        const hmlFiles = this.scanAllHmlFiles(currentFilePath);
+        const hmlFiles = scanAllHmlFiles(currentFilePath);
         logger.info(`[FileManager] 同步 hg_view 尺寸 ${width}x${height}，共 ${hmlFiles.length} 个 HML 文件`);
 
         for (const hmlFile of hmlFiles) {
@@ -151,7 +192,50 @@ export class FileManager {
     }
 
     public set currentFilePath(path: string | undefined) {
-        this._filePath = path;
+        this._setFilePath(path);
+    }
+
+    /**
+     * 统一的文件路径赋值入口：路径变化时触发 onDidChangeFilePath
+     * （所有 _filePath 赋值必须经此，保证面板路径索引不漏更新）
+     */
+    private _setFilePath(filePath: string | undefined): void {
+        if (this._filePath === filePath) {
+            return;
+        }
+        this._filePath = filePath;
+        this._onDidChangeFilePath.fire(filePath);
+    }
+
+    /** webview 是否有未保存改动（缓存自 dirtyStateChanged 消息） */
+    public get hasUnsavedWebviewChanges(): boolean {
+        return this._webviewDirty;
+    }
+
+    /** 由 MessageHandler 在收到 dirtyStateChanged 消息时调用 */
+    public setWebviewDirty(dirty: boolean): void {
+        if (dirty) {
+            this._webviewDirty = true;
+            this._webviewDirtySeq++;
+        } else {
+            this._webviewDirty = false;
+        }
+        logger.debug(`[FileManager] webview dirty 状态: ${this._webviewDirty} (seq=${this._webviewDirtySeq})`);
+    }
+
+    /** 当前 dirty 序号（保存开始前记录，配合 clearWebviewDirtyIfUnchanged 使用） */
+    public get webviewDirtySeq(): number {
+        return this._webviewDirtySeq;
+    }
+
+    /**
+     * 保存成功后清除 webview dirty 缓存——仅在保存期间没有新改动到达
+     * （dirty 序号未变）时清除，防止把保存内容之外的新改动标记误清
+     */
+    public clearWebviewDirtyIfUnchanged(seqAtSaveStart: number): void {
+        if (this._webviewDirtySeq === seqAtSaveStart) {
+            this._webviewDirty = false;
+        }
     }
 
     /**
@@ -179,8 +263,8 @@ export class FileManager {
     public async updateAllViewsToFrontend(): Promise<void> {
         if (!this._filePath) return;
         try {
-            const allViews = await this.scanAllViews(this._filePath);
-            const allHmlFiles = this.scanAllHmlFiles(this._filePath);
+            const allViews = await scanAllViews(this._filePath);
+            const allHmlFiles = scanAllHmlFiles(this._filePath);
             logger.debug(`[FileManager] 更新视图列表: ${allViews.length} 个视图, ${allHmlFiles.length} 个文件`);
             this._panel.webview.postMessage({
                 command: 'updateAllViews',
@@ -228,6 +312,40 @@ export class FileManager {
     }
     
     /**
+     * 无防抖地记录一次撤销快照（导航写事务 T10 专用）。
+     * pushUndoState 的 500ms 滑动窗口会把紧邻普通编辑的快照合并掉，
+     * 而导航写事务要求"Ctrl+Z 恰好整步回退本次边编辑"，必须强制入栈。
+     */
+    public pushUndoSnapshotImmediate(hmlContent: string): void {
+        if (this._undoStack.length > 0 && this._undoStack[this._undoStack.length - 1] === hmlContent) {
+            return;
+        }
+        this._undoStack.push(hmlContent);
+        if (this._undoStack.length > this._maxHistorySize) {
+            this._undoStack.shift();
+        }
+        this._redoStack = [];
+        this._lastUndoPushTime = Date.now();
+        logger.debug(`[FileManager] 记录撤销快照（导航写事务），当前栈深度: ${this._undoStack.length}`);
+    }
+
+    /**
+     * 用磁盘上的新内容同步本面板（导航写事务 T10 写盘后调用）。
+     * 面板 watcher 回灌已被 PendingWriteRegistry 抑制，由写事务显式同步：
+     * 解析新内容 → 推 loadHml；同时更新快照并复位 dirty 缓存
+     * （写事务前置校验已保证本面板无未保存改动，覆盖是安全的）。
+     */
+    public async reloadFromContent(content: string): Promise<void> {
+        if (!this._filePath) {
+            return;
+        }
+        this.setWebviewDirty(false);
+        this._hmlController.parseContent(content, this._filePath);
+        this._lastSerializedSnapshot = content;
+        await this.reloadCurrentDocument();
+    }
+
+    /**
      * 撤销
      */
     public async undo(): Promise<boolean> {
@@ -245,8 +363,8 @@ export class FileManager {
             // 弹出上一个状态
             const previousContent = this._undoStack.pop()!;
             
-            // 解析并更新 hmlController（与正常加载一致）
-            this._hmlController.parseContent(previousContent);
+            // 解析并更新 hmlController（与正常加载一致；传路径保证 fallback id 带种子）
+            this._hmlController.parseContent(previousContent, this._filePath);
             
             // 通过 VSCode TextDocument API 写入，保持版本同步，防止 "content is newer" 冲突
             await this._writeViaTextDocument(this._filePath, previousContent);
@@ -285,8 +403,8 @@ export class FileManager {
             // 弹出重做状态
             const nextContent = this._redoStack.pop()!;
             
-            // 解析并更新 hmlController
-            this._hmlController.parseContent(nextContent);
+            // 解析并更新 hmlController（传路径保证 fallback id 带种子）
+            this._hmlController.parseContent(nextContent, this._filePath);
             
             // 通过 VSCode TextDocument API 写入，保持版本同步
             await this._writeViaTextDocument(this._filePath, nextContent);
@@ -367,107 +485,95 @@ export class FileManager {
      * 加载文件
      */
 
-    /**
-     * 递归扫描目录下所有 HML 文件
-     */
-    private scanHmlFilesRecursive(dir: string, projectRoot: string): Array<{path: string, name: string, relativePath: string}> {
-        const results: Array<{path: string, name: string, relativePath: string}> = [];
-        if (!fs.existsSync(dir)) return results;
+    // scanHmlFilesRecursive / scanAllHmlFiles / scanAllViews / buildComponentIndex 已抽至
+    // ./navGraphScanner（评审 I8，vscode-free 可直测），本类改为直接调用导入的纯函数。
 
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            if (entry.isDirectory()) {
-                results.push(...this.scanHmlFilesRecursive(fullPath, projectRoot));
-            } else if (entry.isFile() && entry.name.endsWith('.hml')) {
-                results.push({
-                    path: fullPath,
-                    name: entry.name,
-                    relativePath: path.relative(projectRoot, fullPath)
-                });
+    /**
+     * 给定 viewKey（relPath#viewId），返回该 view 下（剪枝到嵌套子屏前）
+     * 可交互控件列表（含 view 自身，sourceIsView 语义 = 屏手势跳转）。
+     * 复用 T2 scanAllViews 的 id→component / parent→children[] 索引遍历逻辑。
+     * 找不到项目根目录 / 文件 / view 时返回 null。
+     */
+    public async getViewControls(viewKey: string): Promise<ViewControlInfo[] | null> {
+        if (!this._filePath) {
+            return null;
+        }
+        const projectRoot = ProjectUtils.findProjectRoot(this._filePath);
+        if (!projectRoot) {
+            return null;
+        }
+
+        const hashIndex = viewKey.indexOf('#');
+        if (hashIndex < 0) {
+            logger.warn(`[FileManager] getViewControls: 非法 viewKey（缺少 #）: ${viewKey}`);
+            return null;
+        }
+        const fileRelative = viewKey.slice(0, hashIndex);
+        const viewId = viewKey.slice(hashIndex + 1);
+        if (!fileRelative || !viewId) {
+            return null;
+        }
+
+        const absPath = path.join(projectRoot, ...fileRelative.split('/'));
+
+        let components: Component[];
+        try {
+            const content = fs.readFileSync(absPath, 'utf-8');
+            const tempController = new HmlController();
+            const doc = tempController.parseContent(content, absPath);
+            components = doc.view?.components || [];
+        } catch (err) {
+            logger.warn(`[FileManager] getViewControls: 读取/解析 ${absPath} 失败: ${err}`);
+            return null;
+        }
+
+        const { byId, childrenOf } = buildComponentIndex(components);
+        const viewComp = byId.get(viewId);
+        if (!viewComp || viewComp.type !== 'hg_view') {
+            logger.warn(`[FileManager] getViewControls: 未找到 view ${viewKey}`);
+            return null;
+        }
+
+        const result: ViewControlInfo[] = [this._describeControl(viewComp, true)];
+
+        // 后代控件，遇嵌套 hg_view 剪枝（子屏控件不属于本屏）
+        const queue: Component[] = [...(childrenOf.get(viewComp.id) || [])];
+        while (queue.length > 0) {
+            const child = queue.shift()!;
+            if (child.type === 'hg_view') {
+                continue;
+            }
+            result.push(this._describeControl(child, false));
+            queue.push(...(childrenOf.get(child.id) || []));
+        }
+
+        return result;
+    }
+
+    /**
+     * 构造单个控件的枚举描述：支持事件（COMPONENT_SUPPORTED_EVENTS/DEFAULT_SUPPORTED_EVENTS）
+     * + 已配置 switchView action 的事件类型列表（occupiedSwitchViewEvents）
+     */
+    private _describeControl(comp: Component, sourceIsView: boolean): ViewControlInfo {
+        const supportedEvents = getSupportedEvents(comp.type);
+        const occupiedSet = new Set<EventType>();
+        for (const eventConfig of comp.eventConfigs || []) {
+            const hasSwitchView = (eventConfig.actions || []).some(action => action.type === 'switchView');
+            if (hasSwitchView) {
+                occupiedSet.add(eventConfig.type);
             }
         }
-        return results;
+        return {
+            id: comp.id,
+            name: comp.name || comp.id,
+            type: comp.type,
+            supportedEvents,
+            occupiedSwitchViewEvents: [...occupiedSet],
+            sourceIsView,
+        };
     }
 
-    /**
-     * 扫描项目中所有 HML 文件
-     */
-    private scanAllHmlFiles(currentFilePath: string): Array<{path: string, name: string, relativePath: string}> {
-        const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
-        if (!projectRoot) {
-            return [];
-        }
-
-        const uiDir = ProjectUtils.getUiDir(projectRoot);
-        return this.scanHmlFilesRecursive(uiDir, projectRoot);
-    }
-
-    /**
-     * 扫描项目中所有 HML 文件的 view（包含跳转关系）
-     */
-    private async scanAllViews(currentFilePath: string): Promise<Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}>> {
-        const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
-        if (!projectRoot) {
-            return [];
-        }
-
-        const uiDir = ProjectUtils.getUiDir(projectRoot);
-        const hmlFiles = this.scanHmlFilesRecursive(uiDir, projectRoot);
-        const allViews: Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}> = [];
-
-        for (const hmlFile of hmlFiles) {
-            try {
-                const tempController = new HmlController();
-                const doc = await tempController.loadFile(hmlFile.path);
-                
-                // 从相对路径提取文件标识（去掉 .hml 后缀）
-                const fileId = hmlFile.name.replace('.hml', '');
-                
-                // 提取所有 hg_view 及其跳转关系
-                const extractViews = (components: any[]): void => {
-                    for (const comp of components) {
-                        if (comp.type === 'hg_view') {
-                            // 提取跳转边
-                            const edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}> = [];
-                            if (comp.eventConfigs) {
-                                for (const eventConfig of comp.eventConfigs) {
-                                    for (const action of eventConfig.actions || []) {
-                                        if (action.type === 'switchView' && action.target) {
-                                            edges.push({
-                                                target: action.target,
-                                                event: eventConfig.type,
-                                                switchOutStyle: action.switchOutStyle,
-                                                switchInStyle: action.switchInStyle,
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            allViews.push({
-                                id: comp.id,
-                                name: comp.name || comp.id,
-                                file: fileId,
-                                edges,
-                            });
-                        }
-                        if (comp.children && comp.children.length > 0) {
-                            extractViews(comp.children);
-                        }
-                    }
-                };
-                
-                if (doc.view && doc.view.components) {
-                    extractViews(doc.view.components);
-                }
-            } catch (err) {
-                logger.warn(`扫描 ${hmlFile.path} 失败: ${err}`);
-            }
-        }
-
-        return allViews;
-    }
+    // _collectComponentSwitchViewEdges / _buildNavEdge 已抽至 ./navGraphScanner（评审 I8）。
 
     /**
      * 扫描项目中所有 HML 文件的组件 ID（排除当前文件），用于跨文件命名去重
@@ -480,7 +586,7 @@ export class FileManager {
         }
 
         const uiDir = ProjectUtils.getUiDir(projectRoot);
-        const hmlFiles = this.scanHmlFilesRecursive(uiDir, projectRoot);
+        const hmlFiles = scanHmlFilesRecursive(uiDir, projectRoot);
         const allIds: string[] = [];
         const currentNorm = path.normalize(currentFilePath);
         
@@ -550,7 +656,7 @@ export class FileManager {
 
             // 更新面板标题
             this._onDidUpdateTitle.fire('HoneyGUI 设计器 - 未命名');
-            this._filePath = undefined;
+            this._setFilePath(undefined);
 
         } catch (error) {
             logger.error(`创建新文档失败: ${error}`);
@@ -563,7 +669,11 @@ export class FileManager {
      * 不立即发送，等待前端 ready 消息后由 reloadCurrentDocument() 发送
      */
     public async loadFromDocument(document: vscode.TextDocument): Promise<void> {
-        this._filePath = document.uri.fsPath;
+        this._setFilePath(document.uri.fsPath);
+
+        // 即将把磁盘内容推给 webview（loadHml），store 将与磁盘同步；
+        // webview 应用后也会回发 dirtyStateChanged(false)，此处先行清除避免陈旧 true
+        this.setWebviewDirty(false);
 
         logger.info(`[FileManager] loadFromDocument: 开始加载文件 ${this._filePath}`);
 
@@ -590,8 +700,10 @@ export class FileManager {
                 }
             }
 
-            // 解析文档内容
-            const hmlDocument = this._hmlController.parseContent(content);
+            // 解析文档内容（必须传文件路径：无 id 组件的 fallback id 以 basename 为种子，
+            // 不传则设计器画布拿到无种子 id（hg_view_auto_0），保存即永久落盘且跨文件撞车，
+            // 与 scanAllViews/codegen 对同一文件解析出的带种子 id 不一致）
+            const hmlDocument = this._hmlController.parseContent(content, this._filePath);
             logger.info(`[FileManager] 解析完成，获得 ${hmlDocument.view?.components?.length || 0} 个组件`);
 
             // 为前端准备组件数据（预处理，等待 ready 消息后发送）
@@ -633,6 +745,15 @@ export class FileManager {
         }
 
         if (this._filePath) {
+            // 命中跨面板「预期写入登记表」：本次磁盘变化是宿主写事务（如导航图
+            // 边编辑）自己写入的，跳过重载回灌并消费该登记（时间窗/宽限期语义
+            // 见 PendingWriteRegistry；带内容 hash 的登记会读磁盘现值比对，磁盘
+            // 已被外部方再次改写时不吞、正常放行重载）。写事务完成后由其回执
+            // 负责刷新各面板。
+            if (PendingWriteRegistry.getInstance().consumeIfPending(this._filePath)) {
+                logger.info(`[FileManager] updateFromDocument: 命中预期写入登记，跳过本次重载: ${this._filePath}`);
+                return;
+            }
             try {
                 logger.debug(`[FileManager] updateFromDocument: 重新加载文件 ${this._filePath}`);
                 const document = await vscode.workspace.openTextDocument(this._filePath);
@@ -692,7 +813,7 @@ export class FileManager {
                 // 提示用户选择保存位置
                 const selectedPath = await this._saveManager.promptSaveLocation(content);
                 if (selectedPath) {
-                    this._filePath = selectedPath;
+                    this._setFilePath(selectedPath);
 
                     // 更新面板标题
                     const fileName = path.basename(selectedPath);
@@ -785,10 +906,10 @@ export class FileManager {
             : createEmptyCatalog('en-US');
         
         // 扫描所有 view（统一在此处获取）
-        const allViews = await this.scanAllViews(this._filePath!);
+        const allViews = await scanAllViews(this._filePath!);
         
         // 扫描所有 HML 文件
-        const allHmlFiles = this.scanAllHmlFiles(this._filePath!);
+        const allHmlFiles = scanAllHmlFiles(this._filePath!);
         
         // 扫描其他 HML 文件中的组件 ID（用于跨文件命名去重）
         const otherFileComponentIds = await this.scanAllComponentIds(this._filePath!);

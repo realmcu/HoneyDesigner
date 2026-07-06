@@ -17,6 +17,9 @@ import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18
 import { HmlParser } from '../hml/HmlParser';
 import { HmlSerializer } from '../hml/HmlSerializer';
 import { composeAiBundle } from './aiContextBundle';
+import { NavLayoutService, NavLayoutMap } from '../services/NavLayoutService';
+import { NavEditService, NavEditHostHooks, NavEditRequest, NavEditResult } from './NavEditService';
+import { PendingWriteRegistry } from './PendingWriteRegistry';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -72,6 +75,12 @@ export class MessageHandler {
 
             case 'save':
                 await this.handleSave(message);
+                break;
+
+            case 'dirtyStateChanged':
+                // webview store 脏状态变化（编辑产生 → true；loadHml 应用完成 → false）。
+                // 宿主按面板缓存，供 DesignerPanel.isFileOpenWithUnsavedChanges 静态查询
+                this._fileManager.setWebviewDirty(message.dirty === true);
                 break;
 
             case 'undo':
@@ -414,6 +423,51 @@ export class MessageHandler {
                 this._handleGetUserFunctions();
                 break;
 
+            case 'refreshNavGraph':
+                // webview 主动请求重扫导航图（打开视图关系弹窗时触发，解决 allViews 陈旧）
+                await this._fileManager.updateAllViewsToFrontend();
+                break;
+
+            case 'getNavLayout':
+                // 导航图弹窗打开时请求持久化布局（T7）
+                await this._handleGetNavLayout();
+                break;
+
+            case 'saveNavLayout':
+                // 拖动节点结束后防抖上报，只携带本次被拖动过的 key（T7）
+                await this._handleSaveNavLayout(message.layout);
+                break;
+
+            case 'getViewControls':
+                // 给定 viewKey 枚举该 view 下可交互控件（T9，新建跳转前置）
+                await this._handleGetViewControls(message.viewKey);
+                break;
+
+            case 'applyNavEdit':
+                // 导航图边编辑写事务（T10：改目标/删除/新建，当前文件与跨文件统一走此路）
+                await this._handleApplyNavEdit(message);
+                break;
+
+            case 'navEditUndo':
+                // 撤销最近一次导航编辑（图内撤销按钮）
+                await this._handleNavEditUndo(message);
+                break;
+
+            case 'getNavUndoState':
+                // 弹窗打开时查询可撤销条数
+                this._panel.webview.postMessage({ command: 'navUndoState', count: NavEditService.undoCount });
+                break;
+
+            case 'webviewLog':
+                // webview 前端日志/错误转发到宿主输出通道（Output → HoneyGUI）
+                this._handleWebviewLog(message);
+                break;
+
+            case 'showHostLog':
+                // 打开输出面板的 HoneyGUI 通道（webview 内"打开日志"按钮）
+                logger.show();
+                break;
+
             default:
                 logger.warn(`[MessageHandler] 未知消息命令: ${message.command}`);
         }
@@ -575,6 +629,10 @@ export class MessageHandler {
     private async handleSave(message: any): Promise<void> {
         logger.debug(`[MessageHandler] 收到保存请求，组件数量: ${message?.content?.components?.length || 0}`);
 
+        // 记录保存开始时的 dirty 序号：保存期间若 webview 又报新改动（seq 变化），
+        // 保存成功后不清除 dirty 缓存（新改动不在本次落盘内容中）
+        const dirtySeqAtStart = this._fileManager.webviewDirtySeq;
+
         try {
             // 保存前记录当前状态到撤销栈（直接读文件，避免 VSCode buffer 不同步）
             const currentFilePath = this._fileManager.currentFilePath;
@@ -597,7 +655,20 @@ export class MessageHandler {
         }
         const serializedContent = this._hmlController.serializeDocument();
         logger.debug(`[MessageHandler] 序列化完成，内容长度: ${serializedContent.length}`);
-        await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
+        const saved = await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
+
+        if (saved) {
+            // 保存成功：清宿主侧 dirty 缓存（仅当保存期间无新改动、seq 未变时——
+            // webview 在发 save 时已乐观复位本地 isDirty，保存窗口内的新编辑会
+            // 重新上报 dirty(true) 使 seq 递增，这里就不会误清）并回执 webview
+            this._fileManager.clearWebviewDirtyIfUnchanged(dirtySeqAtStart);
+            this._panel.webview.postMessage({ command: 'hmlSaved' });
+        } else {
+            // 保存失败：磁盘没有落下 webview 要保存的内容。webview 发 save 时
+            // 已乐观复位本地 isDirty，必须回执让它置回，否则后续无新编辑时
+            // 本地永远漏报 dirty（宿主缓存未清，仍为 dirty，方向安全）
+            this._panel.webview.postMessage({ command: 'hmlSaveFailed' });
+        }
 
         // 保存后通知前端更新撤销/重做状态
         this._fileManager.sendUndoRedoState();
@@ -692,8 +763,8 @@ export class MessageHandler {
      */
     private async _handlePreview(content: string): Promise<void> {
         try {
-            // 解析HML内容
-            this._hmlController.parseContent(content);
+            // 解析HML内容（传当前文件路径，保证 fallback id 带 basename 种子）
+            this._hmlController.parseContent(content, this._fileManager.currentFilePath);
 
             // TODO: 实现预览逻辑
             vscode.window.showInformationMessage(vscode.l10n.t('Preview feature is under development...'));
@@ -1558,6 +1629,217 @@ export class MessageHandler {
                 error: error instanceof Error ? error.message : String(error)
             });
         }
+    }
+
+    /**
+     * 读取导航图持久化布局（T7），回推 navLayoutLoaded。
+     * 找不到项目根目录或读取失败一律回退空对象（不阻塞弹窗打开）。
+     */
+    private async _handleGetNavLayout(): Promise<void> {
+        try {
+            const currentFile = this._fileManager.currentFilePath;
+            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+
+            if (!projectRoot) {
+                logger.warn('[MessageHandler] 无法读取导航布局：未找到项目根目录');
+                this._panel.webview.postMessage({ command: 'navLayoutLoaded', layout: {} });
+                return;
+            }
+
+            const layout = NavLayoutService.getInstance().loadLayout(projectRoot);
+            this._panel.webview.postMessage({ command: 'navLayoutLoaded', layout });
+        } catch (error) {
+            logger.error(`[MessageHandler] 读取导航布局失败: ${error}`);
+            this._panel.webview.postMessage({ command: 'navLayoutLoaded', layout: {} });
+        }
+    }
+
+    /**
+     * 写入导航图持久化布局（T7）：按 projectRoot 串行化，read-modify-write 只合并本次
+     * 传来的 key（防多面板互相覆盖）。写失败不阻塞交互，postMessage 提示前端展示。
+     */
+    private async _handleSaveNavLayout(layout: NavLayoutMap | undefined): Promise<void> {
+        if (!layout || Object.keys(layout).length === 0) {
+            return;
+        }
+        try {
+            const currentFile = this._fileManager.currentFilePath;
+            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+
+            if (!projectRoot) {
+                logger.warn('[MessageHandler] 无法保存导航布局：未找到项目根目录');
+                this._panel.webview.postMessage({
+                    command: 'navLayoutSaveFailed',
+                    error: vscode.l10n.t('Cannot find project root (project.json)')
+                });
+                return;
+            }
+
+            await NavLayoutService.getInstance().saveLayoutPatch(projectRoot, layout);
+            // 成功回执：前端据此清除之前的"保存失败"横幅（失败横幅不会自己消失）
+            this._panel.webview.postMessage({ command: 'navLayoutSaved' });
+        } catch (error) {
+            logger.error(`[MessageHandler] 保存导航布局失败: ${error}`);
+            this._panel.webview.postMessage({
+                command: 'navLayoutSaveFailed',
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * 给定 viewKey（relPath#viewId），枚举该 view 下（剪枝到嵌套子屏前）可交互
+     * 控件列表，回推 viewControlsLoaded（T9，新建跳转前置，UI 用在 T11）。
+     * 找不到 view / 解析失败一律回推空数组（不阻塞交互），并带 error 供前端提示。
+     */
+    private async _handleGetViewControls(viewKey: string | undefined): Promise<void> {
+        if (!viewKey) {
+            this._panel.webview.postMessage({
+                command: 'viewControlsLoaded',
+                viewKey,
+                controls: [],
+                error: 'Missing viewKey'
+            });
+            return;
+        }
+        try {
+            const controls = await this._fileManager.getViewControls(viewKey);
+            if (!controls) {
+                this._panel.webview.postMessage({
+                    command: 'viewControlsLoaded',
+                    viewKey,
+                    controls: [],
+                    error: `View not found: ${viewKey}`
+                });
+                return;
+            }
+            this._panel.webview.postMessage({ command: 'viewControlsLoaded', viewKey, controls });
+        } catch (error) {
+            logger.error(`[MessageHandler] getViewControls 失败: ${error}`);
+            this._panel.webview.postMessage({
+                command: 'viewControlsLoaded',
+                viewKey,
+                controls: [],
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * 导航图写事务（T10）：宿主端统一写路径。
+     * 协议十步在 NavEditService 内实现；本方法负责：解析项目根目录、注入宿主
+     * 钩子（面板 dirty 查询 / TextDocument dirty / 面板适配器）、成功后重扫
+     * allViews 回推刷新图（第 10 步）、回执 navEditResult。
+     * **绝不触发 codegen**（设计文档约束 11）——本路径不调用
+     * _scheduleAutoCodeGeneration，回执用 hintKey 提示"代码将在下次代码生成
+     * 时更新"。
+     */
+    private async _handleApplyNavEdit(message: any): Promise<void> {
+        const requestId = message?.requestId;
+        const op = message?.op;
+        const respond = (result: NavEditResult): void => {
+            this._panel.webview.postMessage({ command: 'navEditResult', requestId, ...result });
+        };
+
+        try {
+            const currentFile = this._fileManager.currentFilePath;
+            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+            if (!projectRoot) {
+                respond({ success: false, op, errorCode: 'noProjectRoot' });
+                return;
+            }
+
+            const request: NavEditRequest = {
+                op,
+                edge: message?.edge,
+                newTarget: message?.newTarget,
+                create: message?.create,
+                confirmed: message?.confirmed === true,
+            };
+            const service = new NavEditService(this._buildNavEditHooks());
+            const result = await service.applyNavEdit(request, projectRoot);
+
+            if (result.success) {
+                // 第 10 步：重扫 allViews 回推刷新图（目标文件面板已由服务内部同步）
+                await this._fileManager.updateAllViewsToFrontend();
+            }
+            respond(result);
+        } catch (error) {
+            logger.error(`[MessageHandler] applyNavEdit 失败: ${error}`);
+            respond({
+                success: false,
+                op,
+                errorCode: 'writeFailed',
+                errorDetail: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    /**
+     * 撤销最近一次导航编辑：与写事务同样的安全前提（磁盘一致性 + dirty 校验 +
+     * 登记表抑制回灌），成功后重扫 allViews 回推刷新图。回执复用 navEditResult
+     * 通道（op='undo'）。**绝不触发 codegen**。
+     */
+    private async _handleNavEditUndo(message: any): Promise<void> {
+        const requestId = message?.requestId;
+        try {
+            const service = new NavEditService(this._buildNavEditHooks());
+            const result = await service.undoLast();
+            if (result.success) {
+                await this._fileManager.updateAllViewsToFrontend();
+            }
+            this._panel.webview.postMessage({ command: 'navEditResult', requestId, ...result });
+        } catch (error) {
+            logger.error(`[MessageHandler] navEditUndo 失败: ${error}`);
+            this._panel.webview.postMessage({
+                command: 'navEditResult', requestId, success: false, op: 'undo',
+                errorCode: 'writeFailed',
+                errorDetail: error instanceof Error ? error.message : String(error),
+                undoCount: NavEditService.undoCount,
+            });
+        }
+    }
+
+    /**
+     * webview 前端日志转发：统一进宿主 logger（Output 面板的 HoneyGUI 通道），
+     * 用户遇到前端问题时无需截图，直接复制输出即可。
+     */
+    private _handleWebviewLog(message: any): void {
+        const text = `[webview] ${String(message?.message ?? '')}`;
+        switch (message?.level) {
+            case 'error': logger.error(text); break;
+            case 'warn': logger.warn(text); break;
+            default: logger.info(text); break;
+        }
+    }
+
+    /**
+     * 构造导航写事务的宿主钩子。DesignerPanel 用延迟 require 获取，
+     * 避免 DesignerPanel → MessageHandler → DesignerPanel 的模块初始化环。
+     */
+    private _buildNavEditHooks(): NavEditHostHooks {
+        const { DesignerPanel } = require('./DesignerPanel') as typeof import('./DesignerPanel');
+        return {
+            isFileOpenWithUnsavedChanges: (filePath: string) =>
+                DesignerPanel.isFileOpenWithUnsavedChanges(filePath),
+            isTextDocumentDirty: (filePath: string) => {
+                const key = PendingWriteRegistry.normalizePathKey(filePath);
+                return vscode.workspace.textDocuments.some(doc =>
+                    doc.uri.scheme === 'file'
+                    && PendingWriteRegistry.normalizePathKey(doc.uri.fsPath) === key
+                    && doc.isDirty);
+            },
+            getPanelAdapter: (filePath: string) => {
+                const panel = DesignerPanel.getPanel(filePath);
+                if (!panel) {
+                    return undefined;
+                }
+                return {
+                    pushUndoSnapshot: (content: string) => panel.pushNavUndoSnapshot(content),
+                    reloadFromContent: (content: string) => panel.reloadAfterNavEdit(content),
+                };
+            },
+        };
     }
 
     dispose(): void {

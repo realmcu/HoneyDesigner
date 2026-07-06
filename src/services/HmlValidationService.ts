@@ -1,6 +1,11 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { HmlParser } from '../hml/HmlParser';
+import { scanOpenTags } from '../hml/tagScan';
+import { forEachLiveTimerSwitchView } from '../hml/timerNav';
 import { validateComponentId } from '../webview/utils/validation';
 import { Component } from '../hml/types';
+import { ProjectUtils } from '../utils/ProjectUtils';
 import { findUnusedKeys } from '../project-i18n/catalog';
 import type { I18nCatalog } from '../project-i18n/types';
 
@@ -10,7 +15,7 @@ import type { I18nCatalog } from '../project-i18n/types';
  * 功能：验证 HML XML 内容是否符合 HML-Spec.md 规范
  * 用途：提供给 HTTP API (/api/validate-hml) 和内部模块使用
  *
- * 执行的验证规则（共 8 项）：
+ * 执行的验证规则（共 10 项）：
  * ┌─────────────────────────────────────────────────────────────────────────┐
  * │ 1. 内容非空检查         - 确保 HML 内容不为空                           │
  * │ 2. XML 语法验证         - 使用 fast-xml-parser 验证 XML 格式            │
@@ -20,6 +25,8 @@ import type { I18nCatalog } from '../project-i18n/types';
  * │ 6. hg_view 不嵌套验证   - hg_view 不能嵌套在另一个 hg_view 中          │
  * │ 7. 资源路径格式验证     - 图像 assets/ 开头、字体 fontFile / 开头      │
  * │ 8. Entry View 唯一性验证 - 必须有且只有一个 entry="true" 的 hg_view    │
+ * │ 9. hg_view id 缺失警告  - hg_view 缺 id 无法作为跳转目标               │
+ * │10. switchView 悬空目标   - target 未匹配 ui/ 内任何 view id/name        │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * 验证依据：/docs/HML-Spec.md
@@ -85,7 +92,9 @@ export class HmlValidationService {
             // 会自动检查：标签闭合、属性格式、XML 声明等
             // ========================================
             validationRules.push('XML 语法验证');
-            const document = this.parser.parse(hmlContent);
+            // 传入文件路径（若调用方提供）：无 id 组件的 fallback id 以 basename 为种子，
+            // 保证校验解析出的组件 id 与设计器/scanAllViews/codegen 对同一文件一致
+            const document = this.parser.parse(hmlContent, context.filePath);
 
             // ========================================
             // 规则 3: 文档结构验证
@@ -139,6 +148,25 @@ export class HmlValidationService {
             // ========================================
             validationRules.push('Entry View 唯一性验证（必须有且只有一个 entry="true"）');
             this.validateEntryView(document.view.components || [], errors);
+
+            // ========================================
+            // 规则 9: hg_view id 必填警告（HML-Spec Section 6.1）
+            // - id 在 hg_view 上是 required（不同于其他组件的 auto-generated）
+            // - switchView 的 target 依赖 view id 做导航引用，缺失 id 会导致无法被稳定引用
+            // - 必须检测原始 XML：HmlParser 解析时已回填确定性 fallback id，
+            //   解析后的组件上 !component.id 永远为假
+            // ========================================
+            validationRules.push('hg_view id 必填警告验证');
+            this.validateViewIds(hmlContent, warnings);
+
+            // ========================================
+            // 规则 10: switchView 悬空跳转目标警告
+            // - target 引用的 view（按 id 或 name，与运行时/导航图解析语义一致）
+            //   必须存在于本文件或项目内其他 HML 中
+            // - view 改名/删除后引用失去同步是此类错误的主要来源
+            // ========================================
+            validationRules.push('switchView 跳转目标存在性警告验证');
+            this.validateSwitchViewTargets(document.view.components || [], context, warnings);
 
             if (context.i18nCatalog) {
                 validationRules.push('多语言文本预览警告验证');
@@ -404,6 +432,154 @@ export class HmlValidationService {
     }
 
     /**
+     * 验证 hg_view 的 id 是否已填写（best-practice 警告）
+     *
+     * 验证内容：
+     * - hg_view 的 id 是 required（HML-Spec Section 6.1），不同于其他组件的 auto-generated
+     * - switchView 的 target 引用 view id 做导航跳转，缺失 id 的 view 无法被稳定引用
+     *
+     * 实现说明：必须对**原始 XML 内容**做检测。HmlParser 会为无 id 的组件回填
+     * 确定性 fallback id，解析后的组件树上 id 恒为非空，基于组件树的检测是死代码。
+     *
+     * 依据：HML-Spec.md Section 6.1（hg_view — View Container）
+     */
+    private validateViewIds(hmlContent: string, warnings: ValidationWarning[]): void {
+        // 先剔除 XML 注释（含未闭合的尾部注释），避免注释掉的 <hg_view> 触发误报
+        const contentWithoutComments = hmlContent
+            .replace(/<!--[\s\S]*?-->/g, '')
+            .replace(/<!--[\s\S]*$/, '');
+        // 逐个提取 <hg_view ...> 开标签（含自闭合），检查其属性里是否声明了 id。
+        // 不能用 /<hg_view\b[^>]*>/ 一把梭：属性值里出现 '>'（如 name="a > b"）是
+        // 合法 XML，正则会在首个 '>' 处截断标签导致误报缺 id——必须尊重引号扫描
+        // （scanOpenTags，与 NavEditService round-trip 预检共用）
+        for (const openTag of scanOpenTags(contentWithoutComments, 'hg_view')) {
+            // 属性形如 ` id="..."` / ` id='...'`（\s 前缀避免误中 grid= / uid= 等属性名后缀）
+            const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(openTag.attrsText);
+            const idValue = idAttr ? (idAttr[1] ?? idAttr[2] ?? '') : '';
+            if (!idAttr || idValue.trim() === '') {
+                warnings.push({
+                    type: 'best-practice',
+                    message: 'hg_view is missing an id — switchView targets and navigation edges reference views by id, so this view cannot be reliably targeted for navigation'
+                });
+            }
+        }
+    }
+
+    /**
+     * 规则 10：switchView 悬空跳转目标警告。
+     *
+     * 语义与运行时/导航图一致：target 按 view 的 id **或 name** 解析
+     * （生成的 C 以 name 注册视图、name 缺省等于 id；导航图扫描也做 id/name
+     * 双查找）。已知视图集合 = 本文件解析出的 hg_view ∪ 项目内其他 .hml 的
+     * hg_view（tagScan 原文提取，不做全量解析，单文件读取失败静默跳过）。
+     * 覆盖事件动作与定时器动作里的 switchView（定时器结构有 actions/segments
+     * 两代形态，用递归遍历统一收集）。
+     */
+    private validateSwitchViewTargets(
+        components: Component[],
+        context: HmlValidationContext,
+        warnings: ValidationWarning[]
+    ): void {
+        // 收集本文件的全部 switchView 引用
+        const refs: Array<{ target: string; componentId: string; source: string }> = [];
+        for (const comp of components) {
+            for (const ec of comp.eventConfigs || []) {
+                for (const action of ec.actions || []) {
+                    if (action?.type === 'switchView' && typeof action.target === 'string' && action.target.trim() !== '') {
+                        refs.push({ target: action.target, componentId: comp.id, source: `event "${ec.type}"` });
+                    }
+                }
+            }
+            // 定时器 switchView：谓词与导航图边采集共享（评审 I2），只把 codegen
+            // 真会绑定并触发的跳转纳入判定——custom 模式 / disabled / 仅存在于
+            // segmentsBackup 的跳转运行时根本不触发，不算悬空。
+            forEachLiveTimerSwitchView(comp, comp.type === 'hg_view', ({ action }) => {
+                refs.push({ target: action.target!, componentId: comp.id, source: 'timer' });
+            });
+        }
+        if (refs.length === 0) {
+            return;
+        }
+
+        // 已知视图 id/name：本文件 + 项目内其他 HML
+        const known = new Set<string>();
+        for (const comp of components) {
+            if (comp.type === 'hg_view') {
+                known.add(comp.id);
+                if (comp.name) {
+                    known.add(comp.name);
+                }
+            }
+        }
+        if (context.projectRoot) {
+            const selfKey = context.filePath ? path.resolve(context.filePath) : null;
+            // 已知 view 全集范围须与导航图/codegen 对齐——只认 ui/（评审 I3）。
+            // 从项目根递归会把 ui/ 外一个同名 view 的杂散 .hml 当作有效目标，
+            // 洗白真实悬空引用造成漏报。
+            const uiDir = ProjectUtils.getUiDir(context.projectRoot);
+            for (const file of this._findHmlFiles(uiDir)) {
+                if (selfKey && path.resolve(file) === selfKey) {
+                    continue;
+                }
+                try {
+                    const raw = fs.readFileSync(file, 'utf-8')
+                        .replace(/<!--[\s\S]*?-->/g, '')
+                        .replace(/<!--[\s\S]*$/, '');
+                    for (const tag of scanOpenTags(raw, 'hg_view')) {
+                        const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag.attrsText);
+                        const nameAttr = /\sname\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag.attrsText);
+                        const id = idAttr ? (idAttr[1] ?? idAttr[2] ?? '').trim() : '';
+                        const name = nameAttr ? (nameAttr[1] ?? nameAttr[2] ?? '').trim() : '';
+                        if (id) {
+                            known.add(id);
+                        }
+                        if (name) {
+                            known.add(name);
+                        }
+                    }
+                } catch {
+                    // 单文件读取失败不阻塞校验（可能是权限/编码问题，与本规则无关）
+                }
+            }
+        }
+
+        for (const ref of refs) {
+            if (!known.has(ref.target)) {
+                warnings.push({
+                    type: 'best-practice',
+                    componentId: ref.componentId,
+                    message: `switchView target "${ref.target}" does not match any view id or name in the project — the jump will fail at runtime (source: component "${ref.componentId}", ${ref.source}). The target view may have been renamed or deleted; update or remove this action`
+                });
+            }
+        }
+    }
+
+    /** 递归收集某根目录下全部 .hml（跳过依赖/产物/版本库目录；根不存在时返回空） */
+    private _findHmlFiles(root: string): string[] {
+        const skip = new Set(['node_modules', 'build', 'out', '.git', '.honeygui']);
+        const results: string[] = [];
+        const walk = (dir: string): void => {
+            let entries: fs.Dirent[];
+            try {
+                entries = fs.readdirSync(dir, { withFileTypes: true });
+            } catch {
+                return;
+            }
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    if (!skip.has(entry.name)) {
+                        walk(path.join(dir, entry.name));
+                    }
+                } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.hml')) {
+                    results.push(path.join(dir, entry.name));
+                }
+            }
+        };
+        walk(root);
+        return results;
+    }
+
+    /**
      * 验证 entry view 唯一性（只能有一个 entry="true"）
      *
      * 验证内容：
@@ -543,6 +719,8 @@ export interface HmlValidationContext {
     projectRoot?: string;
     previewLocale?: string;
     i18nCatalog?: I18nCatalog;
+    /** 被校验 HML 的文件路径（可选）；用于派生 fallback id 种子，保持与设计器/扫描一致 */
+    filePath?: string;
 }
 
 /**

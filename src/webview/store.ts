@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings } from './types';
+import { Component, ComponentType, DesignerState, VSCodeAPI, AssetFile, ConversionConfig, ItemSettings, ViewInfo, NavLayoutMap, ViewControlInfo, NavEditRequestPayload } from './types';
 import {
   alignComponents,
   distributeComponents,
@@ -168,6 +168,37 @@ export interface DesignerStore extends DesignerState {
   setShowViewConnections: (show: boolean) => void;
   showViewRelationModal: boolean;
   setShowViewRelationModal: (show: boolean) => void;
+  /** 请求宿主重扫导航图（allViews），结果经 updateAllViews 消息回推 */
+  refreshNavGraph: () => void;
+  /** 请求宿主读取导航图布局（.honeygui/nav-layout.json），结果经 navLayoutLoaded 消息回推 */
+  requestNavLayout: () => void;
+  /** 拖动结束后防抖调用：只发被拖动过的 key，宿主按 key 合并写入 */
+  saveNavLayout: (patch: NavLayoutMap) => void;
+  /** 清除布局写入失败提示（用户关闭提示条时调用） */
+  clearNavLayoutSaveError: () => void;
+  /** 请求宿主枚举某 view 下可交互控件（T9），结果经 viewControlsLoaded 消息回推 */
+  requestViewControls: (viewKey: string) => void;
+  /** 清除控件枚举结果/失败提示（关闭新建跳转选择器时调用） */
+  clearViewControls: () => void;
+  /** 导航写事务（T11）：经宿主 applyNavEdit 执行，回执经 navEditResult 消息回推 */
+  applyNavEdit: (payload: NavEditRequestPayload) => void;
+  /** 清除已消费的 navEditResult 回执（ViewRelationModal 处理完后调用） */
+  clearNavEditResult: () => void;
+  /** 当前可撤销的导航编辑条数（宿主回执/查询回推维护） */
+  navUndoCount: number;
+  /** 撤销最近一次导航编辑（回执经 navEditResult 消息回推，op='undo'） */
+  undoNavEdit: (requestId: string) => void;
+  /** 弹窗打开时查询可撤销条数（结果经 navUndoState 消息回推） */
+  requestNavUndoState: () => void;
+  /** 把 webview 前端日志/错误转发到宿主输出通道（Output → HoneyGUI） */
+  hostLog: (level: 'info' | 'warn' | 'error', message: string) => void;
+  /** 打开输出面板的 HoneyGUI 日志通道 */
+  showHostLog: () => void;
+  /** 切文件后待选中的组件 id（loadHml 应用完成时消费，导航图"打开所在页面"用） */
+  pendingSelectComponentId: string | null;
+  setPendingSelectComponent: (id: string | null) => void;
+  /** 在当前设计器面板打开另一个 HML 文件，加载完成后可选中指定组件 */
+  openFileInDesigner: (filePath: string, selectComponentId?: string) => void;
 
   // Alignment guides
   showAlignmentGuides: boolean;
@@ -200,6 +231,16 @@ export interface DesignerStore extends DesignerState {
   vscodeAPI: VSCodeAPI | null;
   setVSCodeAPI: (api: VSCodeAPI) => void;
   saveToFile: () => void;
+
+  // 未保存改动（脏状态）跟踪：markDirty 由 components 变化订阅自动触发；
+  // resetDirty 在应用宿主推送内容（loadHml）后调用；两者变化时向宿主发 dirtyStateChanged
+  markDirty: () => void;
+  resetDirty: () => void;
+  // 发出 save 消息后立即乐观复位本地 isDirty（不通知宿主）——保存窗口内的
+  // 新编辑才能再次触发 false→true 的 dirtyStateChanged（宿主 dirty 序号递增，
+  // clearWebviewDirtyIfUnchanged 因 seq 不等而不清缓存）。所有发 save 消息的
+  // 入口（saveToFile / Ctrl+S / 工具栏）都必须调用
+  markSaveRequested: () => void;
   setProjectI18nCatalog: (catalog: I18nCatalog) => void;
   setPreviewLocale: (locale: LocaleCode) => void;
   setProjectI18nIndex: (index?: ProjectI18nIndex, errors?: Array<{ filePath: string; message: string }>) => void;
@@ -428,7 +469,17 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   projectI18nIndexErrors: [],
   isProjectI18nManagerOpen: false,
   previewLocale: 'en-US',
-  allViews: [] as Array<{id: string, name: string, file: string, edges: Array<{target: string, event: string, switchOutStyle?: string, switchInStyle?: string}>}>, // 项目中所有 view（含跳转关系）
+  allViews: [] as ViewInfo[], // 项目中所有 view（含跳转关系，含控件级/定时器边）
+  navLayout: null, // 导航图持久化布局；null = 尚未从宿主读取（T7）
+  navLayoutSaveError: null, // 布局写入失败提示（不阻塞）
+  viewControls: null, // getViewControls 回推的控件列表（T9）
+  viewControlsForKey: null, // viewControls 对应的 viewKey
+  viewControlsError: null, // getViewControls 失败提示（不阻塞）
+  navEditPending: false, // 导航写事务进行中（T11）
+  navEditResult: null, // 最近一次 navEditResult 回执（T11）
+  navUndoCount: 0, // 可撤销的导航编辑条数
+  pendingSelectComponentId: null, // 切文件后待选中的组件（导航图跳转编辑用）
+  isDirty: false, // store 内容相对磁盘是否有未保存改动
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
   currentFilePath: '' as string, // 当前打开的文件路径
@@ -983,6 +1034,63 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   setCanvasBackgroundColor: (color) => set({ canvasBackgroundColor: color }),
   setShowViewConnections: (show) => set({ showViewConnections: show }),
   setShowViewRelationModal: (show) => set({ showViewRelationModal: show }),
+  refreshNavGraph: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'refreshNavGraph' });
+    }
+  },
+  requestNavLayout: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'getNavLayout' });
+    }
+  },
+  saveNavLayout: (patch) => {
+    if (vscodeAPI && patch && Object.keys(patch).length > 0) {
+      vscodeAPI.postMessage({ command: 'saveNavLayout', layout: patch });
+    }
+  },
+  clearNavLayoutSaveError: () => set({ navLayoutSaveError: null }),
+  requestViewControls: (viewKey) => {
+    if (vscodeAPI && viewKey) {
+      vscodeAPI.postMessage({ command: 'getViewControls', viewKey });
+    }
+  },
+  clearViewControls: () => set({ viewControls: null, viewControlsForKey: null, viewControlsError: null }),
+  applyNavEdit: (payload) => {
+    if (vscodeAPI && payload?.requestId && payload.op) {
+      set({ navEditPending: true, navEditResult: null });
+      vscodeAPI.postMessage({ command: 'applyNavEdit', ...payload });
+    }
+  },
+  clearNavEditResult: () => set({ navEditResult: null }),
+  undoNavEdit: (requestId) => {
+    if (vscodeAPI && requestId) {
+      set({ navEditPending: true, navEditResult: null });
+      vscodeAPI.postMessage({ command: 'navEditUndo', requestId });
+    }
+  },
+  requestNavUndoState: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'getNavUndoState' });
+    }
+  },
+  hostLog: (level, message) => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'webviewLog', level, message });
+    }
+  },
+  showHostLog: () => {
+    if (vscodeAPI) {
+      vscodeAPI.postMessage({ command: 'showHostLog' });
+    }
+  },
+  setPendingSelectComponent: (id) => set({ pendingSelectComponentId: id }),
+  openFileInDesigner: (filePath, selectComponentId) => {
+    if (vscodeAPI && filePath) {
+      set({ pendingSelectComponentId: selectComponentId ?? null });
+      vscodeAPI.postMessage({ command: 'switchFile', filePath });
+    }
+  },
   setShowAlignmentGuides: (show) => set({ showAlignmentGuides: show }),
   setAssetCategory: (category) => set({ assetCategory: category }),
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),
@@ -1210,6 +1318,36 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
         components: state.components,
       },
     });
+    get().markSaveRequested();
+  },
+
+  // 脏状态跟踪：只在 false→true 变化时发消息（拖拽等高频改动不会刷消息）。
+  // 复位路径有二：①发出 save 消息时乐观复位（markSaveRequested，本地复位、
+  // 不通知宿主）——保存期间的新编辑会再次 false→true 发 dirtyStateChanged，
+  // 宿主 dirty 序号递增，保存回执的 clearWebviewDirtyIfUnchanged 因 seq 不等
+  // 而不清缓存，导航写事务前置校验不会误放行；保存失败宿主回执 hmlSaveFailed，
+  // App.tsx 收到后 markDirty 置回。②应用宿主推送内容（loadHml）——调用
+  // resetDirty（本地复位 + 通知宿主）
+  markDirty: () => {
+    if (get().isDirty) return;
+    set({ isDirty: true });
+    vscodeAPI?.postMessage({ command: 'dirtyStateChanged', dirty: true });
+  },
+
+  resetDirty: () => {
+    if (get().isDirty) {
+      set({ isDirty: false });
+    }
+    // 无条件通知宿主，保证宿主缓存与 webview 同步（如宿主重载后陈旧的 true）
+    vscodeAPI?.postMessage({ command: 'dirtyStateChanged', dirty: false });
+  },
+
+  // 乐观复位（只动本地标记，不发消息）：宿主缓存的清除仍由保存结果驱动
+  // （成功且 seq 未变 → clearWebviewDirtyIfUnchanged；失败 → 保持 dirty）
+  markSaveRequested: () => {
+    if (get().isDirty) {
+      set({ isDirty: false });
+    }
   },
 
   setProjectI18nCatalog: (catalog) => {
@@ -2359,6 +2497,35 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   },
 
 };
+});
+
+// ============ 脏状态跟踪 ============
+
+// 应用宿主推送内容（loadHml 等）期间置位，抑制脏状态订阅误判为用户编辑
+let suppressDirtyTracking = false;
+
+/**
+ * 在回调内应用宿主推送的组件内容（loadHml 等），期间 components 变化
+ * 不会被记为「未保存改动」。仅供消息处理入口（App.tsx）使用。
+ */
+export function applyHostComponents<T>(fn: () => T): T {
+  suppressDirtyTracking = true;
+  try {
+    return fn();
+  } finally {
+    suppressDirtyTracking = false;
+  }
+}
+
+// 集中订阅 components 引用变化 → 标脏。
+// 好处：无需在每个会改动组件的 action 里逐一埋点（现有 20+ 处 set 组件的
+// action，逐一埋点必漏）；宿主推送经 applyHostComponents 包裹不触发。
+// markDirty 内部 set() 会重入本订阅，但那次 components 引用未变，不会递归。
+useDesignerStore.subscribe((state, prevState) => {
+  if (suppressDirtyTracking) return;
+  if (state.components !== prevState.components) {
+    useDesignerStore.getState().markDirty();
+  }
 });
 
 // Helper function to generate unique ID

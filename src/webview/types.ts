@@ -11,6 +11,7 @@ import type {
 } from '../hml/types';
 import type { ProjectI18nIndex } from '../project-i18n/projectIndex';
 import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
+import type { EventType } from '../hml/eventTypes';
 
 export type ComponentPosition = HmlComponentPosition;
 export type ComponentStyle = HmlComponentStyle;
@@ -80,21 +81,74 @@ export interface PropertyDefinition {
   hint?: string;  // 提示信息，显示在输入框下方
 }
 
-// 视图跳转边信息
-export interface ViewEdgeInfo {
-  target: string;        // 目标 view id
-  event: string;         // 事件类型 (onSwipeLeft 等)
-  switchOutStyle?: string;
-  switchInStyle?: string;
-}
+// 视图跳转边信息：改判别联合并迁至 src/shared/navContract.ts（评审 I6：control 可编辑 /
+// timer 只读，宿主 FileManager 与 webview 共用同一定义，不再手抄同步）。
+// 保留 ViewEdgeInfo 别名，webview 各消费方（ViewRelationModal 等）无需改 import。
+import type { ViewNavEdge } from '../shared/navContract';
+export type { ViewNavEdge, ControlNavEdge, TimerNavEdge } from '../shared/navContract';
+export type ViewEdgeInfo = ViewNavEdge;
 
 // 项目中的视图信息（包含跳转关系）
+// 与 src/designer/FileManager.ts 的 ViewNavNode 保持同步（新字段全部可选，向后兼容）
 export interface ViewInfo {
   id: string;
   name: string;
-  file: string;          // 所属设计目录名
-  edges: ViewEdgeInfo[]; // 该视图的所有跳转
+  file: string;          // 旧字段：文件名去 .hml（向后兼容；新逻辑请用 viewKey）
+  edges: ViewEdgeInfo[]; // 该视图的所有跳转（含控件级 + 定时器边）
+
+  // ---- 导航图新字段（可选）----
+  viewKey?: string;      // 复合键：relPath#viewId
+  filePath?: string;     // 所属文件绝对路径
+  fileRelative?: string; // 所属文件相对项目根路径（正斜杠）
+  fileMtime?: number;    // 扫描时文件 mtime（ms）
+  fileHash?: string;     // 扫描时文件内容 hash（sha1）
 }
+
+// 导航图节点布局坐标（T7：持久化到 <projectRoot>/.honeygui/nav-layout.json）
+export interface NavLayoutEntry {
+  x: number;
+  y: number;
+}
+
+// 复合键（relPath#viewId）→ 坐标
+export type NavLayoutMap = Record<string, NavLayoutEntry>;
+
+// 单个 view 下可交互控件的枚举描述（T9，用于 T11 新建跳转选择器）
+// 与 src/designer/FileManager.ts 的 ViewControlInfo 保持同步。
+export interface ViewControlInfo {
+  id: string;
+  name: string;
+  type: string;
+  supportedEvents: EventType[];
+  occupiedSwitchViewEvents: EventType[];
+  sourceIsView: boolean;
+}
+
+// ---------------- 导航写事务（T10/T11）----------------
+// 契约类型迁至 src/shared/navContract.ts（评审 I4/I5：宿主/webview 单一真相源）。
+// 从此 errorCode 是 NavEditErrorCode 而非退化的 string，undoCount / panelResyncFailed
+// 等字段直接派生自服务端 NavEditResult，无需两端手抄同步。
+import type {
+  NavEditOp,
+  NavEditErrorCode,
+  NavEditConfirmReason,
+  NavEditEdgeLocator,
+  NavEditCreateSpec,
+  NavEditRequestBody,
+  NavEditRequestPayload,
+  NavEditResultMessage,
+} from '../shared/navContract';
+
+export type {
+  NavEditOp,
+  NavEditErrorCode,
+  NavEditConfirmReason,
+  NavEditEdgeLocator,
+  NavEditCreateSpec,
+  NavEditRequestBody,
+  NavEditRequestPayload,
+  NavEditResultMessage,
+};
 
 export interface DesignerState {
   components: Component[];
@@ -102,6 +156,14 @@ export interface DesignerState {
   allHmlFiles?: Array<{path: string, name: string, relativePath: string}>; // 项目中所有 HML 文件
   otherFileComponentIds?: string[]; // 其他 HML 文件中的组件 ID（跨文件命名去重）
   currentFilePath?: string; // 当前打开的文件路径
+  navLayout: NavLayoutMap | null; // 导航图持久化布局；null = 尚未从宿主读取
+  navLayoutSaveError: string | null; // 布局写入失败的提示文案（不阻塞，仅展示）
+  viewControls: ViewControlInfo[] | null; // 请求 getViewControls 后回推的控件列表（T9，UI 用在 T11）
+  viewControlsForKey: string | null; // 上面 viewControls 对应的 viewKey，用于校验请求-响应是否匹配
+  viewControlsError: string | null; // getViewControls 失败提示（不阻塞，仅展示）
+  navEditPending: boolean; // 导航写事务进行中（T11：编辑操作互斥）
+  navEditResult: NavEditResultMessage | null; // 最近一次 navEditResult 回执（消费后由 modal 清除）
+  isDirty: boolean; // store 内容相对磁盘是否有未保存改动（变化时经 dirtyStateChanged 消息同步给宿主）
   selectedComponent: string | null;
   selectedComponents: string[];
   hoveredComponent: string | null;

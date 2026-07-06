@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>Nav Graph Home</title>
+    <project>
+      <name>nav-graph-test</name>
+      <resolution>240X240</resolution>
+      <pixelMode>RGB565</pixelMode>
+    </project>
+  </meta>
+
+  <view id="main">
+    <!-- 场景：view 自身手势跳转 + 按钮跳转 + 定时器跳转（目标跨文件撞名）+ 嵌套 view（剪枝） -->
+    <hg_view id="view_home" x="0" y="0" w="240" h="240">
+      <events>
+        <event type="onSwipeLeft">
+          <action type="switchView" target="view_settings" switchOutStyle="SWITCH_OUT_TO_LEFT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_RIGHT_USE_TRANSLATION" />
+        </event>
+      </events>
+      <hg_button id="btn_go_settings" x="20" y="20" w="100" h="40" text="Settings">
+        <events>
+          <event type="onClick">
+            <action type="switchView" target="view_settings" switchOutStyle="SWITCH_OUT_TO_RIGHT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_LEFT_USE_TRANSLATION" />
+          </event>
+        </events>
+      </hg_button>
+      <hg_label id="lbl_timer_jump" x="20" y="120" w="120" h="30" text="timer jump" fontSize="16" color="#FFFFFF" timers='[{"id":"timer_jump","name":"jump","enabled":true,"interval":3000,"reload":false,"mode":"preset","actions":[{"type":"switchView","target":"view_dup","switchOutStyle":"SWITCH_OUT_TO_LEFT_USE_TRANSLATION","switchInStyle":"SWITCH_IN_FROM_RIGHT_USE_TRANSLATION"}]}]' />
+      <!-- 场景：timer 同时有 actions 与 segments —— codegen 优先 segments，采集端只应产出 segments 那 1 条边（actions 里的 view_missing 不得成边） -->
+      <hg_label id="lbl_timer_both" x="20" y="150" w="120" h="30" text="timer both" fontSize="16" color="#FFFFFF" timers='[{"id":"timer_both","name":"both","enabled":true,"interval":1000,"reload":false,"mode":"preset","actions":[{"type":"switchView","target":"view_missing","switchOutStyle":"SWITCH_OUT_TO_LEFT_USE_TRANSLATION","switchInStyle":"SWITCH_IN_FROM_RIGHT_USE_TRANSLATION"}],"segments":[{"actions":[{"type":"switchView","target":"view_settings","switchOutStyle":"SWITCH_OUT_TO_LEFT_USE_TRANSLATION","switchInStyle":"SWITCH_IN_FROM_RIGHT_USE_TRANSLATION"}]}]}]' />
+      <!-- 场景：target 写的是目标 view 的 name（ExtraScreen，id 为 view_extra_id）——codegen 按 name 注册视图，应判 valid -->
+      <hg_button id="btn_go_extra" x="130" y="20" w="100" h="40" text="Extra">
+        <events>
+          <event type="onClick">
+            <action type="switchView" target="ExtraScreen" switchOutStyle="SWITCH_OUT_TO_LEFT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_RIGHT_USE_TRANSLATION" />
+          </event>
+        </events>
+      </hg_button>
+      <!-- 场景：target 同时命中一个 view 的 id（sub/dup_a.hml#mixed_alias）与另一个 view 的 name（sub/dup_b.hml#view_dup 的 name）→ 跨 id/name 歧义 -->
+      <hg_button id="btn_go_mixed" x="130" y="70" w="100" h="40" text="Mixed">
+        <events>
+          <event type="onClick">
+            <action type="switchView" target="mixed_alias" switchOutStyle="SWITCH_OUT_TO_LEFT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_RIGHT_USE_TRANSLATION" />
+          </event>
+        </events>
+      </hg_button>
+      <!-- 嵌套 hg_view：其内部按钮的边必须归属 view_nested，而不是 view_home -->
+      <hg_view id="view_nested" x="0" y="160" w="240" h="80">
+        <hg_button id="btn_nested_back" x="10" y="10" w="80" h="30" text="Back">
+          <events>
+            <event type="onClick">
+              <action type="switchView" target="view_home" switchOutStyle="SWITCH_OUT_TO_RIGHT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_LEFT_USE_TRANSLATION" />
+            </event>
+          </events>
+        </hg_button>
+      </hg_view>
+    </hg_view>
+  </view>
+</hml>

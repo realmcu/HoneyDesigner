@@ -45,6 +45,19 @@ export class HmlParser {
   private xmlParser: XMLParser;
   private xmlParserOrdered: XMLParser;
   private idCounter = 0;
+  /** 当前文件中已被显式使用（或已生成）的 id 集合，用于确定性 id 生成时避免冲突 */
+  private _usedIds: Set<string> = new Set();
+  /** 每个标签名的自增序号，用于生成确定性 id（如 hg_label_auto_0） */
+  private _autoIdCounters: Map<string, number> = new Map();
+  /**
+   * fallback id 的种子（通常为 sanitize 后的文件 basename）。
+   * 无种子时 fallback id 只在文件内唯一；codegen 会用 component.id 命名
+   * 各 {name}_ui.c 中的非 static C 全局变量，两个文件若生成相同的
+   * fallback id（如都叫 hg_view_auto_0）会在链接期产生重复符号。
+   * codegen 输出文件本就按 basename 命名（{name}_ui.c），basename 全局
+   * 唯一是既有生态假设，因此以 basename 为种子即可保证全局唯一。
+   */
+  private _idSeed = '';
 
   constructor() {
     // 文本类属性，保留原始值（不 trim）
@@ -86,12 +99,25 @@ export class HmlParser {
   /**
    * 解析HML内容
    * @param content HML 文件内容
-   * @param hmlFilePath 可选，HML 文件路径（用于加载相对路径的 SVG 文件）
+   * @param hmlFilePath 可选，HML 文件路径（用于加载相对路径的 SVG 文件；
+   *                    未显式提供 idSeed 时也用于派生 fallback id 种子）
+   * @param options 可选项：
+   *   - idSeed：fallback id 种子，显式传入时优先生效（传空字符串可强制无种子）；
+   *     缺省时从 hmlFilePath 的 basename 派生；两者都没有则维持无种子行为
    */
-  parse(content: string, hmlFilePath?: string): Document {
+  parse(content: string, hmlFilePath?: string, options?: { idSeed?: string }): Document {
     try {
       // 保存当前 HML 路径
       this.currentHmlPath = hmlFilePath || '';
+
+      // 重置确定性 id 生成状态，确保同一实例多次 parse 互不影响，
+      // 且同一文件内容反复解析得到完全相同的 id 序列
+      this.idCounter = 0;
+      this._usedIds = new Set();
+      this._autoIdCounters = new Map();
+      this._idSeed = options?.idSeed !== undefined
+        ? options.idSeed
+        : HmlParser.deriveIdSeed(hmlFilePath);
 
       // 使用普通解析器获取 meta
       const parsed = this.xmlParser.parse(content);
@@ -156,6 +182,10 @@ export class HmlParser {
     if (!viewElement || !viewElement.view) {
       return { components: [] };
     }
+
+    // 先预扫描整棵树，收集所有显式声明的 id，
+    // 避免后续为无 id 组件生成的确定性 id 与文件中后出现的显式 id 冲突（导致误合并）
+    this._collectExplicitIds(viewElement.view);
 
     // 解析 view 中的组件（保持顺序）
     this._parseChildrenOrdered(viewElement.view, componentMap, undefined);
@@ -227,6 +257,35 @@ export class HmlParser {
     }
     
     return normalized;
+  }
+
+  /**
+   * 预扫描：递归收集整棵组件树中所有显式声明的 id（preserveOrder 结构）
+   * 必须在生成任何确定性 id 之前完成，避免自动 id 与文件中后出现的显式 id 冲突
+   */
+  private _collectExplicitIds(elements: any[]): void {
+    if (!Array.isArray(elements)) {
+      return;
+    }
+
+    elements.forEach((element: any) => {
+      const tagName = Object.keys(element).find(key => key !== ':@');
+      if (!tagName) return;
+
+      if (!ComponentRegistry.isValidComponent(tagName)) {
+        return;
+      }
+
+      const rawAttributes = element[':@'] || {};
+      const attributes = this._normalizeAttributes(rawAttributes);
+
+      if (attributes.id) {
+        this._usedIds.add(String(attributes.id));
+      }
+
+      const children = element[tagName] || [];
+      this._collectExplicitIds(children);
+    });
   }
 
   /**
@@ -694,22 +753,37 @@ export class HmlParser {
       }
     });
 
-    // 兼容旧版定时器格式：如果存在旧版字段但没有 timers 数组，自动转换
+    // 兼容旧版定时器格式：如果存在旧版字段但没有 timers 数组，自动转换。
+    //
+    // 【语义仲裁结论，勿改】此处**有意**只接受布尔 true、不接受字符串 'true'：
+    // timerEnabled 不在共享属性定义中，convertAttributeValue 不做布尔转换，
+    // 从 HML 属性解析出的恒为字符串 "true"，因此本分支对磁盘上的 legacy HML
+    // 永远不命中——这与 codegen 的 legacy 分支（HoneyGuiCCodeGenerator:733、
+    // CallbackFileGenerator:516 等处的 `timerEnabled === true`）行为一致：
+    // 字符串形式的 legacy 定时器在 master 上从不生成任何 timer C 代码（实测
+    // master 与本分支 codegen 输出逐字节对比确认）。若此处转换字符串形式，
+    // 老项目"休眠"的定时器（含 switchView 跳转）会在用户未做任何编辑的情况下
+    // 被重新 codegen 唤醒运行——这是行为回归。字符串形式 legacy 字段保持原样
+    // 留在 data 中（序列化时原样写回，磁盘格式不变），导航图扫描也不采集其边。
     if (!data.timers && data.timerEnabled === true) {
       const timerMode = data.timerMode || 'custom';
-      const timerId = `timer_${Date.now()}`;
+      // 确定性 id（每组件至多一个 legacy timer，不会冲突）：
+      // 避免 Date.now() 导致每次解析 timer.id 变化，进而使 codegen 回调名
+      // （${component.id}_${timer.id}_cb）与导航图 edgeId 跨解析不稳定
+      const timerId = 'timer_legacy';
       
+      // legacy 数值/布尔字段同样以字符串形态出现（不在共享属性定义中），显式转换
       data.timers = [{
         id: timerId,
         name: timerMode === 'preset' ? '预设动作定时器' : '自定义定时器',
         enabled: true,
-        interval: data.timerInterval || 1000,
-        reload: data.timerReload !== false,
+        interval: Number(data.timerInterval) || 1000,
+        reload: data.timerReload !== false && data.timerReload !== 'false',
         mode: timerMode,
         actions: data.timerActions || [],
         callback: data.timerCallback,
-        duration: data.timerDuration || 1000,
-        stopOnComplete: data.timerStopOnComplete !== false,
+        duration: Number(data.timerDuration) || 1000,
+        stopOnComplete: data.timerStopOnComplete !== false && data.timerStopOnComplete !== 'false',
         delayStart: 0
       }];
       
@@ -728,10 +802,45 @@ export class HmlParser {
   }
 
   /**
-   * 生成唯一ID
+   * 生成确定性 id
+   * 规则：按文件内解析顺序生成 `${idSeed}_${tagName}_auto_<序号>`（无种子时省略前缀）；
+   * 若与该文件内已有 id（显式 id 或本次已生成的 id）冲突，则递增序号直至无冲突。
+   * 只要文件内容与种子不变，同一文件反复解析得到的所有组件 id 完全相同；
+   * 种子取自 basename（全局唯一的既有生态假设），保证 fallback id 跨文件不撞车。
    */
   private _generateId(prefix: string): string {
-    return `${prefix}_${Date.now()}_${this.idCounter++}`;
+    const seededPrefix = this._idSeed ? `${this._idSeed}_${prefix}` : prefix;
+    let counter = this._autoIdCounters.get(prefix) ?? 0;
+    let candidate: string;
+
+    do {
+      candidate = `${seededPrefix}_auto_${counter}`;
+      counter++;
+    } while (this._usedIds.has(candidate));
+
+    this._autoIdCounters.set(prefix, counter);
+    this._usedIds.add(candidate);
+    this.idCounter++;
+    return candidate;
+  }
+
+  /**
+   * 从 HML 文件路径派生 fallback id 种子：
+   * 取 basename（不含扩展名），非字母数字字符转下划线；
+   * 首字符为数字时补前导下划线（id 会成为 C 变量名，须是合法 C 标识符）。
+   * 无路径时返回空串（维持无种子行为）。
+   */
+  static deriveIdSeed(hmlFilePath?: string): string {
+    if (!hmlFilePath) {
+      return '';
+    }
+    const base = hmlFilePath.replace(/\\/g, '/').split('/').pop() || '';
+    const stem = base.replace(/\.[^.]*$/, '');
+    let seed = stem.replace(/[^A-Za-z0-9]/g, '_');
+    if (/^[0-9]/.test(seed)) {
+      seed = `_${seed}`;
+    }
+    return seed;
   }
 
   /**

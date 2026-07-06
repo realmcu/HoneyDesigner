@@ -466,6 +466,7 @@ export class ExtensionApiService implements vscode.Disposable {
             let i18nCatalog: I18nCatalog | undefined;
             let projectRoot: string | undefined;
             let previewLocale: string | undefined;
+            let sourceFilePath: string | undefined;
 
             // 方式 1: 从请求体中直接获取 HML 内容
             if ('hmlContent' in body) {
@@ -517,6 +518,7 @@ export class ExtensionApiService implements vscode.Disposable {
                 // 读取文件内容
                 try {
                     hmlContent = fs.readFileSync(absolutePath, 'utf-8');
+                    sourceFilePath = absolutePath;
                     projectRoot = ProjectUtils.findProjectRoot(absolutePath) || undefined;
                     if (projectRoot) {
                         i18nCatalog = loadProjectI18nCatalog(projectRoot);
@@ -542,6 +544,7 @@ export class ExtensionApiService implements vscode.Disposable {
                 projectRoot,
                 previewLocale,
                 i18nCatalog,
+                filePath: sourceFilePath,
             });
 
             res.statusCode = 200;

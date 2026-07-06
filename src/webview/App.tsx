@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useDesignerStore } from './store';
+import { useDesignerStore, applyHostComponents } from './store';
 import DesignerCanvas from './components/DesignerCanvas';
 import ComponentLibrary, { componentDefinitions } from './components/ComponentLibrary';
 import PropertiesPanel from './components/PropertiesPanel';
@@ -11,6 +11,7 @@ import { ViewRelationModal } from './components/ViewRelationModal';
 import { CanvasEditorModal } from './components/CanvasEditorModal';
 import ProjectI18nManagerModal from './components/ProjectI18nManagerModal';
 import { Component, ComponentType } from './types';
+import type { NavEditResultMessage } from './types';
 import useKeyboardShortcuts from './utils/keyboardShortcuts';
 import { generateComponentId } from './utils/componentNaming';
 import { getAbsolutePosition, findComponentAtPosition, isDropTargetType, isContainerType } from './utils/componentUtils';
@@ -132,9 +133,23 @@ const App: React.FC = () => {
   useEffect(() => {
     let readySent = false;
     
-    // 添加错误处理
+    // 添加错误处理；同时转发到宿主输出通道（Output → HoneyGUI），
+    // 用户遇到前端问题可直接复制日志，不必截图（同一错误 2 秒内去重）
+    let lastForwarded = '';
+    let lastForwardedAt = 0;
+    const forwardToHost = (message: string) => {
+      const now = Date.now();
+      if (message === lastForwarded && now - lastForwardedAt < 2000) {
+        return;
+      }
+      lastForwarded = message;
+      lastForwardedAt = now;
+      window.vscodeAPI?.postMessage({ command: 'webviewLog', level: 'error', message });
+    };
+
     const handleGlobalError = (e: ErrorEvent) => {
       console.error('[HoneyGUI Designer] Global error:', e.error);
+      forwardToHost(`Global error: ${e.error?.message || e.message || 'Unknown error'}\n${e.error?.stack || ''}`);
       const errorDiv = document.createElement('div');
       errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c62828;color:white;padding:10px;z-index:9999;font-family:monospace;font-size:12px;white-space:pre-wrap;';
       errorDiv.textContent = t('Error') + ': ' + (e.error?.message || 'Unknown error') + '\n' + (e.error?.stack || 'No stack trace');
@@ -143,6 +158,8 @@ const App: React.FC = () => {
 
     const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
       console.error('[HoneyGUI Designer] Unhandled promise rejection:', e.reason);
+      const reason = e.reason instanceof Error ? `${e.reason.message}\n${e.reason.stack || ''}` : String(e.reason);
+      forwardToHost(`Unhandled promise rejection: ${reason}`);
     };
 
     // 检查是否已经有VSCode API实例
@@ -221,7 +238,7 @@ const App: React.FC = () => {
           // 首次加载时清空旧组件并显示加载状态，保存后刷新时保持当前状态
           if (!hadComponentsBefore) {
             setIsLoadingFile(true);
-            useDesignerStore.setState({ components: [] });
+            applyHostComponents(() => useDesignerStore.setState({ components: [] }));
           }
           
           // Set locale if provided（同时保存到状态）
@@ -343,7 +360,25 @@ const App: React.FC = () => {
               }
               
               // 【关键】一次性更新所有状态，只触发一次渲染
-              useDesignerStore.setState(batchUpdate);
+              // （宿主推送的内容，components 变化不记为未保存改动）
+              applyHostComponents(() => useDesignerStore.setState(batchUpdate));
+
+              // 应用宿主内容后 store 与磁盘同步，复位脏状态并通知宿主
+              if (message.components) {
+                useDesignerStore.getState().resetDirty();
+              }
+
+              // 导航图"打开所在页面"：文件加载完成后选中目标控件
+              {
+                const pendingSelect = useDesignerStore.getState().pendingSelectComponentId;
+                if (pendingSelect) {
+                  useDesignerStore.getState().setPendingSelectComponent(null);
+                  const loaded = useDesignerStore.getState().components;
+                  if (loaded.some(c => c.id === pendingSelect)) {
+                    useDesignerStore.getState().selectComponent(pendingSelect);
+                  }
+                }
+              }
               
               // 【关键】延迟隐藏加载状态，确保渲染完成
               requestAnimationFrame(() => {
@@ -398,13 +433,15 @@ const App: React.FC = () => {
               }
               
               if (message.components) {
-                store.setComponents(message.components);
+                // 宿主推送的内容，components 变化不记为未保存改动
+                applyHostComponents(() => store.setComponents(message.components));
+                useDesignerStore.getState().resetDirty();
                 // 仅首次加载时自适应居中
                 if (!hadComponentsBefore) {
                   setTimeout(() => { store.fitContentToView(); }, 0);
                 }
               }
-              
+
               // 隐藏加载状态
               setIsLoadingFile(false);
             }
@@ -454,6 +491,62 @@ const App: React.FC = () => {
             }
             useDesignerStore.setState(updates);
           }
+          break;
+
+        case 'navLayoutLoaded':
+          // 导航图持久化布局回推（T7：打开弹窗时请求）
+          useDesignerStore.setState({ navLayout: message.layout || {} });
+          break;
+
+        case 'navLayoutSaveFailed':
+          // 布局写入失败，不阻塞交互，仅提示（T7）；具体文案由 ViewRelationModal 走 t() 渲染
+          useDesignerStore.setState({
+            navLayoutSaveError: message.error ? String(message.error) : '',
+          });
+          break;
+
+        case 'navLayoutSaved':
+          // 布局写入成功回执：清除之前的失败横幅（若有）
+          useDesignerStore.setState({ navLayoutSaveError: null });
+          break;
+
+        case 'viewControlsLoaded':
+          // getViewControls 回执（T9，UI 用在 T11）
+          useDesignerStore.setState({
+            viewControls: message.controls || [],
+            viewControlsForKey: message.viewKey ?? null,
+            viewControlsError: message.error ? String(message.error) : null,
+          });
+          break;
+
+        case 'navEditResult': {
+          // 导航写事务回执（T11）：requestId 由 ViewRelationModal 生成并校验匹配；
+          // 成功时宿主已另行重扫并回推 updateAllViews 刷新图。
+          // 判别联合回执（评审 I5）：errorCode 为 NavEditErrorCode、字段与服务端 NavEditResult 一致。
+          const result = message as NavEditResultMessage;
+          useDesignerStore.setState({
+            navEditPending: false,
+            navEditResult: {
+              requestId: result.requestId,
+              success: result.success === true,
+              op: result.op,
+              needsConfirm: result.needsConfirm,
+              confirmReasons: result.confirmReasons,
+              confirmDetail: result.confirmDetail,
+              errorCode: result.errorCode,
+              errorDetail: result.errorDetail,
+              usedFileHistory: result.usedFileHistory,
+              panelResyncFailed: result.panelResyncFailed,
+              hintKey: result.hintKey,
+            },
+            ...(typeof result.undoCount === 'number' ? { navUndoCount: result.undoCount } : {}),
+          });
+          break;
+        }
+
+        case 'navUndoState':
+          // 可撤销导航编辑条数（弹窗打开时查询回推）
+          useDesignerStore.setState({ navUndoCount: typeof message.count === 'number' ? message.count : 0 });
           break;
 
         case 'error':
@@ -647,6 +740,20 @@ const App: React.FC = () => {
               redoStack: message.canRedo ? ['placeholder'] : [],
             });
           }
+          break;
+
+        case 'hmlSaved':
+          // 宿主保存成功回执：本地脏标记已在发出 save 消息时乐观复位
+          // （markSaveRequested，H4），这里不得再无条件清零——保存窗口内的
+          // 新编辑已把 isDirty 置回 true 并上报宿主（seq 递增），此时清零会
+          // 让本地漏报后续 dirty。宿主侧缓存由 handleSave 按 dirty 序号清除
+          break;
+
+        case 'hmlSaveFailed':
+          // 宿主保存失败回执：磁盘没有落下我们要保存的内容，把乐观复位的
+          // 本地脏标记置回（markDirty 兼发 dirtyStateChanged(true) 同步宿主；
+          // 已因保存期间新编辑为 true 时是幂等 no-op）（H4）
+          useDesignerStore.getState().markDirty();
           break;
       }
     });
