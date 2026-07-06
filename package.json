@@ -271,7 +271,6 @@
     "test:templates": "npm run compile && node ./out/test/templates/run-templates-tests.js",
     "check:deps": "node scripts/check-dependencies.js",
     "update:deps": "node scripts/update-vscodeignore.js",
-    "prepackage": "npm run check:deps",
     "test:video-formats": "npx ts-node scripts/test-three-formats.ts",
     "test:video-formats:quick": "node test-formats-quick.js",
     "vscode:prepublish": "npm run compile && npm run build:webview",
@@ -287,7 +286,7 @@
     "clean:all": "npm run clean && rimraf node_modules && npm install",
     "rebuild": "npm run clean && npm run compile && npm run build:webview",
     "prepare:lib": "./scripts/prepare-lib-sim.sh",
-    "package": "npm run compile && npm run build:webview && vsce package"
+    "package": "npm run compile && npm run build:webview && npm run check:deps && vsce package"
   },
   "devDependencies": {
     "@types/bmp-js": "^0.1.2",
@@ -339,12 +338,10 @@
     "argparse": "^2.0.0",
     "bit-buffer": "^0.2.5",
     "bmp-js": "^0.1.0",
-    "chokidar": "^3.6.0",
     "debug": "^4.3.3",
     "fabric": "^7.1.0",
     "fast-xml-parser": "^4.3.2",
     "html2canvas": "^1.4.1",
-    "ini": "^4.1.3",
     "jpeg-js": "^0.4.4",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.562.0",
@@ -356,7 +353,6 @@
     "pngjs": "^7.0.0",
     "qrcode-generator": "1.4.4",
     "three": "^0.181.2",
-    "xml-js": "^1.6.11",
     "zustand": "^5.0.8"
   }
 }
