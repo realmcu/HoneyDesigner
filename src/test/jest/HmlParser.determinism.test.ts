@@ -44,6 +44,29 @@ describe('HmlParser deterministic fallback ids', () => {
     expect(third).toEqual(first);
   });
 
+  // 评审 I7：上面几条每次都 new HmlParser()，未覆盖「复用同一实例连续 parse」的
+  // 状态重置路径（HmlParser.ts:117 每次 parse 重置 idCounter/_usedIds/_autoIdCounters/_idSeed）。
+  // 若某次重置漏项，复用实例会因残留计数器/已用 id 集合而产出漂移的 id 序列。
+  it('produces identical ids when the SAME parser instance parses the same file twice', () => {
+    const p = new HmlParser();
+    const first = (p.parse(NO_ID_CONTENT, '/project/ui/home.hml').view.components || []).map(c => c.id);
+    const second = (p.parse(NO_ID_CONTENT, '/project/ui/home.hml').view.components || []).map(c => c.id);
+    expect(first.length).toBeGreaterThan(0);
+    expect(second).toEqual(first);
+  });
+
+  it('resets state between parses so a reused instance is unaffected by an intervening different file', () => {
+    const p = new HmlParser();
+    // 首解 home
+    const home1 = (p.parse(NO_ID_CONTENT, '/project/ui/home.hml').view.components || []).map(c => c.id);
+    // 中间解另一个 basename 种子的文件（会写入 _usedIds / _autoIdCounters）
+    const other = (p.parse(NO_ID_CONTENT, '/project/ui/other.hml').view.components || []).map(c => c.id);
+    // 再解 home——若状态未清干净，第三次会与第一次漂移
+    const home2 = (p.parse(NO_ID_CONTENT, '/project/ui/home.hml').view.components || []).map(c => c.id);
+    expect(other).not.toEqual(home1); // 种子不同，确认中间那次确实动了状态
+    expect(home2).toEqual(home1);     // 复用实例仍还原出与首解完全一致的序列
+  });
+
   it('derives different fallback ids for identical content parsed under different file paths (basename seed)', () => {
     const idsA = ids(NO_ID_CONTENT, '/project/ui/fileA.hml');
     const idsB = ids(NO_ID_CONTENT, '/project/ui/fileB.hml');
