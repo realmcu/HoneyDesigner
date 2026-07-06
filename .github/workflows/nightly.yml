@@ -1,0 +1,202 @@
+name: Nightly (packaged)
+
+# 每日构建：验证「打包流程」本身，并用打包安装后的 .vsix 跑 6 个模板工程的 e2e。
+# 与日常 CI(ci.yml) 的区别：ci.yml 用开发模式(源码目录)加载扩展，绕过了 vsce
+# package / .vscodeignore 过滤 / webview 产物落地；nightly 测的是真实分发物。
+on:
+  # 独立定时，排在 update-libs(UTC 19:49) 之后足够久，正常日已能测到当天更新的库；
+  # 与 update-libs 的成败解耦——即便 update-libs 失败，打包/e2e 回归仍照常自测。
+  schedule:
+    - cron: '23 22 * * *'  # UTC 22:23（北京时间次日 06:23），错开整点高峰
+  workflow_dispatch:       # 也允许随时手动触发
+
+jobs:
+  # ── 1. 打包：跑通 compile + build:webview + check:deps + vsce package ──────
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit Tests
+        run: npm run test:unit
+
+      # npm run package = compile && build:webview && check:deps && vsce package
+      - name: Package extension
+        run: npm run package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: '*.vsix'
+          if-no-files-found: error
+
+  # ── 2. Linux：安装 vsix 后跑 6 个模板工程 e2e ────────────────────────────
+  e2e-packaged:
+    runs-on: ubuntu-latest
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        template:
+          - name: smartwatch
+            repo: honeygui-template-smartwatch
+            engine: honeygui
+          - name: dashboard
+            repo: honeygui-template-dashboard
+            engine: honeygui
+          - name: chatbot
+            repo: honeygui-template-chatbot
+            engine: honeygui
+          - name: rotary
+            repo: honeygui-template-rotary
+            engine: honeygui
+          - name: settings
+            repo: honeygui-template-settings
+            engine: honeygui
+          - name: lvgl-test
+            repo: lvgl-template-test
+            engine: lvgl
+
+    name: e2e-pkg (${{ matrix.template.name }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsdl2-dev xvfb python3-pip cmake
+          pip install scons kconfiglib
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # 仅编译测试 runner（out/src/test），被测扩展来自下载的 vsix，不用本地扩展产物
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: Locate VSIX
+        run: echo "TEST_VSIX=$(ls "$PWD"/*.vsix | head -n1)" >> "$GITHUB_ENV"
+
+      - name: Clone template project
+        run: git clone --depth 1 https://github.com/realmcu/${{ matrix.template.repo }}.git /tmp/test-project
+
+      - name: Run packaged E2E tests
+        env:
+          TEST_WORKSPACE: /tmp/test-project
+        run: xvfb-run -a npm run test:e2e
+
+  # ── 3. Windows：安装 vsix 后跑 6 个模板工程 e2e ──────────────────────────
+  e2e-packaged-win32:
+    runs-on: windows-latest
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        template:
+          - name: smartwatch
+            repo: honeygui-template-smartwatch
+            engine: honeygui
+          - name: dashboard
+            repo: honeygui-template-dashboard
+            engine: honeygui
+          - name: chatbot
+            repo: honeygui-template-chatbot
+            engine: honeygui
+          - name: rotary
+            repo: honeygui-template-rotary
+            engine: honeygui
+          - name: settings
+            repo: honeygui-template-settings
+            engine: honeygui
+          - name: lvgl-test
+            repo: lvgl-template-test
+            engine: lvgl
+
+    name: e2e-pkg-win (${{ matrix.template.name }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install scons
+        run: pip install scons kconfiglib
+
+      # MinGW 8.1.0 posix-sjlj —— 必须与 lib/sim/win32/libgui.a 的编译工具链一致，
+      # 否则异常模型(sjlj vs SEH)和 libstdc++ ABI 不匹配会导致链接失败。
+      - name: Restore cached MinGW 8.1.0
+        id: cache-mingw
+        uses: actions/cache@v4
+        with:
+          path: C:\mingw64
+          key: mingw-8.1.0-posix-sjlj-e2e
+
+      - name: Download and extract MinGW 8.1.0 (posix, sjlj)
+        if: steps.cache-mingw.outputs.cache-hit != 'true'
+        run: |
+          $url = "https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-posix/sjlj/x86_64-8.1.0-release-posix-sjlj-rt_v6-rev0.7z/download"
+          curl.exe -L --retry 3 -o C:\mingw.7z $url
+          7z x C:\mingw.7z -oC:\ -y | Out-Null
+          Write-Output "MinGW 8.1.0 extracted to C:\mingw64"
+
+      - name: Add MinGW 8.1.0 to PATH
+        run: echo "C:\mingw64\bin" >> $env:GITHUB_PATH
+
+      - name: Verify MinGW version
+        run: gcc --version
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: Locate VSIX
+        run: Add-Content -Path $env:GITHUB_ENV -Value "TEST_VSIX=$((Get-ChildItem *.vsix)[0].FullName)"
+
+      - name: Clone template project
+        run: git clone --depth 1 https://github.com/realmcu/${{ matrix.template.repo }}.git C:\test-project
+
+      - name: Run packaged E2E tests
+        env:
+          TEST_WORKSPACE: C:\test-project
+        run: npm run test:e2e
