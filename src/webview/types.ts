@@ -81,35 +81,12 @@ export interface PropertyDefinition {
   hint?: string;  // 提示信息，显示在输入框下方
 }
 
-// 视图跳转边信息
-// 与 src/designer/FileManager.ts 的 ViewNavEdge 保持同步（新字段全部可选，向后兼容）
-export interface ViewEdgeInfo {
-  target: string;        // 目标 view id（裸 id）
-  event: string;         // 事件类型 (onSwipeLeft 等；定时器边为 'timer')
-  switchOutStyle?: string;
-  switchInStyle?: string;
-
-  // ---- 导航图新字段（可选）----
-  edgeId?: string;             // 稳定标识（定位字段 hash）
-  sourceFilePath?: string;     // 源文件绝对路径
-  sourceFileRelative?: string; // 源文件相对项目根路径（正斜杠）
-  sourceViewKey?: string;      // 源 view 复合键：relPath#viewId
-  sourceControlId?: string;    // 携带该 switchView 的控件 id
-  sourceControlName?: string;
-  sourceControlType?: string;
-  sourceIsView?: boolean;      // 边配置在 hg_view 自身（屏手势）
-  sourceIsTimer?: boolean;     // 定时器触发的边（只读）
-  eventType?: string;          // 原始事件类型（定时器边为 'timer'）
-  eventConfigIndex?: number;   // 控件边：eventConfigs 下标；定时器边：data.timers 下标
-  actionIndex?: number;        // action 在所属 actions 数组中的下标
-  timerId?: string;            // 定时器边：timer id
-  segmentIndex?: number;       // 定时器边：segment 下标（-1 = 旧版单段 actions）
-  targetViewKey?: string;      // target 唯一解析出的目标复合键
-  targetAmbiguous?: boolean;   // target 跨文件撞名
-  isValid?: boolean;           // target 能解析到至少一个已知 view
-  sourceFileMtime?: number;    // 扫描时源文件 mtime（ms）
-  sourceFileHash?: string;     // 扫描时源文件内容 hash（sha1）
-}
+// 视图跳转边信息：改判别联合并迁至 src/shared/navContract.ts（评审 I6：control 可编辑 /
+// timer 只读，宿主 FileManager 与 webview 共用同一定义，不再手抄同步）。
+// 保留 ViewEdgeInfo 别名，webview 各消费方（ViewRelationModal 等）无需改 import。
+import type { ViewNavEdge } from '../shared/navContract';
+export type { ViewNavEdge, ControlNavEdge, TimerNavEdge } from '../shared/navContract';
+export type ViewEdgeInfo = ViewNavEdge;
 
 // 项目中的视图信息（包含跳转关系）
 // 与 src/designer/FileManager.ts 的 ViewNavNode 保持同步（新字段全部可选，向后兼容）

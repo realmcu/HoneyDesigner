@@ -123,3 +123,83 @@ export type NavEditRequestPayload = NavEditRequestBody & { requestId: string };
  * undoCount/panelResyncFailed 等字段无需手工同步）。
  */
 export type NavEditResultMessage = NavEditResult & { requestId?: string };
+
+// ---------------- 导航图边数据模型（updateAllViews 消息内 ViewInfo.edges）----------------
+// 评审 I6：控件边（可编辑）与只读定时器边曾共用一个全可选宽 interface，靠运行时手工
+// null 检查兜底、可表示非法态。改判别联合（kind）：control 携带齐全 locator（编译期保证
+// 非空，可无兜底构造 NavEditEdgeLocator），timer 只读。宿主 FileManager 与 webview 共用此单一定义。
+
+/**
+ * 边公共字段（不区分 kind）。target/event 恒有；定位/快照字段由扫描器填充，
+ * targetViewKey/targetAmbiguous/isValid 由第二遍全局解析回填，故均可选。
+ */
+interface ViewNavEdgeBase {
+    /** 目标 view 裸 id */
+    target: string;
+    /** 事件类型（旧字段，向后兼容；定时器边为 'timer'） */
+    event: string;
+    switchOutStyle?: string;
+    switchInStyle?: string;
+    /** 稳定标识：由定位字段 hash 生成（跨扫描稳定） */
+    edgeId?: string;
+    /** 源文件绝对路径 */
+    sourceFilePath?: string;
+    /** 源文件相对项目根路径（正斜杠） */
+    sourceFileRelative?: string;
+    /** 源 view 复合键：relPath#viewId */
+    sourceViewKey?: string;
+    sourceControlId?: string;
+    sourceControlName?: string;
+    sourceControlType?: string;
+    /** 边配置在 hg_view 自身（屏手势） */
+    sourceIsView?: boolean;
+    /** 原始事件类型（控件/view 边 = eventConfig.type；定时器边 = 'timer'） */
+    eventType?: string;
+    /** 控件/view 边：eventConfigs 下标；定时器边：data.timers 下标 */
+    eventConfigIndex?: number;
+    /** action 在所属 actions 数组中的下标 */
+    actionIndex?: number;
+    /** target 唯一解析出的目标复合键（撞名/无效时缺省，第二遍回填） */
+    targetViewKey?: string;
+    /** target 在多个文件的 view id 中撞名 */
+    targetAmbiguous?: boolean;
+    /** target 能解析到至少一个已知 view */
+    isValid?: boolean;
+    /** 扫描时源文件 mtime（ms，写事务快照校验用） */
+    sourceFileMtime?: number;
+    /** 扫描时源文件内容 hash（sha1，写事务快照校验用） */
+    sourceFileHash?: string;
+}
+
+/**
+ * 控件 / view 手势边：可编辑、可删除。定位字段（sourceControlId / eventType /
+ * eventConfigIndex / actionIndex / sourceIsView）齐全——编译期保证非空，可无兜底
+ * 构造 NavEditEdgeLocator。
+ */
+export interface ControlNavEdge extends ViewNavEdgeBase {
+    kind: 'control';
+    sourceIsTimer?: false;
+    sourceControlId: string;
+    sourceControlName: string;
+    sourceControlType: string;
+    sourceIsView: boolean;
+    eventType: string;
+    eventConfigIndex: number;
+    actionIndex: number;
+}
+
+/** 定时器触发的边：只读（不可编辑 / 删除）。额外带 timerId / segmentIndex。 */
+export interface TimerNavEdge extends ViewNavEdgeBase {
+    kind: 'timer';
+    sourceIsTimer: true;
+    /** 定时器 id */
+    timerId?: string;
+    /** segment 下标（-1 = 旧版单段 actions） */
+    segmentIndex?: number;
+}
+
+/**
+ * 导航图边（判别联合）：control 可编辑、timer 只读。
+ * 当前扫描器（FileManager._buildNavEdge）只产出这两类，故不含推测性的 legacy 变体。
+ */
+export type ViewNavEdge = ControlNavEdge | TimerNavEdge;

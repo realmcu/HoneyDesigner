@@ -16,59 +16,11 @@ import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog } from '../project-i18n/files';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
+import type { ViewNavEdge, ControlNavEdge, TimerNavEdge } from '../shared/navContract';
 
-/**
- * 视图跳转边（导航图数据模型）
- *
- * 旧字段 target/event/switchOutStyle/switchInStyle 保持向后兼容
- * （ViewRelationModal / EventsPanel 等仍在消费）；
- * 新字段全部可选，供导航图渲染与写事务定位使用。
- */
-export interface ViewNavEdge {
-    /** 目标 view 裸 id（旧字段，向后兼容） */
-    target: string;
-    /** 事件类型（旧字段，向后兼容；定时器边为 'timer'） */
-    event: string;
-    switchOutStyle?: string;
-    switchInStyle?: string;
-
-    /** 稳定标识：由定位字段 hash 生成 */
-    edgeId?: string;
-    /** 源文件绝对路径 */
-    sourceFilePath?: string;
-    /** 源文件相对项目根路径（正斜杠） */
-    sourceFileRelative?: string;
-    /** 源 view 复合键：relPath#viewId */
-    sourceViewKey?: string;
-    /** 携带该 switchView 的控件 id（view 自身手势时为 view id） */
-    sourceControlId?: string;
-    sourceControlName?: string;
-    sourceControlType?: string;
-    /** 边配置在 hg_view 自身（屏手势） */
-    sourceIsView?: boolean;
-    /** 定时器触发的边（只读，不可编辑） */
-    sourceIsTimer?: boolean;
-    /** 原始事件类型（控件/view 边 = eventConfig.type；定时器边 = 'timer'） */
-    eventType?: string;
-    /** 控件/view 边：eventConfigs 下标；定时器边：data.timers 下标 */
-    eventConfigIndex?: number;
-    /** action 在所属 actions 数组中的下标 */
-    actionIndex?: number;
-    /** 定时器边：timer id */
-    timerId?: string;
-    /** 定时器边：segment 下标（-1 表示旧版单段 actions） */
-    segmentIndex?: number;
-    /** target 唯一解析出的目标复合键（撞名/无效时缺省） */
-    targetViewKey?: string;
-    /** target 在多个文件的 view id 中撞名 */
-    targetAmbiguous?: boolean;
-    /** target 能解析到至少一个已知 view */
-    isValid?: boolean;
-    /** 扫描时源文件 mtime（ms，写事务快照校验用） */
-    sourceFileMtime?: number;
-    /** 扫描时源文件内容 hash（sha1，写事务快照校验用） */
-    sourceFileHash?: string;
-}
+// 视图跳转边（导航图数据模型）迁至 src/shared/navContract.ts 并改判别联合
+// （评审 I6：control 可编辑 / timer 只读）。此处 re-export 保持既有 import 路径不变。
+export type { ViewNavEdge } from '../shared/navContract';
 
 /**
  * 视图节点（导航图数据模型）
@@ -902,7 +854,9 @@ export class FileManager {
         ].join('|');
         const edgeId = crypto.createHash('sha1').update(locator, 'utf8').digest('hex').slice(0, 16);
 
-        return {
+        // 公共快照 / 定位字段（control 与 timer 边一致；isValid / targetAmbiguous /
+        // targetViewKey 由第二遍全局解析填充）。
+        const common = {
             // 旧字段（向后兼容）
             target: info.target,
             event: info.eventType,
@@ -917,16 +871,30 @@ export class FileManager {
             sourceControlName: comp.name || comp.id,
             sourceControlType: comp.type,
             sourceIsView: info.sourceIsView,
-            sourceIsTimer: info.sourceIsTimer,
             eventType: info.eventType,
             eventConfigIndex: info.eventConfigIndex,
             actionIndex: info.actionIndex,
-            timerId: info.timerId,
-            segmentIndex: info.segmentIndex,
-            // isValid / targetAmbiguous / targetViewKey 由第二遍全局解析填充
             sourceFileMtime: fileCtx.fileMtime,
             sourceFileHash: fileCtx.fileHash,
         };
+
+        // 判别联合（评审 I6）：定时器边只读、带 timerId/segmentIndex；控件/view 边可编辑。
+        if (info.sourceIsTimer) {
+            const timerEdge: TimerNavEdge = {
+                ...common,
+                kind: 'timer',
+                sourceIsTimer: true,
+                timerId: info.timerId,
+                segmentIndex: info.segmentIndex,
+            };
+            return timerEdge;
+        }
+        const controlEdge: ControlNavEdge = {
+            ...common,
+            kind: 'control',
+            sourceIsTimer: false,
+        };
+        return controlEdge;
     }
 
     /**

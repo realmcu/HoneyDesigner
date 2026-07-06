@@ -104,9 +104,9 @@ const bareViewId = (viewKey: string): string => viewKey.slice(viewKey.indexOf('#
  * 定位字段不齐（旧数据 / 快照缺失）返回 null，编辑操作降级禁用。
  */
 const locatorOf = (e: ViewEdgeInfo): NavEditEdgeLocator | null => {
-  if (!e.sourceViewKey || !e.sourceControlId
-    || typeof e.eventConfigIndex !== 'number' || e.eventConfigIndex < 0
-    || typeof e.actionIndex !== 'number' || e.actionIndex < 0
+  // 仅控件边可编辑；kind==='control' 保证定位字段齐全（评审 I6），无需逐字段兜底。
+  // 定时器边（只读）与快照缺失的边一律返回 null，编辑操作降级禁用。
+  if (e.kind !== 'control' || !e.sourceViewKey
     || (!e.sourceFileHash && typeof e.sourceFileMtime !== 'number')) {
     return null;
   }
@@ -312,7 +312,7 @@ const buildGraph = (allViews: ViewInfo[] | undefined, currentFilePath: string | 
       if (!e.target) {
         return;
       }
-      const isTimer = e.sourceIsTimer === true || (e.eventType || e.event) === 'timer';
+      const isTimer = e.kind === 'timer';
       const invalid = e.isValid === false;
       const ambiguous = e.targetAmbiguous === true;
 
