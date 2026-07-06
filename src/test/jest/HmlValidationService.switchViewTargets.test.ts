@@ -115,4 +115,50 @@ describe('HmlValidationService switchView dangling-target warnings (rule 10)', (
     expect(warns[0].message).toContain('"view_ghost"');
     expect(warns[0].message).toContain('timer');
   });
+
+  // I2:校验端谓词必须与导航图/codegen 的边采集谓词一致——只有 codegen 真会
+  // 绑定的定时器 switchView 才算「运行时会触发的跳转」;custom 模式 / disabled /
+  // 仅存在于 segmentsBackup 的跳转 codegen 从不生成,判为悬空是假阳性。
+  const viewWithTimer = (timersJson: string): string => `<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>t</title>
+    <project><name>p</name><resolution>240X240</resolution><pixelMode>RGB565</pixelMode></project>
+  </meta>
+  <view>
+    <hg_view id="view_a" x="0" y="0" w="240" h="240" entry="true">
+      <hg_label id="lbl_t" x="0" y="0" w="10" h="10" text="x" timers='${timersJson}' />
+    </hg_view>
+  </view>
+</hml>
+`;
+
+  it('does not warn for switchView inside a custom-mode timer (codegen never generates a preset callback)', () => {
+    const content = viewWithTimer('[{"id":"t1","enabled":true,"mode":"custom","interval":1000,"callback":"my_cb","actions":[{"type":"switchView","target":"view_ghost"}]}]');
+    expect(targetWarnings(service.validateHml(content, {}))).toHaveLength(0);
+  });
+
+  it('does not warn for switchView inside a disabled timer on a non-view control (never bound)', () => {
+    const content = viewWithTimer('[{"id":"t1","enabled":false,"mode":"preset","interval":1000,"actions":[{"type":"switchView","target":"view_ghost"}]}]');
+    expect(targetWarnings(service.validateHml(content, {}))).toHaveLength(0);
+  });
+
+  it('does not warn for switchView left only in segmentsBackup (codegen never reads it)', () => {
+    const content = viewWithTimer('[{"id":"t1","enabled":true,"mode":"preset","interval":1000,"segments":[],"segmentsBackup":[{"duration":500,"actions":[{"type":"switchView","target":"view_ghost"}]}]}]');
+    expect(targetWarnings(service.validateHml(content, {}))).toHaveLength(0);
+  });
+
+  // I3:已知 view 全集范围必须与导航图/codegen 对齐(仅 ui/),否则 ui/ 外一个
+  // 同名 view 的杂散 .hml 会把真实悬空目标「洗白」成有效,造成漏报。
+  it('flags a real dangling target even when a same-named view exists OUTSIDE ui/', () => {
+    const content = fileWith('view_home', 'view_stray');
+    const filePath = path.join(projectRoot, 'ui', 'home.hml');
+    fs.writeFileSync(filePath, content, 'utf-8');
+    // 杂散文件在 ui/ 之外——codegen/导航图看不到它,校验也不该把它算作已知 view
+    fs.mkdirSync(path.join(projectRoot, 'legacy'), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, 'legacy', 'stray.hml'), fileWith('view_stray'), 'utf-8');
+
+    const result = service.validateHml(content, { projectRoot, filePath });
+    expect(targetWarnings(result)).toHaveLength(1);
+  });
 });

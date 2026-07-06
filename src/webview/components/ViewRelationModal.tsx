@@ -881,12 +881,19 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
           : navEditResult.op === 'create'
             ? t('Jump created')
             : t('Jump target updated');
-      const parts = [opText, t('navEdit.codeWillRegenerate')];
-      if (navEditResult.usedFileHistory) {
-        // 跨文件写成功且目标文件无面板：撤销走 VS Code 文件历史
-        parts.push(t('Undo via VS Code file history'));
+      if (navEditResult.panelResyncFailed) {
+        // 写盘成功但面板内存态未能重同步（评审 I1）：磁盘已正确，但该页面仍显示
+        // 旧内容，用户必须手动重开，否则在该面板再保存会用旧态覆盖本次编辑。
+        // 用 error 级常驻提示（不自动隐藏）以引起注意。
+        showStatus('error', `${opText} · ${t('navEdit.panelResyncFailed')}`);
+      } else {
+        const parts = [opText, t('navEdit.codeWillRegenerate')];
+        if (navEditResult.usedFileHistory) {
+          // 跨文件写成功且目标文件无面板：撤销走 VS Code 文件历史
+          parts.push(t('Undo via VS Code file history'));
+        }
+        showStatus('success', parts.join(' · '), 8000);
       }
-      showStatus('success', parts.join(' · '), 8000);
     } else if (navEditResult.needsConfirm) {
       // 保留 lastRequestRef：用户确认后带 confirmed=true 重发
       setRewriteConfirm({

@@ -533,6 +533,7 @@ const App: React.FC = () => {
               errorCode: message.errorCode,
               errorDetail: message.errorDetail,
               usedFileHistory: message.usedFileHistory,
+              panelResyncFailed: message.panelResyncFailed,
               hintKey: message.hintKey,
             },
             ...(typeof message.undoCount === 'number' ? { navUndoCount: message.undoCount } : {}),

@@ -197,6 +197,8 @@ export interface NavEditResultMessage {
   errorCode?: string;
   errorDetail?: string;
   usedFileHistory?: boolean;
+  /** 写盘成功但面板重同步失败：需手动重开该页面，否则再保存会覆盖本次编辑 */
+  panelResyncFailed?: boolean;
   hintKey?: string;
 }
 

@@ -2,8 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { HmlParser } from '../hml/HmlParser';
 import { scanOpenTags } from '../hml/tagScan';
+import { forEachLiveTimerSwitchView } from '../hml/timerNav';
 import { validateComponentId } from '../webview/utils/validation';
 import { Component } from '../hml/types';
+import { ProjectUtils } from '../utils/ProjectUtils';
 import { findUnusedKeys } from '../project-i18n/catalog';
 import type { I18nCatalog } from '../project-i18n/types';
 
@@ -13,7 +15,7 @@ import type { I18nCatalog } from '../project-i18n/types';
  * 功能：验证 HML XML 内容是否符合 HML-Spec.md 规范
  * 用途：提供给 HTTP API (/api/validate-hml) 和内部模块使用
  *
- * 执行的验证规则（共 8 项）：
+ * 执行的验证规则（共 10 项）：
  * ┌─────────────────────────────────────────────────────────────────────────┐
  * │ 1. 内容非空检查         - 确保 HML 内容不为空                           │
  * │ 2. XML 语法验证         - 使用 fast-xml-parser 验证 XML 格式            │
@@ -23,6 +25,8 @@ import type { I18nCatalog } from '../project-i18n/types';
  * │ 6. hg_view 不嵌套验证   - hg_view 不能嵌套在另一个 hg_view 中          │
  * │ 7. 资源路径格式验证     - 图像 assets/ 开头、字体 fontFile / 开头      │
  * │ 8. Entry View 唯一性验证 - 必须有且只有一个 entry="true" 的 hg_view    │
+ * │ 9. hg_view id 缺失警告  - hg_view 缺 id 无法作为跳转目标               │
+ * │10. switchView 悬空目标   - target 未匹配 ui/ 内任何 view id/name        │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * 验证依据：/docs/HML-Spec.md
@@ -486,12 +490,12 @@ export class HmlValidationService {
                     }
                 }
             }
-            const timers = (comp.data as Record<string, unknown> | undefined)?.timers;
-            if (timers) {
-                this._collectSwitchViewTargetsDeep(timers, found => {
-                    refs.push({ target: found, componentId: comp.id, source: 'timer' });
-                });
-            }
+            // 定时器 switchView：谓词与导航图边采集共享（评审 I2），只把 codegen
+            // 真会绑定并触发的跳转纳入判定——custom 模式 / disabled / 仅存在于
+            // segmentsBackup 的跳转运行时根本不触发，不算悬空。
+            forEachLiveTimerSwitchView(comp, comp.type === 'hg_view', ({ action }) => {
+                refs.push({ target: action.target!, componentId: comp.id, source: 'timer' });
+            });
         }
         if (refs.length === 0) {
             return;
@@ -509,7 +513,11 @@ export class HmlValidationService {
         }
         if (context.projectRoot) {
             const selfKey = context.filePath ? path.resolve(context.filePath) : null;
-            for (const file of this._findHmlFiles(context.projectRoot)) {
+            // 已知 view 全集范围须与导航图/codegen 对齐——只认 ui/（评审 I3）。
+            // 从项目根递归会把 ui/ 外一个同名 view 的杂散 .hml 当作有效目标，
+            // 洗白真实悬空引用造成漏报。
+            const uiDir = ProjectUtils.getUiDir(context.projectRoot);
+            for (const file of this._findHmlFiles(uiDir)) {
                 if (selfKey && path.resolve(file) === selfKey) {
                     continue;
                 }
@@ -546,29 +554,7 @@ export class HmlValidationService {
         }
     }
 
-    /** 深度遍历定时器结构，收集所有 { type:'switchView', target } 的 target */
-    private _collectSwitchViewTargetsDeep(node: unknown, onTarget: (target: string) => void): void {
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                this._collectSwitchViewTargetsDeep(item, onTarget);
-            }
-            return;
-        }
-        if (!node || typeof node !== 'object') {
-            return;
-        }
-        const obj = node as Record<string, unknown>;
-        if (obj.type === 'switchView' && typeof obj.target === 'string' && obj.target.trim() !== '') {
-            onTarget(obj.target);
-        }
-        for (const value of Object.values(obj)) {
-            if (value && typeof value === 'object') {
-                this._collectSwitchViewTargetsDeep(value, onTarget);
-            }
-        }
-    }
-
-    /** 递归收集项目内全部 .hml（跳过依赖/产物/版本库目录） */
+    /** 递归收集某根目录下全部 .hml（跳过依赖/产物/版本库目录；根不存在时返回空） */
     private _findHmlFiles(root: string): string[] {
         const skip = new Set(['node_modules', 'build', 'out', '.git', '.honeygui']);
         const results: string[] = [];

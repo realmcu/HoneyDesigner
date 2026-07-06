@@ -765,6 +765,7 @@ const zhCN = {
   'Jump created': '跳转已新建',
   'navEdit.codeWillRegenerate': '代码将在下次代码生成时更新',
   'Undo via VS Code file history': '目标文件未在设计器面板中打开，如需撤销可使用 VS Code 文件历史（时间线）',
+  'navEdit.panelResyncFailed': '已写入磁盘，但当前页面仍显示旧内容。请先关闭并重新打开该页面再编辑，否则在此保存可能覆盖本次修改。',
   'Timer connections are read-only': '定时器触发的跳转为只读，不可编辑',
   'Ambiguous connections cannot be reconnected': '该跳转目标存在歧义（多个文件中有同名 view），不可改目标',
   'Only the target end can be reconnected': '只能拖动连线的目标端到新的视图',

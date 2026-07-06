@@ -7,7 +7,7 @@
  * 结束 '>' —— 引号内的 '>'、'<'、引号另一种类都不影响边界判定。
  *
  * 共享方：
- * - HmlValidationService.validateViewIds（hg_view 缺 id 警告，R6）
+ * - HmlValidationService.validateViewIds（hg_view 缺 id 警告，规则 9）
  * - NavEditService._detectRoundTripLoss（round-trip 预检的 unknownTags /
  *   nameAttributes 检测，写盘确认拦截）
  *

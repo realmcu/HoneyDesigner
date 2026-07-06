@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { logger } from '../utils/Logger';
-import type { Component, TimerAction } from '../hml/types';
+import type { Component } from '../hml/types';
+import { forEachLiveTimerSwitchView } from '../hml/timerNav';
 import { getSupportedEvents } from '../hml/eventTypes';
 import type { EventType } from '../hml/eventTypes';
 import { ProjectUtils } from '../utils/ProjectUtils';
@@ -849,55 +850,22 @@ export class FileManager {
             });
         });
 
-        // 定时器动作里的 switchView（只读边）。
-        // 采集条件逐字对齐 codegen 的 timer 绑定谓词——边显示当且仅当 codegen
-        // 实际会生成 gui_obj_create_timer 绑定（callback 实现即使生成，无绑定也不会跑）：
-        // - hg_view 自身：ViewGenerator.generateViewTimerBindings 用 `enabled !== false`
-        //   （enabled 缺省/字符串 'false' 都会绑定——与 codegen 现状保持一致）；
-        // - 其余组件：HoneyGuiCCodeGenerator.generateTimerBindings 与
-        //   ListGenerator.generateNoteTimerBindings 用 `enabled === true`（严格布尔）；
-        // - 仅 mode === 'preset' 且 segments/actions 非空才生成预设回调（含跳转），
-        //   custom 模式走用户回调、mode 缺失被 codegen 跳过，均不出边。
-        (comp.data?.timers || []).forEach((timer, timerIndex) => {
-            if (!timer || timer.mode !== 'preset') {
-                return;
-            }
-            const bindsInCodegen = sourceIsView
-                ? timer.enabled !== false
-                : (timer.enabled as unknown) === true;
-            if (!bindsInCodegen) {
-                return;
-            }
-            const pushTimerEdge = (action: TimerAction, segmentIndex: number, actionIndex: number): void => {
-                if (action?.type !== 'switchView' || !action.target) {
-                    return;
-                }
-                out.push(this._buildNavEdge(comp, fileCtx, {
-                    target: action.target,
-                    eventType: 'timer',
-                    eventConfigIndex: timerIndex,
-                    actionIndex,
-                    sourceIsView,
-                    sourceIsTimer: true,
-                    timerId: timer.id,
-                    segmentIndex,
-                    switchOutStyle: action.switchOutStyle,
-                    switchInStyle: action.switchInStyle,
-                }));
-            };
-            // 对齐 codegen 语义（CallbackFileGenerator.generatePresetTimerCallbackFromConfig）：
-            // segments 非空时只生成多段动画、忽略 actions；否则走旧版单段 actions。
-            // 采集端若无条件遍历两者，actions/segments 并存时会产出运行时不存在的幽灵重复边
-            const segments = timer.segments || [];
-            if (segments.length > 0) {
-                // 新版多段动画
-                segments.forEach((segment, segIdx) => {
-                    (segment?.actions || []).forEach((action, i) => pushTimerEdge(action, segIdx, i));
-                });
-            } else {
-                // 旧版单段动作列表（segmentIndex = -1）
-                (timer.actions || []).forEach((action, i) => pushTimerEdge(action, -1, i));
-            }
+        // 定时器动作里的 switchView（只读边）。采集谓词与悬空目标校验共享
+        // forEachLiveTimerSwitchView（评审 I2：单一事实源，避免两端漂移）——
+        // 边显示当且仅当 codegen 实际会生成 gui_obj_create_timer 绑定。
+        forEachLiveTimerSwitchView(comp, sourceIsView, ({ action, timerIndex, timerId, segmentIndex, actionIndex }) => {
+            out.push(this._buildNavEdge(comp, fileCtx, {
+                target: action.target!,
+                eventType: 'timer',
+                eventConfigIndex: timerIndex,
+                actionIndex,
+                sourceIsView,
+                sourceIsTimer: true,
+                timerId,
+                segmentIndex,
+                switchOutStyle: action.switchOutStyle,
+                switchInStyle: action.switchInStyle,
+            }));
         });
     }
 

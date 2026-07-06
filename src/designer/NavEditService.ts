@@ -129,6 +129,12 @@ export interface NavEditResult {
     errorDetail?: string;
     /** 目标文件无对应设计器面板：undo 不可用，请用 VS Code 文件历史撤销 */
     usedFileHistory?: boolean;
+    /**
+     * 写盘成功但面板重同步失败（评审 I1）：磁盘已是正确内容，但对应面板内存态
+     * 仍停在旧内容，用户须手动关闭并重开该页面，否则在该面板下次保存会用旧态
+     * 覆盖磁盘、丢失本次编辑。
+     */
+    panelResyncFailed?: boolean;
     /** 成功提示 key：代码将在下次代码生成时更新 */
     hintKey?: string;
     /** 当前可撤销的导航编辑条数（成功回执/撤销回执携带，webview 更新撤销按钮） */
@@ -491,14 +497,19 @@ export class NavEditService {
 
         // ---- 8. undo 一致性 + 面板同步 ----
         let usedFileHistory = false;
+        // 面板重同步失败标志（评审 I1）：磁盘已是正确内容，但面板内存态仍停在
+        // 旧内容——此时若不告警，用户在该面板下次保存会用旧态覆盖磁盘，丢失本次
+        // 编辑。回执带此标志，webview 提示用户手动重开该页面。
+        let panelResyncFailed = false;
         const adapter = this._hooks.getPanelAdapter(absPath);
         if (adapter) {
             try {
                 adapter.pushUndoSnapshot(original);
                 await adapter.reloadFromContent(written ?? fs.readFileSync(absPath, 'utf-8'));
             } catch (err) {
-                // 面板同步失败不回滚写事务（磁盘已是正确内容），仅记录
+                // 面板同步失败不回滚写事务（磁盘已是正确内容），仅记录并回执告警
                 logger.warn(`[NavEditService] 面板同步失败（磁盘内容已正确写入）: ${err}`);
+                panelResyncFailed = true;
             }
         } else {
             usedFileHistory = true;
@@ -522,7 +533,7 @@ export class NavEditService {
 
         // ---- 10. 成功回执（allViews 重扫回推由调用方完成） ----
         logger.info(`[NavEditService] ${op} 成功: ${fileRelative} ${controlId}.${eventType}`);
-        return { success: true, op, usedFileHistory, hintKey: NAV_EDIT_HINT_CODE_REGEN, undoCount: NavEditService.undoCount };
+        return { success: true, op, usedFileHistory, panelResyncFailed, hintKey: NAV_EDIT_HINT_CODE_REGEN, undoCount: NavEditService.undoCount };
     }
 
     /**

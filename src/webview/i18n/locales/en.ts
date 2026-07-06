@@ -765,6 +765,7 @@ const en = {
   'Jump created': 'Jump created',
   'navEdit.codeWillRegenerate': 'Code will be updated on the next code generation',
   'Undo via VS Code file history': 'The target file is not open in a designer panel; use VS Code file history (Timeline) to undo if needed',
+  'navEdit.panelResyncFailed': 'Saved to disk, but this page still shows the old content. Close and reopen this page before editing it again, otherwise saving from here may overwrite this change.',
   'Timer connections are read-only': 'Timer-triggered jumps are read-only and cannot be edited',
   'Ambiguous connections cannot be reconnected': 'This jump target is ambiguous (same view id exists in multiple files) and cannot be retargeted',
   'Only the target end can be reconnected': 'Only the target end of a connection can be dragged to a new view',

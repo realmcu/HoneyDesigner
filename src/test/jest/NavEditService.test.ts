@@ -192,6 +192,59 @@ describe('NavEditService.applyNavEdit', () => {
     expect(fs.readFileSync(filePath, 'utf-8')).toBe(CLEAN_CONTENT); // 磁盘未动
   });
 
+  it('I1: write succeeds but flags panelResyncFailed when the panel reload throws (disk correct, panel stale)', async () => {
+    const adapter: NavEditPanelAdapter = {
+      pushUndoSnapshot: () => { /* noop */ },
+      reloadFromContent: async () => { throw new Error('panel disposed'); },
+    };
+    const service = new NavEditService(noOpHooks({ getPanelAdapter: () => adapter }));
+    const request: NavEditRequest = {
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(CLEAN_CONTENT),
+      },
+    };
+
+    const result = await service.applyNavEdit(request, projectRoot);
+    expect(result.success).toBe(true);
+    expect(result.panelResyncFailed).toBe(true);
+    expect(result.usedFileHistory).toBeFalsy(); // 有面板，不是文件历史路径
+    // 写事务未因面板同步失败而回滚：磁盘已是正确的新内容
+    expect(fs.readFileSync(filePath, 'utf-8')).toMatch(/target="view_a"/);
+  });
+
+  it('I1: does not flag panelResyncFailed when the panel reload succeeds', async () => {
+    const adapter: NavEditPanelAdapter = {
+      pushUndoSnapshot: () => { /* noop */ },
+      reloadFromContent: async () => { /* resolves */ },
+    };
+    const service = new NavEditService(noOpHooks({ getPanelAdapter: () => adapter }));
+    const request: NavEditRequest = {
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(CLEAN_CONTENT),
+      },
+    };
+
+    const result = await service.applyNavEdit(request, projectRoot);
+    expect(result.success).toBe(true);
+    expect(result.panelResyncFailed).toBeFalsy();
+  });
+
   it('aborts with fileDirty when the target panel has unsaved in-memory changes', async () => {
     const service = new NavEditService(noOpHooks({ isFileOpenWithUnsavedChanges: () => true }));
     const request: NavEditRequest = {
