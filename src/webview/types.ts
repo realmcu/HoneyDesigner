@@ -148,59 +148,30 @@ export interface ViewControlInfo {
 }
 
 // ---------------- 导航写事务（T10/T11）----------------
-// 与 src/designer/NavEditService.ts 的请求/回执结构保持同步。
+// 契约类型迁至 src/shared/navContract.ts（评审 I4/I5：宿主/webview 单一真相源）。
+// 从此 errorCode 是 NavEditErrorCode 而非退化的 string，undoCount / panelResyncFailed
+// 等字段直接派生自服务端 NavEditResult，无需两端手抄同步。
+import type {
+  NavEditOp,
+  NavEditErrorCode,
+  NavEditConfirmReason,
+  NavEditEdgeLocator,
+  NavEditCreateSpec,
+  NavEditRequestBody,
+  NavEditRequestPayload,
+  NavEditResultMessage,
+} from '../shared/navContract';
 
-export type NavEditOp = 'retarget' | 'delete' | 'create' | 'undo';
-
-// 边定位字段（retarget/delete 入参）：取自 ViewEdgeInfo 的定位子集
-export interface NavEditEdgeLocator {
-  sourceViewKey: string;
-  sourceControlId: string;
-  eventType: string;
-  eventConfigIndex: number;
-  actionIndex: number;
-  target: string;
-  sourceIsView?: boolean;
-  sourceIsTimer?: boolean;
-  sourceFileMtime?: number;
-  sourceFileHash?: string;
-}
-
-// 新建跳转入参（快照字段取自源 ViewInfo 的 fileMtime/fileHash）
-export interface NavEditCreateSpec {
-  sourceViewKey: string;
-  sourceControlId: string;
-  eventType: string;
-  target: string;
-  sourceFileMtime?: number;
-  sourceFileHash?: string;
-}
-
-// webview → 宿主 applyNavEdit 消息负载（requestId 用于回执匹配）
-export interface NavEditRequestPayload {
-  requestId: string;
-  op: NavEditOp;
-  edge?: NavEditEdgeLocator;
-  newTarget?: string;
-  create?: NavEditCreateSpec;
-  confirmed?: boolean;
-}
-
-// 宿主 → webview navEditResult 回执（NavEditService.NavEditResult + requestId）
-export interface NavEditResultMessage {
-  requestId?: string;
-  success: boolean;
-  op?: NavEditOp;
-  needsConfirm?: boolean;
-  confirmReasons?: Array<'comments' | 'unknownTags' | 'nameAttributes'>;
-  confirmDetail?: string;
-  errorCode?: string;
-  errorDetail?: string;
-  usedFileHistory?: boolean;
-  /** 写盘成功但面板重同步失败：需手动重开该页面，否则再保存会覆盖本次编辑 */
-  panelResyncFailed?: boolean;
-  hintKey?: string;
-}
+export type {
+  NavEditOp,
+  NavEditErrorCode,
+  NavEditConfirmReason,
+  NavEditEdgeLocator,
+  NavEditCreateSpec,
+  NavEditRequestBody,
+  NavEditRequestPayload,
+  NavEditResultMessage,
+};
 
 export interface DesignerState {
   components: Component[];

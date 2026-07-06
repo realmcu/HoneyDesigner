@@ -20,7 +20,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
-import type { ViewInfo, ViewEdgeInfo, NavEditEdgeLocator, NavEditRequestPayload } from '../types';
+import type { ViewInfo, ViewEdgeInfo, NavEditEdgeLocator, NavEditRequestBody, NavEditErrorCode } from '../types';
 import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES, type EventType } from '../../hml/eventTypes';
 import './ViewRelationModal.css';
 
@@ -720,7 +720,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const [status, setStatus] = useState<{ kind: 'info' | 'success' | 'error'; text: string } | null>(null);
   const statusTimerRef = useRef<number | null>(null);
   // 最近一次写事务请求（requestId 匹配回执；needsConfirm 时凭此重发 confirmed=true）
-  const lastRequestRef = useRef<{ requestId: string; message: Omit<NavEditRequestPayload, 'requestId'> } | null>(null);
+  const lastRequestRef = useRef<{ requestId: string; message: NavEditRequestBody | null } | null>(null);
   const requestSeqRef = useRef(0);
 
   // 打开弹窗即请求宿主重扫导航图（allViews 常驻 store，多面板同开时会陈旧）
@@ -813,7 +813,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   }, []);
 
   /** 发起一次写事务：生成 requestId 并记录请求（needsConfirm 重发用） */
-  const sendNavEdit = useCallback((message: Omit<NavEditRequestPayload, 'requestId'>) => {
+  const sendNavEdit = useCallback((message: NavEditRequestBody) => {
     const requestId = `navEdit-${++requestSeqRef.current}-${Date.now()}`;
     lastRequestRef.current = { requestId, message };
     showStatus('info', t('Applying navigation change'));
@@ -826,14 +826,14 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       return;
     }
     const requestId = `navEdit-${++requestSeqRef.current}-${Date.now()}`;
-    // 撤销不会走 needsConfirm 重发，message 仅为回执匹配占位
-    lastRequestRef.current = { requestId, message: { op: 'delete' } as Omit<NavEditRequestPayload, 'requestId'> };
+    // 撤销不会走 needsConfirm 重发，message 置空（仅 requestId 用于回执匹配）
+    lastRequestRef.current = { requestId, message: null };
     showStatus('info', t('Undoing last navigation change'));
     undoNavEdit(requestId);
   }, [navEditPending, navUndoCount, showStatus, undoNavEdit]);
 
   /** 宿主错误码 → 可读文案（dirty/过期/定位失败等各有专属提示） */
-  const navEditErrorText = useCallback((errorCode?: string, errorDetail?: string): string => {
+  const navEditErrorText = useCallback((errorCode?: NavEditErrorCode, errorDetail?: string): string => {
     let text: string;
     switch (errorCode) {
       case 'fileDirty': text = t('navEdit.error.fileDirty'); break;
@@ -1028,7 +1028,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   const confirmRewrite = useCallback(() => {
     const last = lastRequestRef.current;
     setRewriteConfirm(null);
-    if (!last) {
+    if (!last || !last.message) {
       return;
     }
     sendNavEdit({ ...last.message, confirmed: true });

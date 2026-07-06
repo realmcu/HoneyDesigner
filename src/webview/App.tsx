@@ -11,6 +11,7 @@ import { ViewRelationModal } from './components/ViewRelationModal';
 import { CanvasEditorModal } from './components/CanvasEditorModal';
 import ProjectI18nManagerModal from './components/ProjectI18nManagerModal';
 import { Component, ComponentType } from './types';
+import type { NavEditResultMessage } from './types';
 import useKeyboardShortcuts from './utils/keyboardShortcuts';
 import { generateComponentId } from './utils/componentNaming';
 import { getAbsolutePosition, findComponentAtPosition, isDropTargetType, isContainerType } from './utils/componentUtils';
@@ -518,27 +519,30 @@ const App: React.FC = () => {
           });
           break;
 
-        case 'navEditResult':
+        case 'navEditResult': {
           // 导航写事务回执（T11）：requestId 由 ViewRelationModal 生成并校验匹配；
-          // 成功时宿主已另行重扫并回推 updateAllViews 刷新图
+          // 成功时宿主已另行重扫并回推 updateAllViews 刷新图。
+          // 判别联合回执（评审 I5）：errorCode 为 NavEditErrorCode、字段与服务端 NavEditResult 一致。
+          const result = message as NavEditResultMessage;
           useDesignerStore.setState({
             navEditPending: false,
             navEditResult: {
-              requestId: message.requestId,
-              success: message.success === true,
-              op: message.op,
-              needsConfirm: message.needsConfirm,
-              confirmReasons: message.confirmReasons,
-              confirmDetail: message.confirmDetail,
-              errorCode: message.errorCode,
-              errorDetail: message.errorDetail,
-              usedFileHistory: message.usedFileHistory,
-              panelResyncFailed: message.panelResyncFailed,
-              hintKey: message.hintKey,
+              requestId: result.requestId,
+              success: result.success === true,
+              op: result.op,
+              needsConfirm: result.needsConfirm,
+              confirmReasons: result.confirmReasons,
+              confirmDetail: result.confirmDetail,
+              errorCode: result.errorCode,
+              errorDetail: result.errorDetail,
+              usedFileHistory: result.usedFileHistory,
+              panelResyncFailed: result.panelResyncFailed,
+              hintKey: result.hintKey,
             },
-            ...(typeof message.undoCount === 'number' ? { navUndoCount: message.undoCount } : {}),
+            ...(typeof result.undoCount === 'number' ? { navUndoCount: result.undoCount } : {}),
           });
           break;
+        }
 
         case 'navUndoState':
           // 可撤销导航编辑条数（弹窗打开时查询回推）

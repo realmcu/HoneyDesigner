@@ -9,6 +9,27 @@ import type { Document as HmlDocument, Component } from '../hml/types';
 import type { Action, EventConfig, EventType } from '../hml/eventTypes';
 import { getSupportedEvents } from '../hml/eventTypes';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
+import type {
+    NavEditOp,
+    NavEditErrorCode,
+    NavEditConfirmReason,
+    NavEditEdgeLocator,
+    NavEditCreateSpec,
+    NavEditRequest,
+    NavEditResult,
+} from '../shared/navContract';
+
+// 契约类型已迁至 src/shared/navContract.ts（评审 I4/I5：宿主/webview 单一真相源）。
+// 此处 re-export 保持既有 import 路径（MessageHandler / NavEditService.test）不变。
+export type {
+    NavEditOp,
+    NavEditErrorCode,
+    NavEditConfirmReason,
+    NavEditEdgeLocator,
+    NavEditCreateSpec,
+    NavEditRequest,
+    NavEditResult,
+};
 
 /**
  * 导航图写事务服务（设计文档 T10）。
@@ -46,100 +67,12 @@ import { PendingWriteRegistry } from './PendingWriteRegistry';
  * 可在纯 Node 环境下直调验证。
  */
 
-/** 编辑操作类型 */
-export type NavEditOp = 'retarget' | 'delete' | 'create' | 'undo';
-
-/** 稳定错误码（webview 侧映射 i18n 文案） */
-export type NavEditErrorCode =
-    | 'invalidRequest'
-    | 'noProjectRoot'
-    | 'fileNotFound'
-    | 'fileDirty'
-    | 'fileChanged'
-    | 'timerEdgeReadonly'
-    | 'locateFailed'
-    | 'eventUnsupported'
-    | 'eventOccupied'
-    | 'writeFailed'
-    | 'rollbackFailed';
-
-/** round-trip 预检检测到的将丢失内容种类 */
-export type NavEditConfirmReason = 'comments' | 'unknownTags' | 'nameAttributes';
-
 /** 成功回执固定提示 key（webview t() 渲染："代码将在下次代码生成时更新"） */
 export const NAV_EDIT_HINT_CODE_REGEN = 'navEdit.codeWillRegenerate';
 
 /** 新建跳转的默认动画（设计文档决策记录） */
 export const NAV_EDIT_DEFAULT_SWITCH_OUT = 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
 export const NAV_EDIT_DEFAULT_SWITCH_IN = 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
-
-/**
- * 边定位字段（retarget/delete 入参）——T2 边数据模型的定位子集全量。
- * sourceViewKey（relPath#viewId）是路径事实源；快照校验以 hash 为准，
- * hash 缺失时退化用 mtime。
- */
-export interface NavEditEdgeLocator {
-    sourceViewKey: string;
-    sourceControlId: string;
-    /** 原始事件类型（eventConfig.type；定时器边为 'timer'，一律拒绝编辑） */
-    eventType: string;
-    eventConfigIndex: number;
-    actionIndex: number;
-    /** 旧 target（定位一致性校验用） */
-    target: string;
-    sourceIsView?: boolean;
-    sourceIsTimer?: boolean;
-    sourceFileMtime?: number;
-    sourceFileHash?: string;
-}
-
-/** 新建跳转入参（快照字段取自 ViewNavNode 的 fileMtime/fileHash） */
-export interface NavEditCreateSpec {
-    sourceViewKey: string;
-    sourceControlId: string;
-    eventType: string;
-    /** 目标 view 裸 id */
-    target: string;
-    sourceFileMtime?: number;
-    sourceFileHash?: string;
-}
-
-export interface NavEditRequest {
-    op: NavEditOp;
-    /** retarget / delete 必填 */
-    edge?: NavEditEdgeLocator;
-    /** retarget 必填：新目标 view 裸 id */
-    newTarget?: string;
-    /** create 必填 */
-    create?: NavEditCreateSpec;
-    /** round-trip 预检差异经用户确认后重发时为 true */
-    confirmed?: boolean;
-}
-
-export interface NavEditResult {
-    success: boolean;
-    op?: NavEditOp;
-    /** 需要用户确认规范化重写（webview 弹确认后带 confirmed=true 重发） */
-    needsConfirm?: boolean;
-    confirmReasons?: NavEditConfirmReason[];
-    /** needsConfirm 补充信息（如未知标签名列表） */
-    confirmDetail?: string;
-    errorCode?: NavEditErrorCode;
-    /** 错误补充信息（控件 id / 异常消息等，辅助定位） */
-    errorDetail?: string;
-    /** 目标文件无对应设计器面板：undo 不可用，请用 VS Code 文件历史撤销 */
-    usedFileHistory?: boolean;
-    /**
-     * 写盘成功但面板重同步失败（评审 I1）：磁盘已是正确内容，但对应面板内存态
-     * 仍停在旧内容，用户须手动关闭并重开该页面，否则在该面板下次保存会用旧态
-     * 覆盖磁盘、丢失本次编辑。
-     */
-    panelResyncFailed?: boolean;
-    /** 成功提示 key：代码将在下次代码生成时更新 */
-    hintKey?: string;
-    /** 当前可撤销的导航编辑条数（成功回执/撤销回执携带，webview 更新撤销按钮） */
-    undoCount?: number;
-}
 
 /** 目标文件对应面板的最小适配面（由调用方基于 DesignerPanel 提供） */
 export interface NavEditPanelAdapter {
