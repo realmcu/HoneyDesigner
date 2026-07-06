@@ -34,10 +34,15 @@ async function main() {
 
             // 装进这份下载版 VSCode 自己的默认 extensions 目录；下面用同一个
             // vscodeExecutablePath 启动 runTests，即可读到刚装的扩展。
+            //
+            // Windows 上 resolveCliPathFromVSCodeExecutablePath 解析出的是 bin\code.cmd
+            // （批处理脚本，非 PE 可执行文件），spawnSync 不加 shell:true 无法直接执行它
+            // （spawn 失败，status 为 null）。这正是 @vscode/test-electron 官方示例里
+            // shell: process.platform === 'win32' 那行的用途（关联 CVE-2024-27980）。
             const install = spawnSync(
-                cli,
+                process.platform === 'win32' ? `"${cli}"` : cli,
                 [...cliArgs, '--install-extension', vsixPath, '--force'],
-                { encoding: 'utf-8', stdio: 'inherit' }
+                { encoding: 'utf-8', stdio: 'inherit', shell: process.platform === 'win32' }
             );
             if (install.status !== 0) {
                 throw new Error(`Failed to install VSIX (exit code ${install.status})`);
