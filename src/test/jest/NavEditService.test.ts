@@ -772,3 +772,148 @@ describe('NavEditService.undoLast', () => {
     expect(fs.readFileSync(filePath, 'utf-8')).toBe(CLEAN_CONTENT);
   });
 });
+
+/**
+ * 评审 I9：跨文件写事务 + 撤销栈边界。撤销栈是类级静态全局（跨面板/跨文件），
+ * 每条 beforeEach 必须 clearUndoStackForTest 避免串扰。全部真实落盘、读回断言。
+ */
+describe('NavEditService multi-file transactions & undo stack (I9)', () => {
+  let projectRoot: string;
+  const relA = 'ui/home.hml';
+  const relB = 'ui/settings.hml';
+
+  // 第二个干净文件（无注释/未知标签/name 属性，避免 round-trip 需确认），
+  // 自带一条可编辑边 btn_c.onClick → view_d。
+  const FILE_B = `<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>NavEditService fixture B</title>
+    <project>
+      <name>navedit-test</name>
+      <resolution>240X240</resolution>
+      <pixelMode>RGB565</pixelMode>
+    </project>
+  </meta>
+  <view>
+    <hg_view id="view_c" x="0" y="0" w="240" h="240" entry="true">
+      <hg_button id="btn_c" x="10" y="10" w="80" h="30" text="Go">
+        <events>
+          <event type="onClick">
+            <action type="switchView" target="view_d" switchOutStyle="SWITCH_OUT_TO_LEFT_USE_TRANSLATION" switchInStyle="SWITCH_IN_FROM_RIGHT_USE_TRANSLATION" />
+          </event>
+        </events>
+      </hg_button>
+    </hg_view>
+    <hg_view id="view_d" x="0" y="0" w="240" h="240">
+    </hg_view>
+  </view>
+</hml>
+`;
+
+  const absA = () => path.join(projectRoot, relA);
+  const absB = () => path.join(projectRoot, relB);
+
+  // 读当前磁盘内容算 hash 构造一条 retarget（快照校验以真实磁盘为准，可链式连续编辑）
+  const retargetOn = (
+    rel: string, viewId: string, controlId: string, from: string, to: string
+  ): NavEditRequest => {
+    const content = fs.readFileSync(path.join(projectRoot, rel), 'utf-8');
+    return {
+      op: 'retarget',
+      newTarget: to,
+      edge: {
+        sourceViewKey: `${rel}#${viewId}`,
+        sourceControlId: controlId,
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: from,
+        sourceFileHash: sha1(content),
+      },
+    };
+  };
+
+  beforeEach(() => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-multi-test-'));
+    fs.mkdirSync(path.join(projectRoot, 'ui'), { recursive: true });
+    fs.writeFileSync(absA(), CLEAN_CONTENT, 'utf-8');
+    fs.writeFileSync(absB(), FILE_B, 'utf-8');
+    NavEditService.clearUndoStackForTest();
+  });
+
+  afterEach(() => {
+    PendingWriteRegistry.getInstance().unregister(absA());
+    PendingWriteRegistry.getInstance().unregister(absB());
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+    NavEditService.clearUndoStackForTest();
+    jest.restoreAllMocks();
+  });
+
+  it('retarget edits across two different files each land on their own file and share one undo stack', async () => {
+    const service = new NavEditService(noOpHooks());
+
+    const editA = await service.applyNavEdit(retargetOn(relA, 'view_a', 'btn_a', 'view_b', 'view_a'), projectRoot);
+    const editB = await service.applyNavEdit(retargetOn(relB, 'view_c', 'btn_c', 'view_d', 'view_c'), projectRoot);
+
+    expect(editA.success).toBe(true);
+    expect(editB.success).toBe(true);
+    // 各写各的文件，互不串扰（A 的 target 变了、B 的没被 A 动过，反之亦然）
+    expect(fs.readFileSync(absA(), 'utf-8')).toMatch(/target="view_a"/);
+    expect(fs.readFileSync(absA(), 'utf-8')).not.toMatch(/target="view_b"/);
+    expect(fs.readFileSync(absB(), 'utf-8')).toMatch(/target="view_c"/);
+    expect(fs.readFileSync(absB(), 'utf-8')).not.toMatch(/target="view_d"/);
+    // 跨文件共用一个全局撤销栈
+    expect(editB.undoCount).toBe(2);
+  });
+
+  it('undoes multi-file edits one by one in LIFO order, restoring each file byte-for-byte', async () => {
+    const service = new NavEditService(noOpHooks());
+    await service.applyNavEdit(retargetOn(relA, 'view_a', 'btn_a', 'view_b', 'view_a'), projectRoot);
+    await service.applyNavEdit(retargetOn(relB, 'view_c', 'btn_c', 'view_d', 'view_c'), projectRoot);
+
+    // LIFO：先撤最后一次（B），A 不受影响
+    const undo1 = await service.undoLast();
+    expect(undo1.success).toBe(true);
+    expect(undo1.undoCount).toBe(1);
+    expect(fs.readFileSync(absB(), 'utf-8')).toBe(FILE_B);              // B 逐字节还原
+    expect(fs.readFileSync(absA(), 'utf-8')).toMatch(/target="view_a"/); // A 仍是编辑后
+
+    // 再撤 A
+    const undo2 = await service.undoLast();
+    expect(undo2.success).toBe(true);
+    expect(undo2.undoCount).toBe(0);
+    expect(fs.readFileSync(absA(), 'utf-8')).toBe(CLEAN_CONTENT);       // A 逐字节还原
+
+    // 栈空后再撤失败
+    const undo3 = await service.undoLast();
+    expect(undo3.success).toBe(false);
+    expect(undo3.errorCode).toBe('invalidRequest');
+  });
+
+  it('caps the undo stack at 20: the 21st edit evicts the oldest, whose edit is no longer undoable', async () => {
+    const service = new NavEditService(noOpHooks());
+    // 链式 21 次 retarget（target 递增），栈上限 UNDO_STACK_MAX=20，第 21 次 push 后挤掉最旧
+    let current = 'view_b';
+    for (let i = 1; i <= 21; i++) {
+      const next = `view_t${i}`;
+      const res = await service.applyNavEdit(retargetOn(relA, 'view_a', 'btn_a', current, next), projectRoot);
+      expect(res.success).toBe(true);
+      current = next;
+    }
+    expect(NavEditService.undoCount).toBe(20);
+    expect(fs.readFileSync(absA(), 'utf-8')).toMatch(/target="view_t21"/);
+
+    // 逐个撤销 20 次都成功（LIFO 依次回退 view_t21→…→view_t1）
+    for (let i = 0; i < 20; i++) {
+      const undo = await service.undoLast();
+      expect(undo.success).toBe(true);
+    }
+    // 第 21 次撤销失败：最旧那条（view_b→view_t1）已被挤掉，无法回到最初的 view_b
+    const overflow = await service.undoLast();
+    expect(overflow.success).toBe(false);
+    expect(overflow.errorCode).toBe('invalidRequest');
+    // 文件停在「第 1 次编辑的结果 view_t1」，而非原始 view_b（最旧条目已丢）
+    expect(fs.readFileSync(absA(), 'utf-8')).toMatch(/target="view_t1"/);
+    expect(fs.readFileSync(absA(), 'utf-8')).not.toMatch(/target="view_b"/);
+  });
+});
