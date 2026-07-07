@@ -7,10 +7,10 @@
 #ifndef GUI_VERSION_H
 #define GUI_VERSION_H
 
-#define VERSION_TAG "0.0.0"
+#define VERSION_TAG "v2.1.1.0"
 #define VERSION_BRANCH "master"
-#define VERSION_COMMIT "aa2c9f5a"
-#define VERSION_BUILD_DATE "2026-06-29 08:14:11"
-#define VERSION_REPO_STATUS "clean"
+#define VERSION_COMMIT "18950fef3"
+#define VERSION_BUILD_DATE "2026-07-07 11:01:38"
+#define VERSION_REPO_STATUS "dirty"
 
 #endif // GUI_VERSION_H

@@ -27,6 +27,7 @@ typedef enum
     BYTE_PIXEL_RGBA8888 = 4,
 } GUI_BYTE_PIXEL_ENUM;
 
+/* GUI_FormatType structure start*/
 /**
  * GUI_FormatType
  * Pixel and image format identifiers.
@@ -73,6 +74,7 @@ typedef enum
     I2           = 0x3a,   /* 2 bpp indexed (4 levels) */
     I1           = 0x3b,   /* 1 bpp indexed (2 levels) */
 } GUI_FormatType;
+/* GUI_FormatType structure end*/
 
 /* BLEND_MODE_TYPE structure start*/
 typedef enum
@@ -87,6 +89,7 @@ typedef enum
     IMG_2D_SW_FIX_A8_FG, //fixed fg
     IMG_2D_SW_FIX_A8_BGFG, //fixed fg and bg
     IMG_PLUS_DARKER, //darken blend: min(blended, background)
+    IMG_A8_BLUR, //A8-shaped blur: blur the framebuffer under the image, masked by the A8 alpha
 } BLEND_MODE_TYPE;
 /* BLEND_MODE_TYPE structure end*/
 
