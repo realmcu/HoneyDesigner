@@ -924,8 +924,10 @@ const en = {
   'jpegQualityHint': 'Lower value = higher quality, larger file. Recommended: 5-10',
   'jpegBackgroundColor': 'Background Color',
   'jpegBackgroundColorHint': 'Used for transparent images (PNG etc.)',
-  'jpegPadding': 'Pad to Minimum Coded Unit (MCU)',
-  'jpegPaddingHint': 'When on, pads the image on the right/bottom to the minimum coded unit (MCU) before encoding, so the JPEG payload\'s coded size is MCU-aligned; the GUI header still stores the original size. For hardware decoders that require MCU alignment. Requires ffprobe (ships with FFmpeg). Off by default',
+  'jpegPadding': 'Align coded size to MCU',
+  'jpegPaddingHint': 'JPEG always encodes in whole minimum coded units (MCU). This switch only affects the size reported in the JPEG\'s SOF marker: on = rounded up to the MCU (black padding added on the right/bottom); off = the exact content size (may be non-MCU). The GUI header always keeps the original size. Requires ffprobe (ships with FFmpeg). Off by default',
+  'jpegMinSize': 'Minimum Content Size',
+  'jpegMinSizeHint': 'Minimum content size for encoding: content = max(original, this value), independent of the switch above. Leave empty for no minimum. Whether the result is rounded up to the MCU is governed by "Align coded size to MCU" above. Values are raised to at least the MCU (4:2:0=16, 4:2:2=16×8, 4:4:4/gray=8). The GUI header always keeps the original size',
   'jpegGrayscale': 'Grayscale',
   'jpegRequiresFFmpeg': 'JPEG compression requires FFmpeg installed and in PATH',
 

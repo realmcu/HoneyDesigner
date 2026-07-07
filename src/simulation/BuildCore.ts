@@ -1342,6 +1342,8 @@ Return('objs')
             options.jpegQuality = resolvedConfig.jpegParams.quality;
             options.jpegBackgroundColor = resolvedConfig.jpegParams.backgroundColor;
             options.jpegAlign = resolvedConfig.jpegParams.align;
+            options.jpegMinWidth = resolvedConfig.jpegParams.minWidth;
+            options.jpegMinHeight = resolvedConfig.jpegParams.minHeight;
         }
         
         // adaptive 压缩直接传递，由 ImageConverterService.convert 自动比较 RLE/FastLZ 选最优

@@ -9,7 +9,8 @@
 - **质量控制**: 可配置 JPEG 质量（1-31 范围，数值越小质量越高）
 - **自定义二进制头部**: 生成 `gui_rgb_data_head_t` 和 `gui_jpeg_file_head_t` 结构
 - **透明度支持**: 自动处理 PNG、WEBP、GIF、TIFF 的透明区域，支持自定义背景色
-- **MCU 对齐（可选）**: 开启后 JPEG 负载内 SOF 标记使用对齐后宽高，GUI 头部仍保持原始宽高，适配对 MCU 对齐有要求的硬件解码器
+- **MCU 对齐（可选，`align`）**: JPEG 物理编码始终以 MCU 为单位；`align` 只控制 **JPEG 负载内 SOF 标记**报告的宽高是否向上取整到 MCU（开=取整，关=精确尺寸）。GUI 头部始终为原始宽高。适配对 MCU 对齐有要求的硬件解码器
+- **最小尺寸 padding（可选，`minWidth`/`minHeight`）**: 指定最小**内容**宽高，原图小于该值时在右侧/下方补齐（黑色填充）；下限不小于 MCU。是否再取整到 MCU 由 `align` 决定，两者正交；GUI 头部仍保持原始宽高
 - **缩放选项**: 内置图片缩放功能（50%、70%、80%）
 - **二进制输出**: 生成包含嵌入式 JPEG 和自定义头部的 `.bin` 文件
 - **双重接口**: 提供 CLI 工具和编程 API
@@ -31,7 +32,7 @@
 - ✅ **h** = 图片高度  
 - ✅ **其余所有字段** = 0 (包括 scan, align, resize, compress, jpeg, idu, rsvd, version, rsvd2)
 
-> **关于 MCU 对齐选项（`align`）**：即使开启 `align`，GUI 头部依旧只填充 `type`/`w`/`h`，且 `w`/`h` 为**原始输入宽高**，头部内的 `align` 位与其余位字段仍强制为 0——严格保持 spec_v4 合规。对齐只作用于 **JPEG 负载内部的 SOF 标记**（其宽高变为对齐后尺寸），SOF 不受 spec_v4 头部约束管辖。详见下文「MCU 对齐」章节。
+> **关于 `align` / `min` 与 GUI 头部**：无论是否开启 `align` 或设置 `minWidth`/`minHeight`，GUI 头部（`gui_rgb_data_head_t`）始终只填充 `type`/`w`/`h`，且 `w`/`h` 恒为**原始输入宽高**，头部内的 `align` 位与其余位字段强制为 0——严格保持 spec_v4 合规。这些选项只影响 **JPEG 负载内部的 SOF 标记**及其编码内容，SOF 不受 spec_v4 头部约束管辖。详见下文「MCU 对齐」「最小尺寸 padding」章节。
 
 ### API 兼容性说明
 
@@ -188,7 +189,14 @@ const advancedResult = await convertToJpeg({
 
 ### MCU 对齐
 
-JPEG 以 MCU（最小编码单元）为块进行编码，块尺寸由色度采样决定。部分硬件解码器要求图像宽高按 MCU 对齐。开启 `align` 后，图片在编码前会按 MCU 粒度在**右侧/下方**做 padding（黑色填充），使 **JPEG 负载内的 SOF 标记**报告对齐后的宽高；而 **GUI 头部仍保持原始输入宽高**。
+JPEG **物理编码始终以 MCU（最小编码单元）为单位**——块尺寸由色度采样决定，编码器内部会把最后不足一个 MCU 的部分补齐，解码时再裁剪掉。这一点与任何参数无关。
+
+`align` 控制的只是 **JPEG 负载内 SOF 标记里写入的宽高**是否向上取整到 MCU：
+
+- **开启**：在编码前于**右侧/下方**做 padding（黑色填充）到 MCU 边界，使 SOF 报告对齐后的宽高（如 686 → 688）。面向「按整块 MCU 解码、无法裁剪回非对齐尺寸」的硬件解码器。
+- **关闭**（默认）：SOF 报告精确内容尺寸（可能非 MCU 倍数，如 686）；物理上仍按 MCU 编码，多出的部分由解码器裁剪。
+
+无论开关，**GUI 头部始终保持原始输入宽高**。
 
 MCU 粒度（按采样因子）：
 
@@ -218,6 +226,75 @@ result.encodedDimensions; // { width: 688, height: 688 } —— JPEG SOF（对�
 > - 开启 `align` 需要 `ffprobe`（随 FFmpeg 一同安装）在 PATH 中可用——用于读取 padding 前的原始宽高。
 > - 仅当对齐**实际改变了尺寸**时，返回值才包含 `encodedDimensions`；若输入本就对齐，则不填充、不返回该字段。
 > - GUI 头部的 `align` 位与其余位字段仍为 0，严格遵循 spec_v4.txt。
+
+### 最小尺寸 padding
+
+当图片过小、需要保证**内容尺寸**不低于某个下限时，可用 `minWidth`/`minHeight` 指定最小内容宽高。若原图任一维度小于对应下限，编码前会在**右侧/下方**做 padding（黑色填充）补齐到该下限；GUI 头部依旧保持**原始输入宽高**。
+
+`min` 只决定**内容尺寸**，是否再取整到 MCU 由 `align` 决定（两者正交）。每个维度：
+
+- 内容尺寸 `content = max(原始尺寸, 下限)`；下限**不会小于一个 MCU**——传入值小于 MCU（或省略）时按 MCU 处理（对应「不应小于 mcu，默认是对应的 mcu 值」）。
+- **SOF（JPEG header）宽高** = `align 开 ? 向上取整到 MCU(content) : content`。
+- **物理编码** = `向上取整到 MCU(content)`（恒为 MCU 整数倍，解码器裁剪回 SOF）。
+
+```typescript
+// 输入 40x40 的小图，采样 420（MCU 16x16），要求最小内容 50x50
+
+// align 关（默认）：SOF = 精确内容尺寸，不取整到 MCU
+const r1 = await convertToJpeg({
+  inputPath: 'icon.png',    // 40x40
+  outputPath: 'icon.bin',
+  samplingFactor: SamplingFactor.YUV420,
+  quality: 10,
+  minWidth: 50,
+  minHeight: 50,
+});
+r1.dimensions;        // { width: 40, height: 40 } —— GUI 头部（原始）
+r1.encodedDimensions; // { width: 50, height: 50 } —— JPEG SOF（精确内容，非 MCU）
+
+// align 开：SOF = 向上取整到 MCU(50) = 64
+const r2 = await convertToJpeg({
+  inputPath: 'icon.png',    // 40x40
+  outputPath: 'icon2.bin',
+  samplingFactor: SamplingFactor.YUV420,
+  quality: 10,
+  align: true,
+  minWidth: 50,
+  minHeight: 50,
+});
+r2.dimensions;        // { width: 40, height: 40 } —— GUI 头部（原始）
+r2.encodedDimensions; // { width: 64, height: 64 } —— JPEG SOF（取整到 MCU）
+```
+
+> **说明**：
+> - `minWidth`/`minHeight` 默认未设置；一旦设置任一项即会触发 padding（**无需同时开启 `align`**），并且同样需要 `ffprobe` 读取原始宽高。
+> - `min` 只设内容尺寸；是否取整到 MCU 由 `align` 决定（正交）。下限本身不小于一个 MCU。
+> - 可只设置单个维度，另一维度的内容下限取该采样的 MCU（对已大于 MCU 的原图为 no-op）。
+> - 仅当尺寸**实际改变**（SOF ≠ 原始）时才返回 `encodedDimensions`；GUI 头部与位字段行为与 `align` 一致（保持原始宽高、位字段为 0）。
+> - 4:2:0 / 4:2:2 的 SOF 宽高需为偶数；请使用偶数 `min`（否则编码器可能自行调整）。
+
+### 行为对照表（`align` × `min`）
+
+下表列出各组合下三个尺寸的取值。原始尺寸 40×40，采样默认 420（MCU 16×16），另附 444/422 示例：
+
+| 采样 | 原始 | `min` | `align` | GUI 头部 | JPEG header（SOF） | 物理 MCU 编码 |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 420 | 40×40 | 未设 | 关 | 40×40 | 40×40 | 48×48 |
+| 420 | 40×40 | 未设 | 开 | 40×40 | 48×48 | 48×48 |
+| 420 | 40×40 | 50×50 | 关 | 40×40 | **50×50** | 64×64 |
+| 420 | 40×40 | 50×50 | 开 | 40×40 | 64×64 | 64×64 |
+| 420 | 40×40 | 64×64 | 关 | 40×40 | 64×64 | 64×64 |
+| 420 | 40×40 | 100×100 | 关 | 40×40 | **100×100** | 112×112 |
+| 420 | 40×40 | 100×100 | 开 | 40×40 | 112×112 | 112×112 |
+| 444 | 40×40 | 50×50 | 关 | 40×40 | 50×50 | 56×56 |
+| 444 | 40×40 | 50×50 | 开 | 40×40 | 56×56 | 56×56 |
+| 422 | 40×40 | 50×50 | 关 | 40×40 | 50×50 | 64×56 |
+| 422 | 40×40 | 50×50 | 开 | 40×40 | 64×56 | 64×56 |
+
+- **GUI 头部**：恒为原始输入宽高（spec_v4 合规），与 `align`/`min` 无关。
+- **JPEG header（SOF）**：`align` 关 → 精确内容尺寸 `max(原始, 下限)`（可非 MCU，加粗行）；`align` 开 → 向上取整到 MCU。这是可观测的库输出（`encodedDimensions`），仅在其 ≠ 原始时返回。
+- **物理 MCU 编码**：编码器内部行为，**恒为 MCU 整数倍** = `向上取整到 MCU(内容尺寸)`；解码器据 SOF 裁剪回报告尺寸，通常不可见。
+- `min` 未设 + `align` 关（首行）：不触发 padding、不调用 `ffprobe`、不返回 `encodedDimensions`。
 
 ## 📋 详细参数说明
 
@@ -249,9 +326,18 @@ interface ConversionConfig {
   /** 透明图片的背景色（可选，默认 'black'） */
   backgroundColor?: string;
 
-  /** 是否按 MCU 粒度对齐编码宽高（可选，默认 false）
-   *  开启后 JPEG SOF 使用对齐后宽高，GUI 头部保持原始宽高；需要 ffprobe */
+  /** 是否将 JPEG SOF（coded）宽高向上取整到 MCU 网格（可选，默认 false）。
+   *  JPEG 物理编码始终以 MCU 为单位；此开关只决定 SOF 标记报告 MCU 对齐尺寸（开）
+   *  还是精确内容尺寸（关，可非 MCU）。GUI 头部始终保持原始宽高；需要 ffprobe */
   align?: boolean;
+
+  /** 最小内容宽度（可选）。原图宽度小于该值时在右侧 padding 补齐至该下限；
+   *  下限不小于一个 MCU。是否再取整到 MCU 由 align 决定。设置后即触发 padding，需要 ffprobe */
+  minWidth?: number;
+
+  /** 最小内容高度（可选）。原图高度小于该值时在下方 padding 补齐至该下限；
+   *  下限不小于一个 MCU。是否再取整到 MCU 由 align 决定。设置后即触发 padding，需要 ffprobe */
+  minHeight?: number;
 }
 ```
 
@@ -345,10 +431,26 @@ interface ConversionConfig {
 #### 9. align（可选）
 - **类型**: `boolean`
 - **默认值**: `false`
-- **说明**: 开启后按 MCU 粒度对齐编码宽高——**JPEG SOF 使用对齐后宽高，GUI 头部保持原始宽高**，位字段仍为 0
+- **说明**: JPEG 物理编码始终以 MCU 为单位；此开关只决定 **JPEG SOF 标记报告的宽高**是否向上取整到 MCU。开=对齐尺寸，关=精确内容尺寸（可非 MCU）。**GUI 头部始终保持原始宽高**，位字段仍为 0
 - **依赖**: 需要 `ffprobe`（随 FFmpeg 安装）在 PATH 中可用
 - **MCU 粒度**: 420→16×16、422→16×8、444/400→8×8
 - **详见**: [MCU 对齐](#mcu-对齐) 章节
+
+#### 10. minWidth（可选）
+- **类型**: `number`
+- **默认值**: 未设置（等效于对应的 MCU 宽度）
+- **说明**: 最小**内容**宽度。原图宽度小于该值时在**右侧** padding（黑色填充）补齐至该下限。内容宽 = `max(原始宽, minWidth)`；SOF 宽 = `align 开 ? 向上取整到 MCU(内容宽) : 内容宽`
+- **下限**: 不小于一个 MCU；传入值小于 MCU 时按 MCU 处理（**不应小于 mcu**）
+- **依赖**: 设置后即触发 padding（无需同时开启 `align`），需要 `ffprobe`
+- **详见**: [最小尺寸 padding](#最小尺寸-padding) 章节
+
+#### 11. minHeight（可选）
+- **类型**: `number`
+- **默认值**: 未设置（等效于对应的 MCU 高度）
+- **说明**: 最小**内容**高度。原图高度小于该值时在**下方** padding（黑色填充）补齐至该下限。内容高 = `max(原始高, minHeight)`；SOF 高 = `align 开 ? 向上取整到 MCU(内容高) : 内容高`
+- **下限**: 不小于一个 MCU；传入值小于 MCU 时按 MCU 处理（**不应小于 mcu**）
+- **依赖**: 设置后即触发 padding（无需同时开启 `align`），需要 `ffprobe`
+- **详见**: [最小尺寸 padding](#最小尺寸-padding) 章节
 
 ### ConversionResult 返回值
 
@@ -369,8 +471,8 @@ interface ConversionResult {
     height: number;  // 高度（像素）
   };
 
-  /** 编码尺寸（JPEG SOF 中的对齐后宽高）
-   *  仅当 align=true 且对齐实际改变了尺寸时出现 */
+  /** 编码尺寸（JPEG SOF 中报告的宽高）：align 开时为 MCU 对齐尺寸，
+   *  仅设置 min 时为精确内容尺寸（可能非 MCU）。仅当该尺寸 ≠ 原始尺寸时出现 */
   encodedDimensions?: {
     width: number;
     height: number;
@@ -394,7 +496,9 @@ node dist/cli.js -i <输入文件> -o <输出文件> -s <采样因子> -q <质�
 - `-q, --quality <number>`: 质量设置（1-31）
 - `-r, --resize <option>`: 缩放选项（50/70/80）
 - `-c, --compress`: 启用压缩标志
-- `-a, --align`: 按 MCU 对齐编码宽高（JPEG SOF 对齐，GUI 头部保持原始宽高；需要 ffprobe）
+- `-a, --align`: 将 JPEG SOF 宽高向上取整到 MCU 网格（关时 SOF 报告精确内容尺寸；物理始终 MCU 编码；GUI 头部保持原始宽高；需要 ffprobe）
+- `--min-width <pixels>`: 最小内容宽度，原图更小时在右侧 padding 补齐（不小于 MCU；是否取整到 MCU 由 `-a` 决定；需要 ffprobe）
+- `--min-height <pixels>`: 最小内容高度，原图更小时在下方 padding 补齐（不小于 MCU；是否取整到 MCU 由 `-a` 决定；需要 ffprobe）
 - `-v, --version`: 显示版本信息
 - `-h, --help`: 显示帮助信息
 
@@ -413,8 +517,14 @@ node dist/cli.js -i color.png -o gray.bin -s 400 -q 15
 # 缩放 + 压缩
 node dist/cli.js -i large.png -o small.bin -s 420 -q 8 -r 50 -c
 
-# MCU 对齐（JPEG SOF 对齐，GUI 头部保持原始宽高）
+# MCU 对齐（SOF 向上取整到 MCU，GUI 头部保持原始宽高）
 node dist/cli.js -i photo.png -o photo.bin -s 420 -q 10 -a
+
+# 最小尺寸 padding（内容补齐到至少 50x50；align 关 → SOF=50x50 精确尺寸）
+node dist/cli.js -i icon.png -o icon.bin -s 420 -q 10 --min-width 50 --min-height 50
+
+# 最小尺寸 padding + MCU 对齐（内容 50x50 → SOF 取整到 64x64）
+node dist/cli.js -i icon.png -o icon.bin -s 420 -q 10 -a --min-width 50 --min-height 50
 ```
 
 ## 📁 输出文件格式

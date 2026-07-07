@@ -924,8 +924,10 @@ const zhCN = {
   'jpegQualityHint': '数值越小质量越高、文件越大。推荐：5-10',
   'jpegBackgroundColor': '背景色',
   'jpegBackgroundColorHint': '用于透明图片（如 PNG）的背景填充',
-  'jpegPadding': 'Padding 到最小编码单元',
-  'jpegPaddingHint': '开启后在编码前把图像按最小编码单元 (MCU) 在右/下补齐黑边，使 JPEG 内部编码宽高对齐到 MCU；GUI 头部仍记录原始宽高。用于要求 MCU 对齐的硬件解码器，需要 ffprobe（随 FFmpeg 安装）。默认关闭',
+  'jpegPadding': '编码尺寸对齐到 MCU',
+  'jpegPaddingHint': 'JPEG 物理编码始终以最小编码单元 (MCU) 为单位。此开关只决定 JPEG 内部 SOF 标记报告的宽高：开启则向上取整到 MCU（在右/下补黑边），关闭则报告精确内容尺寸（可非 MCU）。GUI 头部始终记录原始宽高。需要 ffprobe（随 FFmpeg 安装），默认关闭',
+  'jpegMinSize': '最小内容尺寸',
+  'jpegMinSizeHint': '设定编码内容的最小宽高：内容尺寸 = max(原始尺寸, 该值)，与上方开关相互独立。留空表示不设下限。是否把结果向上对齐到 MCU 由上方「编码尺寸对齐到 MCU」决定。数值会被抬升到不小于 MCU（4:2:0=16、4:2:2=16×8、4:4:4/灰度=8）。GUI 头部始终记录原始宽高',
   'jpegGrayscale': '灰度',
   'jpegRequiresFFmpeg': 'JPEG 压缩需要安装 FFmpeg 并添加到系统 PATH',
 

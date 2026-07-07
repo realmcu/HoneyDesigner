@@ -390,3 +390,41 @@
   margin-top: 8px;
   color: var(--vscode-editorWarning-foreground, #cca700);
 }
+
+.jpeg-size-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jpeg-size-input {
+  flex: 1;
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 2px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+}
+
+/* 未输入时占位显示当前采样的 MCU 尺寸（暗灰）；用户输入后数值以正常前景色（白）显示 */
+.jpeg-size-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+  opacity: 1;
+}
+
+.jpeg-size-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.jpeg-size-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jpeg-size-x {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}

@@ -23,7 +23,7 @@ import { InputValidator, ValidationResult } from './validator.js';
 import { FFmpegExecutor, FFmpegError } from './ffmpeg-executor.js';
 import { HeaderGenerator } from './header-generator.js';
 import { FileAssembler, FileAssemblyError } from './file-assembler.js';
-import { computeAlignedDimensions } from './alignment.js';
+import { computeEncodedDimensions } from './alignment.js';
 
 /**
  * Main converter class that orchestrates the image to JPEG conversion pipeline.
@@ -120,44 +120,52 @@ export class Converter {
       // Step 2: Create temporary file path for FFmpeg output
       tempOutputPath = this.createTempFilePath();
 
-      // Step 2.5: When MCU alignment is requested, read the ORIGINAL input size
-      // (the GUI header must keep it) and compute the MCU-aligned target that the
-      // JPEG will actually be encoded at. Only probe when the feature is on, so
-      // the default path incurs no extra ffprobe process.
+      // Step 2.5: When padding is requested — either MCU alignment (`align`) or a
+      // minimum content size (`minWidth`/`minHeight`) — read the ORIGINAL input
+      // size (the GUI header must keep it) and compute the SOF (coded) target the
+      // JPEG will be encoded at. `align` controls ONLY whether that target is
+      // rounded up to the MCU grid; `min` sets the content floor. Only probe when
+      // a padding option is on, so the default path incurs no extra ffprobe.
       let originalDimensions: { width: number; height: number } | null = null;
-      let alignTo: { width: number; height: number } | undefined;
-      if (config.align) {
+      let padTo: { width: number; height: number } | undefined;
+      const wantPadding =
+        config.align === true ||
+        config.minWidth != null ||
+        config.minHeight != null;
+      if (wantPadding) {
         try {
           originalDimensions = await this.ffmpegExecutor.probeDimensions(config.inputPath);
         } catch (error) {
           throw this.createFFmpegError(error as FFmpegError);
         }
 
-        const aligned = computeAlignedDimensions(
+        const encodedTarget = computeEncodedDimensions(
           originalDimensions.width,
           originalDimensions.height,
-          config.samplingFactor
+          config.samplingFactor,
+          config.align === true,
+          { width: config.minWidth, height: config.minHeight }
         );
         // Only pad when it actually changes the size (skip the no-op filter).
         if (
-          aligned.width !== originalDimensions.width ||
-          aligned.height !== originalDimensions.height
+          encodedTarget.width !== originalDimensions.width ||
+          encodedTarget.height !== originalDimensions.height
         ) {
-          alignTo = aligned;
+          padTo = encodedTarget;
         }
       }
 
-      // Step 3: Execute FFmpeg conversion (padded to `alignTo` when set)
+      // Step 3: Execute FFmpeg conversion (padded to `padTo` when set)
       let ffmpegResult;
       try {
-        ffmpegResult = await this.ffmpegExecutor.convert(config, tempOutputPath, alignTo);
+        ffmpegResult = await this.ffmpegExecutor.convert(config, tempOutputPath, padTo);
       } catch (error) {
         throw this.createFFmpegError(error as FFmpegError);
       }
 
-      // Step 4: Extract the dimensions actually encoded in the JPEG SOF marker.
-      // With alignment on this is the padded (aligned) size; otherwise it equals
-      // the original size.
+      // Step 4: Extract the dimensions actually written in the JPEG SOF marker.
+      // When padding was applied this is the padded target (`padTo`); otherwise
+      // it equals the original size.
       const encoded = this.headerGenerator.extractDimensions(ffmpegResult.jpegData);
       if (!encoded) {
         throw this.createHeaderError(
@@ -220,7 +228,7 @@ export class Converter {
           height: guiDimensions.height,
         },
       };
-      if (alignTo) {
+      if (padTo) {
         result.encodedDimensions = {
           width: encoded.width,
           height: encoded.height,

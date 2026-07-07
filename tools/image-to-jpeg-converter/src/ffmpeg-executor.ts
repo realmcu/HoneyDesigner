@@ -62,8 +62,10 @@ export class FFmpegExecutor {
    * 
    * @param config - Conversion configuration with input path, sampling factor, and quality
    * @param tempOutputPath - Path where FFmpeg should write the output JPEG file
-   * @param alignTo - Optional MCU-aligned target size. When provided, a `pad` filter
-   *   is inserted so the encoded JPEG (and its SOF marker) uses these dimensions.
+   * @param alignTo - Optional coded (SOF) target size. When provided, a `pad`
+   *   filter is inserted so the encoded JPEG and its SOF marker use these
+   *   dimensions. The target may be non-MCU (min padding with `align` off) or
+   *   MCU-aligned (`align` on) — this method just pads to whatever it is given.
    * @returns Promise resolving to FFmpegResult with JPEG data, or rejecting with FFmpegError
    * 
    * @example
@@ -91,8 +93,12 @@ export class FFmpegExecutor {
       // Execute FFmpeg process (Requirement 7.2)
       await this.executeFFmpeg(command);
 
-      // Validate output file exists (Requirement 7.5)
-      if (!fs.existsSync(tempOutputPath)) {
+      // Validate output file exists (Requirement 7.5). FFmpeg has reported
+      // exit 0, but on Windows the file it just wrote can briefly be invisible
+      // to this process (filesystem flush lag, pronounced under parallel I/O).
+      // Retry for a short bounded window before declaring failure so a
+      // successful conversion is not misreported as "output not created".
+      if (!(await this.waitForFile(tempOutputPath))) {
         throw {
           message: `FFmpeg completed but output file was not created: ${tempOutputPath}`,
           exitCode: 0,
@@ -124,6 +130,35 @@ export class FFmpegExecutor {
         message: `FFmpeg execution failed: ${error instanceof Error ? error.message : String(error)}`,
       } as FFmpegError;
     }
+  }
+
+  /**
+   * Waits briefly for a file to become visible on disk.
+   *
+   * FFmpeg signals completion via its process `close` event, but on Windows the
+   * output file it just wrote can lag a few milliseconds before `fs.existsSync`
+   * sees it — especially when many conversions run in parallel. This polls a
+   * bounded number of times so a genuinely successful conversion is not
+   * misreported as "output file was not created". The common case (file already
+   * present) returns immediately on the first check with no delay.
+   *
+   * @param filePath - Path to wait for
+   * @param attempts - Maximum number of checks (default 20)
+   * @param delayMs - Delay between checks in milliseconds (default 25 → ~500ms budget)
+   * @returns Promise resolving to true if the file appeared within the budget
+   */
+  private async waitForFile(
+    filePath: string,
+    attempts = 20,
+    delayMs = 25
+  ): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      if (fs.existsSync(filePath)) {
+        return true;
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+    }
+    return fs.existsSync(filePath);
   }
 
   /**
@@ -230,13 +265,15 @@ export class FFmpegExecutor {
    * - 422 → yuvj422p (4:2:2 subsampling)
    * - 444 → yuvj444p (4:4:4 subsampling, no subsampling)
    * 
-   * When `alignTo` is provided, a `pad` filter rounds the frame up to the given
-   * (MCU-aligned) dimensions with black fill on the right/bottom, so the encoded
-   * JPEG's SOF marker reports the aligned size.
+   * When `alignTo` is provided, a `pad` filter grows the frame to the given
+   * coded (SOF) dimensions with black fill on the right/bottom, so the encoded
+   * JPEG's SOF marker reports that size. The target is the caller's computed
+   * SOF size — MCU-aligned when `align` is on, or the exact (possibly non-MCU)
+   * content size when only `min` padding is in effect.
    *
    * @param config - Conversion configuration
    * @param outputPath - Path where FFmpeg should write the output
-   * @param alignTo - Optional MCU-aligned target size to pad the frame up to
+   * @param alignTo - Optional coded (SOF) target size to pad the frame up to
    * @returns Array of command arguments for FFmpeg
    * 
    * @example
@@ -259,9 +296,10 @@ export class FFmpegExecutor {
     // Get quality value (use provided or default)
     const quality = config.quality ?? this.getDefaultQuality(config.samplingFactor);
 
-    // Build the pad filter when MCU alignment is requested. Padding adds pixels
-    // on the right/bottom only (x=0, y=0) so existing content keeps its top-left
-    // origin; the extra pixels lie outside the GUI header's reported size.
+    // Build the pad filter when a coded (SOF) target is requested. Padding adds
+    // pixels on the right/bottom only (x=0, y=0) so existing content keeps its
+    // top-left origin; the extra pixels lie outside the GUI header's reported
+    // size. The target may be non-MCU (min padding, `align` off) or MCU-aligned.
     const padFilter = alignTo
       ? `pad=${alignTo.width}:${alignTo.height}:0:0:black`
       : null;
@@ -299,7 +337,7 @@ export class FFmpegExecutor {
       const command = [
         'ffmpeg',
         '-i', config.inputPath,           // Input file
-        ...(padFilter ? ['-vf', padFilter] : []), // Optional MCU-alignment padding
+        ...(padFilter ? ['-vf', padFilter] : []), // Optional coded-size (SOF) padding
         '-pix_fmt', pixelFormat,          // Pixel format based on sampling factor
         '-q:v', quality.toString(),       // Quality parameter
         '-y',                             // Overwrite output file without asking

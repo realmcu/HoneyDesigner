@@ -99,6 +99,17 @@ export class InputValidator {
       errors.push(outputError);
     }
 
+    // Validate optional minimum coded dimensions
+    const minWidthError = this.validateMinDimension('minWidth', config.minWidth);
+    if (minWidthError) {
+      errors.push(minWidthError);
+    }
+
+    const minHeightError = this.validateMinDimension('minHeight', config.minHeight);
+    if (minHeightError) {
+      errors.push(minHeightError);
+    }
+
     // Return aggregated results (Requirement 8.5)
     if (errors.length > 0) {
       return { valid: false, errors };
@@ -206,6 +217,54 @@ export class InputValidator {
         field: 'quality',
         message: 'Quality must be in the range 1-31 (inclusive). Lower values indicate higher quality.',
         value: quality,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Validates an optional minimum coded dimension (`minWidth` / `minHeight`).
+   *
+   * The value is optional. If provided it must be a positive integer. Values
+   * below the sampling factor's MCU size are NOT rejected here — they are
+   * clamped up to the MCU at encode time ("不应小于 mcu"), so only genuinely
+   * invalid values (non-number, non-integer, < 1) are reported.
+   *
+   * @param field - The config field name, for error reporting
+   * @param value - The minimum dimension value (optional)
+   * @returns ValidationError if the value is invalid, null otherwise
+   */
+  private validateMinDimension(
+    field: 'minWidth' | 'minHeight',
+    value?: number
+  ): ValidationError | null {
+    // Optional
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    if (typeof value !== 'number' || isNaN(value)) {
+      return {
+        field,
+        message: `${field} must be a number`,
+        value,
+      };
+    }
+
+    if (!Number.isInteger(value)) {
+      return {
+        field,
+        message: `${field} must be an integer`,
+        value,
+      };
+    }
+
+    if (value < 1) {
+      return {
+        field,
+        message: `${field} must be a positive integer (values below the MCU size are raised to the MCU automatically)`,
+        value,
       };
     }
 

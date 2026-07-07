@@ -123,23 +123,62 @@ export interface ConversionConfig {
   backgroundColor?: string;
 
   /**
-   * Encode the JPEG at MCU-aligned dimensions.
+   * Align the JPEG SOF (coded) dimensions to the MCU grid.
    *
-   * When true, the image is padded on the right/bottom up to the MCU boundary
-   * for the chosen sampling factor (420→16×16, 422→16×8, 444/400→8×8) before
-   * MJPEG encoding, so the JPEG SOF header reports the *aligned* size. The
-   * custom GUI header (`gui_rgb_data_head_t`) still reports the ORIGINAL input
-   * dimensions, and all of its bit fields (including `align`) remain 0 per
-   * spec_v4.txt.
+   * JPEG ALWAYS encodes in whole MCU blocks (420→16×16, 422→16×8, 444/400→8×8)
+   * — that physical size is invariant. This flag controls ONLY the width/height
+   * written into the JPEG SOF marker:
+   * - `true`  → the frame is padded on the right/bottom so the SOF reports the
+   *   MCU-aligned size (e.g. 686 → 688). Targets hardware decoders that consume
+   *   whole MCU blocks and cannot crop back to a non-MCU stored size.
+   * - `false` → the SOF reports the exact content size (which may be non-MCU,
+   *   e.g. 686 or a `minWidth` of 50); the encoder still pads to a whole MCU
+   *   internally, but the decoder crops that away.
    *
-   * This targets hardware JPEG decoders that decode whole MCU blocks and
-   * require the coded dimensions to be aligned. Requires `ffprobe` (ships with
-   * FFmpeg) to read the original input dimensions.
+   * The custom GUI header (`gui_rgb_data_head_t`) always reports the ORIGINAL
+   * input dimensions, and all of its bit fields (including `align`) remain 0 per
+   * spec_v4.txt. Requires `ffprobe` (ships with FFmpeg) to read the original
+   * input size.
    *
-   * Defaults to false — no padding; both the GUI header and the JPEG SOF report
-   * the original size (unchanged behavior).
+   * Defaults to false. With no `min` either, no padding happens and both the
+   * GUI header and the JPEG SOF report the original size (unchanged behavior).
    */
   align?: boolean;
+
+  /**
+   * Minimum CONTENT width in pixels.
+   *
+   * When the original input is narrower than this, the frame is padded on the
+   * right up to this width before encoding (black fill), so the content — and
+   * therefore the JPEG SOF width — is `>= minWidth`. The value is always raised
+   * to at least one MCU ("不应小于 mcu"); a value below the MCU is clamped up.
+   *
+   * `min` sets the content size only; whether the resulting SOF value is then
+   * rounded up to the MCU grid is decided independently by `align`:
+   * - `align` off → SOF width = `max(original, minWidth)` (exact, may be non-MCU)
+   * - `align` on  → SOF width = `roundUpToMCU(max(original, minWidth))`
+   *
+   * The GUI header still reports the ORIGINAL input width. Setting this (or
+   * `minHeight`) enables the padding path even when `align` is false, and
+   * requires `ffprobe` to read the original size.
+   *
+   * Defaults to the MCU width for the sampling factor (a no-op for any image
+   * already wider than the MCU).
+   */
+  minWidth?: number;
+
+  /**
+   * Minimum CONTENT height in pixels.
+   *
+   * The vertical counterpart of {@link ConversionConfig.minWidth}: pads on the
+   * bottom up to this height (clamped to at least one MCU). Whether the SOF
+   * height is then MCU-rounded is controlled by `align` (off → exact
+   * `max(original, minHeight)`; on → rounded up to the MCU grid). The GUI header
+   * keeps the ORIGINAL input height.
+   *
+   * Defaults to the MCU height for the sampling factor.
+   */
+  minHeight?: number;
 }
 
 /**
@@ -162,8 +201,9 @@ export interface ConversionResult {
   /**
    * Logical dimensions of the image, as written to the GUI header.
    *
-   * This is the ORIGINAL input size. When `align` is enabled it may differ from
-   * the size actually encoded in the JPEG SOF marker (see `encodedDimensions`).
+   * This is the ORIGINAL input size. When `align` and/or `min` padding is in
+   * effect it may differ from the size actually written to the JPEG SOF marker
+   * (see `encodedDimensions`).
    */
   dimensions: {
     /** Image width in pixels */
@@ -173,16 +213,18 @@ export interface ConversionResult {
   };
 
   /**
-   * Actual dimensions encoded in the JPEG SOF marker (the MCU-aligned size).
+   * Dimensions written to the JPEG SOF marker (the coded/logical size).
    *
-   * Present only when `align` was enabled AND padding was applied. When
-   * alignment is off, or the input was already MCU-aligned, this is omitted and
-   * the encoded size equals `dimensions`.
+   * Present only when padding actually changed the size — i.e. `align` was on
+   * and/or a `min` raised the content above the original. The value is
+   * MCU-aligned when `align` was on, or the exact content size (possibly
+   * non-MCU) when only `min` padding applied. When no padding occurred this is
+   * omitted and the encoded size equals `dimensions`.
    */
   encodedDimensions?: {
-    /** Encoded width in pixels (MCU-aligned) */
+    /** SOF width in pixels (MCU-aligned iff `align` was on) */
     width: number;
-    /** Encoded height in pixels (MCU-aligned) */
+    /** SOF height in pixels (MCU-aligned iff `align` was on) */
     height: number;
   };
 }

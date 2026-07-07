@@ -178,6 +178,20 @@ const JPEG_SAMPLING_OPTIONS: { value: JpegSampling; label: string }[] = [
   { value: 'Grayscale', label: 'jpegGrayscale' },
 ];
 
+// 各 JPEG 采样方式对应的最小编码单元 (MCU) 尺寸，与转换器 mcuSizeOf 保持一致。
+// 用作「最小图片尺寸」输入框的占位默认值：留空即按此 MCU 对齐。
+const jpegMcuOf = (sampling: JpegSampling): { width: number; height: number } => {
+  switch (sampling) {
+    case 'YUV420':
+      return { width: 16, height: 16 };
+    case 'YUV422':
+      return { width: 16, height: 8 };
+    default:
+      // YUV444 / Grayscale
+      return { width: 8, height: 8 };
+  }
+};
+
 
 /**
  * 获取格式的显示标签
@@ -1024,6 +1038,44 @@ const ConversionConfigPanel: React.FC = () => {
     [selectedAsset, currentSettings, updateAssetConfig]
   );
 
+  // 处理 JPEG 最小内容宽度变更（留空 = 不设下限；是否对齐到 MCU 由上方开关决定）
+  const handleJpegMinWidthChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!selectedAsset) return;
+      const raw = e.target.value.trim();
+      const parsed = raw === '' ? undefined : parseInt(raw, 10);
+      const newValue = parsed === undefined || Number.isNaN(parsed) || parsed < 0 ? undefined : parsed;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(assetPath, {
+        ...currentSettings,
+        jpegParams: {
+          ...(currentSettings.jpegParams || { sampling: 'YUV420', quality: 10, backgroundColor: 'black' }),
+          minWidth: newValue,
+        },
+      });
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
+  // 处理 JPEG 最小内容高度变更（留空 = 不设下限；是否对齐到 MCU 由上方开关决定）
+  const handleJpegMinHeightChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!selectedAsset) return;
+      const raw = e.target.value.trim();
+      const parsed = raw === '' ? undefined : parseInt(raw, 10);
+      const newValue = parsed === undefined || Number.isNaN(parsed) || parsed < 0 ? undefined : parsed;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(assetPath, {
+        ...currentSettings,
+        jpegParams: {
+          ...(currentSettings.jpegParams || { sampling: 'YUV420', quality: 10, backgroundColor: 'black' }),
+          minHeight: newValue,
+        },
+      });
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
   // 如果没有选中资源，显示提示
   if (!selectedAsset) {
     return (
@@ -1076,6 +1128,10 @@ const ConversionConfigPanel: React.FC = () => {
       effectiveSettings.settings.deployment, effectiveSettings.settings.compression]);
   const showYuvParams = currentCompression === 'yuv' || effectiveSettings.settings.compression === 'yuv';
   const showJpegParams = currentCompression === 'jpeg' || effectiveSettings.settings.compression === 'jpeg';
+  // 当前 JPEG 采样对应的 MCU 尺寸，作为最小尺寸输入框的占位默认值（暗灰显示；留空即按此 MCU 对齐）
+  const jpegMcu = jpegMcuOf(
+    currentSettings.jpegParams?.sampling || effectiveSettings.settings.jpegParams?.sampling || 'YUV420'
+  );
 
   // 根据目标引擎和部署模式选择压缩选项
   // - HoneyGUI 项目：支持所有压缩方式
@@ -1375,6 +1431,29 @@ const ConversionConfigPanel: React.FC = () => {
                 <label htmlFor="jpegAlign">{t('jpegPadding')}</label>
               </div>
               <div className="config-hint">{t('jpegPaddingHint')}</div>
+            </div>
+            <div className="jpeg-param-item">
+              <label>{t('jpegMinSize')}</label>
+              <div className="jpeg-size-control">
+                <input
+                  type="number"
+                  min={0}
+                  className="jpeg-size-input"
+                  value={currentSettings.jpegParams?.minWidth ?? effectiveSettings.settings.jpegParams?.minWidth ?? ''}
+                  onChange={handleJpegMinWidthChange}
+                  placeholder={String(jpegMcu.width)}
+                />
+                <span className="jpeg-size-x">×</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="jpeg-size-input"
+                  value={currentSettings.jpegParams?.minHeight ?? effectiveSettings.settings.jpegParams?.minHeight ?? ''}
+                  onChange={handleJpegMinHeightChange}
+                  placeholder={String(jpegMcu.height)}
+                />
+              </div>
+              <div className="config-hint">{t('jpegMinSizeHint')}</div>
             </div>
           </div>
           <div className="config-hint jpeg-ffmpeg-hint">⚠️ {t('jpegRequiresFFmpeg')}</div>

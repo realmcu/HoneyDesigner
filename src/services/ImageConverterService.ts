@@ -24,8 +24,12 @@ export interface ImageConvertOptions {
     jpegQuality?: number;
     /** JPEG 透明图片背景色 */
     jpegBackgroundColor?: string;
-    /** JPEG Padding 到最小编码单元（MCU 对齐），默认 false */
+    /** JPEG 编码尺寸对齐到 MCU：开启则 SOF 报告向上取整到 MCU，关闭则报告精确内容尺寸。默认 false */
     jpegAlign?: boolean;
+    /** JPEG 最小内容宽度（像素，与 jpegAlign 独立）：内容宽 = max(原始宽, 该值)，抬升到不小于 MCU；留空为不设下限 */
+    jpegMinWidth?: number;
+    /** JPEG 最小内容高度（像素，与 jpegAlign 独立）：内容高 = max(原始高, 该值)，抬升到不小于 MCU；留空为不设下限 */
+    jpegMinHeight?: number;
 }
 
 export interface ConvertResult {
@@ -211,6 +215,8 @@ export class ImageConverterService {
             const quality = opts.jpegQuality || 10;
             const backgroundColor = opts.jpegBackgroundColor || 'black';
             const align = opts.jpegAlign ?? false;
+            const minWidth = opts.jpegMinWidth;
+            const minHeight = opts.jpegMinHeight;
 
             // 确保输出目录存在
             const outputDir = path.dirname(outputPath);
@@ -224,7 +230,9 @@ export class ImageConverterService {
                 samplingFactor,
                 quality,
                 backgroundColor,
-                align
+                align,
+                minWidth,
+                minHeight
             });
 
             return { success: true, inputPath, outputPath };
@@ -347,6 +355,8 @@ export class ImageConverterService {
             options.jpegQuality = resolvedConfig.jpegParams.quality;
             options.jpegBackgroundColor = resolvedConfig.jpegParams.backgroundColor;
             options.jpegAlign = resolvedConfig.jpegParams.align;
+            options.jpegMinWidth = resolvedConfig.jpegParams.minWidth;
+            options.jpegMinHeight = resolvedConfig.jpegParams.minHeight;
         }
         
         // adaptive 压缩直接传递，由 convert 方法中自动比较 RLE/FastLZ 选最优

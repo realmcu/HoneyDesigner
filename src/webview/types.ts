@@ -305,9 +305,16 @@ export interface JpegParams {
   quality: number;
   /** 透明图片背景色 */
   backgroundColor?: string;
-  /** Padding 到最小编码单元（MCU 对齐）：编码前在右/下补齐到 MCU 边界，
-   *  JPEG 内部编码宽高对齐，GUI 头部仍记录原始宽高。默认关闭 */
+  /** 编码尺寸对齐到 MCU（与最小尺寸独立）：JPEG 物理编码始终按 MCU，此开关只决定
+   *  SOF 报告的宽高——开启则向上取整到 MCU（右/下补黑边），关闭则报告精确内容尺寸。
+   *  GUI 头部始终记录原始宽高。默认关闭 */
   align?: boolean;
+  /** 最小内容宽度（像素，与 align 独立）：内容宽 = max(原始宽, 该值)，该值抬升到不小于 MCU；
+   *  是否再对齐到 MCU 由 align 决定。留空表示不设下限。映射到转换器的 minWidth */
+  minWidth?: number;
+  /** 最小内容高度（像素，与 align 独立）：内容高 = max(原始高, 该值)，该值抬升到不小于 MCU；
+   *  是否再对齐到 MCU 由 align 决定。留空表示不设下限。映射到转换器的 minHeight */
+  minHeight?: number;
 }
 
 /**

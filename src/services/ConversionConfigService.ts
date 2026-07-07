@@ -68,12 +68,24 @@ export interface JpegParams {
   /** 透明图片背景色，默认 'black' */
   backgroundColor?: string;
   /**
-   * Padding 到最小编码单元（MCU 对齐），默认 false。
-   * 开启后在编码前把图像按 MCU 粒度在右/下补齐（黑边），使 JPEG 负载内的 SOF
-   * 宽高对齐到 MCU；GUI 头部仍记录原始宽高。用于要求 MCU 对齐的硬件解码器，
-   * 依赖 ffprobe（随 FFmpeg 安装）。映射到转换器的 `align` 参数。
+   * 编码尺寸对齐到 MCU，默认 false（与最小尺寸相互独立）。
+   * JPEG 物理编码始终以 MCU 为单位；此开关只决定 SOF 标记报告的宽高：
+   * 开启则向上取整到 MCU（在右/下补黑边），关闭则报告精确内容尺寸（可非 MCU）。
+   * GUI 头部始终记录原始宽高。依赖 ffprobe（随 FFmpeg 安装）。映射到转换器的 `align` 参数。
    */
   align?: boolean;
+  /**
+   * 最小内容宽度（像素），与 align 相互独立：内容宽 = max(原始宽, 该值)，
+   * 该值会被抬升到不小于 MCU；是否再向上对齐到 MCU 由 align 决定。
+   * 留空表示不设最小宽（内容下限即一个 MCU）。映射到转换器的 `minWidth`。
+   */
+  minWidth?: number;
+  /**
+   * 最小内容高度（像素），与 align 相互独立：内容高 = max(原始高, 该值)，
+   * 该值会被抬升到不小于 MCU；是否再向上对齐到 MCU 由 align 决定。
+   * 留空表示不设最小高（内容下限即一个 MCU）。映射到转换器的 `minHeight`。
+   */
+  minHeight?: number;
 }
 
 /**
