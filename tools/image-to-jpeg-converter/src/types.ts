@@ -117,10 +117,29 @@ export interface ConversionConfig {
    * will be used as the background. Defaults to 'black'.
    * 
    * Supported values: 'black', 'white', or hex color like '#FF0000'
-   * 
+   *
    * @see spec_v4.txt transparency handling
    */
   backgroundColor?: string;
+
+  /**
+   * Encode the JPEG at MCU-aligned dimensions.
+   *
+   * When true, the image is padded on the right/bottom up to the MCU boundary
+   * for the chosen sampling factor (420→16×16, 422→16×8, 444/400→8×8) before
+   * MJPEG encoding, so the JPEG SOF header reports the *aligned* size. The
+   * custom GUI header (`gui_rgb_data_head_t`) still reports the ORIGINAL input
+   * dimensions, and all of its bit fields (including `align`) remain 0 per
+   * spec_v4.txt.
+   *
+   * This targets hardware JPEG decoders that decode whole MCU blocks and
+   * require the coded dimensions to be aligned. Requires `ffprobe` (ships with
+   * FFmpeg) to read the original input dimensions.
+   *
+   * Defaults to false — no padding; both the GUI header and the JPEG SOF report
+   * the original size (unchanged behavior).
+   */
+  align?: boolean;
 }
 
 /**
@@ -140,11 +159,30 @@ export interface ConversionResult {
   /** Size of the JPEG data in bytes (excluding custom header) */
   jpegSize: number;
 
-  /** Dimensions of the converted image */
+  /**
+   * Logical dimensions of the image, as written to the GUI header.
+   *
+   * This is the ORIGINAL input size. When `align` is enabled it may differ from
+   * the size actually encoded in the JPEG SOF marker (see `encodedDimensions`).
+   */
   dimensions: {
     /** Image width in pixels */
     width: number;
     /** Image height in pixels */
+    height: number;
+  };
+
+  /**
+   * Actual dimensions encoded in the JPEG SOF marker (the MCU-aligned size).
+   *
+   * Present only when `align` was enabled AND padding was applied. When
+   * alignment is off, or the input was already MCU-aligned, this is omitted and
+   * the encoded size equals `dimensions`.
+   */
+  encodedDimensions?: {
+    /** Encoded width in pixels (MCU-aligned) */
+    width: number;
+    /** Encoded height in pixels (MCU-aligned) */
     height: number;
   };
 }

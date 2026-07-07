@@ -67,6 +67,13 @@ export interface JpegParams {
   quality: number;
   /** 透明图片背景色，默认 'black' */
   backgroundColor?: string;
+  /**
+   * Padding 到最小编码单元（MCU 对齐），默认 false。
+   * 开启后在编码前把图像按 MCU 粒度在右/下补齐（黑边），使 JPEG 负载内的 SOF
+   * 宽高对齐到 MCU；GUI 头部仍记录原始宽高。用于要求 MCU 对齐的硬件解码器，
+   * 依赖 ffprobe（随 FFmpeg 安装）。映射到转换器的 `align` 参数。
+   */
+  align?: boolean;
 }
 
 /**
@@ -221,7 +228,8 @@ const DEFAULT_YUV_PARAMS: YuvParams = {
 const DEFAULT_JPEG_PARAMS: JpegParams = {
   sampling: 'YUV420',
   quality: 10,
-  backgroundColor: 'black'
+  backgroundColor: 'black',
+  align: false
 };
 
 /**

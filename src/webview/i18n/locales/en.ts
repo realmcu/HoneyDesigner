@@ -924,6 +924,8 @@ const en = {
   'jpegQualityHint': 'Lower value = higher quality, larger file. Recommended: 5-10',
   'jpegBackgroundColor': 'Background Color',
   'jpegBackgroundColorHint': 'Used for transparent images (PNG etc.)',
+  'jpegPadding': 'Pad to Minimum Coded Unit (MCU)',
+  'jpegPaddingHint': 'When on, pads the image on the right/bottom to the minimum coded unit (MCU) before encoding, so the JPEG payload\'s coded size is MCU-aligned; the GUI header still stores the original size. For hardware decoders that require MCU alignment. Requires ffprobe (ships with FFmpeg). Off by default',
   'jpegGrayscale': 'Grayscale',
   'jpegRequiresFFmpeg': 'JPEG compression requires FFmpeg installed and in PATH',
 

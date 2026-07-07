@@ -305,6 +305,9 @@ export interface JpegParams {
   quality: number;
   /** 透明图片背景色 */
   backgroundColor?: string;
+  /** Padding 到最小编码单元（MCU 对齐）：编码前在右/下补齐到 MCU 边界，
+   *  JPEG 内部编码宽高对齐，GUI 头部仍记录原始宽高。默认关闭 */
+  align?: boolean;
 }
 
 /**

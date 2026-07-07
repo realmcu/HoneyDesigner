@@ -924,6 +924,8 @@ const zhCN = {
   'jpegQualityHint': '数值越小质量越高、文件越大。推荐：5-10',
   'jpegBackgroundColor': '背景色',
   'jpegBackgroundColorHint': '用于透明图片（如 PNG）的背景填充',
+  'jpegPadding': 'Padding 到最小编码单元',
+  'jpegPaddingHint': '开启后在编码前把图像按最小编码单元 (MCU) 在右/下补齐黑边，使 JPEG 内部编码宽高对齐到 MCU；GUI 头部仍记录原始宽高。用于要求 MCU 对齐的硬件解码器，需要 ffprobe（随 FFmpeg 安装）。默认关闭',
   'jpegGrayscale': '灰度',
   'jpegRequiresFFmpeg': 'JPEG 压缩需要安装 FFmpeg 并添加到系统 PATH',
 

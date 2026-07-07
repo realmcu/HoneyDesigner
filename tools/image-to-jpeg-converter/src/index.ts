@@ -109,6 +109,22 @@ export { SamplingFactor, ResizeOption } from './types.js';
  * 
  * @example
  * ```typescript
+ * // MCU alignment: the JPEG SOF marker reports the padded (aligned) size,
+ * // while the GUI header keeps the ORIGINAL input dimensions. Useful for
+ * // hardware decoders that require MCU-aligned dimensions.
+ * const result = await convertToJpeg({
+ *   inputPath: 'photo.png',    // e.g. 686x686
+ *   outputPath: 'photo.jpg',
+ *   samplingFactor: SamplingFactor.YUV420,
+ *   quality: 10,
+ *   align: true
+ * });
+ * console.log(result.dimensions);        // { width: 686, height: 686 } (GUI header)
+ * console.log(result.encodedDimensions); // { width: 688, height: 688 } (JPEG SOF)
+ * ```
+ *
+ * @example
+ * ```typescript
  * // Error handling
  * try {
  *   const result = await convertToJpeg({

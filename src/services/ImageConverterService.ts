@@ -23,6 +23,8 @@ export interface ImageConvertOptions {
     jpegQuality?: number;
     /** JPEG 透明图片背景色 */
     jpegBackgroundColor?: string;
+    /** JPEG Padding 到最小编码单元（MCU 对齐），默认 false */
+    jpegAlign?: boolean;
 }
 
 export interface ConvertResult {
@@ -207,6 +209,7 @@ export class ImageConverterService {
             const samplingFactor = opts.jpegSampling || SamplingFactor.YUV420;
             const quality = opts.jpegQuality || 10;
             const backgroundColor = opts.jpegBackgroundColor || 'black';
+            const align = opts.jpegAlign ?? false;
 
             // 确保输出目录存在
             const outputDir = path.dirname(outputPath);
@@ -219,7 +222,8 @@ export class ImageConverterService {
                 outputPath,
                 samplingFactor,
                 quality,
-                backgroundColor
+                backgroundColor,
+                align
             });
 
             return { success: true, inputPath, outputPath };
@@ -341,6 +345,7 @@ export class ImageConverterService {
             options.jpegSampling = samplingMap[resolvedConfig.jpegParams.sampling.toLowerCase()] || SamplingFactor.YUV420;
             options.jpegQuality = resolvedConfig.jpegParams.quality;
             options.jpegBackgroundColor = resolvedConfig.jpegParams.backgroundColor;
+            options.jpegAlign = resolvedConfig.jpegParams.align;
         }
         
         // adaptive 压缩直接传递，由 convert 方法中自动比较 RLE/FastLZ 选最优

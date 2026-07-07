@@ -23,6 +23,7 @@ import { InputValidator, ValidationResult } from './validator.js';
 import { FFmpegExecutor, FFmpegError } from './ffmpeg-executor.js';
 import { HeaderGenerator } from './header-generator.js';
 import { FileAssembler, FileAssemblyError } from './file-assembler.js';
+import { computeAlignedDimensions } from './alignment.js';
 
 /**
  * Main converter class that orchestrates the image to JPEG conversion pipeline.
@@ -119,27 +120,60 @@ export class Converter {
       // Step 2: Create temporary file path for FFmpeg output
       tempOutputPath = this.createTempFilePath();
 
-      // Step 3: Execute FFmpeg conversion
+      // Step 2.5: When MCU alignment is requested, read the ORIGINAL input size
+      // (the GUI header must keep it) and compute the MCU-aligned target that the
+      // JPEG will actually be encoded at. Only probe when the feature is on, so
+      // the default path incurs no extra ffprobe process.
+      let originalDimensions: { width: number; height: number } | null = null;
+      let alignTo: { width: number; height: number } | undefined;
+      if (config.align) {
+        try {
+          originalDimensions = await this.ffmpegExecutor.probeDimensions(config.inputPath);
+        } catch (error) {
+          throw this.createFFmpegError(error as FFmpegError);
+        }
+
+        const aligned = computeAlignedDimensions(
+          originalDimensions.width,
+          originalDimensions.height,
+          config.samplingFactor
+        );
+        // Only pad when it actually changes the size (skip the no-op filter).
+        if (
+          aligned.width !== originalDimensions.width ||
+          aligned.height !== originalDimensions.height
+        ) {
+          alignTo = aligned;
+        }
+      }
+
+      // Step 3: Execute FFmpeg conversion (padded to `alignTo` when set)
       let ffmpegResult;
       try {
-        ffmpegResult = await this.ffmpegExecutor.convert(config, tempOutputPath);
+        ffmpegResult = await this.ffmpegExecutor.convert(config, tempOutputPath, alignTo);
       } catch (error) {
         throw this.createFFmpegError(error as FFmpegError);
       }
 
-      // Step 4: Extract image dimensions from JPEG data
-      const dimensions = this.headerGenerator.extractDimensions(ffmpegResult.jpegData);
-      if (!dimensions) {
+      // Step 4: Extract the dimensions actually encoded in the JPEG SOF marker.
+      // With alignment on this is the padded (aligned) size; otherwise it equals
+      // the original size.
+      const encoded = this.headerGenerator.extractDimensions(ffmpegResult.jpegData);
+      if (!encoded) {
         throw this.createHeaderError(
           'Failed to extract image dimensions from JPEG data',
           { jpegDataLength: ffmpegResult.jpegData.length }
         );
       }
 
-      // Step 5: Generate RGB data header with image metadata
+      // The GUI header always reports the logical/original image size. When
+      // alignment is off, the encoded size IS the original size, so reuse it.
+      const guiDimensions = originalDimensions ?? encoded;
+
+      // Step 5: Generate RGB data header with the ORIGINAL (logical) dimensions
       const rgbHeader = this.headerGenerator.generateRgbHeader(
-        dimensions.width,
-        dimensions.height,
+        guiDimensions.width,
+        guiDimensions.height,
         config
       );
 
@@ -174,16 +208,25 @@ export class Converter {
       // Step 9: Clean up temporary files on success (Requirement 10.1)
       await this.cleanupTempFiles([tempOutputPath]);
 
-      // Return success result
-      return {
+      // Return success result. `dimensions` is always the logical/original
+      // size; `encodedDimensions` is only reported when padding actually
+      // changed what the JPEG SOF marker encodes.
+      const result: ConversionResult = {
         success: true,
         outputPath: config.outputPath,
         jpegSize: ffmpegResult.jpegData.length,
         dimensions: {
-          width: dimensions.width,
-          height: dimensions.height,
+          width: guiDimensions.width,
+          height: guiDimensions.height,
         },
       };
+      if (alignTo) {
+        result.encodedDimensions = {
+          width: encoded.width,
+          height: encoded.height,
+        };
+      }
+      return result;
     } catch (error) {
       // Clean up temporary files on error (Requirement 10.1)
       if (tempOutputPath) {

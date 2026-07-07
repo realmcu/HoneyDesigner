@@ -1007,6 +1007,23 @@ const ConversionConfigPanel: React.FC = () => {
     [selectedAsset, currentSettings, updateAssetConfig]
   );
 
+  // 处理 JPEG Padding 到最小编码单元（MCU 对齐）变更
+  const handleJpegAlignChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!selectedAsset) return;
+      const newValue = e.target.checked;
+      const assetPath = selectedAsset.relativePath || selectedAsset.name;
+      updateAssetConfig(assetPath, {
+        ...currentSettings,
+        jpegParams: {
+          ...(currentSettings.jpegParams || { sampling: 'YUV420', quality: 10, backgroundColor: 'black' }),
+          align: newValue,
+        },
+      });
+    },
+    [selectedAsset, currentSettings, updateAssetConfig]
+  );
+
   // 如果没有选中资源，显示提示
   if (!selectedAsset) {
     return (
@@ -1346,6 +1363,18 @@ const ConversionConfigPanel: React.FC = () => {
                 />
               </div>
               <div className="config-hint">{t('jpegBackgroundColorHint')}</div>
+            </div>
+            <div className="jpeg-param-item">
+              <div className="checkbox-wrapper">
+                <input
+                  type="checkbox"
+                  id="jpegAlign"
+                  checked={currentSettings.jpegParams?.align ?? effectiveSettings.settings.jpegParams?.align ?? false}
+                  onChange={handleJpegAlignChange}
+                />
+                <label htmlFor="jpegAlign">{t('jpegPadding')}</label>
+              </div>
+              <div className="config-hint">{t('jpegPaddingHint')}</div>
             </div>
           </div>
           <div className="config-hint jpeg-ffmpeg-hint">⚠️ {t('jpegRequiresFFmpeg')}</div>

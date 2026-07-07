@@ -9,6 +9,7 @@
 - **质量控制**: 可配置 JPEG 质量（1-31 范围，数值越小质量越高）
 - **自定义二进制头部**: 生成 `gui_rgb_data_head_t` 和 `gui_jpeg_file_head_t` 结构
 - **透明度支持**: 自动处理 PNG、WEBP、GIF、TIFF 的透明区域，支持自定义背景色
+- **MCU 对齐（可选）**: 开启后 JPEG 负载内 SOF 标记使用对齐后宽高，GUI 头部仍保持原始宽高，适配对 MCU 对齐有要求的硬件解码器
 - **缩放选项**: 内置图片缩放功能（50%、70%、80%）
 - **二进制输出**: 生成包含嵌入式 JPEG 和自定义头部的 `.bin` 文件
 - **双重接口**: 提供 CLI 工具和编程 API
@@ -29,6 +30,8 @@
 - ✅ **w** = 图片宽度
 - ✅ **h** = 图片高度  
 - ✅ **其余所有字段** = 0 (包括 scan, align, resize, compress, jpeg, idu, rsvd, version, rsvd2)
+
+> **关于 MCU 对齐选项（`align`）**：即使开启 `align`，GUI 头部依旧只填充 `type`/`w`/`h`，且 `w`/`h` 为**原始输入宽高**，头部内的 `align` 位与其余位字段仍强制为 0——严格保持 spec_v4 合规。对齐只作用于 **JPEG 负载内部的 SOF 标记**（其宽高变为对齐后尺寸），SOF 不受 spec_v4 头部约束管辖。详见下文「MCU 对齐」章节。
 
 ### API 兼容性说明
 
@@ -183,6 +186,39 @@ const advancedResult = await convertToJpeg({
 });
 ```
 
+### MCU 对齐
+
+JPEG 以 MCU（最小编码单元）为块进行编码，块尺寸由色度采样决定。部分硬件解码器要求图像宽高按 MCU 对齐。开启 `align` 后，图片在编码前会按 MCU 粒度在**右侧/下方**做 padding（黑色填充），使 **JPEG 负载内的 SOF 标记**报告对齐后的宽高；而 **GUI 头部仍保持原始输入宽高**。
+
+MCU 粒度（按采样因子）：
+
+| 采样因子 | MCU 尺寸 |
+|---------|---------|
+| 420 | 16 × 16 |
+| 422 | 16 × 8 |
+| 444 | 8 × 8 |
+| 400（灰度） | 8 × 8 |
+
+```typescript
+// 输入 686x686，采样 420（MCU 16x16）→ 对齐到 688x688
+const result = await convertToJpeg({
+  inputPath: 'photo.png',   // 686x686
+  outputPath: 'photo.bin',
+  samplingFactor: SamplingFactor.YUV420,
+  quality: 10,
+  align: true
+});
+
+result.dimensions;        // { width: 686, height: 686 } —— GUI 头部（原始尺寸）
+result.encodedDimensions; // { width: 688, height: 688 } —— JPEG SOF（对齐后）
+```
+
+> **说明**：
+> - `align` 默认关闭，默认路径行为不变，也不会调用 `ffprobe`。
+> - 开启 `align` 需要 `ffprobe`（随 FFmpeg 一同安装）在 PATH 中可用——用于读取 padding 前的原始宽高。
+> - 仅当对齐**实际改变了尺寸**时，返回值才包含 `encodedDimensions`；若输入本就对齐，则不填充、不返回该字段。
+> - GUI 头部的 `align` 位与其余位字段仍为 0，严格遵循 spec_v4.txt。
+
 ## 📋 详细参数说明
 
 ### ConversionConfig 接口
@@ -212,6 +248,10 @@ interface ConversionConfig {
 
   /** 透明图片的背景色（可选，默认 'black'） */
   backgroundColor?: string;
+
+  /** 是否按 MCU 粒度对齐编码宽高（可选，默认 false）
+   *  开启后 JPEG SOF 使用对齐后宽高，GUI 头部保持原始宽高；需要 ffprobe */
+  align?: boolean;
 }
 ```
 
@@ -302,6 +342,14 @@ interface ConversionConfig {
   backgroundColor: 'rgb(255,0,0)' // RGB 格式
   ```
 
+#### 9. align（可选）
+- **类型**: `boolean`
+- **默认值**: `false`
+- **说明**: 开启后按 MCU 粒度对齐编码宽高——**JPEG SOF 使用对齐后宽高，GUI 头部保持原始宽高**，位字段仍为 0
+- **依赖**: 需要 `ffprobe`（随 FFmpeg 安装）在 PATH 中可用
+- **MCU 粒度**: 420→16×16、422→16×8、444/400→8×8
+- **详见**: [MCU 对齐](#mcu-对齐) 章节
+
 ### ConversionResult 返回值
 
 ```typescript
@@ -315,10 +363,17 @@ interface ConversionResult {
   /** JPEG 数据大小（字节，不包含自定义头部） */
   jpegSize: number;
 
-  /** 图片尺寸 */
+  /** 图片尺寸（逻辑/原始尺寸，与 GUI 头部一致） */
   dimensions: {
     width: number;   // 宽度（像素）
     height: number;  // 高度（像素）
+  };
+
+  /** 编码尺寸（JPEG SOF 中的对齐后宽高）
+   *  仅当 align=true 且对齐实际改变了尺寸时出现 */
+  encodedDimensions?: {
+    width: number;
+    height: number;
   };
 }
 ```
@@ -339,6 +394,7 @@ node dist/cli.js -i <输入文件> -o <输出文件> -s <采样因子> -q <质�
 - `-q, --quality <number>`: 质量设置（1-31）
 - `-r, --resize <option>`: 缩放选项（50/70/80）
 - `-c, --compress`: 启用压缩标志
+- `-a, --align`: 按 MCU 对齐编码宽高（JPEG SOF 对齐，GUI 头部保持原始宽高；需要 ffprobe）
 - `-v, --version`: 显示版本信息
 - `-h, --help`: 显示帮助信息
 
@@ -356,6 +412,9 @@ node dist/cli.js -i color.png -o gray.bin -s 400 -q 15
 
 # 缩放 + 压缩
 node dist/cli.js -i large.png -o small.bin -s 420 -q 8 -r 50 -c
+
+# MCU 对齐（JPEG SOF 对齐，GUI 头部保持原始宽高）
+node dist/cli.js -i photo.png -o photo.bin -s 420 -q 10 -a
 ```
 
 ## 📁 输出文件格式
