@@ -10,7 +10,7 @@
 
 import { spawn } from 'child_process';
 import * as fs from 'fs';
-import { ConversionConfig, SamplingFactor } from './types';
+import { ConversionConfig, SamplingFactor } from './types.js';
 
 /**
  * Result of FFmpeg execution.

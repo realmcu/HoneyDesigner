@@ -24,7 +24,7 @@
  * ```
  */
 
-import { Converter } from './converter';
+import { Converter } from './converter.js';
 
 // Re-export all types and interfaces
 export type {
@@ -34,10 +34,10 @@ export type {
   ConversionErrorType,
   RgbDataHeader,
   JpegFileHeader,
-} from './types';
+} from './types.js';
 
 // Re-export enums
-export { SamplingFactor, ResizeOption } from './types';
+export { SamplingFactor, ResizeOption } from './types.js';
 
 /**
  * Converts an image to JPEG format with custom binary header.
@@ -137,8 +137,8 @@ export { SamplingFactor, ResizeOption } from './types';
  * @see Requirements 1.1, 1.2, 11.2, 11.6
  */
 export async function convertToJpeg(
-  config: import('./types').ConversionConfig
-): Promise<import('./types').ConversionResult> {
+  config: import('./types.js').ConversionConfig
+): Promise<import('./types.js').ConversionResult> {
   const converter = new Converter();
   return converter.convert(config);
 }

@@ -18,11 +18,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ConversionConfig, ConversionResult, ConversionError } from './types';
-import { InputValidator, ValidationResult } from './validator';
-import { FFmpegExecutor, FFmpegError } from './ffmpeg-executor';
-import { HeaderGenerator } from './header-generator';
-import { FileAssembler, FileAssemblyError } from './file-assembler';
+import { ConversionConfig, ConversionResult, ConversionError } from './types.js';
+import { InputValidator, ValidationResult } from './validator.js';
+import { FFmpegExecutor, FFmpegError } from './ffmpeg-executor.js';
+import { HeaderGenerator } from './header-generator.js';
+import { FileAssembler, FileAssemblyError } from './file-assembler.js';
 
 /**
  * Main converter class that orchestrates the image to JPEG conversion pipeline.

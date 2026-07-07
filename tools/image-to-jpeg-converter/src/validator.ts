@@ -11,7 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ConversionConfig, SamplingFactor } from './types';
+import { ConversionConfig, SamplingFactor } from './types.js';
 
 /**
  * Validation error details.

@@ -9,7 +9,7 @@
  * @see Requirements 4.1-4.8, 5.1-5.6, 9.1-9.5
  */
 
-import { ConversionConfig, RgbDataHeader, JpegFileHeader } from './types';
+import { ConversionConfig, RgbDataHeader, JpegFileHeader } from './types.js';
 
 /**
  * Error information for header generation failures.
@@ -174,14 +174,17 @@ export class HeaderGenerator {
    * - No padding bytes between fields (Requirement 9.5)
    * - Proper field sizes: width/height (2 bytes), size (4 bytes) (Requirements 9.2, 9.3)
    * 
-   * Binary layout:
+   * Binary layout (16 bytes total):
    * - Bytes 0-7: RGB data header (8 bytes)
    * - Bytes 8-11: JPEG size (uint32, little-endian)
    * - Bytes 12-15: Dummy field (uint32, little-endian)
-   * - Bytes 16+: JPEG data
-   * 
+   *
+   * The JPEG payload is NOT part of this buffer. FileAssembler appends the JPEG
+   * data exactly once when writing the file (see file-assembler.ts), keeping a
+   * single owner for concatenation so the payload is never duplicated.
+   *
    * @param header - JPEG file header structure to encode
-   * @returns Buffer containing the complete binary header and JPEG data
+   * @returns 16-byte Buffer containing only the binary header (no JPEG data)
    * 
    * @example
    * ```typescript
@@ -196,9 +199,11 @@ export class HeaderGenerator {
    * @see Requirements 9.1-9.5
    */
   encodeToBytes(header: JpegFileHeader): Buffer {
-    // Calculate total size: 8 (RGB header) + 4 (size) + 4 (dummy) + JPEG data
-    const totalSize = 16 + header.jpeg.length;
-    const buffer = Buffer.alloc(totalSize);
+    // The custom header is exactly 16 bytes: 8 (RGB header) + 4 (size) + 4 (dummy).
+    // The JPEG payload is intentionally NOT included here — FileAssembler appends
+    // the JPEG data exactly once when writing the output file. Copying it here as
+    // well would duplicate the entire JPEG in the final file.
+    const buffer = Buffer.alloc(16);
 
     let offset = 0;
 
@@ -211,10 +216,6 @@ export class HeaderGenerator {
 
     // Encode dummy field (4 bytes, uint32, little-endian)
     buffer.writeUInt32LE(header.dummy, offset);
-    offset += 4;
-
-    // Copy JPEG data
-    header.jpeg.copy(buffer, offset);
 
     return buffer;
   }
