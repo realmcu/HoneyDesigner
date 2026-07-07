@@ -940,7 +940,7 @@ void ${callback}(void *obj)\n{\n`;
       // Set visibility action
       const visible = action.visible !== false; // Defaults to true
       code += `    // Set visibility: ${visible ? 'show' : 'hide'}\n`;
-      code += `    gui_obj_show(target, ${visible ? 'true' : 'false'});\n`;
+      code += `    gui_obj_hidden(target, ${visible ? 'false' : 'true'});\n`;
       code += `    \n`;
     } else if (action.type === 'changeImage') {
       // Change image action (hg_image only)
@@ -1455,8 +1455,8 @@ void ${callback}(void *obj)\n{\n`;
                 offCallbackBody = `    // Pause video\n    // TODO: Implement video pause logic\n    // gui_video_pause(${targetComp.id});`;
               } else {
                 // Other components: show/hide control
-                onCallbackBody = `    // Show target component\n    gui_obj_show(${targetComp.id}, true);`;
-                offCallbackBody = `    // Hide target component\n    gui_obj_show(${targetComp.id}, false);`;
+                onCallbackBody = `    // Show target component\n    gui_obj_hidden((gui_obj_t *)${targetComp.id}, false);`;
+                offCallbackBody = `    // Hide target component\n    gui_obj_hidden((gui_obj_t *)${targetComp.id}, true);`;
               }
             } else {
               // Target component does not exist

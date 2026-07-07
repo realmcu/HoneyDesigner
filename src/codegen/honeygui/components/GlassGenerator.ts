@@ -41,8 +41,8 @@ export class GlassGenerator implements ComponentCodeGenerator {
     }
 
     // Visibility
-    if (component.visible !== undefined && !component.visible) {
-      code += `${indentStr}gui_obj_show((gui_obj_t *)${component.id}, false);\n`;
+    if (component.visible === false) {
+      code += `${indentStr}gui_obj_hidden((gui_obj_t *)${component.id}, true);\n`;
     }
 
     return code;

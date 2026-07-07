@@ -50,8 +50,8 @@ export class ButtonGenerator implements ComponentCodeGenerator {
     let code = '';
 
     // Visibility
-    if (component.visible !== undefined) {
-      code += `${indentStr}gui_obj_show((gui_obj_t *)${component.id}, ${component.visible ? 'true' : 'false'});\n`;
+    if (component.visible === false) {
+      code += `${indentStr}gui_obj_hidden((gui_obj_t *)${component.id}, true);\n`;
     }
 
     // Normal mode without images — skip scaling

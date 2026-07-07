@@ -157,8 +157,8 @@ export class ViewGenerator implements ComponentCodeGenerator {
     const indentStr = '    '.repeat(indent);
 
     // Visibility
-    if (component.visible !== undefined) {
-      code += `${indentStr}gui_obj_show((gui_obj_t *)${component.id}, ${component.visible ? 'true' : 'false'});\n`;
+    if (component.visible === false) {
+      code += `${indentStr}gui_obj_hidden((gui_obj_t *)${component.id}, true);\n`;
     }
 
     return code;

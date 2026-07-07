@@ -117,7 +117,7 @@ export class TimerLabelGenerator extends LabelGenerator {
 
     // Visibility
     if (component.visible === false) {
-      code += `${indentStr}gui_obj_show((gui_obj_t *)${component.id}, false);\n`;
+      code += `${indentStr}gui_obj_hidden((gui_obj_t *)${component.id}, true);\n`;
     }
 
     // Timer mode: create timer (10ms interval, infinite loop)

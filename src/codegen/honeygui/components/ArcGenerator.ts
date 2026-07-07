@@ -166,7 +166,7 @@ export class ArcGenerator implements ComponentCodeGenerator {
 
     // Visibility
     if (component.visible === false) {
-      code += `${indentStr}gui_obj_show((gui_obj_t *)${component.id}, false);\n`;
+      code += `${indentStr}gui_obj_hidden((gui_obj_t *)${component.id}, true);\n`;
     }
 
     return code;

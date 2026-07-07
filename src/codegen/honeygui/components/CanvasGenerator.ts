@@ -22,8 +22,8 @@ export class CanvasGenerator implements ComponentCodeGenerator {
     code += `${indentStr}// TODO: gui_canvas_set_canvas_cb(${component.id}, your_canvas_callback);\n`;
 
     // Visibility
-    if (component.visible !== undefined) {
-      code += `${indentStr}gui_obj_show((gui_obj_t *)${component.id}, ${component.visible ? 'true' : 'false'});\n`;
+    if (component.visible === false) {
+      code += `${indentStr}gui_obj_hidden((gui_obj_t *)${component.id}, true);\n`;
     }
 
     return code;
