@@ -286,7 +286,8 @@
     "clean:all": "npm run clean && rimraf node_modules && npm install",
     "rebuild": "npm run clean && npm run compile && npm run build:webview",
     "prepare:lib": "./scripts/prepare-lib-sim.sh",
-    "package": "npm run compile && npm run build:webview && npm run check:deps && vsce package"
+    "package": "npm run compile && npm run build:webview && npm run check:deps && vsce package",
+    "publish:safe": "node scripts/safe-publish.js"
   },
   "devDependencies": {
     "@types/bmp-js": "^0.1.2",
