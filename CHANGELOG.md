@@ -4,6 +4,30 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [1.9.0] - 2026-07-08
+
+### Added
+
+- 视图导航关系（View Navigation Relations）重做为可编辑节点图：总览/聚焦子图切换、悬停高亮、搜索定位，支持拖拽改跳转目标、删除、新建跳转边，附 20 步撤销栈、节点布局持久化、右键跳转到目标页面/控件 (#20)
+- 图片转换新增最小内容尺寸（minWidth/minHeight）配置，与 MCU 对齐开关正交，可分别控制内容尺寸底线与 SOF 头尺寸对齐
+- 新增夜间打包 VSIX 端到端测试：对 `vsce package` 产出的真实插件包在 Linux/Windows 上运行全部模板项目验证
+
+### Changed
+
+- `check:deps` 依赖体检纳入 `vsce publish` 前置校验（新增 `publish:safe`），阻止依赖白名单陈旧或缺失 require 的插件包被发布
+- 精简 VSIX 打包体积：移除未使用的运行时依赖（chokidar/ini/xml-js），并从打包白名单中剔除仅供 webview 构建期使用的依赖包
+
+### Fixed
+
+- 修复图片透明通道检测：统一改用 pngjs 实际采样 alpha 通道，替换从未生效的 sharp 检测路径，修正全不透明 RGBA 图片被误判为需要透明通道、导致自适应格式多占 33%-50% 空间的问题
+- 修复 jpeg 转换器重复追加数据的问题
+- 修复 Windows 上安装 VSIX 时 spawnSync 未加 shell 参数导致静默失败的问题
+- 修复仿真器在无操作时 5s 会卡住的问题
+
+### Internal
+
+- 同步仿真库（新增 gui_h264bsd / gui_dirty_region 等头文件；引擎接口更名 gui_obj_show → gui_obj_hidden，codegen 同步适配，仅在 visible 为 false 时生成隐藏调用）
+
 ## [1.8.5] - 2026-07-06
 
 ### Added
