@@ -10,12 +10,6 @@ const ROOT = path.join(__dirname, '..');
 const BUILTINS = new Set([...Module.builtinModules, 'vscode']);
 const REQUIRE_RE = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
 
-// TODO: ToolsPanel.js 用 require('sharp') 做 PNG Alpha 通道精确检测，缺失时
-// 已有 try/catch 保守 fallback（当作没有透明度），不会崩，但可能误判。是否要
-// 把 sharp（原生库，预编译二进制通常 20-30MB+）正式加为依赖待评估，先放行
-// 让打包不被这一项拦住。
-const KNOWN_MISSING_DEPS = ['sharp'];
-
 /**
  * 用 vsce ls 拿到「真正会随插件打包」的文件清单（不生成 vsix，只是 dry-run）。
  * 必须在 compile + build:webview 之后跑，否则看到的是上一次的旧产物。
@@ -121,7 +115,7 @@ function checkDependencies() {
     }
 
     const missing = [...directlyRequired]
-        .filter(pkg => !shipped.has(pkg) && !KNOWN_MISSING_DEPS.includes(pkg))
+        .filter(pkg => !shipped.has(pkg))
         .sort();
     const unused = [...shipped].filter(pkg => !reachable.has(pkg)).sort();
 

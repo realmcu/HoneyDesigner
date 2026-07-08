@@ -5,6 +5,7 @@ import { PixelFormat } from '../../tools/image-converter/types';
 import { RLECompression, FastLzCompression, YUVCompression } from '../../tools/image-converter/compress';
 import { ConversionConfigService, ConversionConfig, TargetFormat, CompressionMethod, YuvBlur } from './ConversionConfigService';
 import { convertToJpeg, SamplingFactor } from '../../tools/image-to-jpeg-converter/src/index';
+import { imageFileHasAlpha } from '../utils/imageAlpha';
 
 export type CompressionType = 'none' | 'rle' | 'fastlz' | 'yuv' | 'jpeg' | 'adaptive';
 export type YuvSampleMode = 'yuv444' | 'yuv422' | 'yuv411';
@@ -312,7 +313,7 @@ export class ImageConverterService {
         // 只对自适应格式进行透明通道检测和格式调整
         if (ImageConverterService.isAdaptiveFormat(effectiveFormat)) {
             // 检查图片是否有透明度
-            const hasAlpha = this.checkImageHasAlpha(fullPath);
+            const hasAlpha = imageFileHasAlpha(fullPath);
             // 解析自适应格式
             format = configService.resolveAdaptiveFormat(effectiveFormat, hasAlpha);
         } else {
@@ -351,42 +352,6 @@ export class ImageConverterService {
         // adaptive 压缩直接传递，由 convert 方法中自动比较 RLE/FastLZ 选最优
         
         return options;
-    }
-
-    /**
-     * 检查图片是否包含透明度
-     */
-    private checkImageHasAlpha(imagePath: string): boolean {
-        try {
-            // 简单判断：PNG 文件可能有透明度，其他格式通常没有
-            const ext = path.extname(imagePath).toLowerCase();
-            if (ext !== '.png') {
-                return false;
-            }
-            
-            // 读取 PNG 文件头来判断是否有 alpha 通道
-            const buffer = fs.readFileSync(imagePath);
-            if (buffer.length < 26) {
-                return false;
-            }
-            
-            // PNG 签名检查
-            const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-            for (let i = 0; i < 8; i++) {
-                if (buffer[i] !== pngSignature[i]) {
-                    return false;
-                }
-            }
-            
-            // IHDR chunk 中的 color type 在偏移 25 处
-            // Color type 4 = Grayscale with alpha
-            // Color type 6 = RGBA
-            const colorType = buffer[25];
-            return colorType === 4 || colorType === 6;
-        } catch (error) {
-            // 如果无法读取，假设没有透明度
-            return false;
-        }
     }
 
     /**

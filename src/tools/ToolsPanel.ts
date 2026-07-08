@@ -13,6 +13,7 @@ import { CharsetProcessor } from '../../tools/font-converter/src/charset-process
 import { CharacterSetSource } from '../../tools/font-converter/src/types/config';
 import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
 import { parseFontCmap } from '../utils/fontCmapParser';
+import { bufferHasAlpha } from '../utils/imageAlpha';
 import * as os from 'os';
 
 interface FileItem {
@@ -1170,7 +1171,7 @@ export class ToolsPanel {
                 const filePath = f.relativePath ? `${f.relativePath}/${f.name}` : f.name;
                 return filePath === relativePath;
             });
-            const hasAlpha = file ? this.checkImageHasAlpha(Buffer.from(file.data), file.name) : false;
+            const hasAlpha = file ? bufferHasAlpha(Buffer.from(file.data)) : false;
             // 解析自适应格式
             format = configService.resolveAdaptiveFormat(effectiveFormat, hasAlpha);
         } else {
@@ -1200,66 +1201,7 @@ export class ToolsPanel {
         return settings;
     }
 
-    /**
-     * 检查图片数据是否包含实际的透明度
-     * 不仅检查 PNG 的 color type，还要采样检查实际的 Alpha 通道数据
-     */
-    private checkImageHasAlpha(data: Buffer, fileName: string): boolean {
-        try {
-            const ext = path.extname(fileName).toLowerCase();
-            if (ext !== '.png') {
-                return false;
-            }
-            
-            if (data.length < 26) {
-                return false;
-            }
-            
-            // PNG 签名检查
-            const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-            for (let i = 0; i < 8; i++) {
-                if (data[i] !== pngSignature[i]) {
-                    return false;
-                }
-            }
-            
-            // IHDR chunk 中的 color type 在偏移 25 处
-            const colorType = data[25];
-            
-            // Color Type 0, 2, 3 没有 Alpha 通道
-            if (colorType !== 4 && colorType !== 6) {
-                return false;
-            }
-            
-            // 检查实际的 Alpha 数据：使用 sharp 同步检查
-            // 采样前 100 个像素，如果都是 255 则认为没有实际透明度
-            const sharp = require('sharp');
-            const image = sharp(data);
-            
-            // 获取图片元数据
-            const metadata = image.metadata();
-            const meta = metadata ? (typeof metadata.then === 'function' ? undefined : metadata) : undefined;
-            
-            if (!meta) {
-                // 无法同步获取元数据，使用保守策略：认为有透明度
-                return true;
-            }
-            
-            // 如果元数据明确说没有 Alpha，直接返回 false
-            if (meta.hasAlpha === false) {
-                return false;
-            }
-            
-            // 否则保守返回 true（有 Alpha 通道定义）
-            // 注意：这里可能会误判一些全不透明的 RGBA 图片
-            // 但这比漏掉真正有透明度的图片要安全
-            return true;
-            
-        } catch (error) {
-            // 解析失败，保守返回 false（使用 RGB565）
-            return false;
-        }
-    }
+    // 透明度检测已抽到 ../utils/imageAlpha 的 bufferHasAlpha,三处调用方共用同一实现
 
     /**
      * 解析 YUV 模糊位数
