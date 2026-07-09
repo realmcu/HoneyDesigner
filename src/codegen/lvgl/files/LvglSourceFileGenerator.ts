@@ -49,7 +49,6 @@ export class LvglSourceFileGenerator {
   ): string {
     let code = `/**\n`;
     code += ` * ${designName} LVGL UI implementation (auto-generated)\n`;
-    code += ` * Generated at: ${new Date().toISOString()}\n`;
     code += ` */\n`;
     code += `#include "${designName}_lvgl_ui.h"\n`;
     code += `#include "${designName}_lvgl_callbacks.h"\n\n`;

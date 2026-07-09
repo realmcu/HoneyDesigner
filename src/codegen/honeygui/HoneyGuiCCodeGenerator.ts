@@ -10,6 +10,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { writeFileIfChanged } from '../../utils/fileWrite';
 import { HoneyGuiApiMapper } from './HoneyGuiApiMapper';
 import { Component } from '../../hml/types';
 import { SConscriptGenerator } from '../../simulation/SConscriptGenerator';
@@ -60,11 +61,11 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
 
       // === UI code (overwritten each time) ===
       const uiHeaderFile = path.join(uiDir, `${designName}_ui.h`);
-      fs.writeFileSync(uiHeaderFile, this.generateUiHeader(designName));
+      writeFileIfChanged(uiHeaderFile, this.generateUiHeader(designName));
       files.push(uiHeaderFile);
 
       const uiImplFile = path.join(uiDir, `${designName}_ui.c`);
-      fs.writeFileSync(uiImplFile, this.generateUiImplementation(designName));
+      writeFileIfChanged(uiImplFile, this.generateUiImplementation(designName));
       files.push(uiImplFile);
 
       // === Callback code (protected areas) ===
@@ -79,18 +80,18 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       }
       
       // Callback header: overwritten each time, auto-extracts custom function declarations from callbacks.c
-      fs.writeFileSync(callbackHeaderFile, callbackGenerator.generateHeader(designName, existingCallbacksC));
+      writeFileIfChanged(callbackHeaderFile, callbackGenerator.generateHeader(designName, existingCallbacksC));
       files.push(callbackHeaderFile);
       
       // Callback implementation: merge with protected areas
       if (!fs.existsSync(callbackImplFile)) {
-        fs.writeFileSync(callbackImplFile, callbackGenerator.generateImplementation(designName));
+        writeFileIfChanged(callbackImplFile, callbackGenerator.generateImplementation(designName));
         files.push(callbackImplFile);
       } else if (this.options.enableProtectedAreas) {
         const existing = fs.readFileSync(callbackImplFile, 'utf-8');
         // Pass existing content to check for already-existing functions
         const merged = ProtectedAreaMerger.merge(existing, callbackGenerator.generateImplementation(designName, existing));
-        fs.writeFileSync(callbackImplFile, merged);
+        writeFileIfChanged(callbackImplFile, merged);
         files.push(callbackImplFile);
       }
 
@@ -105,12 +106,12 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       );
 
       if (!fs.existsSync(userHeaderFile)) {
-        fs.writeFileSync(userHeaderFile, userGenerator.generateHeader(designName, listComponentsWithUserNoteDesign));
+        writeFileIfChanged(userHeaderFile, userGenerator.generateHeader(designName, listComponentsWithUserNoteDesign));
         files.push(userHeaderFile);
       }
 
       if (!fs.existsSync(userImplFile)) {
-        fs.writeFileSync(userImplFile, userGenerator.generateImplementation(designName, listComponentsWithUserNoteDesign));
+        writeFileIfChanged(userImplFile, userGenerator.generateImplementation(designName, listComponentsWithUserNoteDesign));
         files.push(userImplFile);
       }
 
@@ -146,7 +147,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
 
     let code = `/**
  * ${baseName} UI Definition (Auto-generated, do not modify manually)
- * Generated at: ${new Date().toISOString()}
  */
 #ifndef ${guardName}
 #define ${guardName}
@@ -321,7 +321,6 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     
     let code = `/**
  * ${baseName} UI Implementation (Auto-generated, do not modify manually)
- * Generated at: ${new Date().toISOString()}
  */
 #include "${baseName}_ui.h"
 #include "../callbacks/${baseName}_callbacks.h"

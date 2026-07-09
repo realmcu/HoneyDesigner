@@ -11,6 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { writeFileIfChanged } from '../../utils/fileWrite';
 import { Component } from '../../hml/types';
 import { ICodeGenerator, CodeGenOptions, CodeGenResult } from '../ICodeGenerator';
 import { LvglGeneratorContext } from './LvglComponentGenerator';
@@ -87,20 +88,20 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       // collected into the callback files below.
       const animGenerator = new LvglAnimationGenerator();
 
-      fs.writeFileSync(headerFile, this.headerFileGenerator.generate(designName, orderedComponents), 'utf-8');
+      writeFileIfChanged(headerFile, this.headerFileGenerator.generate(designName, orderedComponents), 'utf-8');
 
       const generatedUiSource = this.sourceFileGenerator.generate(designName, orderedComponents, ctx, imageVars, fontVars, (c) => this.getParentRef(c), this.resourceManager, animGenerator);
       if (fs.existsSync(sourceFile)) {
         try {
           const existingUiSource = fs.readFileSync(sourceFile, 'utf-8');
           const mergedUiSource = LvglProtectedAreaMerger.merge(existingUiSource, generatedUiSource);
-          fs.writeFileSync(sourceFile, mergedUiSource, 'utf-8');
+          writeFileIfChanged(sourceFile, mergedUiSource, 'utf-8');
         } catch (e) {
           logger.warn(`[LvglCCodeGenerator] Failed to read existing source file, overwriting: ${e}`);
-          fs.writeFileSync(sourceFile, generatedUiSource, 'utf-8');
+          writeFileIfChanged(sourceFile, generatedUiSource, 'utf-8');
         }
       } else {
-        fs.writeFileSync(sourceFile, generatedUiSource, 'utf-8');
+        writeFileIfChanged(sourceFile, generatedUiSource, 'utf-8');
       }
 
       files.push(headerFile, sourceFile);
@@ -114,8 +115,8 @@ export class LvglCCodeGenerator implements ICodeGenerator {
       // Check if there are external-bin images
       const hasExternalBin = this.resourceManager.hasExternalBinImages();
 
-      fs.writeFileSync(entryHeaderFile, this.entryFileGenerator.generateHeader(), 'utf-8');
-      fs.writeFileSync(entrySourceFile, this.entryFileGenerator.generateSource(designName, allDesignNames, entryViewId, hasExternalBin), 'utf-8');
+      writeFileIfChanged(entryHeaderFile, this.entryFileGenerator.generateHeader(), 'utf-8');
+      writeFileIfChanged(entrySourceFile, this.entryFileGenerator.generateSource(designName, allDesignNames, entryViewId, hasExternalBin), 'utf-8');
 
       files.push(entryHeaderFile, entrySourceFile);
 
@@ -135,20 +136,20 @@ export class LvglCCodeGenerator implements ICodeGenerator {
         animGenerator.getCallbackExternDeclarations()
       );
 
-      fs.writeFileSync(callbackHeaderFile, generatedHeader, 'utf-8');
+      writeFileIfChanged(callbackHeaderFile, generatedHeader, 'utf-8');
 
       // Callback implementation file: merge protected areas to preserve user code if file exists
       if (fs.existsSync(callbackSourceFile)) {
         try {
           const existing = fs.readFileSync(callbackSourceFile, 'utf-8');
           const merged = LvglProtectedAreaMerger.merge(existing, generatedSource);
-          fs.writeFileSync(callbackSourceFile, merged, 'utf-8');
+          writeFileIfChanged(callbackSourceFile, merged, 'utf-8');
         } catch (e) {
           console.warn(`Failed to read existing callback file, overwriting: ${e}`);
-          fs.writeFileSync(callbackSourceFile, generatedSource, 'utf-8');
+          writeFileIfChanged(callbackSourceFile, generatedSource, 'utf-8');
         }
       } else {
-        fs.writeFileSync(callbackSourceFile, generatedSource, 'utf-8');
+        writeFileIfChanged(callbackSourceFile, generatedSource, 'utf-8');
       }
 
       files.push(callbackHeaderFile, callbackSourceFile);
@@ -224,8 +225,8 @@ export class LvglCCodeGenerator implements ICodeGenerator {
     const imgDscListHeader = path.join(lvglDir, 'lv_img_dsc_list.h');
     const imgDscListSource = path.join(lvglDir, 'lv_img_dsc_list.c');
 
-    fs.writeFileSync(imgDscListHeader, imgDscListGenerator.generateHeader(binImageInfos), 'utf-8');
-    fs.writeFileSync(imgDscListSource, imgDscListGenerator.generateSource(binImageInfos), 'utf-8');
+    writeFileIfChanged(imgDscListHeader, imgDscListGenerator.generateHeader(binImageInfos), 'utf-8');
+    writeFileIfChanged(imgDscListSource, imgDscListGenerator.generateSource(binImageInfos), 'utf-8');
 
     files.push(imgDscListHeader, imgDscListSource);
     logger.info(`[LvglCCodeGenerator] Generated lv_img_dsc_list for ${binImageInfos.length} external-bin images`);

@@ -21,7 +21,6 @@ export class LvglHeaderFileGenerator {
 
     let code = `/**\n`;
     code += ` * ${designName} LVGL UI definitions (auto-generated)\n`;
-    code += ` * Generated at: ${new Date().toISOString()}\n`;
     code += ` */\n`;
     code += `#ifndef ${guard}\n`;
     code += `#define ${guard}\n\n`;

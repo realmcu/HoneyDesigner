@@ -17,7 +17,6 @@ export class LvglEntryFileGenerator {
   generateHeader(): string {
     let code = `/**\n`;
     code += ` * LVGL generated entry (auto-generated)\n`;
-    code += ` * Generated at: ${new Date().toISOString()}\n`;
     code += ` */\n`;
     code += `#ifndef LVGL_GENERATED_UI_H\n`;
     code += `#define LVGL_GENERATED_UI_H\n\n`;
@@ -52,7 +51,6 @@ export class LvglEntryFileGenerator {
 
     let code = `/**\n`;
     code += ` * LVGL generated entry implementation (auto-generated)\n`;
-    code += ` * Generated at: ${new Date().toISOString()}\n`;
     code += ` */\n`;
     code += `#include "lvgl_generated_ui.h"\n`;
 

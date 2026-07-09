@@ -1,5 +1,5 @@
-import * as fs from 'fs';
 import * as path from 'path';
+import { writeFileIfChanged } from '../utils/fileWrite';
 
 /**
  * SConscript 生成器
@@ -27,6 +27,6 @@ group = DefineGroup('project', src, depend=[''], CPPPATH=CPPPATH)
 Return('group')
 `;
         const sconscriptPath = path.join(targetDir, 'SConscript');
-        fs.writeFileSync(sconscriptPath, content);
+        writeFileIfChanged(sconscriptPath, content);
     }
 }

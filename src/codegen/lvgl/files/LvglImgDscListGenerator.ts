@@ -23,7 +23,6 @@ export class LvglImgDscListGenerator {
     generateHeader(images: BinImageInfo[]): string {
         let code = `/**\n`;
         code += ` * LVGL image descriptor list header (auto-generated)\n`;
-        code += ` * Generated at: ${new Date().toISOString()}\n`;
         code += ` * \n`;
         code += ` * This file provides extern declarations for external-bin image descriptors.\n`;
         code += ` * Each descriptor references binary data from romfs.bin via ui_resource.h macros.\n`;
@@ -65,7 +64,6 @@ export class LvglImgDscListGenerator {
     generateSource(images: BinImageInfo[]): string {
         let code = `/**\n`;
         code += ` * LVGL image descriptor list implementation (auto-generated)\n`;
-        code += ` * Generated at: ${new Date().toISOString()}\n`;
         code += ` * \n`;
         code += ` * Each descriptor points to binary data loaded from romfs.bin.\n`;
         code += ` * On simulator, resource_root is set at runtime, so descriptors use\n`;

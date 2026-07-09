@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig';
 import { ProtectedAreaMerger } from './honeygui/files';
+import { writeFileIfChanged } from '../utils/fileWrite';
 
 /**
  * Entry file generator
@@ -63,9 +64,9 @@ GUI_INIT_APP_EXPORT(app_init);
         // Preserve user code in protected areas across regeneration
         if (fs.existsSync(entryFile)) {
             const existing = fs.readFileSync(entryFile, 'utf-8');
-            fs.writeFileSync(entryFile, ProtectedAreaMerger.merge(existing, content));
+            writeFileIfChanged(entryFile, ProtectedAreaMerger.merge(existing, content));
         } else {
-            fs.writeFileSync(entryFile, content);
+            writeFileIfChanged(entryFile, content);
         }
         return entryFile;
     }
