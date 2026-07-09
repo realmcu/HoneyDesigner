@@ -54,7 +54,7 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
 3. **规划布局** — 在脑海构思组件层次；考虑触摸目标、可读性；多屏则规划导航。
 4. **生成 HML** — 用规范方言（见下"方言速记"），包含 `<meta>` 与 `<view>`，事件用 `<events>` 结构。
 5. **验证 HML** ⚠️ — **必须调用** `POST http://localhost:38912/api/validate-hml`，修复所有 errors 后重验；
-   再对照规范矩阵人工核对组件/属性（验证器不查这两项）。详见"HML 验证"。
+   再对照规范矩阵人工核对组件/属性（验证器不查这两项）。若连接失败，见"HML 验证"一节的降级步骤。详见"HML 验证"。
 6. **迭代优化** — 呈现 HML，接受反馈改进，基于嵌入式最佳实践提建议。
 
 ## HML 方言速记（最常被写错，务必照此）
@@ -169,6 +169,12 @@ curl -X POST http://localhost:38912/api/validate-hml \
 > ⚠️ 验证器**不查组件白名单、不查属性名**。用了不存在/当前引擎不可用的组件，或写错属性名（如把 `width` 写成 `w`），也可能 `valid:true`。
 > 因此 `valid:true` 后仍须对照 `HML-Spec.md` 核对：组件在当前引擎可用、属性名正确。
 
+> 🔌 **降级：服务连不上怎么办** — 该 API 由 HoneyGUI Visual Designer 扩展在本机 38912 端口提供，
+> 只有在装了该扩展的 VS Code 里打开 HoneyGUI 项目时才会运行（例如脱离扩展单独使用本 skill 时就没有）。
+> 若请求连接失败/超时：**不要**假装验证通过、也**不要**跳过校验，改为逐条对照上面的 8 条规则 +
+> `HML-Spec.md` 的组件/属性矩阵人工核查，并在交付时明确告知用户"本次未执行自动结构校验（服务不可用），
+> 已改为人工核对，建议在装有该扩展的环境中重新验证"。
+
 详细 API：`references/http-api.md`。
 
 ## 从设计器选区编辑（Copy for AI）
@@ -180,7 +186,7 @@ curl -X POST http://localhost:38912/api/validate-hml \
 - `Pointed controls:` 列出用户指向的控件：`id (type) parent=.. x=.. y=.. w=.. h=.. 关键属性`。`id` 唯一，可直接在 HML 里定位。
 
 据此修改对应 `ui/*.hml`（`id` 不变，改几何/属性/文本）。改完调用
-`POST http://localhost:38912/api/validate-hml {"filePath":"ui/Xxx.hml"}` 验证；
+`POST http://localhost:38912/api/validate-hml {"filePath":"ui/Xxx.hml"}` 验证（连不上见"HML 验证"一节的降级步骤）；
 组件/属性仍以项目根 `HML-Spec.md` 为准。用户的具体指令在文本包之后另行给出。
 
 ## 文件参考
