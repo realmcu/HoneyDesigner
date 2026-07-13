@@ -148,7 +148,11 @@ export class HmlEditorProvider implements vscode.CustomTextEditorProvider {
             }, 1000);
         };
         fileWatcher.onDidChange(onDiskChange);
-        
+        // 原子写入（写临时文件再 rename 覆盖）/ 先删后建 在文件系统层面是 create 事件而非
+        // change，AI agent、格式化器、git checkout 普遍如此。与项目其它 watcher
+        // （project.json/i18n/assets）保持一致，补 onDidCreate 避免外部编辑漏刷新。
+        fileWatcher.onDidCreate(onDiskChange);
+
         // 面板关闭时清理监听器
         webviewPanel.onDidDispose(() => {
             logger.debug('[HmlEditorProvider] 面板关闭，清理监听器');
