@@ -12,7 +12,7 @@ import { SaveManager } from './SaveManager';
 import { HmlContentComparator } from '../utils/HmlContentComparator';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
-import { loadProjectI18nCatalog } from '../project-i18n/files';
+import { loadProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
 import { scanAllViews, scanAllHmlFiles, scanHmlFilesRecursive, buildComponentIndex } from './navGraphScanner';
 
@@ -79,6 +79,9 @@ export class FileManager {
     // project.json 文件监听器
     private _projectConfigWatcher: vscode.FileSystemWatcher | undefined;
 
+    // i18n/strings.json 文件监听器
+    private _i18nCatalogWatcher: vscode.FileSystemWatcher | undefined;
+
     constructor(panel: vscode.WebviewPanel, hmlController: HmlController, saveManager: SaveManager) {
         this._panel = panel;
         this._hmlController = hmlController;
@@ -129,6 +132,45 @@ export class FileManager {
 
         this._projectConfigWatcher.onDidChange(onChanged);
         this._projectConfigWatcher.onDidCreate(onChanged);
+    }
+
+    /**
+     * 启动对 i18n/strings.json 的监听，文件在 webview 之外被改动时（例如 Agent 直接写盘、
+     * git 操作、手工编辑）自动推送最新 catalog 给前端，避免前端内存里的旧 catalog 在下一次
+     * 保存时把外部改动整份覆盖掉。
+     */
+    private _setupI18nCatalogWatcher(filePath: string): void {
+        // 清理旧的 watcher
+        this._i18nCatalogWatcher?.dispose();
+
+        const projectRoot = ProjectUtils.findProjectRoot(filePath);
+        if (!projectRoot) { return; }
+
+        const catalogPath = path.join(projectRoot, PROJECT_I18N_RELATIVE_PATH);
+        const pattern = new vscode.RelativePattern(projectRoot, 'i18n/strings.json');
+        this._i18nCatalogWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+        const onChanged = () => {
+            // 命中「预期写入登记」：本次磁盘变化是 MessageHandler 保存 catalog 时自己写入的，
+            // 跳过重推（webview 已经在保存发起时就有最新数据了）。若登记之后磁盘又被外部方
+            // 改写（hash 不一致），consumeIfPending 会照常放行，不会吞掉外部改动。
+            if (PendingWriteRegistry.getInstance().consumeIfPending(catalogPath)) {
+                logger.debug(`[FileManager] i18n/strings.json: 命中预期写入登记，跳过本次重推: ${catalogPath}`);
+                return;
+            }
+
+            const catalog = loadProjectI18nCatalog(projectRoot);
+            logger.info(`[FileManager] i18n/strings.json 外部变化，推送新 catalog 给前端: ${catalogPath}`);
+            // 复用 saveProjectI18nCatalog 保存成功后的回显消息：前端只会 setProjectI18nCatalog（纯本地
+            // 状态更新），不会触发二次保存，不会和这次外部改动形成回环。
+            this._panel.webview.postMessage({
+                command: 'projectI18nCatalogSaved',
+                projectI18nCatalog: catalog
+            });
+        };
+
+        this._i18nCatalogWatcher.onDidChange(onChanged);
+        this._i18nCatalogWatcher.onDidCreate(onChanged);
     }
 
     /**
@@ -185,6 +227,14 @@ export class FileManager {
     public disposeProjectConfigWatcher(): void {
         this._projectConfigWatcher?.dispose();
         this._projectConfigWatcher = undefined;
+    }
+
+    /**
+     * 释放 i18n/strings.json watcher
+     */
+    public disposeI18nCatalogWatcher(): void {
+        this._i18nCatalogWatcher?.dispose();
+        this._i18nCatalogWatcher = undefined;
     }
 
     public get currentFilePath(): string | undefined {
@@ -650,7 +700,7 @@ export class FileManager {
                 components: frontendComponents,
                 projectConfig: projectConfig,
                 projectI18nCatalog: projectI18nCatalog,
-                previewLocale: projectI18nCatalog.defaultLocale,
+                previewLocale: projectI18nCatalog.activeLocale || projectI18nCatalog.defaultLocale,
                 designerConfig: designerConfig
             });
 
@@ -720,6 +770,8 @@ export class FileManager {
 
             // 启动 project.json 监听，文件变化时自动推送新配置给前端
             this._setupProjectConfigWatcher(this._filePath!);
+            // 启动 i18n/strings.json 监听，文件变化时自动推送新 catalog 给前端
+            this._setupI18nCatalogWatcher(this._filePath!);
 
         } catch (error) {
             logger.error(`从文档加载HML失败: ${error}`);
@@ -939,7 +991,7 @@ export class FileManager {
             components: frontendComponents,
             projectConfig: projectConfig,
             projectI18nCatalog: projectI18nCatalog,
-            previewLocale: projectI18nCatalog.defaultLocale,
+            previewLocale: projectI18nCatalog.activeLocale || projectI18nCatalog.defaultLocale,
             designerConfig: designerConfig || { canvasBackgroundColor: '#3c3c3c' },
             projectRoot: projectRoot,
             allViews: allViews,

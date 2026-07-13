@@ -4,6 +4,7 @@
  */
 import * as path from 'path';
 import { Component } from '../../../hml/types';
+import { resolveLocalizedText } from '../../../project-i18n/catalog';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 
 export class LabelGenerator implements ComponentCodeGenerator {
@@ -36,7 +37,7 @@ export class LabelGenerator implements ComponentCodeGenerator {
     const color = component.style?.color || '#ffffff';
     const rgb = this.colorToRgb(color);
     
-    // Plain label: use default-locale catalog text when i18nKey is bound.
+    // Plain label: use the project's active-locale catalog text when i18nKey is bound.
     const staticText = this.resolveCodegenText(component, _context);
     const escapedText = this.escapeCString(staticText);
     const text = `"${escapedText}"`;
@@ -119,7 +120,9 @@ export class LabelGenerator implements ComponentCodeGenerator {
 
   /**
    * Resolve static codegen text.
-   * C1 is default-locale static codegen only; runtime locale switching is not generated here.
+   * Uses the project's current active locale (catalog.activeLocale), falling back to
+   * defaultLocale, then to the HML `text` attribute. Still static codegen only: firmware
+   * runtime locale switching is not generated here.
    */
   private resolveCodegenText(component: Component, context: GeneratorContext): string {
     const fallbackText = String(component.data?.text ?? '');
@@ -132,10 +135,7 @@ export class LabelGenerator implements ComponentCodeGenerator {
       return fallbackText;
     }
 
-    const defaultText = catalog.strings[key]?.[catalog.defaultLocale];
-    return typeof defaultText === 'string' && defaultText.length > 0
-      ? defaultText
-      : fallbackText;
+    return resolveLocalizedText(catalog, key, catalog.activeLocale ?? catalog.defaultLocale, fallbackText).text;
   }
 
   /**

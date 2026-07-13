@@ -450,11 +450,9 @@ const App: React.FC = () => {
 
         case 'projectI18nCatalogSaved':
           if (message.projectI18nCatalog) {
-            const state = useDesignerStore.getState();
-            state.setProjectI18nCatalog(message.projectI18nCatalog);
-            if (message.previewLocale) {
-              state.setPreviewLocale(message.previewLocale);
-            }
+            // 不调用 setPreviewLocale：它会再次触发保存，和这条"保存已完成"的回显消息形成死循环。
+            // setProjectI18nCatalog 已经会从 catalog.activeLocale 同步 previewLocale。
+            useDesignerStore.getState().setProjectI18nCatalog(message.projectI18nCatalog);
           }
           break;
 

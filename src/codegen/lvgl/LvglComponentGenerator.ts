@@ -15,7 +15,7 @@ export interface LvglGeneratorContext {
   getParentRef(component: Component): string;
   /** Unified resource manager */
   resources: LvglResourceManager;
-  /** Project i18n catalog for default-locale static text */
+  /** Project i18n catalog; static text resolves from catalog.activeLocale, falling back to defaultLocale */
   projectI18nCatalog?: I18nCatalog;
   /** Get built-in image variable name (images converted to C arrays) - backward compatible, delegates to resources */
   getBuiltinImageVar(source: string): string | undefined;

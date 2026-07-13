@@ -467,7 +467,7 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 | 属性 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
 | `text` | string | "Label" | 显示文本 |
-| `i18nKey` | string | — | 可选的项目字符串 key，用于 Designer 多语言预览。`text` 仍是固件/codegen fallback。 |
+| `i18nKey` | string | — | 可选的项目字符串 key，从 `i18n/strings.json` 解析，同时用于 Designer 多语言预览和代码生成（取 `catalog.activeLocale`，缺失时回退 `defaultLocale`）。key/翻译都缺失时最终回退 `text`。 |
 | `hAlign` | enum | LEFT | 水平对齐：`LEFT` / `CENTER` / `RIGHT` |
 | `vAlign` | enum | TOP | 垂直对齐：`TOP` / `MID` |
 | `color` | color | #ffffff | 文本颜色 |
@@ -485,6 +485,7 @@ Designer 可从项目级 catalog `i18n/strings.json` 解析 `hg_label` 的预览
   "version": 1,
   "defaultLocale": "en-US",
   "locales": ["en-US", "zh-CN"],
+  "activeLocale": "zh-CN",
   "strings": {
     "pairing.scan_code": {
       "en-US": "Scan code pairing",
@@ -494,20 +495,22 @@ Designer 可从项目级 catalog `i18n/strings.json` 解析 `hg_label` 的预览
 }
 ```
 
+`activeLocale` 是项目当前选中的语言，Designer 里的"预览语言"下拉框切换时会写入这个字段；它同时驱动画布预览和静态文本代码生成。取值必须在 `locales` 里，缺失或非法时回退 `defaultLocale`。
+
 预览解析顺序：
 
-1. `catalog.strings[i18nKey][previewLocale]`
+1. `catalog.strings[i18nKey][catalog.activeLocale]`
 2. `catalog.strings[i18nKey][catalog.defaultLocale]`
 3. `text`
 4. 组件名称
 
-本阶段 `i18nKey` 只用于 Designer 编辑和 PC 预览，不生成固件运行时语言切换逻辑，也不生成 C 语言表。`text` 必须继续保留默认语言 fallback，以保持现有 codegen 兼容。
+`i18nKey` 同时用于 Designer 编辑、PC 预览和静态文本代码生成，但本阶段仍不生成固件运行时语言切换逻辑，也不生成 C 语言表——codegen 每次仍然只按 `activeLocale` 生成一份固定语言的字符串常量，不是运行时可切换的多语言表。`text` 作为 catalog 缺失 key/翻译时的最终 fallback。
 
 对于多页面项目，请优先使用 Designer 多语言管理器，而不是逐个选中 label 编辑。管理器会扫描 `ui/*.hml`，列出所有 `i18nKey` 引用、每种语言的缺失翻译，以及尚未绑定 key 的 `hg_label text`。属性面板仍作为单个 label 的快速编辑入口。
 
 字体转换会自动把 HML 中实际引用的 `i18nKey` 文本合并到对应字体组：同一个 `fontFile + fontSize + fontType + renderMode` 只收集使用该字体组的 label 翻译字符。不要把这份自动字符集写入每个组件的 `characterSets`。`characterSets` 仍用于补充运行时动态文本，例如日期、数字、单位、接口返回内容或用户输入。
 
-代码生成会在生成静态 UI 文本时优先使用 `i18n/strings.json` 中 `defaultLocale` 的翻译；如果 key 不存在或默认语言为空，则回退到 HML `text`。本阶段仍不生成固件运行时语言切换逻辑，也不生成 C 语言表。
+代码生成会在生成静态 UI 文本时优先使用 `i18n/strings.json` 中 `activeLocale` 对应的翻译，缺失时回退 `defaultLocale`，两者都为空或 key 不存在时再回退到 HML `text`。本阶段仍不生成固件运行时语言切换逻辑，也不生成 C 语言表——每次生成仍然是某一种固定语言的静态字符串。
 
 V202S 配对界面示例：
 

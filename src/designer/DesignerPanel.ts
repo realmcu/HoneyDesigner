@@ -274,6 +274,8 @@ export class DesignerPanel {
 
         // 清理 project.json watcher
         this._fileManager.disposeProjectConfigWatcher();
+        // 清理 i18n/strings.json watcher
+        this._fileManager.disposeI18nCatalogWatcher();
 
         // 清理所有监听器
         this._disposables.forEach(d => d.dispose());

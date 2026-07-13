@@ -22,7 +22,7 @@ export interface CodeGenOptions {
   skipResourcePrepare?: boolean;
   /** Project root directory (for LVGL external-bin resource packaging) */
   projectRoot?: string;
-  /** Project i18n catalog for resolving default-locale text during code generation */
+  /** Project i18n catalog for resolving active-locale text (falling back to defaultLocale) during code generation */
   projectI18nCatalog?: I18nCatalog;
   /** ROMFS base address (hex string, e.g., "0x704D1400") */
   romfsBaseAddr?: string;

@@ -3,6 +3,7 @@
  * Supports: text, color, font, alignment, spacing, scroll mode, timer mode
  */
 import { Component } from '../../../hml/types';
+import { resolveLocalizedText } from '../../../project-i18n/catalog';
 import { LvglGeneratorContext } from '../LvglComponentGenerator';
 import { parseColorHex, escapeCString, getLvglFontBySize } from '../LvglUtils';
 import { LvglBaseGenerator } from './LvglBaseGenerator';
@@ -109,8 +110,9 @@ export class LvglLabelGenerator extends LvglBaseGenerator {
   }
 
   /**
-   * Resolve static codegen text from default-locale catalog text.
-   * Runtime locale switching is intentionally out of scope for C1.
+   * Resolve static codegen text from the project's current active locale (catalog.activeLocale),
+   * falling back to defaultLocale, then to the HML `text` attribute.
+   * Firmware runtime locale switching is intentionally out of scope for C1.
    */
   private resolveCodegenText(component: Component, ctx: LvglGeneratorContext): string {
     const fallbackText = String(component.data?.text || '');
@@ -123,10 +125,7 @@ export class LvglLabelGenerator extends LvglBaseGenerator {
       return fallbackText;
     }
 
-    const defaultText = catalog.strings[key]?.[catalog.defaultLocale];
-    return typeof defaultText === 'string' && defaultText.length > 0
-      ? defaultText
-      : fallbackText;
+    return resolveLocalizedText(catalog, key, catalog.activeLocale ?? catalog.defaultLocale, fallbackText).text;
   }
 
   /**

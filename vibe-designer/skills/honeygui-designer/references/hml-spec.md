@@ -483,7 +483,7 @@ font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified C
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `text` | string | "Label" | Display text |
-| `i18nKey` | string | — | Optional project string key for Designer multilingual preview. `text` remains the firmware/codegen fallback. |
+| `i18nKey` | string | — | Optional project string key resolved from `i18n/strings.json` for both Designer multilingual preview and code generation (via `catalog.activeLocale`, falling back to `defaultLocale`). `text` remains the final fallback when the key/translation is missing. |
 | `hAlign` | enum | LEFT | Horizontal alignment: `LEFT` / `CENTER` / `RIGHT` |
 | `vAlign` | enum | TOP | Vertical alignment: `TOP` / `MID` |
 | `color` | color | #ffffff | Text color |
@@ -501,6 +501,7 @@ Designer can preview localized `hg_label` text from a project catalog at `i18n/s
   "version": 1,
   "defaultLocale": "en-US",
   "locales": ["en-US", "zh-CN"],
+  "activeLocale": "zh-CN",
   "strings": {
     "pairing.scan_code": {
       "en-US": "Scan code pairing",
@@ -510,20 +511,22 @@ Designer can preview localized `hg_label` text from a project catalog at `i18n/s
 }
 ```
 
+`activeLocale` is the project's currently selected language. It drives both the canvas preview (the Designer's "Preview Language" selector writes to it) and static-text code generation. It must be a member of `locales`; missing or invalid values fall back to `defaultLocale`.
+
 Preview resolution order:
 
-1. `catalog.strings[i18nKey][previewLocale]`
+1. `catalog.strings[i18nKey][catalog.activeLocale]`
 2. `catalog.strings[i18nKey][catalog.defaultLocale]`
 3. `text`
 4. component name
 
-`i18nKey` is for Designer authoring and PC preview in this phase. Runtime firmware language switching and generated C language tables are not produced yet. Keep `text` as the default-locale fallback so existing codegen remains compatible.
+`i18nKey` is for Designer authoring, PC preview, and static-text code generation. Runtime firmware language switching and generated C language tables are not produced yet: codegen still emits one fixed string literal per label, it just now uses `activeLocale` instead of always using `defaultLocale`. Keep `text` as the final fallback so labels without a catalog entry remain compatible.
 
 For projects with many pages, use the Designer I18n Manager instead of editing one label at a time. The manager scans `ui/*.hml`, lists all `i18nKey` references, shows missing translations per locale, and lists unbound `hg_label text` values. The selected-component Properties panel remains a quick edit surface for one label.
 
 Font conversion automatically merges text characters from HML-referenced `i18nKey` values into the matching font group. A font group is `fontFile + fontSize + fontType + renderMode`; it only receives translations for labels that use that group. Do not write this generated charset into each component's `characterSets`. Use `characterSets` only for dynamic runtime text such as dates, numbers, units, network responses, or user input.
 
-Code generation resolves static label text from the `defaultLocale` entry in `i18n/strings.json` when `i18nKey` is set. If the key is missing or the default-locale text is empty, codegen falls back to the HML `text` attribute. This stage still does not generate firmware runtime language switching or C language tables.
+Code generation resolves static label text from the `activeLocale` entry in `i18n/strings.json` when `i18nKey` is set, falling back to `defaultLocale`, then to the HML `text` attribute if both are empty or the key is missing. This stage still does not generate firmware runtime language switching or C language tables — each build produces one fixed-language binary.
 
 V202S pairing example:
 

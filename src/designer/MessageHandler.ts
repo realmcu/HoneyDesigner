@@ -12,7 +12,7 @@ import { CodeGenerationService } from '../services/CodeGenerationService';
 import { ConversionConfigService, ConversionConfig } from '../services/ConversionConfigService';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
 import { normalizeCatalog, removeI18nKey, renameI18nKey } from '../project-i18n/catalog';
-import { loadProjectI18nCatalog, saveProjectI18nCatalog } from '../project-i18n/files';
+import { loadProjectI18nCatalog, saveProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
 import { buildProjectI18nIndex, ProjectI18nComponentInput } from '../project-i18n/projectIndex';
 import { HmlParser } from '../hml/HmlParser';
 import { HmlSerializer } from '../hml/HmlSerializer';
@@ -396,7 +396,7 @@ export class MessageHandler {
                 break;
 
             case 'saveProjectI18nCatalog':
-                this._handleSaveProjectI18nCatalog(message.catalog, message.previewLocale);
+                this._handleSaveProjectI18nCatalog(message.catalog);
                 break;
 
             case 'getProjectI18nIndex':
@@ -1059,7 +1059,7 @@ export class MessageHandler {
     /**
      * 处理保存项目多语言文本目录
      */
-    private _handleSaveProjectI18nCatalog(catalog: unknown, previewLocale?: string): void {
+    private _handleSaveProjectI18nCatalog(catalog: unknown): void {
         try {
             const projectRoot = this._fileManager.currentFilePath
                 ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
@@ -1071,17 +1071,35 @@ export class MessageHandler {
                 return;
             }
 
+            // normalizeCatalog 已经会校验并回退 activeLocale（不在 locales 里则回退 defaultLocale），
+            // 不再需要单独接收/校验一个 previewLocale 参数。
             const normalizedCatalog = normalizeCatalog(catalog, 'en-US');
-            const normalizedPreviewLocale = previewLocale && normalizedCatalog.locales.includes(previewLocale)
-                ? previewLocale
-                : normalizedCatalog.defaultLocale;
 
-            saveProjectI18nCatalog(projectRoot, normalizedCatalog);
+            // 写盘前登记「即将由宿主自写该文件」：i18n/strings.json watcher 消费该登记后会
+            // 跳过本次自触发的重载回灌，避免刚保存成功又被自己的 watcher 无意义地重推一次；
+            // 若外部方（Agent/git）在这之后又改了文件，watcher 读盘 hash 比对不一致会照常放行。
+            const catalogFilePath = path.join(projectRoot, PROJECT_I18N_RELATIVE_PATH);
+            const registry = PendingWriteRegistry.getInstance();
+            registry.register(catalogFilePath);
+
+            try {
+                saveProjectI18nCatalog(projectRoot, normalizedCatalog);
+            } catch (writeErr) {
+                // 写失败必须注销登记：否则时间窗内真实的外部改动会被 watcher 误吞。
+                registry.unregister(catalogFilePath);
+                throw writeErr;
+            }
+
+            try {
+                const written = fs.readFileSync(catalogFilePath, 'utf-8');
+                registry.register(catalogFilePath, PendingWriteRegistry.hashContent(written));
+            } catch (readErr) {
+                logger.warn(`[MessageHandler] i18n catalog 写后读回失败，登记退化为纯时间窗: ${readErr}`);
+            }
 
             this._panel.webview.postMessage({
                 command: 'projectI18nCatalogSaved',
-                projectI18nCatalog: normalizedCatalog,
-                previewLocale: normalizedPreviewLocale
+                projectI18nCatalog: normalizedCatalog
             });
 
             logger.debug('[MessageHandler] 项目多语言目录已保存');

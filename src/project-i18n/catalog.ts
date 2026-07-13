@@ -38,6 +38,7 @@ export function createEmptyCatalog(defaultLocale: LocaleCode): I18nCatalog {
         defaultLocale: cleanDefaultLocale,
         locales: [cleanDefaultLocale],
         strings: {},
+        activeLocale: cleanDefaultLocale,
     };
 }
 
@@ -76,11 +77,19 @@ export function normalizeCatalog(input: unknown, defaultLocale: LocaleCode): I18
         }
     }
 
+    // activeLocale 的合法性依赖 locales 的最终版本（上面的循环可能会把 strings 里才出现的
+    // locale 追加进 locales），必须在这里校验，不能提前到 locales 初次拼出来的时候。
+    const cleanActiveLocale = cleanLocale(input.activeLocale);
+    const activeLocale = cleanActiveLocale && locales.includes(cleanActiveLocale)
+        ? cleanActiveLocale
+        : normalizedDefaultLocale;
+
     return {
         version: CATALOG_VERSION,
         defaultLocale: normalizedDefaultLocale,
         locales,
         strings,
+        activeLocale,
     };
 }
 
@@ -88,6 +97,18 @@ export function ensureLocale(catalog: I18nCatalog, locale: LocaleCode): I18nCata
     const clean = cleanLocale(locale);
     if (clean && !catalog.locales.includes(clean)) {
         catalog.locales.push(clean);
+    }
+    return catalog;
+}
+
+/**
+ * 设置当前生效语言（activeLocale）：驱动画布预览与代码生成使用的文本语言。
+ * locale 必须已存在于 catalog.locales，否则忽略本次调用（不做静默回退，调用方应自行保证合法性）。
+ */
+export function setActiveLocale(catalog: I18nCatalog, locale: LocaleCode): I18nCatalog {
+    const clean = cleanLocale(locale);
+    if (clean && catalog.locales.includes(clean)) {
+        catalog.activeLocale = clean;
     }
     return catalog;
 }
@@ -112,6 +133,10 @@ export function removeLocale(catalog: I18nCatalog, locale: LocaleCode): I18nCata
         if (entry && Object.prototype.hasOwnProperty.call(entry, clean)) {
             delete entry[clean];
         }
+    }
+
+    if (catalog.activeLocale === clean) {
+        catalog.activeLocale = catalog.defaultLocale;
     }
 
     return catalog;

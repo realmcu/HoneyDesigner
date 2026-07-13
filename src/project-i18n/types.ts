@@ -6,6 +6,8 @@ export interface I18nCatalog {
     defaultLocale: LocaleCode;
     locales: LocaleCode[];
     strings: Record<I18nKey, Partial<Record<LocaleCode, string>>>;
+    /** 当前生效语言：驱动 Designer 画布预览与代码生成使用的文本语言。缺失/非法时回退 defaultLocale。 */
+    activeLocale?: LocaleCode;
 }
 
 export type LocalizedTextSource = 'locale' | 'defaultLocale' | 'componentText' | 'componentName';

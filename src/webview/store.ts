@@ -1351,10 +1351,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   },
 
   setProjectI18nCatalog: (catalog) => {
+    // catalog.activeLocale 是持久化的权威"当前语言"来源，优先采用；
+    // 缺失/非法时保留当前 previewLocale（仍合法则不跳变），否则回退 defaultLocale。
     const currentPreviewLocale = get().previewLocale;
-    const previewLocale = catalog.locales.includes(currentPreviewLocale)
-      ? currentPreviewLocale
-      : catalog.defaultLocale;
+    const previewLocale = catalog.locales.includes(catalog.activeLocale as string)
+      ? (catalog.activeLocale as string)
+      : catalog.locales.includes(currentPreviewLocale)
+        ? currentPreviewLocale
+        : catalog.defaultLocale;
 
     set({
       projectI18nCatalog: catalog,
@@ -1365,7 +1369,8 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   setPreviewLocale: (locale) => {
     const catalog = get().projectI18nCatalog;
     const previewLocale = catalog.locales.includes(locale) ? locale : catalog.defaultLocale;
-    set({ previewLocale });
+    const nextCatalog: I18nCatalog = { ...catalog, activeLocale: previewLocale };
+    set({ previewLocale, projectI18nCatalog: nextCatalog });
 
     try {
       const saved = window.vscodeAPI?.getState?.() || {};
@@ -1373,6 +1378,9 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     } catch (error) {
       console.warn('[HoneyGUI] Failed to save project preview locale:', error);
     }
+
+    // 立即（非 debounce）落盘：避免"切换语言后立刻点生成代码"读到磁盘上还没落地的旧 activeLocale。
+    get().saveProjectI18nCatalog(nextCatalog, { immediate: true });
   },
 
   setProjectI18nIndex: (index, errors) => {
@@ -1434,10 +1442,10 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
     const catalogToSave = catalog || get().projectI18nCatalog;
     const postSaveMessage = () => {
       if (!vscodeAPI) return;
+      // activeLocale 已经是 catalogToSave 的字段，不需要再单独带一份 previewLocale。
       vscodeAPI.postMessage({
         command: 'saveProjectI18nCatalog',
         catalog: catalogToSave,
-        previewLocale: get().previewLocale,
       });
     };
 
