@@ -520,7 +520,13 @@ Preview resolution order:
 3. `text`
 4. component name
 
+Because the catalog wins over `text`, editing a label's `text` attribute has no visible effect once its `i18nKey` resolves to a catalog entry (preview and codegen both ignore it). To change the displayed string, edit the catalog entry — or clear/repoint the `i18nKey`.
+
 `i18nKey` is for Designer authoring, PC preview, and static-text code generation. Runtime firmware language switching and generated C language tables are not produced yet: codegen still emits one fixed string literal per label, it just now uses `activeLocale` instead of always using `defaultLocale`. Keep `text` as the final fallback so labels without a catalog entry remain compatible.
+
+`i18nKey` takes effect on `hg_label` only. On `hg_time_label`, `hg_timer_label`, or any other component it is parsed and preserved but never localized — codegen does not translate it and the I18n Manager does not index it.
+
+When a label mixes a static caption with a dynamic value (e.g. `Trip: 126.5 km`), do not bake the value into a single translation — there is no placeholder interpolation, so the value would ship as a fixed literal. Split it: put the static caption on an `i18nKey` label, and render the dynamic value on a separate label driven by `characterSets` (numbers, units, dates, and other runtime text belong in `characterSets`, not in the catalog).
 
 For projects with many pages, use the Designer I18n Manager instead of editing one label at a time. The manager scans `ui/*.hml`, lists all `i18nKey` references, shows missing translations per locale, and lists unbound `hg_label text` values. The selected-component Properties panel remains a quick edit surface for one label.
 

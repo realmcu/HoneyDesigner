@@ -504,7 +504,13 @@ Designer 可从项目级 catalog `i18n/strings.json` 解析 `hg_label` 的预览
 3. `text`
 4. 组件名称
 
+由于 catalog 优先于 `text`，一旦某 label 的 `i18nKey` 在 catalog 里解析到条目，改它的 `text` 属性就没有任何可见效果（预览和 codegen 都会忽略）。要改显示的文案，请改 catalog 里对应的翻译条目——或者清空/改指 `i18nKey`。
+
 `i18nKey` 同时用于 Designer 编辑、PC 预览和静态文本代码生成，但本阶段仍不生成固件运行时语言切换逻辑，也不生成 C 语言表——codegen 每次仍然只按 `activeLocale` 生成一份固定语言的字符串常量，不是运行时可切换的多语言表。`text` 作为 catalog 缺失 key/翻译时的最终 fallback。
+
+`i18nKey` 仅对 `hg_label` 生效。写在 `hg_time_label`、`hg_timer_label` 或其他任何组件上会被解析并保留，但永不本地化——codegen 不翻译，多语言管理器也不收录。
+
+当一个 label 混排静态标签与动态数值（如 `Trip: 126.5 km`）时，不要把数值烤进单个翻译——`i18nKey` 没有占位符插值，数值会被当作固定字面量生成。请拆分：静态标签放在带 `i18nKey` 的 label 上，动态数值用另一个由 `characterSets` 驱动的 label 渲染（数字、单位、日期等运行时文本属于 `characterSets`，不进 catalog）。
 
 对于多页面项目，请优先使用 Designer 多语言管理器，而不是逐个选中 label 编辑。管理器会扫描 `ui/*.hml`，列出所有 `i18nKey` 引用、每种语言的缺失翻译，以及尚未绑定 key 的 `hg_label text`。属性面板仍作为单个 label 的快速编辑入口。
 

@@ -89,6 +89,16 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
 
 > 中文文本必须用覆盖 CJK 的字体（如 NotoSansSC）；纯拉丁字体（如 Inter）渲染中文会缺字/豆腐块。
 
+## 多语言处理（`hg_label` 文案词条化）
+
+`hg_label` 可加 `i18nKey` 关联 `i18n/strings.json` 词条，设计器多语言预览与 codegen 据此取当前语言文案；
+`i18nKey` **只整串替换、无占位符插值**，缺 key/翻译时回落到 `text`，且**仅 `hg_label` 生效**。
+词条化、批量加语言、混排文本、字体覆盖等完整流程见 **`references/i18n.md`**。
+
+> ⚠️ 两个必记的坑：① 解析顺序是 catalog → `text`，给已绑 `i18nKey` 的 label 改 `text=` **无效**，
+> 要改 `strings.json` 里的词条翻译（或换/清空 `i18nKey`）；② 混排文本（"行程: 126.5 km"）因无插值别整串词条化，
+> 静态标签用 `i18nKey`、动态数值另用 `characterSets`。
+
 ## 按需检索图像（先盘点，确实缺失才取）
 
 **设计前先盘点 `assets/`：已有图像够用就复用**（减法优先）。确实缺失的图标/插画，
@@ -189,10 +199,14 @@ curl -X POST http://localhost:38912/api/validate-hml \
 `POST http://localhost:38912/api/validate-hml {"filePath":"ui/Xxx.hml"}` 验证（连不上见"HML 验证"一节的降级步骤）；
 组件/属性仍以项目根 `HML-Spec.md` 为准。用户的具体指令在文本包之后另行给出。
 
+> ⚠️ 若被指控件是带 `i18nKey` 的 `hg_label`，用户让改文案时**改 `text=` 不生效**（预览/codegen 优先取 catalog）——
+> 要改 `i18n/strings.json` 里对应词条的翻译，详见"多语言处理"节。
+
 ## 文件参考
 
 - **`HML-Spec.md`**（项目根）— **唯一真相源**：全部组件、属性、事件、引擎矩阵。
 - **`references/icon-sourcing.md`** — 图标取材：Iconify 检索 → 验证 → 适配 → 栅格化，版权分类，调用方式。
+- **`references/i18n.md`** — 多语言：词条化、批量加语言、混排文本拆分、字体覆盖、I18n Manager 定位。
 - **`references/design-principles.md`** — 嵌入式 UI 设计方法论（spec 不涵盖）。
 - **`references/layout-patterns.md`** — 常见布局模式与代码示例（spec 不涵盖）。
 - **`references/common-mistakes.md`** — 高频错误与修复。
