@@ -1,9 +1,12 @@
 name: Sync skill mirror
 
-# 把 vibe-designer/skills/honeygui-designer 目录同步到独立镜像仓库
-# realmcu/skills（main 分支），供公司 AI Plugin Hub 扫描。
-# 用 git subtree split/push，保留子目录的完整逐笔历史；split 遍历全历史较慢，
-# 交由 CI 吸收这段时间。只在该目录真正有改动进入 master 时触发；也可手动触发。
+# 把 vibe-designer/skills/honeygui-designer 目录同步到多 skill 集合仓库
+# realmcu/skills（main 分支）的 skills/honeygui-designer/ 子目录，供公司 AI Plugin Hub /
+# Claude Code 等按 skill 目录扫描。镜像仓库结构对齐 anthropics/skills。
+#
+# 机制见 scripts/sync-skill.sh：子目录内容拷贝，只覆盖镜像里 skills/honeygui-designer/ 这一个
+# 子目录，其他开发者上传的 skill 不受影响；每次同步一笔 squash 提交，提交信息沿用源仓库
+# 对应改动的标题并标注来源 SHA。只在该目录真正有改动进入 master 时触发；也可手动触发。
 on:
   push:
     branches: [master]
@@ -20,13 +23,14 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      # subtree split 需要完整历史，必须 fetch-depth: 0（默认的浅克隆会不完整）
+      # 拉全历史，让 scripts/sync-skill.sh 里的 `git log -1 -- <skill 路径>` 能可靠找到
+      # 最近一笔改动该 skill 的 commit（用于生成同步提交的标题与来源 SHA）。
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 向另一个仓库(realmcu/skills)推送需要独立凭据，默认 GITHUB_TOKEN
-      # 只对当前仓库有效。这里用 deploy key：
+      # clone + push 镜像仓库(realmcu/skills)都需要独立凭据，默认 GITHUB_TOKEN 只对当前仓库
+      # 有效。这里用 deploy key(带写权限，clone/push 通用)：
       #   1. 生成密钥：ssh-keygen -t ed25519 -f skills_deploy -N ""
       #   2. skills_deploy.pub 加到 realmcu/skills 的 Deploy keys，勾选 Allow write access
       #   3. skills_deploy(私钥) 加到本仓库 Secrets，命名 SKILLS_DEPLOY_KEY

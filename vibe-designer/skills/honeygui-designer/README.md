@@ -7,12 +7,13 @@
 
 本 skill 是 [HoneyGUI Visual Designer](https://github.com/realmcu/honeygui-design)（一款嵌入式
 GUI 可视化设计器 VS Code 扩展）的配套产物，随扩展一起分发到每个 HoneyGUI 项目的
-`.claude/skills/honeygui-designer/`。这个仓库是它的独立镜像，方便在没有安装该扩展的场景下
-单独获取、审查或提交到 skill 目录/市场。
+`.claude/skills/honeygui-designer/`。它同时被同步到多 skill 集合仓库
+[realmcu/skills](https://github.com/realmcu/skills) 的 `skills/honeygui-designer/` 目录，方便在
+没有安装该扩展的场景下单独获取、审查或提交到 skill 目录/市场。
 
-**唯一真相源在主仓库**：`vibe-designer/skills/honeygui-designer/`。本仓库由
-`git subtree split` 定期同步生成，请不要直接向本仓库提交改动——改动会在下次同步时被覆盖。
-如需修改内容，请到 https://github.com/realmcu/honeygui-design 提交。
+**唯一真相源在主仓库**：`vibe-designer/skills/honeygui-designer/`。集合仓库中的
+`skills/honeygui-designer/` 目录由 CI 自动同步（内容拷贝）生成，请不要直接修改——改动会在下次
+同步时被覆盖。如需修改内容，请到 https://github.com/realmcu/honeygui-design 提交。
 
 ## 使用方式
 
