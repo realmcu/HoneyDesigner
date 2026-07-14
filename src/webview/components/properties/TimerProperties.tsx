@@ -48,13 +48,13 @@ export const TimerProperties: React.FC<TimerPropertiesProps> = ({
     const timerIndex = timers.length;
     // Avoid duplicate name
     const existingNames = new Set(timers.map(t => t.name));
-    let newName = `${t('Animation')} ${timerIndex + 1}`;
+    let newName = `Animation ${timerIndex + 1}`;
     if (existingNames.has(newName)) {
       let suffix = timerIndex + 2;
-      while (existingNames.has(`${t('Animation')} ${suffix}`)) {
+      while (existingNames.has(`Animation ${suffix}`)) {
         suffix++;
       }
-      newName = `${t('Animation')} ${suffix}`;
+      newName = `Animation ${suffix}`;
     }
     const newTimer: TimerConfig = {
       id: `timer_${timerIndex}`,
@@ -114,7 +114,7 @@ export const TimerProperties: React.FC<TimerPropertiesProps> = ({
     const timerIndex = timers.length;
     // Check for duplicate name and auto-rename
     const existingNames = new Set(timers.map(t => t.name));
-    let importedName = sourceTimer.name || `${t('Animation')} ${timerIndex + 1}`;
+    let importedName = sourceTimer.name || `Animation ${timerIndex + 1}`;
     if (existingNames.has(importedName)) {
       let suffix = 2;
       while (existingNames.has(`${importedName} (${suffix})`)) {
