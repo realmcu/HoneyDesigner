@@ -74,7 +74,7 @@ export class ViewGenerator implements ComponentCodeGenerator {
     if (bgColor) {
       code += '\n';
       code += `${indentStr}    // Set background color\n`;
-      code += `${indentStr}    gui_set_bg_color(${convertColor(bgColor)});\n`;
+      code += `${indentStr}    gui_view_set_bg_color(view, ${convertColor(bgColor)});\n`;
     }
     
     // Generate timer binding code for hg_view (placed after setter calls)
