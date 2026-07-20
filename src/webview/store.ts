@@ -285,6 +285,11 @@ export interface DesignerStore extends DesignerState {
   setProjectConfig: (config: any) => void;
   initializeWithProjectConfig: (config: any) => void;
 
+  // Project config presets (根目录 config/ 下的多个备选 project.json)
+  projectConfigs: string[];
+  activeProjectConfig: string | null;
+  setProjectConfigs: (payload: { configs: string[]; active: string | null }) => void;
+
   // Conversion config (资源转换配置)
   selectedAsset: AssetFile | null;
   conversionConfig: ConversionConfig | null;
@@ -507,6 +512,8 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
   guiVersion: null, // GUI 库版本信息
   selectedAsset: null, // 选中的资源（文件夹或图片）
   conversionConfig: null, // 转换配置
+  projectConfigs: [], // 可选工程配置列表（config/ 下的备选 project.json）
+  activeProjectConfig: null, // 当前激活的工程配置名（按内容匹配，无匹配为 null）
 
   // Actions
   setComponents: (components) => {
@@ -2444,6 +2451,14 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => {
    */
   setConversionConfig: (config: ConversionConfig | null) => {
     set({ conversionConfig: config });
+  },
+
+  /**
+   * 设置可选工程配置列表及当前激活配置名
+   * @param payload configs=可选配置名数组，active=当前激活配置名（无匹配为 null）
+   */
+  setProjectConfigs: (payload: { configs: string[]; active: string | null }) => {
+    set({ projectConfigs: payload.configs, activeProjectConfig: payload.active });
   },
 
   /**

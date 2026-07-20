@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDesignerStore } from '../store';
-import { Save, Code, RotateCcw, RotateCw, ZoomIn, ZoomOut, Maximize2, GitBranch, Palette, AlignLeft, Grid, Download, Rocket, BrushCleaning, Square, Info, ChevronDown, Package, Check, Languages } from 'lucide-react';
+import { Save, Code, RotateCcw, RotateCw, Maximize2, GitBranch, Palette, AlignLeft, Grid, Download, Rocket, BrushCleaning, Square, Info, ChevronDown, Package, Check, Languages } from 'lucide-react';
 import { AlignType, DistributeType, ResizeType, getAlignmentConfigsByCategory } from '../utils/alignmentUtils';
 import { t } from '../i18n';
 import ProjectI18nLocaleSelect from './ProjectI18nLocaleSelect';
+import ProjectConfigSelect from './ProjectConfigSelect';
 import './Toolbar.css';
 
 const Toolbar: React.FC = () => {
   const {
-    setZoom,
     zoom,
+    fitContentToView,
     setEditingMode,
     editingMode,
     showViewRelationModal,
@@ -70,16 +71,9 @@ const Toolbar: React.FC = () => {
     }
   }, []);
 
-  const handleZoomIn = () => {
-    setZoom(Math.min(zoom * 1.2, 8));
-  };
-
-  const handleZoomOut = () => {
-    setZoom(Math.max(zoom / 1.2, 0.25));
-  };
-
   const handleZoomFit = () => {
-    setZoom(1);
+    // 保留原「适应屏幕」按钮，功能改为右键菜单中的「全局视图」（适应全部内容）
+    fitContentToView();
   };
 
   const handleSelectMode = () => {
@@ -358,25 +352,11 @@ const Toolbar: React.FC = () => {
 
       <div className="toolbar-section">
         <div className="toolbar-segmented">
-          <button
-            className="toolbar-icon-button"
-            onClick={handleZoomOut}
-            title={t('Zoom Out')}
-          >
-            <ZoomOut size={16} strokeWidth={1.4} />
-          </button>
           <div className="segmented-value zoom-level">{Math.round(zoom * 100)}%</div>
           <button
             className="toolbar-icon-button"
-            onClick={handleZoomIn}
-            title={t('Zoom In')}
-          >
-            <ZoomIn size={16} strokeWidth={1.4} />
-          </button>
-          <button
-            className="toolbar-icon-button"
             onClick={handleZoomFit}
-            title={t('Fit to Screen')}
+            title={t('Fit All Content')}
           >
             <Maximize2 size={16} strokeWidth={1.4} />
           </button>
@@ -384,6 +364,10 @@ const Toolbar: React.FC = () => {
       </div>
 
       <div style={{ flex: 1 }} />
+
+      <div className="toolbar-section">
+        <ProjectConfigSelect />
+      </div>
 
       <div className="toolbar-section">
         <ProjectI18nLocaleSelect />

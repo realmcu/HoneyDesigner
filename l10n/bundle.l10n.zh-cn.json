@@ -72,6 +72,16 @@
 
   "Please open an HML file first": "请先打开一个 HML 文件",
   "Cannot find project root (project.json)": "无法找到项目根目录（project.json）",
+  "Switch to config \"{0}\"? This overwrites project.json and regenerates code.": "切换到配置「{0}」？这将覆盖 project.json 并重新生成代码。",
+  "Switch": "切换",
+  "Failed to switch config: {0}": "切换配置失败：{0}",
+  "Enter new config name (uses current config as template)": "输入新配置名称（以当前配置为模板）",
+  "Invalid config name": "配置名称无效",
+  "Config already exists: {0}": "配置已存在：{0}",
+  "Failed to create config: {0}": "新建配置失败：{0}",
+  "Delete config \"{0}\"? This only removes the file under config/, project.json is unaffected.": "删除配置「{0}」？仅删除 config/ 下的文件，不影响当前 project.json。",
+  "Delete": "删除",
+  "Failed to delete config: {0}": "删除配置失败：{0}",
   "Select HML file to preview": "选择要预览的 HML 文件",
 
   "Saving file...": "正在保存文件...",

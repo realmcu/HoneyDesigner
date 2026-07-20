@@ -730,6 +730,17 @@ const App: React.FC = () => {
           }
           break;
 
+        case 'projectConfigsLoaded':
+          // 加载可选工程配置列表及当前激活配置
+          {
+            const store = useDesignerStore.getState();
+            store.setProjectConfigs({
+              configs: Array.isArray(message.configs) ? message.configs : [],
+              active: message.active ?? null,
+            });
+          }
+          break;
+
 
         case 'undoRedoState':
           if (typeof message.canUndo === 'boolean') {
