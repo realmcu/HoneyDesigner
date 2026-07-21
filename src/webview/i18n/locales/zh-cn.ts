@@ -534,6 +534,7 @@ const zhCN = {
   'action.controlTimer': '自定义动画集',
   // Action editor texts
   'No user functions found, declare in src/user/**_user.h': '未找到用户自定义函数，请在 src/user/**_user.h 中声明函数',
+  'Switch In Callback': '进入时调用函数',
   'Switch Out Callback': '切出时调用函数',
   'No view functions found, declare in src/user/**_user.h': '未找到 view 回调函数，请在 src/user/**_user.h 中声明 void func(gui_view_t *view)',
   'No timer components in current view': '当前 view 下没有配置定时器的组件',

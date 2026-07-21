@@ -20,16 +20,31 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
         viewFunctionsLoaded.current = true;
         const fns: Array<{ name: string; type: string }> = message.functions || [];
         setViewFunctions(fns.filter(f => f.type === 'view'));
-        // Clear stale switchOutFunctionName if the referenced function no longer exists
-        const currentVal = component.data?.switchOutFunctionName;
-        if (currentVal && !fns.some(f => f.name === currentVal && f.type === 'view')) {
-          onUpdate({ data: { ...component.data, switchOutFunctionName: '' } });
-        }
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  useEffect(() => {
+    if (!viewFunctionsLoaded.current) return;
+
+    const functionNames = new Set(viewFunctions.map(fn => fn.name));
+    const switchOutFunctionName = component.data?.switchOutFunctionName;
+    const switchInFunctionName = component.data?.switchInFunctionName;
+    const clearSwitchOut = switchOutFunctionName && !functionNames.has(switchOutFunctionName);
+    const clearSwitchIn = switchInFunctionName && !functionNames.has(switchInFunctionName);
+
+    if (clearSwitchOut || clearSwitchIn) {
+      onUpdate({
+        data: {
+          ...component.data,
+          ...(clearSwitchOut ? { switchOutFunctionName: '' } : {}),
+          ...(clearSwitchIn ? { switchInFunctionName: '' } : {}),
+        },
+      });
+    }
+  }, [component.id, component.data?.switchOutFunctionName, component.data?.switchInFunctionName, viewFunctions]);
 
   // 计算默认动画步长（屏幕高度的 1/10）
   const defaultAnimateStep = Math.round(component.position.height / 10);
@@ -148,6 +163,26 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
                   min={0}
                   max={255}
                 />
+              </div>
+              <div className="property-item">
+                <label>{t('Switch In Callback')}</label>
+                {viewFunctions.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)' }}>
+                    {t('No view functions found, declare in src/user/**_user.h')}
+                  </div>
+                ) : (
+                  <select
+                    value={component.data?.switchInFunctionName || ''}
+                    onChange={(e) => handleDataChange('switchInFunctionName', e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="">-- {t('None')} --</option>
+                    {viewFunctions.map(fn => (
+                      <option key={fn.name} value={fn.name}>{fn.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="property-item">
                 <label>{t('Switch Out Callback')}</label>

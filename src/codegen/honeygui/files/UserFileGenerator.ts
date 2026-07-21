@@ -87,6 +87,16 @@ export class UserFileGenerator {
 //     GUI_UNUSED(index);
 // }
 
+// void view_switch_in_callback(gui_view_t *view)
+// {
+//     GUI_UNUSED(view);
+// #ifdef _HONEYGUI_SIMULATOR_
+//     // TODO: initialize dynamic state when entering this view
+// #else
+//     // TODO: initialize dynamic state when entering this view
+// #endif
+// }
+
 // void view_switch_out_callback(gui_view_t *view)
 // {
 //     GUI_UNUSED(view);

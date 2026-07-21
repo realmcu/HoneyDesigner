@@ -57,6 +57,7 @@ export class ViewGenerator implements ComponentCodeGenerator {
     code += `${indentStr}}\n\n`;
     
     // Generate switch_in callback
+    const switchInFunc = component.data?.switchInFunctionName as string | undefined;
     code += `${indentStr}static void ${name}_switch_in(gui_view_t *view)\n`;
     code += `${indentStr}{\n`;
 
@@ -92,8 +93,8 @@ export class ViewGenerator implements ComponentCodeGenerator {
       switchViewEvents.forEach(({ guiEvent, targetName, switchOutStyle, switchInStyle }) => {
         code += `${indentStr}    gui_view_switch_on_event(view, "${targetName}", ${switchOutStyle}, ${switchInStyle}, ${guiEvent});\n`;
       });
-    } else {
-      // Add GUI_UNUSED when no view switch events
+    } else if (!switchInFunc) {
+      // Add GUI_UNUSED when no view switch events or switch_in callback
       code += `${indentStr}    GUI_UNUSED(view);\n`;
     }
     
@@ -143,7 +144,11 @@ export class ViewGenerator implements ComponentCodeGenerator {
         code += `${indentStr}    gui_obj_create_timer(GUI_BASE(${labelId}), ${interval}, true, ${labelId}_time_update_cb);\n`;
       });
     }
-    
+
+    if (switchInFunc) {
+      code += `\n${indentStr}    ${switchInFunc}(view);\n`;
+    }
+
     code += `${indentStr}}\n`;
     
     // GUI_VIEW_INSTANCE macro call — always uses 5 args (snap_shot is last)
