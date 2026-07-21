@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from '../utils/Logger';
+import { RomfsConfig } from '../common/RomfsConfig';
 import { ImageConverterService } from '../services/ImageConverterService';
 import { VideoConverterService } from '../services/VideoConverterService';
 import { Model3DConverterService } from '../services/Model3DConverterService';
@@ -1324,8 +1325,18 @@ export class ToolsPanel {
     private cleanPreviousRomfsFiles(): void {
         if (!this.outputDir) return;
 
-        const filesToDelete = ['app_romfs.c', 'app_romfs.bin', 'ui_resource.h'];
-        
+        // 固定名产物 + 所有 romfs 二进制文件（app_romfs.bin 或带基地址后缀的 app_romfs_<addr>.bin）
+        const filesToDelete = new Set(['app_romfs.c', 'ui_resource.h']);
+        try {
+            for (const entry of fs.readdirSync(this.outputDir)) {
+                if (RomfsConfig.isBinFileName(entry)) {
+                    filesToDelete.add(entry);
+                }
+            }
+        } catch (error) {
+            logger.error(`扫描 romfs 文件失败: ${this.outputDir}, ${error}`);
+        }
+
         for (const fileName of filesToDelete) {
             const filePath = path.join(this.outputDir, fileName);
             try {
@@ -1394,7 +1405,9 @@ export class ToolsPanel {
             }
 
             const romfsCOutput = path.join(targetDir, 'app_romfs.c');
-            const romfsBinOutput = path.join(targetDir, 'app_romfs.bin');
+            // 二进制文件名带上基地址后缀，例如 app_romfs_0x70536400.bin
+            const romfsBinName = RomfsConfig.getBinFileName(baseAddr);
+            const romfsBinOutput = path.join(targetDir, romfsBinName);
 
             // 生成 C 文件
             execSync(`${pythonCmd} "${mkromfsScript}" -i "${targetDir}" -o "${romfsCOutput}" -a ${baseAddr}`, {
@@ -1416,9 +1429,9 @@ export class ToolsPanel {
             const headerPath = path.join(targetDir, 'ui_resource.h');
             const headerGenerated = fs.existsSync(headerPath);
 
-            return { 
-                success: true, 
-                fileName: 'app_romfs.c / app_romfs.bin',
+            return {
+                success: true,
+                fileName: `app_romfs.c / ${romfsBinName}`,
                 message: `ROMFS 打包完成 (基地址: ${baseAddr})${headerGenerated ? '，ui_resource.h 已生成' : ''}`
             };
         } catch (error: any) {

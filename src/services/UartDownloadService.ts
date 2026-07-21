@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { spawn, exec } from 'child_process';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig';
+import { RomfsConfig } from '../common/RomfsConfig';
 
 export interface UartConfig {
     port: string;
@@ -100,11 +101,14 @@ export class UartDownloadService {
             return;
         }
 
-        // 检查 romfs.bin
-        const romfsPath = path.join(projectRoot, 'build', 'app_romfs.bin');
+        // 读取项目配置（用于定位带基地址后缀的 romfs.bin）
+        const config = ProjectUtils.loadProjectConfig(projectRoot);
+
+        // 检查 romfs.bin（文件名带基地址后缀，例如 app_romfs_0x70536400.bin）
+        const romfsPath = path.join(projectRoot, 'build', RomfsConfig.getBinFileName(config.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR));
         if (!fs.existsSync(romfsPath)) {
             const choice = await vscode.window.showErrorMessage(
-                vscode.l10n.t('romfs.bin does not exist, please compile the project first'), 
+                vscode.l10n.t('romfs.bin does not exist, please compile the project first'),
                 vscode.l10n.t('Compile Project')
             );
             if (choice === vscode.l10n.t('Compile Project')) {
@@ -114,7 +118,6 @@ export class UartDownloadService {
         }
 
         // 读取保存的配置
-        const config = ProjectUtils.loadProjectConfig(projectRoot);
         const savedConfig = this.getSavedUartConfig();
 
         // 扫描串口
@@ -280,7 +283,8 @@ export class UartDownloadService {
             return;
         }
 
-        const romfsPath = path.join(projectRoot, 'build', 'app_romfs.bin');
+        // 文件名带基地址后缀（与编译产物一致），例如 app_romfs_0x70536400.bin
+        const romfsPath = path.join(projectRoot, 'build', RomfsConfig.getBinFileName(uartConfig.flashAddress || DEFAULT_ROMFS_BASE_ADDR));
         if (!fs.existsSync(romfsPath)) {
             vscode.window.showErrorMessage(vscode.l10n.t('romfs.bin does not exist, please compile the project first'));
             return;

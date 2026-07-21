@@ -390,10 +390,12 @@ Return('objs')
 
         const assetsDir = path.join(this.buildDir, 'assets');
         const romfsOutput = path.join(this.buildDir, RomfsConfig.getFileName());
-        const romfsBinOutput = path.join(this.buildDir, 'app_romfs.bin');
 
         // 获取 romfs 基地址
         const baseAddr = this.projectConfig.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR;
+
+        // 二进制文件名带上基地址后缀，例如 app_romfs_0x70536400.bin
+        const romfsBinOutput = path.join(this.buildDir, RomfsConfig.getBinFileName(baseAddr));
 
         // 使用 Python 版本的 mkromfs_for_honeygui.py
         const mkromfsScript = path.join(__dirname, '..', '..', '..', 'tools', 'mkromfs_for_honeygui.py');
