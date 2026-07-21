@@ -68,6 +68,10 @@ export class MessageHandler {
                         logger.info('[MessageHandler] 已发送项目配置到前端');
                     }
 
+                    // 打开工程时主动扫描 config/ 目录，更新下拉列表并按内容对比标记当前激活配置。
+                    // 由宿主在 ready 时推送，避免前端挂载时 vscodeAPI 尚未就绪导致请求被丢弃。
+                    this._handleLoadProjectConfigs();
+
                     await this._fileManager.reloadCurrentDocument();
                 } catch (error) {
                     logger.error(`[MessageHandler] reloadCurrentDocument失败: ${error}`);
