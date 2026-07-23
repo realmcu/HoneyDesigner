@@ -9,7 +9,6 @@ import './Toolbar.css';
 
 const Toolbar: React.FC = () => {
   const {
-    zoom,
     fitContentToView,
     setEditingMode,
     editingMode,
@@ -193,11 +192,6 @@ const Toolbar: React.FC = () => {
           <Save size={16} strokeWidth={1.4} />
           <span>{t('Save')}</span>
         </button>
-      </div>
-
-      <div className="toolbar-divider" />
-
-      <div className="toolbar-section">
         <div className="toolbar-segmented">
           <button
             className="toolbar-icon-button"
@@ -346,21 +340,14 @@ const Toolbar: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
 
-      <div className="toolbar-divider" />
-
-      <div className="toolbar-section">
-        <div className="toolbar-segmented">
-          <div className="segmented-value zoom-level">{Math.round(zoom * 100)}%</div>
-          <button
-            className="toolbar-icon-button"
-            onClick={handleZoomFit}
-            title={t('Fit All Content')}
-          >
-            <Maximize2 size={16} strokeWidth={1.4} />
-          </button>
-        </div>
+        <button
+          className="toolbar-icon-button"
+          onClick={handleZoomFit}
+          title={t('Fit All Content')}
+        >
+          <Maximize2 size={16} strokeWidth={1.4} />
+        </button>
       </div>
 
       <div style={{ flex: 1 }} />
