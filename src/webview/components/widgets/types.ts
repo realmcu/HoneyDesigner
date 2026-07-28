@@ -56,13 +56,9 @@ export function widgetMemo<P extends WidgetProps>(Wrapped: React.ComponentType<P
     // （位置拖拽、其他组件更新都不会改变本组件的引用），
     // 故能精确捕获 value / min / max、颜色、方向等所有影响视觉的字段，
     // 又不会因无关变化而误触发重渲染。
-    if (pc.data !== nc.data) return false;
-    if (pc.style !== nc.style) return false;
-
-    // style prop 变化（反映选中/悬浮/启用状态）
     // 样式/数据对象整体引用变化（避免逐字段遗漏，如 radius、color、gradientStops 等）
-    if (pc.style !== nc.style) return false;
     if (pc.data !== nc.data) return false;
+    if (pc.style !== nc.style) return false;
 
     // style prop 变化（反映选中/悬浮状态）
     // 注意：选中框自 outline 迁移（见 componentRenderer.ts）后已不再使用 border 字段，

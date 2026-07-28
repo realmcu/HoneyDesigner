@@ -15,6 +15,7 @@ import { ResizeHandles, ResizeDirection } from './ResizeHandles';
 import { MoveHandle } from './MoveHandle';
 import { calculateAlignment } from '../utils/dragAlignmentGuides';
 import { getAbsolutePosition, findComponentAtPosition, isContainerType } from '../utils/componentUtils';
+import { fromCanvasEvent, getCanvasCoordinates } from '../utils/canvasCoordinates';
 import { t } from '../i18n';
 import { captureDesignPng } from '../utils/captureDesign';
 import './DesignerCanvas.css';
@@ -204,9 +205,9 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
 
     if (canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
-      const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-      const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-      const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
+      const coords = getCanvasCoordinates(e.clientX, e.clientY, rect, zoom, canvasOffset, false);
+      const mouseX = coords.x;
+      const mouseY = coords.y;
 
       setDragOffset({
         x: mouseX - component.position.x,
@@ -244,16 +245,12 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     
     // 如果点击的是容器组件，启动框选定时器
     if (isContainerType(component.type)) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-        const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-        const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
-        
+      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+      if (coords) {
         const timer = setTimeout(() => {
           setIsBoxSelecting(true);
-          setBoxSelectStart({ x: mouseX, y: mouseY });
-          setBoxSelectEnd({ x: mouseX, y: mouseY });
+          setBoxSelectStart({ x: coords.x, y: coords.y });
+          setBoxSelectEnd({ x: coords.x, y: coords.y });
           setSelectedComponents([]); // 清空之前的选择
         }, 300);
         
@@ -270,12 +267,8 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     // Ctrl + 点击：穿透选中内层控件（只在同级组件之间循环，不包括父容器）
     if (e.ctrlKey && !e.shiftKey && !e.metaKey) {
       // 获取鼠标在画布中的位置
-      if (canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-        const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-        const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
-        
+      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+      if (coords) {
         // 查找当前点击位置的所有同级组件（不包括父容器）
         const clickedComponents: Component[] = [];
         const currentParent = component.parent;
@@ -303,7 +296,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
           const compRight = compLeft + sibling.position.width;
           const compBottom = compTop + sibling.position.height;
           
-          if (mouseX >= compLeft && mouseX <= compRight && mouseY >= compTop && mouseY <= compBottom) {
+          if (coords.x >= compLeft && coords.x <= compRight && coords.y >= compTop && coords.y <= compBottom) {
             clickedComponents.push(sibling);
           }
         });
@@ -354,9 +347,9 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     // 计算鼠标相对于可拖拽组件的偏移量
     if (canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
-      const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-      const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-      const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
+      const coords = getCanvasCoordinates(e.clientX, e.clientY, rect, zoom, canvasOffset, false);
+      const mouseX = coords.x;
+      const mouseY = coords.y;
       
       setDragOffset({
         x: mouseX - draggableComponent.position.x,
@@ -397,13 +390,10 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     
     // 如果正在框选，更新框选区域
     if (isBoxSelecting) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      
-      const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-      const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-      const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
-      
+      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+      if (!coords) return;
+      const mouseX = coords.x;
+      const mouseY = coords.y;
       setBoxSelectEnd({ x: mouseX, y: mouseY });
       
       // 计算框选区域
@@ -466,14 +456,11 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     }
     
     if (draggedComponent) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+      if (!coords) return;
+      const mouseX = coords.x;
+      const mouseY = coords.y;
 
-      // 计算鼠标在画布中的位置（使用 effectiveZoom 以匹配画布的 transform scale）
-      const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-      const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-      const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
-      
       // 记录最后鼠标位置（用于 mouseUp 时判断目标容器）
       setLastMousePos({ x: mouseX, y: mouseY });
       
@@ -590,54 +577,8 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     // 处理跨容器拖拽（框选移动不触发跨容器拖拽）
     // 注意：禁用自动跨容器移动，避免误操作
     // 用户可以通过属性面板手动修改父容器
-    /*
-    if (draggedComponent && !isBoxSelectMove) {
-      // 多选跨容器拖拽
-      if (multiDragOffsets.size > 1) {
-        const targetContainer = findComponentAtPosition(lastMousePos.x, lastMousePos.y, components);
-        if (targetContainer) {
-          multiDragOffsets.forEach((_, id) => {
-            const comp = components.find(c => c.id === id);
-            if (comp && !isContainerType(comp.type) && targetContainer.id !== comp.parent && targetContainer.id !== comp.id) {
-              const targetAbsPos = getAbsolutePosition(targetContainer, components);
-              const compAbsPos = getAbsolutePosition(comp, components);
-              const newX = Math.round(compAbsPos.x - targetAbsPos.x);
-              const newY = Math.round(compAbsPos.y - targetAbsPos.y);
-              
-              updateComponent(comp.id, {
-                position: { ...comp.position, x: newX, y: newY },
-              });
-              moveComponent(comp.id, targetContainer.id);
-            }
-          });
-        }
-      } else {
-        // 单选跨容器拖拽
-        const component = components.find(c => c.id === draggedComponent);
-        
-        if (component && !isContainerType(component.type)) {
-          const targetContainer = findComponentAtPosition(lastMousePos.x, lastMousePos.y, components);
-          
-          if (targetContainer && targetContainer.id !== component.parent && targetContainer.id !== component.id) {
-            const oldParent = component.parent;
-            const targetAbsPos = getAbsolutePosition(targetContainer, components);
-            const componentAbsPos = getAbsolutePosition(component, components);
-            
-            const newX = Math.round(componentAbsPos.x - targetAbsPos.x);
-            const newY = Math.round(componentAbsPos.y - targetAbsPos.y);
-            
-            console.log(`[跨容器拖拽] ${component.id}: ${oldParent || '顶层'} → ${targetContainer.id}, 坐标: (${newX}, ${newY})`);
-            
-            updateComponent(component.id, {
-              position: { ...component.position, x: newX, y: newY },
-            });
-            moveComponent(component.id, targetContainer.id);
-          }
-        }
-      }
-    }
-    */
-    
+    /* 跨容器拖拽逻辑已禁用（参见 git 历史） */
+
     handleCanvasMouseUp();
     setPendingDragComponent(null);
     setDraggedComponent(null);
@@ -901,13 +842,11 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
           // 如果不是画布拖拽（Ctrl+左键或中键），则检测框选
           // 允许在任何地方（包括容器内部）触发框选
           if (e.button === 0 && !e.ctrlKey && !e.metaKey) {
-            const rect = canvasRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            
-            const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-            const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-            const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
-            
+            const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+            if (!coords) return;
+            const mouseX = coords.x;
+            const mouseY = coords.y;
+
             // 检查是否点击在某个组件上
             const clickedComponent = findComponentAtPosition(mouseX, mouseY, components);
             
@@ -931,14 +870,11 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
         onMouseLeave={handleCanvasMouseUp}
         onContextMenu={(e) => {
           e.preventDefault();
-          
+
           // 检查右键点击位置是否在组件上
-          const rect = canvasRef.current?.getBoundingClientRect();
-          if (rect) {
-            const effectiveZoom = zoom / (window.devicePixelRatio || 1);
-            const mouseX = (e.clientX - rect.left - canvasOffset.x) / effectiveZoom;
-            const mouseY = (e.clientY - rect.top - canvasOffset.y) / effectiveZoom;
-            const clickedComp = findComponentAtPosition(mouseX, mouseY, components);
+          const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+          if (coords) {
+            const clickedComp = findComponentAtPosition(coords.x, coords.y, components);
             
             // 点击在空白区域：显示画布菜单
             if (!clickedComp) {

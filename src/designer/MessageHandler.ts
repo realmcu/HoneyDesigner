@@ -54,6 +54,27 @@ export class MessageHandler {
         this._hmlController = hmlController;
     }
 
+    /**
+     * 获取项目根目录，找不到时返回 undefined
+     */
+    private _getProjectRoot(): string | undefined {
+        return this._fileManager.currentFilePath
+            ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
+            : undefined;
+    }
+
+    /**
+     * 获取项目根目录，找不到时显示错误消息并返回 null
+     */
+    private _requireProjectRoot(): string | null {
+        const root = this._getProjectRoot();
+        if (!root) {
+            vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+            return null;
+        }
+        return root;
+    }
+
     public async handleMessage(message: any): Promise<void> {
         switch (message.command) {
             case 'ready':
@@ -514,14 +535,8 @@ export class MessageHandler {
      */
     private async _handleBrowseFile(componentId: string, propertyName: string, filters: any): Promise<void> {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
-
-            if (!projectRoot) {
-                vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
-                return;
-            }
+            const projectRoot = this._requireProjectRoot();
+            if (!projectRoot) return;
 
             // 构建文件过滤器
             const fileFilters: { [name: string]: string[] } = {};
@@ -601,9 +616,7 @@ export class MessageHandler {
      */
     private async _handleBrowseCharsetFile(componentId: string, charsetIndex: number, fileType: string, filters: any): Promise<void> {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
@@ -1018,9 +1031,7 @@ export class MessageHandler {
      */
     private _handleLoadConversionConfig(): void {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法加载转换配置：未找到项目根目录');
@@ -1057,9 +1068,7 @@ export class MessageHandler {
      */
     private _handleSaveConversionConfig(config: ConversionConfig, changedPath?: string, changedField?: string): void {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法保存转换配置：未找到项目根目录');
@@ -1110,9 +1119,7 @@ export class MessageHandler {
      */
     private _handleLoadProjectConfigs(): void {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法加载工程配置列表：未找到项目根目录');
@@ -1198,9 +1205,7 @@ export class MessageHandler {
      */
     private async _handleCreateProjectConfig(): Promise<void> {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
@@ -1248,9 +1253,7 @@ export class MessageHandler {
      */
     private async _handleDeleteProjectConfig(name: string): Promise<void> {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
@@ -1284,9 +1287,7 @@ export class MessageHandler {
      */
     private _handleSaveProjectI18nCatalog(catalog: unknown): void {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法保存多语言目录：未找到项目根目录');
@@ -1362,8 +1363,7 @@ export class MessageHandler {
     }
 
     private async _handleGetProjectI18nIndex(): Promise<void> {
-        const currentFilePath = this._fileManager.currentFilePath;
-        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        const projectRoot = this._getProjectRoot();
         if (!projectRoot) {
             this._panel.webview.postMessage({
                 command: 'projectI18nIndexLoaded',
@@ -1429,8 +1429,7 @@ export class MessageHandler {
             return;
         }
 
-        const currentFilePath = this._fileManager.currentFilePath;
-        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        const projectRoot = this._getProjectRoot();
         if (!projectRoot) {
             logger.warn('[MessageHandler] 无法删除多语言 key：未找到项目根目录');
             vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
@@ -1516,8 +1515,7 @@ export class MessageHandler {
             return;
         }
 
-        const currentFilePath = this._fileManager.currentFilePath;
-        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        const projectRoot = this._getProjectRoot();
         if (!projectRoot) {
             logger.warn('[MessageHandler] 无法重命名多语言 key：未找到项目根目录');
             vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
@@ -1602,9 +1600,7 @@ export class MessageHandler {
      */
     private _handleToggleAlwaysConvert(assetPath: string): void {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法切换强制转换：未找到项目根目录');
@@ -1720,9 +1716,7 @@ export class MessageHandler {
      */
     private _handleToggleSmartPacking(): void {
         try {
-            const projectRoot = this._fileManager.currentFilePath
-                ? ProjectUtils.findProjectRoot(this._fileManager.currentFilePath)
-                : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法确定项目根目录');
@@ -1878,8 +1872,7 @@ export class MessageHandler {
      */
     private async _handleGetNavLayout(): Promise<void> {
         try {
-            const currentFile = this._fileManager.currentFilePath;
-            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法读取导航布局：未找到项目根目录');
@@ -1904,8 +1897,7 @@ export class MessageHandler {
             return;
         }
         try {
-            const currentFile = this._fileManager.currentFilePath;
-            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+            const projectRoot = this._getProjectRoot();
 
             if (!projectRoot) {
                 logger.warn('[MessageHandler] 无法保存导航布局：未找到项目根目录');
@@ -1983,8 +1975,7 @@ export class MessageHandler {
         };
 
         try {
-            const currentFile = this._fileManager.currentFilePath;
-            const projectRoot = currentFile ? ProjectUtils.findProjectRoot(currentFile) : undefined;
+            const projectRoot = this._getProjectRoot();
             if (!projectRoot) {
                 respond({ success: false, op, errorCode: 'noProjectRoot' });
                 return;

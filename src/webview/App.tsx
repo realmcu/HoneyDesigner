@@ -20,6 +20,7 @@ import { processImageFiles } from './utils/fileUtils';
 import { parseObjDependencies, parseMtlDependencies, findDependencyFiles } from './utils/objDependencyParser';
 import { clearUriCache } from './hooks/useWebviewUri';
 import { beginImageLoadTracking, waitForTrackedImages } from './utils/imageLoadTracker';
+import { getCanvasCoordinates, getEffectiveZoom } from './utils/canvasCoordinates';
 import { setLocale, t } from './i18n';
 import './App.css';
 
@@ -854,10 +855,7 @@ const App: React.FC = () => {
   const findDropTarget = (e: React.DragEvent): Component | null => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const state = useDesignerStore.getState();
-    // 使用 effectiveZoom 以匹配画布的 transform scale
-    const effectiveZoom = state.zoom / (window.devicePixelRatio || 1);
-    const x = Math.round((e.clientX - rect.left - state.canvasOffset.x) / effectiveZoom);
-    const y = Math.round((e.clientY - rect.top - state.canvasOffset.y) / effectiveZoom);
+    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY, rect, state.zoom, state.canvasOffset);
 
     return findComponentAtPosition(x, y, state.components);
   };
@@ -865,10 +863,7 @@ const App: React.FC = () => {
   const handleImageFileDrop = async (e: React.DragEvent, files: FileList, createComponent: boolean = true) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const state = useDesignerStore.getState();
-    // 使用 effectiveZoom 以匹配画布的 transform scale
-    const effectiveZoom = state.zoom / (window.devicePixelRatio || 1);
-    const x = Math.round((e.clientX - rect.left - state.canvasOffset.x) / effectiveZoom);
-    const y = Math.round((e.clientY - rect.top - state.canvasOffset.y) / effectiveZoom);
+    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY, rect, state.zoom, state.canvasOffset);
 
     let targetContainer: Component | null = null;
 
@@ -905,10 +900,7 @@ const App: React.FC = () => {
   const handleModelFileDrop = async (e: React.DragEvent, files: FileList) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const state = useDesignerStore.getState();
-    // 使用 effectiveZoom 以匹配画布的 transform scale
-    const effectiveZoom = state.zoom / (window.devicePixelRatio || 1);
-    const x = Math.round((e.clientX - rect.left - state.canvasOffset.x) / effectiveZoom);
-    const y = Math.round((e.clientY - rect.top - state.canvasOffset.y) / effectiveZoom);
+    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY, rect, state.zoom, state.canvasOffset);
 
     const targetContainer = findDropTarget(e);
     if (!targetContainer) {
@@ -1237,13 +1229,9 @@ const App: React.FC = () => {
       if (!canvasRect) return;
 
       const state = useDesignerStore.getState();
-      
-      // 使用 effectiveZoom 以匹配画布的 transform scale
-      const effectiveZoom = state.zoom / (window.devicePixelRatio || 1);
-      
+
       // 将鼠标坐标转换为画布坐标系（考虑 canvasOffset 和 effectiveZoom）
-      const x = (e.clientX - canvasRect.left - state.canvasOffset.x) / effectiveZoom;
-      const y = (e.clientY - canvasRect.top - state.canvasOffset.y) / effectiveZoom;
+      const { x, y } = getCanvasCoordinates(e.clientX, e.clientY, canvasRect, state.zoom, state.canvasOffset, false);
 
       const api = useDesignerStore.getState().vscodeAPI;
       if (api) {
@@ -1385,14 +1373,11 @@ const App: React.FC = () => {
     if (!canvasRect) return;
 
     const state = useDesignerStore.getState();
-    
-    // 使用 effectiveZoom 以匹配画布的 transform scale
-    const effectiveZoom = state.zoom / (window.devicePixelRatio || 1);
-    
+    const effectiveZoom = getEffectiveZoom(state.zoom);
+
     // 将鼠标坐标转换为画布坐标系
     // 注意：不能用 Math.max(0, ...) 截断，因为画布可能被拖动到负坐标区域
-    const x = Math.round((e.clientX - canvasRect.left - state.canvasOffset.x) / effectiveZoom);
-    const y = Math.round((e.clientY - canvasRect.top - state.canvasOffset.y) / effectiveZoom);
+    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY, canvasRect, state.zoom, state.canvasOffset, true);
 
     if (DEBUG_DROP) {
       console.log(`[拖放] ========== 坐标计算 ==========`);
