@@ -29,7 +29,7 @@ import type { I18nCatalog } from '../project-i18n/types';
  * │10. switchView 悬空目标   - target 未匹配 ui/ 内任何 view id/name        │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
- * 验证依据：/docs/HML-Spec.md
+ * 验证依据：/vibe-designer/skills/honeygui-designer/references/hml-spec.md
  *
  * 返回结果：
  * - valid: boolean           - 是否通过验证

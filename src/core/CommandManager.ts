@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { logger } from '../utils/Logger';
 import { DesignerPanel } from '../designer/DesignerPanel';
-import { DesignerPanelFactory } from '../designer/DesignerPanelFactory';
 import { CreateProjectPanel } from '../designer/CreateProjectPanel';
 import { ToolsPanel } from '../tools/ToolsPanel';
 import * as path from 'path';
@@ -197,15 +196,12 @@ export class CommandManager {
         this.registerCommand('honeygui.codegen', async () => {
             try {
                 logger.info('执行命令: honeygui.codegen');
-                const panel = (DesignerPanel as any).currentPanel as DesignerPanel | undefined;
+                const panel = DesignerPanel.currentPanel;
                 if (!panel) {
                     vscode.window.showWarningMessage(vscode.l10n.t('Please open HoneyGUI designer first'));
                     return;
                 }
-                // 读取用户配置中的语言选项
-                const config = vscode.workspace.getConfiguration('honeygui.codegen');
-                const language = (config.get<string>('language', 'cpp') as 'cpp' | 'c');
-                await (panel as any).generateCode(language);
+                await panel.generateCode();
             } catch (error) {
                 logger.error(`代码生成失败: ${error instanceof Error ? error.message : String(error)}`);
                 vscode.window.showErrorMessage(vscode.l10n.t('Code generation failed: {0}', error instanceof Error ? error.message : vscode.l10n.t('Unknown error')));

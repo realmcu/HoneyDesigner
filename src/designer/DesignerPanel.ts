@@ -9,7 +9,6 @@ import { FileManager } from './FileManager';
 import { MessageHandler } from './MessageHandler';
 import { CodeGenOptions } from '../codegen/ICodeGenerator';
 import { WebviewContentProvider } from './WebviewContentProvider';
-import { DesignerService } from './DesignerService';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
@@ -29,8 +28,6 @@ export class DesignerPanel {
      * 注：同一文件被分屏打开成多个自定义编辑器时后注册者覆盖前者（记录最近一个）。
      */
     private static panelRegistry: Map<string, DesignerPanel> = new Map();
-    public static readonly viewType = 'honeyguiDesigner';
-
     /** 本面板当前在 panelRegistry 中占用的键（规范化路径），无文件时为 undefined */
     private _registeredPathKey: string | undefined;
 
@@ -122,13 +119,6 @@ export class DesignerPanel {
     }
 
     /**
-     * 显示面板
-     */
-    public reveal(column?: vscode.ViewColumn): void {
-        this._panel.reveal(column);
-    }
-
-    /**
      * 从 TextDocument 构造（用于 CustomTextEditorProvider）
      */
     public constructor(
@@ -143,7 +133,7 @@ export class DesignerPanel {
         
         // Initialize Core Controllers - each panel gets its own HmlController
         // to support multiple files being edited simultaneously
-        this._hmlController = DesignerService.getInstance().createHmlController();
+        this._hmlController = new HmlController();
         this._saveManager = new SaveManager(this._hmlController);
         
         // Initialize Managers

@@ -100,14 +100,6 @@ export class VideoConverterService {
     }
 
     /**
-     * 检查是否需要 FFmpeg 预处理（仅裁剪；缩放由库处理）
-     * @deprecated 裁剪现已通过 preprocess 管道由库统一处理
-     */
-    private needsPreprocessing(_options: VideoConvertOptions): boolean {
-        return false;
-    }
-
-    /**
      * 将服务格式映射到转换器格式
      */
     private mapFormat(format: 'mjpeg' | 'avi' | 'h264' | 'avi_msv1' | 'avi_cinepak'): OutputFormat {

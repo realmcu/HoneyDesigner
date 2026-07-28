@@ -110,7 +110,7 @@ HmlEditorProvider.resolveCustomTextEditor()
 1. 在 `ComponentLibrary.tsx` 的 `componentDefinitions` 添加定义
 2. 在 `HoneyGuiCCodeGenerator.ts` 添加代码生成逻辑
 3. 更新 `ComponentType` 类型定义
-4. **同步更新 `docs/HML-Spec.md`**：添加新组件的属性表和说明
+4. **同步更新 HML 规范**：以 `vibe-designer/skills/honeygui-designer/references/hml-spec.md` 为英文唯一规范源，并同步维护中文镜像 `docs/HML-Spec-zh.md`
 
 ### 新增或修改控件属性
 - 属性面板采用统一的分类层级体系（基本信息、布局、状态、内容、字体、样式、变换、渲染、交互、行为、高级），新增属性应优先归入已有分组，仅在用户明确要求且理由充分时才可新增分组
@@ -161,8 +161,8 @@ HmlEditorProvider.resolveCustomTextEditor()
    - 考虑整理软件框架
    - Review 是否存在冗余代码
 6. **HML 规范文档同步**：
-   - 当 HML spec 发生变动（新增组件、新增/修改属性、新增事件类型、修改嵌套规则等）时，必须同步更新 `docs/HML-Spec.md`
-   - 该文档是 AI agent 生成 HML 的唯一参考，保持其准确性至关重要
+   - 当 HML spec 发生变动（新增组件、新增/修改属性、新增事件类型、修改嵌套规则等）时，必须更新 `vibe-designer/skills/honeygui-designer/references/hml-spec.md`，并同步更新 `docs/HML-Spec-zh.md`
+   - 英文 skill 规范是 AI agent 生成 HML 的唯一规范源；中文文件是面向中文开发者的同步镜像
 7. **执行环境**：只在 CMD 环境下执行命令，不要在 PowerShell 环境下执行
 8. **代码提交**：
    - 默认情况下，只修改代码，不执行 git 操作

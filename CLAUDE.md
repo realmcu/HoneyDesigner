@@ -1,101 +1,95 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file supplements `AGENTS.md` for Claude Code. Read `AGENTS.md` first; it is the authoritative source for repository workflow, release rules, i18n requirements, and safety constraints.
 
-## Build and Development Commands
+## Build Commands
 
-- **Install Dependencies**: `npm install`
-- **Build Extension**: `npm run compile` (Output: `out/`)
-- **Build Webview**: `npm run build:webview` (Production) or `npm run build:webview:dev` (Development)
-- **Watch Extension**: `npm run watch` (Compiles TS on change)
-- **Watch Webview**: `npm run watch:webview` (Rebuilds Webpack on change)
-- **Lint**: `npm run lint` (ESLint)
-- **Run Tests**: `npm run test` (Template tests only)
-- **Package Extension**: `npm run package` (Builds everything and creates .vsix)
-- **Clean**: `npm run clean`
-- **Full Rebuild**: After code changes, run `npm run compile && npm run build:webview`
+- Install: `npm install`
+- Compile extension: `npm run compile`
+- Build webview: `npm run build:webview`
+- Watch extension: `npm run watch`
+- Watch webview: `npm run watch:webview`
+- Lint: `npm run lint`
+- Unit tests: `npm run test`
+- Extension E2E tests: `npm run test:e2e`
+- Performance tests: `npm run test:perf`
+- Template tests: `npm run test:templates`
+- Full required build after code changes: `npm run compile && npm run build:webview`
 
-## Architecture and Structure
+Run project commands through CMD on Windows. Do not use PowerShell-specific command syntax.
 
-This project is a VS Code extension ("HoneyGUI Visual Designer") for embedded GUI development.
+## Current Architecture
 
-### Core Components
-- **Extension Host** (`src/`): Runs in VS Code's Node.js process.
-  - **Entry Point**: `src/extension.ts` initializes `ExtensionManager`.
-  - **Core Logic**: `src/core/` manages extension lifecycle and providers.
-    - `ExtensionManager`: Coordinates all extension subsystems (commands, HML editor, environment checks, simulation).
-    - `CommandManager`: Registers all VSCode commands for the extension.
-  - **HML Handling**: `src/hml/` parses and processes the `.hml` (HoneyGUI Markup Language) files.
-    - `HmlParser`: Converts HML (XML-like) to component objects.
-    - `HmlSerializer`: Converts component objects back to HML.
-    - `HmlEditorProvider`: Custom editor provider for `.hml` files.
-  - **Code Generation**: `src/codegen/` generates C code from the design.
-    - `honeygui/`: Main code generator with component-specific generators and event handlers.
-    - Uses "protected areas" (`/* @protected start ... */`) to preserve user code across regeneration.
-    - Generated files per HML: `{name}_ui.c`, `{name}_ui.h`, `{name}_callbacks.c/h` (protected), `{name}_user.c/h` (user code).
-    - `EntryFileGenerator`: Creates project entry point that initializes all screens.
-  - **Simulation**: `src/simulation/` handles the compile-run-debug cycle for embedded simulation.
-    - `BuildCore`: Platform-independent build logic.
-    - `BuildManager`: VSCode-integrated build with terminal output.
-    - `SimulationRunner`: Executes compiled binaries in VSCode terminal.
-    - `EnvironmentChecker`: Validates Python, SCons, and toolchain setup.
-  - **Tools**: `src/tools/` contains resource converters (images, fonts, 3D models, videos).
-  - **Services**: `src/services/` provides high-level services.
-    - `CodeGenerationService`: Orchestrates C code generation from HML files.
-    - Converter services: `ImageConverterService`, `FontConverterService`, `VideoConverterService`, `Model3DConverterService`, `GlassConverterService`.
-    - `UartDownloadService`: Handles UART-based firmware downloads.
-  - **Designer**: `src/designer/` manages the webview panel lifecycle.
-    - `DesignerPanel`: Individual webview panel instance.
-    - `DesignerPanelFactory`: Singleton pattern to create/reuse panels.
-    - `MessageHandler`: Routes messages between extension and webview.
-    - `SaveManager`: Manages save transactions and conflict resolution.
-  - **Templates**: `src/template/` contains project scaffolding.
-    - `ProjectTemplate`: Generates new projects from templates with `project.json` configuration.
+HoneyGUI Design is an offline-first VS Code extension with a React webview. It edits HML files, converts assets, generates C for HoneyGUI or LVGL, and runs PC simulation builds.
 
-### Webview Designer
-- **Location**: `src/webview/`
-- **Tech Stack**: React 19, TypeScript, Zustand (State Management), Fabric.js (Canvas), Three.js (3D).
-- **Build**: Built with Webpack into `out/designer/webview`.
-- **Entry**: `src/webview/index.tsx`.
-- **Communication**: Uses `vscode.postMessage` and window event listeners to exchange data with the Extension Host.
-- **State Management**: Zustand store in `store.ts` handles components, selection, undo/redo (50 steps), canvas state.
-- **Key Features**:
-  - Drag-and-drop component library.
-  - Canvas with zoom/pan (using Fabric.js).
-  - Component tree with hierarchy management.
-  - Properties panel with component-specific editors.
-  - Asset manager for images, fonts, videos, 3D models.
-  - Undo/redo using command pattern.
+### Extension Host
 
-### Key Directories
-- `src/`: Source code for extension and webview.
-- `out/`: Compiled output (JS files).
-- `resources/`: Icons and static assets.
-- `l10n/`: Localization files (i18n).
-- `scripts/`: Build and utility scripts.
-- `test/`: Test files (primarily template tests).
-- `lib/sim/`: Simulation libraries for different platforms.
-- `docs/`: Architecture and feature documentation (Chinese).
+- `src/extension.ts`: activation and deactivation; starts `ExtensionManager` and the local extension HTTP API.
+- `src/core/ExtensionManager.ts`: registers commands, views, the HML custom editor, simulation, UART download, and project assets.
+- `src/hml/HmlEditorProvider.ts`: creates one `DesignerPanel` per open HML document and watches editor and disk changes.
+- `src/designer/DesignerPanel.ts`: assembles the panel-scoped controllers and managers.
+- `src/designer/FileManager.ts`: loads, serializes, saves, reloads, and snapshots HML content.
+- `src/designer/MessageHandler.ts`: handles messages sent by the webview.
+- `src/hml/HmlController.ts`: owns the parsed HML document and delegates parsing and serialization.
 
-## Project Structure (User Projects)
-HoneyGUI projects created by this extension have the following structure:
-- **project.json**: Project configuration (name, resolution, main HML file, assets directory).
-- **ui/**: Contains `.hml` design files.
-- **src/**: Generated C code from HML files (organized by HML name).
-- **assets/**: Images, fonts, videos, 3D models converted to binary format.
-- **build/**: Compilation output (SCons build system).
+The initial load handshake is significant:
+
+```text
+HmlEditorProvider.resolveCustomTextEditor()
+  -> FileManager.loadFromDocument() parses without posting
+  -> webview posts ready
+  -> MessageHandler calls FileManager.reloadCurrentDocument()
+  -> FileManager posts loadHml
+```
+
+Do not send the initial `loadHml` before the webview is ready.
+
+### Webview
+
+- `src/webview/index.tsx`: React entry point.
+- `src/webview/App.tsx`: application layout and host-message dispatch.
+- `src/webview/store.ts`: Zustand state, component operations, dirty tracking, navigation state, and project i18n.
+- `src/webview/components/DesignerCanvas.tsx`: DOM-based component canvas with zoom, pan, drag, resize, and selection.
+- `src/webview/components/widgets/`: component previews.
+- `src/webview/components/properties/`: component property editors.
+
+The main canvas is not Fabric.js based. Three.js is used only where 3D content requires it. Undo and redo requests are sent to the extension host, where `FileManager` manages content snapshots.
+
+### Code Generation And Simulation
+
+- `src/services/CodeGenerator.ts`: parses project HML files and prepares generator options.
+- `src/codegen/CodeGeneratorFactory.ts`: selects `HoneyGuiCCodeGenerator` or `LvglCCodeGenerator` from `project.json.targetEngine`.
+- `src/codegen/honeygui/`: HoneyGUI generators and protected user-code handling.
+- `src/codegen/lvgl/`: LVGL generators, styles, resources, and event generation.
+- `src/simulation/SimulationRunner.ts`: orchestrates generation, conversion, compilation, and execution.
+
+HoneyGUI simulation uses the bundled simulation libraries and SCons toolchain. LVGL simulation uses the `lvgl-pc` CMake project.
+
+## Project Data
+
+- `project.json`: resolution, target engine, main HML file, assets, AI asset distribution, and build options.
+- `ui/`: HML design files.
+- `assets/`: source images, fonts, videos, and 3D models.
+- `src/`: generated C and user-owned source files in generated projects.
+- `i18n/strings.json`: project text catalog when project i18n is enabled.
+
+HML files are the persisted design source. The Zustand store is the in-memory editing state. Saving posts component data to the extension host, which serializes and applies the document edit inside a save transaction.
+
+## Documentation Sources
+
+- Repository rules: `AGENTS.md`
+- Maintainer guide: `docs/开发指南.md`
+- User guide: `docs/功能使用手册.md`
+- AI HML source of truth: `vibe-designer/skills/honeygui-designer/references/hml-spec.md`
+- Chinese HML mirror: `docs/HML-Spec-zh.md`
+
+When the HML schema changes, update both HML specification files. Do not create additional architecture or integration Markdown files; fold durable information into the maintainer guide.
 
 ## Important Constraints
-- **Offline-Only**: This is an offline extension. Do not add features that require internet connectivity.
-- **No PowerShell**: Build commands must work in CMD on Windows (avoid PowerShell-specific syntax).
-- **Chinese Documentation**: Use Chinese for user-facing documentation and comments where appropriate.
-- **Avoid Creating Documentation**: Do not create new .md files unless explicitly required.
-- **HML Spec Sync**: When the HML spec changes (new components, new/modified attributes, new event types, nesting rule changes, etc.), you MUST update `vibe-designer/skills/honeygui-designer/references/hml-spec.md` accordingly. This file is the single source of truth for AI agents generating HML files.
 
-## Style and Conventions
-- **Language**: TypeScript is used for both the extension and the webview.
-- **UI Framework**: React with Hooks for the designer interface.
-- **State Management**: Zustand is used for global state in the React app.
-- **Internationalization**: Uses `vscode.l10n` for the extension and a custom i18n solution (`src/webview/i18n.ts`) for the webview.
-- **Formatting**: Adheres to standard Prettier/ESLint rules defined in the project.
-- **Webpack Configuration**: Code splitting is disabled for webview (VS Code webview URI restrictions). All code is bundled into a single file.
+- Keep the extension offline-first; do not add runtime network dependencies.
+- Never overwrite files under generated project `user/` directories.
+- Preserve generated-code protection markers.
+- Use `vscode.l10n.t()` for extension-host user text.
+- Use `t()` and both locale files under `src/webview/i18n/locales/` for webview user text.
+- Do not publish, push, commit, or modify credentials without explicit user approval.

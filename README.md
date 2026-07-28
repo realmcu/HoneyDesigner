@@ -12,7 +12,6 @@ Visual Embedded GUI Designer | Drag & Drop → Auto-generate C Code → Compile 
 | **Components** | Buttons, labels, images, inputs, progress bars, sliders, video, 3D models |
 | **Code** | HML → C code generation with user code protection |
 | **Simulation** | One-click compile & run, works offline |
-| **Collaboration** | Real-time multi-user editing over LAN |
 | **Resources** | Image/font/video/3D model converters |
 
 ## Installation

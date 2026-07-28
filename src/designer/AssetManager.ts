@@ -2169,57 +2169,6 @@ export class AssetManager extends EventEmitter {
     }
 
     /**
-     * 获取视频尺寸（同步版本，用于兼容）
-     */
-    private getVideoSize(filePath: string): { width: number; height: number } {
-        try {
-            // 检查文件扩展名
-            const ext = path.extname(filePath).toLowerCase();
-            
-            // 只处理 MP4 格式
-            if (ext !== '.mp4') {
-                logger.info(`[AssetManager] 非 MP4 格式视频，使用默认尺寸: ${ext}`);
-                return { width: 320, height: 240 };
-            }
-
-            // 读取文件
-            const buffer = fs.readFileSync(filePath);
-            const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-
-            // 创建 MP4Box 文件对象
-            const mp4boxfile = MP4Box.createFile();
-            
-            let videoSize = { width: 320, height: 240 };
-
-            // 设置回调
-            mp4boxfile.onReady = (info: any) => {
-                if (info.videoTracks && info.videoTracks.length > 0) {
-                    const track = info.videoTracks[0];
-                    videoSize = {
-                        width: Math.round(track.track_width) || 320,
-                        height: Math.round(track.track_height) || 240
-                    };
-                }
-            };
-
-            mp4boxfile.onError = (e: any) => {
-                logger.warn(`[AssetManager] MP4Box 解析失败: ${e}`);
-            };
-
-            // 添加 buffer（需要添加 fileStart 属性）
-            const mp4Buffer = arrayBuffer as any;
-            mp4Buffer.fileStart = 0;
-            mp4boxfile.appendBuffer(mp4Buffer);
-            mp4boxfile.flush();
-
-            return videoSize;
-        } catch (error) {
-            logger.warn(`[AssetManager] 读取视频尺寸失败: ${error}`);
-            return { width: 320, height: 240 };
-        }
-    }
-
-    /**
      * 处理转换路径为 webview URI 的请求
      */
     public handleConvertPathToWebviewUri(relativePath: string, requestId: string, currentFilePath: string | undefined): void {
