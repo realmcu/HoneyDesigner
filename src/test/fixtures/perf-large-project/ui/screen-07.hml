@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>perf-large 7</title>
+    <project>
+      <name>perf-large</name>
+      <resolution>454X454</resolution>
+      <pixelMode>RGB565</pixelMode>
+    </project>
+  </meta>
+  <view id="view_7">
+    <hg_view id="view_7" x="0" y="0" width="454" height="454">
+      <hg_label id="label_7_01" x="10" y="10" width="82" height="38" text="Item 1" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_02" x="98" y="10" width="82" height="38" text="Item 2" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_03" x="186" y="10" width="82" height="38" text="Item 3" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_04" x="274" y="10" width="82" height="38" text="Item 4" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_05" x="362" y="10" width="82" height="38" text="Item 5" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_06" x="10" y="64" width="82" height="38" text="Item 6" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_07" x="98" y="64" width="82" height="38" text="Item 7" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_08" x="186" y="64" width="82" height="38" text="Item 8" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_09" x="274" y="64" width="82" height="38" text="Item 9" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_10" x="362" y="64" width="82" height="38" text="Item 10" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_11" x="10" y="118" width="82" height="38" text="Item 11" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_12" x="98" y="118" width="82" height="38" text="Item 12" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_13" x="186" y="118" width="82" height="38" text="Item 13" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_14" x="274" y="118" width="82" height="38" text="Item 14" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_15" x="362" y="118" width="82" height="38" text="Item 15" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_16" x="10" y="172" width="82" height="38" text="Item 16" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_17" x="98" y="172" width="82" height="38" text="Item 17" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_18" x="186" y="172" width="82" height="38" text="Item 18" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_19" x="274" y="172" width="82" height="38" text="Item 19" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_20" x="362" y="172" width="82" height="38" text="Item 20" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_21" x="10" y="226" width="82" height="38" text="Item 21" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_22" x="98" y="226" width="82" height="38" text="Item 22" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_23" x="186" y="226" width="82" height="38" text="Item 23" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_24" x="274" y="226" width="82" height="38" text="Item 24" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_25" x="362" y="226" width="82" height="38" text="Item 25" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_26" x="10" y="280" width="82" height="38" text="Item 26" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_27" x="98" y="280" width="82" height="38" text="Item 27" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_28" x="186" y="280" width="82" height="38" text="Item 28" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_29" x="274" y="280" width="82" height="38" text="Item 29" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_7_30" x="362" y="280" width="82" height="38" text="Item 30" fontSize="14" color="#FFFFFF" />
+    </hg_view>
+  </view>
+</hml>

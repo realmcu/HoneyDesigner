@@ -21,6 +21,7 @@ import { composeAiBundle } from './aiContextBundle';
 import { NavLayoutService, NavLayoutMap } from '../services/NavLayoutService';
 import { NavEditService, NavEditHostHooks, NavEditRequest, NavEditResult } from './NavEditService';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
+import { measurePerformance } from './HmlLoadPerformance';
 
 /**
  * 消息处理器 - 负责分发来自Webview的消息
@@ -57,9 +58,14 @@ export class MessageHandler {
         switch (message.command) {
             case 'ready':
                 logger.info('[MessageHandler] 收到前端ready消息');
+                this._fileManager.recordWebviewReady();
                 try {
                     // 立即发送项目配置，避免前端在 loadHml 之前创建组件时 projectConfig 为 null
-                    const projectConfig = ProjectConfigLoader.loadConfig(this._fileManager.currentFilePath);
+                    const projectConfigResult = measurePerformance(() =>
+                        ProjectConfigLoader.loadConfig(this._fileManager.currentFilePath)
+                    );
+                    const projectConfig = projectConfigResult.value;
+                    this._fileManager.recordProjectConfigDuration(projectConfigResult.durationMs);
                     if (projectConfig) {
                         this._panel.webview.postMessage({
                             command: 'updateProjectConfig',
@@ -86,6 +92,15 @@ export class MessageHandler {
                 // webview store 脏状态变化（编辑产生 → true；loadHml 应用完成 → false）。
                 // 宿主按面板缓存，供 DesignerPanel.isFileOpenWithUnsavedChanges 静态查询
                 this._fileManager.setWebviewDirty(message.dirty === true);
+                break;
+
+            case 'canvasReady':
+                if (message.loadId) {
+                    void vscode.commands.executeCommand('_honeygui.perf.canvasReady', {
+                        ...message,
+                        filePath: this._fileManager.currentFilePath,
+                    });
+                }
                 break;
 
             case 'undo':

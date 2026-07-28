@@ -19,6 +19,7 @@ import { handleCreateComponentMessage, createLabelComponentAtPosition } from './
 import { processImageFiles } from './utils/fileUtils';
 import { parseObjDependencies, parseMtlDependencies, findDependencyFiles } from './utils/objDependencyParser';
 import { clearUriCache } from './hooks/useWebviewUri';
+import { beginImageLoadTracking, waitForTrackedImages } from './utils/imageLoadTracker';
 import { setLocale, t } from './i18n';
 import './App.css';
 
@@ -228,6 +229,13 @@ const App: React.FC = () => {
         case 'loadHml':
           // 直接使用store方法，避免闭包问题
           const store = useDesignerStore.getState();
+          const loadReceivedAt = performance.now();
+          if (message.loadId) {
+            const imageComponentIds = (message.components || [])
+              .filter((component: Component) => component.type === 'hg_image' && component.data?.src)
+              .map((component: Component) => component.id);
+            beginImageLoadTracking(message.loadId, imageComponentIds);
+          }
 
           // 切换文件前，确保防抖中的视图状态已写入 localStorage
           store.flushSaveViewState();
@@ -362,6 +370,7 @@ const App: React.FC = () => {
               // 【关键】一次性更新所有状态，只触发一次渲染
               // （宿主推送的内容，components 变化不记为未保存改动）
               applyHostComponents(() => useDesignerStore.setState(batchUpdate));
+              const storeUpdatedAt = performance.now();
 
               // 应用宿主内容后 store 与磁盘同步，复位脏状态并通知宿主
               if (message.components) {
@@ -380,22 +389,56 @@ const App: React.FC = () => {
                 }
               }
               
-              // 【关键】延迟隐藏加载状态，确保渲染完成
-              requestAnimationFrame(() => {
+              if (message.loadId) {
+                // 性能测试等待真实可操作点：首批组件绘制、loading 隐藏和视口适配均完成。
                 requestAnimationFrame(() => {
-                  setIsLoadingFile(false);
+                  requestAnimationFrame(() => {
+                    setIsLoadingFile(false);
+                    requestAnimationFrame(() => {
+                      if (message.components && !hadComponentsBefore) {
+                        store.fitContentToView();
+                      }
+                      requestAnimationFrame(() => {
+                        void (async () => {
+                          const imageWaitStartedAt = performance.now();
+                          const imageResult = await waitForTrackedImages(message.loadId);
+                          const canvasReadyAt = performance.now();
+                          window.vscodeAPI?.postMessage({
+                            command: 'canvasReady',
+                            loadId: message.loadId,
+                            hostStartedAt: message.hostStartedAt,
+                            hostMetrics: message.hostMetrics,
+                            webviewMetrics: {
+                              storeUpdateMs: storeUpdatedAt - loadReceivedAt,
+                              firstRenderMs: imageWaitStartedAt - storeUpdatedAt,
+                              imageWaitMs: canvasReadyAt - imageWaitStartedAt,
+                              imageExpected: imageResult.expected,
+                              imageCompleted: imageResult.completed,
+                              imageFailed: imageResult.failed,
+                              imageTimedOut: imageResult.timedOut,
+                            },
+                          });
+                        })();
+                      });
+                    });
+                  });
                 });
-              });
-              
-              // 首次打开文件时自适应居中显示，保存后刷新不重置视图
-              if (message.components) {
-                if (!hadComponentsBefore) {
-                  console.log('[ViewState] 首次加载，自适应居中显示内容');
-                  setTimeout(() => {
-                    store.fitContentToView();
-                  }, 0);
-                } else {
-                  console.log('[ViewState] 保存后刷新，保持当前视图');
+              } else {
+                // 普通加载保持原有渲染时序，性能探针不改变生产行为。
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    setIsLoadingFile(false);
+                  });
+                });
+                if (message.components) {
+                  if (!hadComponentsBefore) {
+                    console.log('[ViewState] 首次加载，自适应居中显示内容');
+                    setTimeout(() => {
+                      store.fitContentToView();
+                    }, 0);
+                  } else {
+                    console.log('[ViewState] 保存后刷新，保持当前视图');
+                  }
                 }
               }
             } else {

@@ -15,6 +15,9 @@ import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
 import { scanAllViews, scanAllHmlFiles, scanHmlFilesRecursive, buildComponentIndex } from './navGraphScanner';
+import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
+import { measurePerformance } from './HmlLoadPerformance';
+import { performance } from 'perf_hooks';
 
 // 视图跳转边（导航图数据模型）迁至 src/shared/navContract.ts 并改判别联合
 // （评审 I6：control 可编辑 / timer 只读）。此处 re-export 保持既有 import 路径不变。
@@ -47,6 +50,7 @@ export class FileManager {
     private readonly _panel: vscode.WebviewPanel;
     private readonly _hmlController: HmlController;
     private readonly _saveManager: SaveManager;
+    private readonly _performanceContext: HmlLoadPerformanceContext | undefined;
     private _filePath: string | undefined;
     private _lastSerializedSnapshot: string | null = null;
     
@@ -82,10 +86,29 @@ export class FileManager {
     // i18n/strings.json 文件监听器
     private _i18nCatalogWatcher: vscode.FileSystemWatcher | undefined;
 
-    constructor(panel: vscode.WebviewPanel, hmlController: HmlController, saveManager: SaveManager) {
+    constructor(
+        panel: vscode.WebviewPanel,
+        hmlController: HmlController,
+        saveManager: SaveManager,
+        performanceContext?: HmlLoadPerformanceContext
+    ) {
         this._panel = panel;
         this._hmlController = hmlController;
         this._saveManager = saveManager;
+        this._performanceContext = performanceContext;
+    }
+
+    public recordWebviewReady(): void {
+        if (this._performanceContext?.htmlCompletedAt !== undefined) {
+            this._performanceContext.metrics.webviewBootMs =
+                performance.now() - this._performanceContext.htmlCompletedAt;
+        }
+    }
+
+    public recordProjectConfigDuration(durationMs: number): void {
+        if (this._performanceContext) {
+            this._performanceContext.metrics.projectConfigMs = durationMs;
+        }
     }
 
     /**
@@ -628,7 +651,10 @@ export class FileManager {
     /**
      * 扫描项目中所有 HML 文件的组件 ID（排除当前文件），用于跨文件命名去重
      */
-    private async scanAllComponentIds(currentFilePath: string): Promise<string[]> {
+    private async scanAllComponentIds(
+        currentFilePath: string,
+        metrics?: { hmlReads?: number; hmlParses?: number }
+    ): Promise<string[]> {
         const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
         if (!projectRoot) {
             logger.warn('[FileManager] scanAllComponentIds: 未找到项目根目录');
@@ -639,25 +665,22 @@ export class FileManager {
         const hmlFiles = scanHmlFilesRecursive(uiDir, projectRoot);
         const allIds: string[] = [];
         const currentNorm = path.normalize(currentFilePath);
-        
-        logger.info(`[FileManager] scanAllComponentIds: 扫描 ${hmlFiles.length} 个 HML 文件，当前文件: ${path.basename(currentFilePath)}`);
 
         for (const hmlFile of hmlFiles) {
-            // 排除当前正在编辑的文件（当前文件的组件已在前端 components 中）
             if (path.normalize(hmlFile.path) === currentNorm) {
-                logger.debug(`[FileManager] scanAllComponentIds: 跳过当前文件 ${hmlFile.name}`);
                 continue;
             }
             try {
                 const tempController = new HmlController();
                 const doc = await tempController.loadFile(hmlFile.path);
-                if (doc.view && doc.view.components) {
-                    for (const comp of doc.view.components) {
-                        if (comp.id) {
-                            allIds.push(comp.id);
-                        }
+                if (metrics) {
+                    metrics.hmlReads = (metrics.hmlReads || 0) + 1;
+                    metrics.hmlParses = (metrics.hmlParses || 0) + 1;
+                }
+                for (const comp of doc.view?.components || []) {
+                    if (comp.id) {
+                        allIds.push(comp.id);
                     }
-                    logger.debug(`[FileManager] scanAllComponentIds: ${hmlFile.name} 包含 ${doc.view.components.length} 个组件`);
                 }
             } catch (err) {
                 logger.warn(`扫描组件ID ${hmlFile.path} 失败: ${err}`);
@@ -666,7 +689,7 @@ export class FileManager {
 
         return allIds;
     }
-    
+
     /**
      * 创建新的空白文档
      */
@@ -728,6 +751,7 @@ export class FileManager {
         logger.info(`[FileManager] loadFromDocument: 开始加载文件 ${this._filePath}`);
 
         try {
+            const currentParseStartedAt = performance.now();
             let content = document.getText();
 
             // 防御性检查：如果内容为空或缺少 <hml> 根元素，尝试从磁盘重新读取
@@ -735,9 +759,18 @@ export class FileManager {
                 logger.warn(`[FileManager] TextDocument 内容异常（长度=${content.length}），尝试从磁盘重新读取`);
                 const fs = require('fs');
                 for (let retry = 0; retry < 3; retry++) {
-                    await new Promise(resolve => setTimeout(resolve, 300 * (retry + 1)));
+                    const waitMs = 300 * (retry + 1);
+                    await new Promise(resolve => setTimeout(resolve, waitMs));
+                    if (this._performanceContext) {
+                        this._performanceContext.metrics.retryWaitMs =
+                            (this._performanceContext.metrics.retryWaitMs || 0) + waitMs;
+                    }
                     try {
                         const diskContent = fs.readFileSync(this._filePath, 'utf-8');
+                        if (this._performanceContext) {
+                            this._performanceContext.metrics.hmlReads =
+                                (this._performanceContext.metrics.hmlReads || 0) + 1;
+                        }
                         if (diskContent && diskContent.includes('<hml')) {
                             logger.info(`[FileManager] 磁盘读取成功（重试 ${retry + 1} 次），内容长度=${diskContent.length}`);
                             content = diskContent;
@@ -753,11 +786,26 @@ export class FileManager {
             // 解析文档内容（必须传文件路径：无 id 组件的 fallback id 以 basename 为种子，
             // 不传则设计器画布拿到无种子 id（hg_view_auto_0），保存即永久落盘且跨文件撞车，
             // 与 scanAllViews/codegen 对同一文件解析出的带种子 id 不一致）
-            const hmlDocument = this._hmlController.parseContent(content, this._filePath);
+            const parseResult = measurePerformance(() =>
+                this._hmlController.parseContent(content, this._filePath)
+            );
+            const hmlDocument = parseResult.value;
+            if (this._performanceContext) {
+                this._performanceContext.metrics.hmlParses =
+                    (this._performanceContext.metrics.hmlParses || 0) + 1;
+            }
             logger.info(`[FileManager] 解析完成，获得 ${hmlDocument.view?.components?.length || 0} 个组件`);
 
             // 为前端准备组件数据（预处理，等待 ready 消息后发送）
-            const frontendComponents = this._hmlController.prepareComponentsForFrontend(hmlDocument);
+            const prepareResult = measurePerformance(() =>
+                this._hmlController.prepareComponentsForFrontend(hmlDocument)
+            );
+            const frontendComponents = prepareResult.value;
+            if (this._performanceContext) {
+                this._performanceContext.metrics.prepareFrontendCalls =
+                    (this._performanceContext.metrics.prepareFrontendCalls || 0) + 1;
+                this._performanceContext.metrics.currentParseMs = performance.now() - currentParseStartedAt;
+            }
             logger.info(`[FileManager] 前端组件数据准备完成，共 ${frontendComponents.length} 个组件`);
 
             // 不立即发送，等待前端 ready 消息后由 reloadCurrentDocument 发送
@@ -930,9 +978,21 @@ export class FileManager {
      * 自动扫描并包含所有 view 列表和所有 HML 文件列表
      */
     private async sendLoadHmlMessage(hmlDocument: any, hmlContent: string): Promise<void> {
+        const loadPrepareStartedAt = performance.now();
         const frontendComponents = this._hmlController.prepareComponentsForFrontend(hmlDocument);
+        if (this._performanceContext) {
+            this._performanceContext.metrics.prepareFrontendCalls =
+                (this._performanceContext.metrics.prepareFrontendCalls || 0) + 1;
+        }
 
-        const projectConfig = ProjectConfigLoader.loadConfig(this._filePath!);
+        const projectConfigResult = measurePerformance(() =>
+            ProjectConfigLoader.loadConfig(this._filePath!)
+        );
+        const projectConfig = projectConfigResult.value;
+        if (this._performanceContext) {
+            this._performanceContext.metrics.projectConfigMs =
+                (this._performanceContext.metrics.projectConfigMs || 0) + projectConfigResult.durationMs;
+        }
         const designerConfig = ProjectConfigLoader.getDesignerConfig(projectConfig);
 
         // 加载时统一将所有 hg_view 尺寸对齐到当前项目分辨率。
@@ -957,14 +1017,14 @@ export class FileManager {
             ? loadProjectI18nCatalog(projectRoot)
             : createEmptyCatalog('en-US');
         
-        // 扫描所有 view（统一在此处获取）
-        const allViews = await scanAllViews(this._filePath!);
-        
-        // 扫描所有 HML 文件
+        const projectScanStartedAt = performance.now();
+        const scanMetrics = this._performanceContext?.metrics;
+        const allViews = await scanAllViews(this._filePath!, scanMetrics);
         const allHmlFiles = scanAllHmlFiles(this._filePath!);
-        
-        // 扫描其他 HML 文件中的组件 ID（用于跨文件命名去重）
-        const otherFileComponentIds = await this.scanAllComponentIds(this._filePath!);
+        const otherFileComponentIds = await this.scanAllComponentIds(this._filePath!, scanMetrics);
+        if (this._performanceContext) {
+            this._performanceContext.metrics.projectScanMs = performance.now() - projectScanStartedAt;
+        }
         logger.info(`[FileManager] 跨文件组件 ID 数量: ${otherFileComponentIds.length}, IDs: ${otherFileComponentIds.join(', ')}`);
         
         // 获取当前 VSCode 语言设置
@@ -978,8 +1038,15 @@ export class FileManager {
         const targetEngine = projectConfig?.targetEngine || 'honeygui';
         const guiVersion = GuiVersionReader.getVersion(targetEngine);
         
+        if (this._performanceContext) {
+            this._performanceContext.metrics.loadPrepareMs = performance.now() - loadPrepareStartedAt;
+        }
+
         this._panel.webview.postMessage({
             command: 'loadHml',
+            loadId: this._performanceContext?.loadId,
+            hostStartedAt: this._performanceContext?.startedAt,
+            hostMetrics: this._performanceContext?.metrics,
             content: hmlContent,
             document: {
                 ...hmlDocument,

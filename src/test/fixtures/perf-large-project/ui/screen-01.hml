@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <meta>
+    <title>perf-large 1</title>
+    <project>
+      <name>perf-large</name>
+      <resolution>454X454</resolution>
+      <pixelMode>RGB565</pixelMode>
+    </project>
+  </meta>
+  <view id="view_1">
+    <hg_view id="view_1" x="0" y="0" width="454" height="454">
+            <hg_image id="perf_image_01" x="0" y="0" width="454" height="454" blendMode="IMG_BYPASS_MODE" src="assets/bg.png" zIndex="-10" />
+            <hg_image id="perf_image_02" x="10" y="80" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60a.png" zIndex="1" />
+            <hg_image id="perf_image_03" x="98" y="80" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60b.png" zIndex="1" />
+            <hg_image id="perf_image_04" x="186" y="80" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60c.png" zIndex="1" />
+            <hg_image id="perf_image_05" x="274" y="80" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60d.png" zIndex="1" />
+            <hg_image id="perf_image_06" x="362" y="80" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60e.png" zIndex="1" />
+            <hg_image id="perf_image_07" x="10" y="168" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60f.png" zIndex="1" />
+            <hg_image id="perf_image_08" x="98" y="168" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61a.png" zIndex="1" />
+            <hg_image id="perf_image_09" x="186" y="168" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61b.png" zIndex="1" />
+            <hg_image id="perf_image_10" x="274" y="168" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61c.png" zIndex="1" />
+            <hg_image id="perf_image_11" x="362" y="168" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61d.png" zIndex="1" />
+            <hg_image id="perf_image_12" x="10" y="256" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61e.png" zIndex="1" />
+            <hg_image id="perf_image_13" x="98" y="256" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61f.png" zIndex="1" />
+            <hg_image id="perf_image_14" x="186" y="256" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f62a.png" zIndex="1" />
+            <hg_image id="perf_image_15" x="274" y="256" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f62b.png" zIndex="1" />
+            <hg_image id="perf_image_16" x="362" y="256" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f62c.png" zIndex="1" />
+            <hg_image id="perf_image_17" x="10" y="344" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f62d.png" zIndex="1" />
+            <hg_image id="perf_image_18" x="98" y="344" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f62e.png" zIndex="1" />
+            <hg_image id="perf_image_19" x="186" y="344" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f62e_200d_1f4a8.png" zIndex="1" />
+            <hg_image id="perf_image_20" x="274" y="344" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f62f.png" zIndex="1" />
+            <hg_image id="perf_image_21" x="362" y="344" width="72" height="72" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f63a.png" zIndex="1" />
+      <hg_label id="label_1_01" x="10" y="10" width="82" height="38" text="Item 1" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_02" x="98" y="10" width="82" height="38" text="Item 2" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_03" x="186" y="10" width="82" height="38" text="Item 3" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_04" x="274" y="10" width="82" height="38" text="Item 4" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_05" x="362" y="10" width="82" height="38" text="Item 5" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_06" x="10" y="64" width="82" height="38" text="Item 6" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_07" x="98" y="64" width="82" height="38" text="Item 7" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_08" x="186" y="64" width="82" height="38" text="Item 8" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_09" x="274" y="64" width="82" height="38" text="Item 9" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_10" x="362" y="64" width="82" height="38" text="Item 10" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_11" x="10" y="118" width="82" height="38" text="Item 11" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_12" x="98" y="118" width="82" height="38" text="Item 12" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_13" x="186" y="118" width="82" height="38" text="Item 13" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_14" x="274" y="118" width="82" height="38" text="Item 14" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_15" x="362" y="118" width="82" height="38" text="Item 15" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_16" x="10" y="172" width="82" height="38" text="Item 16" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_17" x="98" y="172" width="82" height="38" text="Item 17" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_18" x="186" y="172" width="82" height="38" text="Item 18" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_19" x="274" y="172" width="82" height="38" text="Item 19" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_20" x="362" y="172" width="82" height="38" text="Item 20" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_21" x="10" y="226" width="82" height="38" text="Item 21" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_22" x="98" y="226" width="82" height="38" text="Item 22" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_23" x="186" y="226" width="82" height="38" text="Item 23" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_24" x="274" y="226" width="82" height="38" text="Item 24" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_25" x="362" y="226" width="82" height="38" text="Item 25" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_26" x="10" y="280" width="82" height="38" text="Item 26" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_27" x="98" y="280" width="82" height="38" text="Item 27" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_28" x="186" y="280" width="82" height="38" text="Item 28" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_29" x="274" y="280" width="82" height="38" text="Item 29" fontSize="14" color="#FFFFFF" />
+      <hg_label id="label_1_30" x="362" y="280" width="82" height="38" text="Item 30" fontSize="14" color="#FFFFFF" />
+    </hg_view>
+  </view>
+</hml>

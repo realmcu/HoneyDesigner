@@ -140,8 +140,12 @@ __pycache__/
 
 # Test artifacts
 .vscode-test/
+.perf-results/
 src/test/fixtures/*/build/
 src/test/fixtures/*/src/
+src/test/fixtures/*/.perf/
+src/test/fixtures/*/AGENTS.md
+src/test/fixtures/*/assets/
 
 # 设计器「复制给 AI」的临时截图产物
 .honeygui/ai-context/

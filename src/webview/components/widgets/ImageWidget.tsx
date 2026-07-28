@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { WidgetProps } from './types';
 import { useWebviewUri } from '../../hooks/useWebviewUri';
+import { markImageFailed, markImageReady } from '../../utils/imageLoadTracker';
 
 /**
  * 将 0xFFRRGGBB 格式转换为 CSS rgba 颜色
@@ -151,7 +152,29 @@ function useQuantizedAlphaMask(srcUri: string | undefined, assetFormat: string |
 
 export const ImageWidget: React.FC<WidgetProps> = ({ component, style, handlers }) => {
   const webviewUri = useWebviewUri(component.data?.src);
-  
+
+  useEffect(() => {
+    if (!webviewUri) {
+      return;
+    }
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (!cancelled) {
+        void image.decode().catch(() => {}).finally(() => markImageReady(component.id));
+      }
+    };
+    image.onerror = () => {
+      if (!cancelled) {
+        markImageFailed(component.id);
+      }
+    };
+    image.src = webviewUri;
+    return () => {
+      cancelled = true;
+    };
+  }, [component.id, webviewUri]);
+
   // 检查渲染模式
   const blendMode = component.data?.blendMode;
   const isBypassMode = blendMode === 'IMG_BYPASS_MODE';

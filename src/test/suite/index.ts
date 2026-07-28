@@ -7,7 +7,10 @@ export function run(): Promise<void> {
     const testsRoot = __dirname;
 
     return new Promise((resolve, reject) => {
-        const files = fs.readdirSync(testsRoot).filter(f => f.endsWith('.test.js'));
+        const performanceOnly = process.env.HONEYGUI_PERF_TEST === '1';
+        const files = fs.readdirSync(testsRoot).filter(f =>
+            f.endsWith('.test.js') && (!performanceOnly || f === 'performance.test.js')
+        );
         files.forEach(f => mocha.addFile(path.join(testsRoot, f)));
 
         mocha.run(failures => {

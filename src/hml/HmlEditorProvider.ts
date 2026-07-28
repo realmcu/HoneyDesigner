@@ -3,6 +3,7 @@ import * as path from 'path';
 import { DesignerPanel } from '../designer/DesignerPanel';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { logger } from '../utils/Logger';
+import { createHmlLoadPerformanceContext } from '../designer/HmlLoadPerformance';
 
 /**
  * HML 文件自定义编辑器提供器
@@ -39,7 +40,8 @@ export class HmlEditorProvider implements vscode.CustomTextEditorProvider {
         _token: vscode.CancellationToken
     ): Promise<void> {
         logger.info(`[HmlEditorProvider] resolveCustomTextEditor被调用: ${document.fileName}`);
-        
+        const performanceContext = createHmlLoadPerformanceContext(document.uri.fsPath);
+
         // 计算 localResourceRoots
         const localRoots: vscode.Uri[] = [
             vscode.Uri.joinPath(this.context.extensionUri, 'src', 'designer', 'webview'),
@@ -74,7 +76,7 @@ export class HmlEditorProvider implements vscode.CustomTextEditorProvider {
         logger.debug(`[HmlEditorProvider] 设置面板标题: ${webviewPanel.title}`);
 
         // 创建设计器面板实例
-        const designerPanel = new DesignerPanel(webviewPanel, this.context);
+        const designerPanel = new DesignerPanel(webviewPanel, this.context, undefined, performanceContext);
         logger.debug(`[HmlEditorProvider] 创建DesignerPanel实例`);
 
         // 注册到活动面板集合

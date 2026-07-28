@@ -1,0 +1,12 @@
+{
+  "$schema": "HoneyGUI",
+  "type": "Designer",
+  "name": "perf-large",
+  "version": "1.0.0",
+  "resolution": "454X454",
+  "pixelMode": "RGB565",
+  "targetEngine": "honeygui",
+  "assetsDir": "assets",
+  "uiDir": "ui",
+  "srcDir": "src"
+}

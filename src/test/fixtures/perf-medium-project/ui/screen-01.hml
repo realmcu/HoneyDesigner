@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+    <meta>
+        <project name="perf-medium" resolution="454X454" pixelMode="RGB565" />
+    </meta>
+    <view>
+        <hg_view id="view_1" x="0" y="0" width="454" height="454" zIndex="0">
+            <hg_image id="perf_image_01" x="0" y="0" width="454" height="454" blendMode="IMG_BYPASS_MODE" src="assets/bg.png" zIndex="-10" />
+            <hg_image id="perf_image_02" x="20" y="200" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60a.png" zIndex="1" />
+            <hg_image id="perf_image_03" x="105" y="200" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60b.png" zIndex="1" />
+            <hg_image id="perf_image_04" x="190" y="200" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60c.png" zIndex="1" />
+            <hg_image id="perf_image_05" x="275" y="200" width="128" height="128" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60d.png" zIndex="1" />
+            <hg_image id="perf_image_06" x="360" y="200" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60e.png" zIndex="1" />
+            <hg_image id="perf_image_07" x="20" y="285" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60f.png" zIndex="1" />
+            <hg_image id="perf_image_08" x="105" y="285" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61a.png" zIndex="1" />
+            <hg_image id="perf_image_09" x="190" y="285" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61b.png" zIndex="1" />
+            <hg_image id="perf_image_10" x="275" y="285" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61c.png" zIndex="1" />
+            <hg_image id="perf_image_11" x="360" y="285" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f61d.png" zIndex="1" />
+            <hg_label id="label_1_01" x="10" y="10" width="82" height="38" color="#FFFFFF" text="Item 1" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_02" x="98" y="10" width="82" height="38" color="#FFFFFF" text="Item 2" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_03" x="186" y="10" width="82" height="38" color="#FFFFFF" text="Item 3" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_04" x="274" y="10" width="82" height="38" color="#FFFFFF" text="Item 4" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_05" x="362" y="10" width="82" height="38" color="#FFFFFF" text="Item 5" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_06" x="10" y="64" width="82" height="38" color="#FFFFFF" text="Item 6" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_07" x="98" y="64" width="82" height="38" color="#FFFFFF" text="Item 7" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_08" x="186" y="64" width="82" height="38" color="#FFFFFF" text="Item 8" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_09" x="274" y="64" width="82" height="38" color="#FFFFFF" text="Item 9" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_10" x="362" y="64" width="82" height="38" color="#FFFFFF" text="Item 10" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_11" x="10" y="118" width="82" height="38" color="#FFFFFF" text="Item 11" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_12" x="98" y="118" width="82" height="38" color="#FFFFFF" text="Item 12" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_13" x="186" y="118" width="82" height="38" color="#FFFFFF" text="Item 13" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_14" x="274" y="118" width="82" height="38" color="#FFFFFF" text="Item 14" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_15" x="362" y="118" width="82" height="38" color="#FFFFFF" text="Item 15" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_16" x="10" y="172" width="82" height="38" color="#FFFFFF" text="Item 16" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_17" x="98" y="172" width="82" height="38" color="#FFFFFF" text="Item 17" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_18" x="186" y="172" width="82" height="38" color="#FFFFFF" text="Item 18" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_19" x="274" y="172" width="82" height="38" color="#FFFFFF" text="Item 19" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_20" x="362" y="172" width="82" height="38" color="#FFFFFF" text="Item 20" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_21" x="10" y="226" width="82" height="38" color="#FFFFFF" text="Item 21" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_22" x="98" y="226" width="82" height="38" color="#FFFFFF" text="Item 22" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_23" x="186" y="226" width="82" height="38" color="#FFFFFF" text="Item 23" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_24" x="274" y="226" width="82" height="38" color="#FFFFFF" text="Item 24" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_25" x="362" y="226" width="82" height="38" color="#FFFFFF" text="Item 25" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_26" x="10" y="280" width="82" height="38" color="#FFFFFF" text="Item 26" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_27" x="98" y="280" width="82" height="38" color="#FFFFFF" text="Item 27" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_28" x="186" y="280" width="82" height="38" color="#FFFFFF" text="Item 28" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_29" x="274" y="280" width="82" height="38" color="#FFFFFF" text="Item 29" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_30" x="362" y="280" width="82" height="38" color="#FFFFFF" text="Item 30" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_31" x="10" y="334" width="82" height="38" color="#FFFFFF" text="Item 31" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_32" x="98" y="334" width="82" height="38" color="#FFFFFF" text="Item 32" fontSize="14" zIndex="0" />
+            <hg_label id="label_1_33" x="186" y="334" width="82" height="38" color="#FFFFFF" text="Item 33" fontSize="14" zIndex="0" />
+        </hg_view>
+    </view>
+</hml>

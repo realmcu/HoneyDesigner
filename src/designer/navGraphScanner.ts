@@ -96,7 +96,10 @@ export function scanAllHmlFiles(
  * 收集自身 + 后代控件（含定时器）的 switchView 边；
  * 遇嵌套 hg_view 剪枝——子屏的边归子屏节点。
  */
-export async function scanAllViews(currentFilePath: string): Promise<ViewNavNode[]> {
+export async function scanAllViews(
+    currentFilePath: string,
+    metrics?: { hmlReads?: number; hmlParses?: number }
+): Promise<ViewNavNode[]> {
     const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
     if (!projectRoot) {
         return [];
@@ -118,6 +121,9 @@ export async function scanAllViews(currentFilePath: string): Promise<ViewNavNode
     for (const hmlFile of hmlFiles) {
         try {
             const content = fs.readFileSync(hmlFile.path, 'utf-8');
+            if (metrics) {
+                metrics.hmlReads = (metrics.hmlReads || 0) + 1;
+            }
             const fileMtime = fs.statSync(hmlFile.path).mtimeMs;
             const fileHash = crypto.createHash('sha1').update(content, 'utf8').digest('hex');
             const fileRelative = hmlFile.relativePath.replace(/\\/g, '/');
@@ -126,6 +132,9 @@ export async function scanAllViews(currentFilePath: string): Promise<ViewNavNode
 
             const tempController = new HmlController();
             const doc = tempController.parseContent(content, hmlFile.path);
+            if (metrics) {
+                metrics.hmlParses = (metrics.hmlParses || 0) + 1;
+            }
             const components: Component[] = doc.view?.components || [];
 
             // 扁平模型 → id→component 与 parent→children[] 索引（T9 getViewControls 复用）

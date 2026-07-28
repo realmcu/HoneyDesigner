@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+    <meta>
+        <project name="perf-small" resolution="454X454" pixelMode="RGB565" />
+    </meta>
+    <view>
+        <hg_view id="view_main" x="0" y="0" width="454" height="454" backgroundColor="#000000" zIndex="0">
+            <hg_image id="perf_image_01" x="0" y="0" width="454" height="454" blendMode="IMG_BYPASS_MODE" src="assets/bg.png" zIndex="-10" />
+            <hg_image id="perf_image_02" x="80" y="180" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60a.png" zIndex="1" />
+            <hg_image id="perf_image_03" x="195" y="180" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60b.png" zIndex="1" />
+            <hg_image id="perf_image_04" x="310" y="180" width="64" height="64" blendMode="IMG_BYPASS_MODE" src="assets/emoji_u1f60c.png" zIndex="1" />
+            <hg_label id="title" x="117" y="24" width="220" height="36" color="#FFFFFF" text="Performance" fontSize="24" zIndex="0" />
+            <hg_label id="time" x="127" y="78" width="200" height="64" color="#FFFFFF" text="10:08" fontSize="48" zIndex="0" />
+            <hg_label id="date" x="137" y="148" width="180" height="28" color="#A0A0A0" text="MON 27" fontSize="18" zIndex="0" />
+            <hg_button id="action_01" x="42" y="210" width="105" height="48" text="Start" zIndex="0" />
+            <hg_button id="action_02" x="174" y="210" width="105" height="48" text="Pause" zIndex="0" />
+            <hg_button id="action_03" x="306" y="210" width="105" height="48" text="Reset" zIndex="0" />
+            <hg_label id="stat_01" x="42" y="285" width="105" height="28" color="#A0A0A0" text="Steps" fontSize="16" zIndex="0" />
+            <hg_label id="value_01" x="42" y="318" width="105" height="34" color="#FFFFFF" text="8240" fontSize="24" zIndex="0" />
+            <hg_label id="stat_02" x="174" y="285" width="105" height="28" color="#A0A0A0" text="Heart" fontSize="16" zIndex="0" />
+            <hg_label id="value_02" x="174" y="318" width="105" height="34" color="#FFFFFF" text="72" fontSize="24" zIndex="0" />
+            <hg_label id="stat_03" x="306" y="285" width="105" height="28" color="#A0A0A0" text="Energy" fontSize="16" zIndex="0" />
+            <hg_label id="value_03" x="306" y="318" width="105" height="34" color="#FFFFFF" text="460" fontSize="24" zIndex="0" />
+            <hg_button id="footer_01" x="42" y="378" width="76" height="42" text="One" zIndex="0" />
+            <hg_button id="footer_02" x="140" y="378" width="76" height="42" text="Two" zIndex="0" />
+            <hg_button id="footer_03" x="238" y="378" width="76" height="42" text="Three" zIndex="0" />
+            <hg_button id="footer_04" x="336" y="378" width="76" height="42" text="Four" zIndex="0" />
+            <hg_label id="marker_01" x="25" y="80" width="50" height="24" color="#00BFA5" text="01" fontSize="14" zIndex="0" />
+            <hg_label id="marker_02" x="379" y="80" width="50" height="24" color="#00BFA5" text="02" fontSize="14" zIndex="0" />
+            <hg_label id="marker_03" x="25" y="150" width="50" height="24" color="#00BFA5" text="03" fontSize="14" zIndex="0" />
+            <hg_label id="marker_04" x="379" y="150" width="50" height="24" color="#00BFA5" text="04" fontSize="14" zIndex="0" />
+            <hg_label id="marker_05" x="25" y="350" width="50" height="24" color="#00BFA5" text="05" fontSize="14" zIndex="0" />
+            <hg_label id="marker_06" x="379" y="350" width="50" height="24" color="#00BFA5" text="06" fontSize="14" zIndex="0" />
+            <hg_button id="corner_01" x="10" y="10" width="30" height="30" text="A" zIndex="0" />
+            <hg_button id="corner_02" x="414" y="10" width="30" height="30" text="B" zIndex="0" />
+            <hg_button id="corner_03" x="10" y="414" width="30" height="30" text="C" zIndex="0" />
+            <hg_button id="corner_04" x="414" y="414" width="30" height="30" text="D" zIndex="0" />
+        </hg_view>
+    </view>
+</hml>

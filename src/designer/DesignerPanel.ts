@@ -13,6 +13,8 @@ import { DesignerService } from './DesignerService';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
+import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
+import { performance } from 'perf_hooks';
 
 /**
  * 设计器Webview面板管理类
@@ -129,7 +131,12 @@ export class DesignerPanel {
     /**
      * 从 TextDocument 构造（用于 CustomTextEditorProvider）
      */
-    public constructor(panel: vscode.WebviewPanel, context: vscode.ExtensionContext, document?: vscode.TextDocument) {
+    public constructor(
+        panel: vscode.WebviewPanel,
+        context: vscode.ExtensionContext,
+        document?: vscode.TextDocument,
+        performanceContext?: HmlLoadPerformanceContext
+    ) {
         this._panel = panel;
         this._extensionUri = context.extensionUri;
         this._context = context;
@@ -143,7 +150,7 @@ export class DesignerPanel {
         this._assetManager = new AssetManager(panel);
         this._codeGenerator = new CodeGenerator();
         this._componentManager = new ComponentManager(panel, this._hmlController);
-        this._fileManager = new FileManager(panel, this._hmlController, this._saveManager);
+        this._fileManager = new FileManager(panel, this._hmlController, this._saveManager, performanceContext);
         
         // Initialize Message Handler
         this._messageHandler = new MessageHandler(
@@ -174,7 +181,12 @@ export class DesignerPanel {
         });
 
         // 设置Webview内容
+        const htmlStartedAt = performance.now();
         this._update();
+        if (performanceContext) {
+            performanceContext.metrics.htmlMs = performance.now() - htmlStartedAt;
+            performanceContext.htmlCompletedAt = performance.now();
+        }
 
         // 处理面板关闭事件
         this._panel.onDidDispose(() => {

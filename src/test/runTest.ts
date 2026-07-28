@@ -9,6 +9,12 @@ import {
 } from '@vscode/test-electron';
 
 async function main() {
+    if (process.argv.includes('--perf')) {
+        process.env.HONEYGUI_PERF_TEST = '1';
+    }
+    // 从 VS Code 集成终端启动时可能继承该变量，导致被测 Electron 以 Node 模式运行。
+    delete process.env.ELECTRON_RUN_AS_NODE;
+
     const extensionDevelopmentPath = path.resolve(__dirname, '../../..');
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
 
