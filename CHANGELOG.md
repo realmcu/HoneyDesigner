@@ -4,6 +4,34 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [2.0.0] - 2026-07-29
+
+### Added
+
+- 新增项目配置选择器，可在设计器顶部工具栏切换工程配置，并支持为 ROMFS 输出配置地址后缀
+- `hg_view` 支持设置背景色，并可绑定自定义 `switch_in_func` 进入回调
+- 新增 HML 画布性能测试框架、分级项目夹具和 Webview 启动耗时探针
+- honeygui-designer skill 新增项目 i18n 指南、离线说明与自动镜像同步工作流
+
+### Changed
+
+- 项目 i18n 代码生成改用当前活动语言，不再固定使用默认语言
+- 调整顶部工具栏布局和交互，集中展示常用设计与项目配置操作
+- 拆分 Zustand store 为独立 slices，并整合画布坐标、图片加载等设计器公共工具
+- 优化大型项目加载：消除重复项目扫描，并为 Webview 构建启用 tree shaking
+- 生成代码不再写入生成时间，避免无实际内容变化时产生 Git diff
+
+### Fixed
+
+- 修复外部创建 HML 文件后设计器 Webview 未重新加载的问题
+- 修复新建定时器默认名称受系统 locale 影响的问题
+- 修复项目配置初始化异常的问题
+
+### Internal
+
+- 多次同步 HoneyGUI 仿真库及 Win32 simulation libraries
+- 清理废弃代码、旧架构文档和本地 AI 配置，并更新仓库链接与代理说明
+
 ## [1.9.0] - 2026-07-08
 
 ### Added
