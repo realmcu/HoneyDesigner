@@ -10,7 +10,7 @@ This file supplements `AGENTS.md` for Claude Code. Read `AGENTS.md` first; it is
 - Watch extension: `npm run watch`
 - Watch webview: `npm run watch:webview`
 - Lint: `npm run lint`
-- Unit tests: `npm run test`
+- Tests: `npm run test`
 - Extension E2E tests: `npm run test:e2e`
 - Performance tests: `npm run test:perf`
 - Template tests: `npm run test:templates`
@@ -48,7 +48,7 @@ Do not send the initial `loadHml` before the webview is ready.
 
 - `src/webview/index.tsx`: React entry point.
 - `src/webview/App.tsx`: application layout and host-message dispatch.
-- `src/webview/store.ts`: Zustand state, component operations, dirty tracking, navigation state, and project i18n.
+- `src/webview/store.ts`: assembles the Zustand state slices under `src/webview/store/`, including component operations, dirty tracking, navigation state, and project i18n.
 - `src/webview/components/DesignerCanvas.tsx`: DOM-based component canvas with zoom, pan, drag, resize, and selection.
 - `src/webview/components/widgets/`: component previews.
 - `src/webview/components/properties/`: component property editors.

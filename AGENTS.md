@@ -1,7 +1,5 @@
 # AGENTS.md - AI 助手指南
 
-**Generated:** 2026-04-30 | **Commit:** a6a3fe3 | **Branch:** master
-
 本文件为 AI 编程助手提供项目上下文和协作指南。
 
 ## 项目概述
@@ -67,7 +65,7 @@ HmlEditorProvider.resolveCustomTextEditor()
 
 ### 组件类型与层级规则
 - 完整组件类型列表见 `src/webview/types.ts` 的 `ComponentType`
-- **容器控件**（`hg_view`, `hg_window`）：可包含子组件
+- **容器控件**（`hg_view`, `hg_window`, `hg_list`, `hg_list_item`）：可包含子组件
 - **非容器控件**：必须作为容器的子组件，不能包含子组件
 
 ### 代码生成策略
@@ -206,15 +204,13 @@ HmlEditorProvider.resolveCustomTextEditor()
      - 测试版用户不会自动更新到正式版
      - 测试版之间可以自动更新（如 1.6.31 → 1.6.33）
      - 适合内部测试和公测，不影响正式版用户
-13. **实验工程**：测试用的实验工程, 也是模板工程位于 `./template-projects/smartwatch` 目录
+13. **项目模板**：由 `src/template/TemplateConfig.ts` 的 `AVAILABLE_TEMPLATES` 管理，模板来源为 Gitee 远程仓库，本地缓存于 `~/.honeygui/templates/`
 14. **国际化 (i18n)**：所有用户可见的文本必须支持多语言
     - **Extension 端**：使用 `vscode.l10n.t('key')` 进行翻译
       - 翻译文件：`l10n/bundle.l10n.json`（英文）、`l10n/bundle.l10n.zh-cn.json`（中文）
     - **Webview 端**：使用 `t('key')` 函数（从 `../i18n` 导入）
       - 翻译文件：`src/webview/i18n/locales/en.ts`（英文）、`src/webview/i18n/locales/zh-cn.ts`（中文）
     - **package.json**：命令标题使用 `%key%` 语法，配合 `package.nls.json` 和 `package.nls.zh-cn.json`
-    - **注意**：`viewsWelcome` 不支持 NLS 语法，需使用纯文本
-15. **Bug 日志路径**：Windows 下的插件错误日志位于 `/mnt/c/Users/howie_wang.RSDOMAIN/Desktop/plugin-bug-log`
 
 ### 不要做的事
 - ❌ 不要修改单元测试（除非用户明确要求）
