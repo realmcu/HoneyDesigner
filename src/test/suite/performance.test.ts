@@ -128,9 +128,11 @@ suite('HML Canvas Performance', function () {
         }
 
         const isCold = scenario === 'cold-session';
-        // Webview bundle 的 JIT 在本机前 2～3 次仍有明显下降，预热 3 次后再取 10 个正式样本。
-        const runs = isCold ? 1 : 13;
+        // Webview bundle 的 JIT 在本机前 2～3 次仍有明显下降；Dashboard 图片较多，
+        // 使用 30 个正式样本提高 p90 的稳定性，其他 fixture 保持 10 个正式样本。
         const warmupRuns = isCold ? 0 : 3;
+        const measuredRuns = fixture === 'dashboard' ? 30 : 10;
+        const runs = isCold ? 1 : warmupRuns + measuredRuns;
         const samples: PerformanceSample[] = [];
 
         for (let run = 0; run < runs; run++) {

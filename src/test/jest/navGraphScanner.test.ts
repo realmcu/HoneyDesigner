@@ -1,5 +1,10 @@
 import * as path from 'path';
-import { scanAllViews, ViewNavNode } from '../../designer/navGraphScanner';
+import {
+  normalizeHmlFilePath,
+  scanAllViews,
+  scanProjectHml,
+  ViewNavNode,
+} from '../../designer/navGraphScanner';
 
 /**
  * 导航图边采集 / 跨文件 target 解析 读路径回归（评审 I8）。
@@ -122,5 +127,23 @@ describe('navGraphScanner.scanAllViews (I8 边采集读路径)', () => {
     // dup_a#view_dup 有一条出边（btn_dup_home → view_home），dup_b#view_dup 无出边
     expect(edgesOf('ui/sub/dup_a.hml#view_dup')).toHaveLength(1);
     expect(edgesOf('ui/sub/dup_b.hml#view_dup')).toHaveLength(0);
+  });
+
+  it('returns files, views and component ids from the same parse pass', async () => {
+    const result = await scanProjectHml(ENTRY);
+    expect(result.hmlFiles).toHaveLength(4);
+    expect(result.views).toHaveLength(views.length);
+    expect(result.errors).toEqual([]);
+    expect(result.componentIdsByFile.size).toBe(4);
+    expect(result.componentIds).toEqual(expect.arrayContaining([
+      'view_home',
+      'btn_go_extra',
+      'view_settings',
+      'view_dup',
+    ]));
+    expect(result.duplicateIds).toContain('view_dup');
+
+    const homeIds = result.componentIdsByFile.get(normalizeHmlFilePath(ENTRY));
+    expect(homeIds).toEqual(expect.arrayContaining(['view_home', 'btn_go_extra']));
   });
 });

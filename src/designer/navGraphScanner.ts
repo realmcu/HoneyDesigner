@@ -20,6 +20,31 @@ import type { ViewNavEdge, ControlNavEdge, TimerNavEdge } from '../shared/navCon
  * 视图节点（导航图数据模型）
  * 旧字段 id/name/file/edges 保持向后兼容；新字段全部可选。
  */
+export interface HmlFileInfo {
+    path: string;
+    name: string;
+    relativePath: string;
+}
+
+export interface ProjectHmlScanError {
+    filePath: string;
+    message: string;
+}
+
+export interface ProjectHmlScanResult {
+    hmlFiles: HmlFileInfo[];
+    views: ViewNavNode[];
+    componentIdsByFile: Map<string, string[]>;
+    componentIds: string[];
+    duplicateIds: string[];
+    errors: ProjectHmlScanError[];
+}
+
+export function normalizeHmlFilePath(filePath: string): string {
+    const normalized = path.normalize(path.resolve(filePath));
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
 export interface ViewNavNode {
     id: string;
     name: string;
@@ -53,8 +78,8 @@ interface ViewScanFileContext {
 export function scanHmlFilesRecursive(
     dir: string,
     projectRoot: string
-): Array<{ path: string; name: string; relativePath: string }> {
-    const results: Array<{ path: string; name: string; relativePath: string }> = [];
+): HmlFileInfo[] {
+    const results: HmlFileInfo[] = [];
     if (!fs.existsSync(dir)) return results;
 
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -96,18 +121,28 @@ export function scanAllHmlFiles(
  * 收集自身 + 后代控件（含定时器）的 switchView 边；
  * 遇嵌套 hg_view 剪枝——子屏的边归子屏节点。
  */
-export async function scanAllViews(
+export async function scanProjectHml(
     currentFilePath: string,
     metrics?: { hmlReads?: number; hmlParses?: number }
-): Promise<ViewNavNode[]> {
+): Promise<ProjectHmlScanResult> {
     const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
     if (!projectRoot) {
-        return [];
+        return {
+            hmlFiles: [],
+            views: [],
+            componentIdsByFile: new Map(),
+            componentIds: [],
+            duplicateIds: [],
+            errors: [],
+        };
     }
 
     const uiDir = ProjectUtils.getUiDir(projectRoot);
     const hmlFiles = scanHmlFilesRecursive(uiDir, projectRoot);
     const allViews: ViewNavNode[] = [];
+    const componentIdsByFile = new Map<string, string[]>();
+    const idCounts = new Map<string, number>();
+    const errors: ProjectHmlScanError[] = [];
     // 全局 viewId / viewName → 复合键列表（第二遍解析 target 有效性/撞名）。
     // 需要双查找的语义根据：codegen 按 view 的 **name** 注册视图
     // （ViewGenerator GUI_VIEW_INSTANCE("${component.name}")），同文件 target
@@ -136,6 +171,11 @@ export async function scanAllViews(
                 metrics.hmlParses = (metrics.hmlParses || 0) + 1;
             }
             const components: Component[] = doc.view?.components || [];
+            const componentIds = components.filter(comp => Boolean(comp?.id)).map(comp => comp.id);
+            componentIdsByFile.set(normalizeHmlFilePath(hmlFile.path), componentIds);
+            for (const id of componentIds) {
+                idCounts.set(id, (idCounts.get(id) || 0) + 1);
+            }
 
             // 扁平模型 → id→component 与 parent→children[] 索引（T9 getViewControls 复用）
             const { childrenOf } = buildComponentIndex(components);
@@ -187,6 +227,8 @@ export async function scanAllViews(
                 });
             }
         } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            errors.push({ filePath: hmlFile.path, message });
             logger.warn(`扫描 ${hmlFile.path} 失败: ${err}`);
         }
     }
@@ -206,7 +248,21 @@ export async function scanAllViews(
         edge.targetViewKey = targetKeys.size === 1 ? [...targetKeys][0] : undefined;
     }
 
-    return allViews;
+    return {
+        hmlFiles,
+        views: allViews,
+        componentIdsByFile,
+        componentIds: [...idCounts.keys()],
+        duplicateIds: [...idCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id),
+        errors,
+    };
+}
+
+export async function scanAllViews(
+    currentFilePath: string,
+    metrics?: { hmlReads?: number; hmlParses?: number }
+): Promise<ViewNavNode[]> {
+    return (await scanProjectHml(currentFilePath, metrics)).views;
 }
 
 /**

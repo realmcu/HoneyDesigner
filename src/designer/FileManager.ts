@@ -14,7 +14,8 @@ import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
-import { scanAllViews, scanAllHmlFiles, scanHmlFilesRecursive, buildComponentIndex } from './navGraphScanner';
+import { scanAllViews, scanAllHmlFiles, scanProjectHml, normalizeHmlFilePath, buildComponentIndex } from './navGraphScanner';
+import type { ProjectConfig } from '../common/ProjectConfig';
 import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
 import { measurePerformance } from './HmlLoadPerformance';
 import { performance } from 'perf_hooks';
@@ -53,6 +54,11 @@ export class FileManager {
     private readonly _performanceContext: HmlLoadPerformanceContext | undefined;
     private _filePath: string | undefined;
     private _lastSerializedSnapshot: string | null = null;
+    private _preparedFrontendComponents: {
+        filePath: string;
+        document: unknown;
+        components: Component[];
+    } | undefined;
     
     // 撤销/重做历史栈
     private _undoStack: string[] = [];
@@ -276,8 +282,27 @@ export class FileManager {
         if (this._filePath === filePath) {
             return;
         }
+        this._preparedFrontendComponents = undefined;
         this._filePath = filePath;
         this._onDidChangeFilePath.fire(filePath);
+    }
+
+    private _prepareFrontendComponents(hmlDocument: unknown): Component[] {
+        const filePath = this._filePath;
+        const cached = this._preparedFrontendComponents;
+        if (filePath && cached && cached.filePath === filePath && cached.document === hmlDocument) {
+            return cached.components;
+        }
+
+        const components = this._hmlController.prepareComponentsForFrontend(hmlDocument as Parameters<HmlController['prepareComponentsForFrontend']>[0]);
+        if (this._performanceContext) {
+            this._performanceContext.metrics.prepareFrontendCalls =
+                (this._performanceContext.metrics.prepareFrontendCalls || 0) + 1;
+        }
+        if (filePath) {
+            this._preparedFrontendComponents = { filePath, document: hmlDocument, components };
+        }
+        return components;
     }
 
     /** webview 是否有未保存改动（缓存自 dirtyStateChanged 消息） */
@@ -318,7 +343,11 @@ export class FileManager {
     public async refreshOtherFileComponentIds(): Promise<void> {
         if (!this._filePath) return;
         try {
-            const otherFileComponentIds = await this.scanAllComponentIds(this._filePath);
+            const scanResult = await scanProjectHml(this._filePath);
+            const currentNorm = normalizeHmlFilePath(this._filePath);
+            const otherFileComponentIds = [...scanResult.componentIdsByFile.entries()]
+                .filter(([filePath]) => filePath !== currentNorm)
+                .flatMap(([, componentIds]) => componentIds);
             logger.debug(`[FileManager] 刷新跨文件组件 ID: ${otherFileComponentIds.length} 个`);
             this._panel.webview.postMessage({
                 command: 'updateOtherFileComponentIds',
@@ -649,48 +678,6 @@ export class FileManager {
     // _collectComponentSwitchViewEdges / _buildNavEdge 已抽至 ./navGraphScanner（评审 I8）。
 
     /**
-     * 扫描项目中所有 HML 文件的组件 ID（排除当前文件），用于跨文件命名去重
-     */
-    private async scanAllComponentIds(
-        currentFilePath: string,
-        metrics?: { hmlReads?: number; hmlParses?: number }
-    ): Promise<string[]> {
-        const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
-        if (!projectRoot) {
-            logger.warn('[FileManager] scanAllComponentIds: 未找到项目根目录');
-            return [];
-        }
-
-        const uiDir = ProjectUtils.getUiDir(projectRoot);
-        const hmlFiles = scanHmlFilesRecursive(uiDir, projectRoot);
-        const allIds: string[] = [];
-        const currentNorm = path.normalize(currentFilePath);
-
-        for (const hmlFile of hmlFiles) {
-            if (path.normalize(hmlFile.path) === currentNorm) {
-                continue;
-            }
-            try {
-                const tempController = new HmlController();
-                const doc = await tempController.loadFile(hmlFile.path);
-                if (metrics) {
-                    metrics.hmlReads = (metrics.hmlReads || 0) + 1;
-                    metrics.hmlParses = (metrics.hmlParses || 0) + 1;
-                }
-                for (const comp of doc.view?.components || []) {
-                    if (comp.id) {
-                        allIds.push(comp.id);
-                    }
-                }
-            } catch (err) {
-                logger.warn(`扫描组件ID ${hmlFile.path} 失败: ${err}`);
-            }
-        }
-
-        return allIds;
-    }
-
-    /**
      * 创建新的空白文档
      */
     public createNewDocument(): void {
@@ -797,13 +784,8 @@ export class FileManager {
             logger.info(`[FileManager] 解析完成，获得 ${hmlDocument.view?.components?.length || 0} 个组件`);
 
             // 为前端准备组件数据（预处理，等待 ready 消息后发送）
-            const prepareResult = measurePerformance(() =>
-                this._hmlController.prepareComponentsForFrontend(hmlDocument)
-            );
-            const frontendComponents = prepareResult.value;
+            const frontendComponents = this._prepareFrontendComponents(hmlDocument);
             if (this._performanceContext) {
-                this._performanceContext.metrics.prepareFrontendCalls =
-                    (this._performanceContext.metrics.prepareFrontendCalls || 0) + 1;
                 this._performanceContext.metrics.currentParseMs = performance.now() - currentParseStartedAt;
             }
             logger.info(`[FileManager] 前端组件数据准备完成，共 ${frontendComponents.length} 个组件`);
@@ -948,7 +930,7 @@ export class FileManager {
     /**
      * 重新加载当前文档
      */
-    public async reloadCurrentDocument(): Promise<void> {
+    public async reloadCurrentDocument(projectConfig?: ProjectConfig | null): Promise<void> {
         try {
             if (!this._filePath) {
                 logger.warn('[FileManager] reloadCurrentDocument: 没有文件路径');
@@ -966,7 +948,7 @@ export class FileManager {
             logger.info(`[FileManager] 重新发送loadHml，组件数: ${hmlDocument.view?.components?.length || 0}`);
             
             // 使用统一的发送方法（内部会自动获取 allViews）
-            await this.sendLoadHmlMessage(hmlDocument, hmlContent);
+            await this.sendLoadHmlMessage(hmlDocument, hmlContent, projectConfig);
         } catch (error) {
             logger.error(`[FileManager] reloadCurrentDocument失败: ${error}`);
         }
@@ -977,21 +959,24 @@ export class FileManager {
      * 负责发送组件数据和项目配置到前端
      * 自动扫描并包含所有 view 列表和所有 HML 文件列表
      */
-    private async sendLoadHmlMessage(hmlDocument: any, hmlContent: string): Promise<void> {
+    private async sendLoadHmlMessage(
+        hmlDocument: any,
+        hmlContent: string,
+        providedProjectConfig?: ProjectConfig | null
+    ): Promise<void> {
         const loadPrepareStartedAt = performance.now();
-        const frontendComponents = this._hmlController.prepareComponentsForFrontend(hmlDocument);
-        if (this._performanceContext) {
-            this._performanceContext.metrics.prepareFrontendCalls =
-                (this._performanceContext.metrics.prepareFrontendCalls || 0) + 1;
-        }
+        const frontendComponents = this._prepareFrontendComponents(hmlDocument);
 
-        const projectConfigResult = measurePerformance(() =>
-            ProjectConfigLoader.loadConfig(this._filePath!)
-        );
-        const projectConfig = projectConfigResult.value;
-        if (this._performanceContext) {
-            this._performanceContext.metrics.projectConfigMs =
-                (this._performanceContext.metrics.projectConfigMs || 0) + projectConfigResult.durationMs;
+        let projectConfig = providedProjectConfig;
+        if (projectConfig === undefined) {
+            const projectConfigResult = measurePerformance(() =>
+                ProjectConfigLoader.loadConfig(this._filePath!)
+            );
+            projectConfig = projectConfigResult.value;
+            if (this._performanceContext) {
+                this._performanceContext.metrics.projectConfigMs =
+                    (this._performanceContext.metrics.projectConfigMs || 0) + projectConfigResult.durationMs;
+            }
         }
         const designerConfig = ProjectConfigLoader.getDesignerConfig(projectConfig);
 
@@ -1019,9 +1004,13 @@ export class FileManager {
         
         const projectScanStartedAt = performance.now();
         const scanMetrics = this._performanceContext?.metrics;
-        const allViews = await scanAllViews(this._filePath!, scanMetrics);
-        const allHmlFiles = scanAllHmlFiles(this._filePath!);
-        const otherFileComponentIds = await this.scanAllComponentIds(this._filePath!, scanMetrics);
+        const scanResult = await scanProjectHml(this._filePath!, scanMetrics);
+        const allViews = scanResult.views;
+        const allHmlFiles = scanResult.hmlFiles;
+        const currentNorm = normalizeHmlFilePath(this._filePath!);
+        const otherFileComponentIds = [...scanResult.componentIdsByFile.entries()]
+            .filter(([filePath]) => filePath !== currentNorm)
+            .flatMap(([, componentIds]) => componentIds);
         if (this._performanceContext) {
             this._performanceContext.metrics.projectScanMs = performance.now() - projectScanStartedAt;
         }

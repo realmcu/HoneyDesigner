@@ -99,7 +99,7 @@ export class MessageHandler {
                     // 由宿主在 ready 时推送，避免前端挂载时 vscodeAPI 尚未就绪导致请求被丢弃。
                     this._handleLoadProjectConfigs();
 
-                    await this._fileManager.reloadCurrentDocument();
+                    await this._fileManager.reloadCurrentDocument(projectConfig);
                 } catch (error) {
                     logger.error(`[MessageHandler] reloadCurrentDocument失败: ${error}`);
                 }
