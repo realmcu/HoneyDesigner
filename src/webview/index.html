@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval'; img-src data: https:; worker-src 'none';">
+    <script>
+        window.__honeyguiPerf = { htmlStartedAt: performance.now() };
+    </script>
     <title>HoneyGUI Designer</title>
     <link href="styles.css" rel="stylesheet">
 </head>
 <body>
     <div id="root"></div>
+    <script>
+        window.__honeyguiPerf.scriptStartedAt = performance.now();
+    </script>
     <script src="webview.js"></script>
 </body>
 </html>

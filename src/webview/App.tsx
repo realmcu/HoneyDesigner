@@ -177,7 +177,26 @@ const App: React.FC = () => {
     // 主动请求加载数据（只发送一次）
     if (!readySent) {
       console.log('[HoneyGUI App] 发送ready消息请求数据...');
-      window.vscodeAPI.postMessage({ command: 'ready' });
+      const readyDispatchedAt = performance.now();
+      const perf = window.__honeyguiPerf;
+      const resourceEntry = (performance.getEntriesByType('resource') as PerformanceResourceTiming[])
+        .find(entry => entry.name.endsWith('.js'));
+      window.vscodeAPI.postMessage({
+        command: 'ready',
+        webviewMetrics: perf ? {
+          webviewResourceLoadMs: resourceEntry ? resourceEntry.responseEnd : readyDispatchedAt,
+          webviewScriptLoadMs: perf.scriptStartedAt !== undefined && resourceEntry
+            ? Math.max(0, resourceEntry.responseEnd - perf.scriptStartedAt)
+            : 0,
+          webviewScriptEvaluateMs: perf.scriptEvaluatedAt !== undefined && resourceEntry
+            ? Math.max(0, perf.scriptEvaluatedAt - resourceEntry.responseEnd)
+            : 0,
+          webviewReactMountMs: perf.reactRenderStartedAt !== undefined
+            ? Math.max(0, readyDispatchedAt - perf.reactRenderStartedAt)
+            : 0,
+          webviewReadyDispatchMs: Math.max(0, readyDispatchedAt - perf.htmlStartedAt),
+        } : undefined,
+      });
       readySent = true;
     }
 

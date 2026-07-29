@@ -79,7 +79,7 @@ export class MessageHandler {
         switch (message.command) {
             case 'ready':
                 logger.info('[MessageHandler] 收到前端ready消息');
-                this._fileManager.recordWebviewReady();
+                this._fileManager.recordWebviewReady(message.webviewMetrics);
                 try {
                     // 立即发送项目配置，避免前端在 loadHml 之前创建组件时 projectConfig 为 null
                     const projectConfigResult = measurePerformance(() =>

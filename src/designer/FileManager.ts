@@ -104,10 +104,26 @@ export class FileManager {
         this._performanceContext = performanceContext;
     }
 
-    public recordWebviewReady(): void {
-        if (this._performanceContext?.htmlCompletedAt !== undefined) {
-            this._performanceContext.metrics.webviewBootMs =
-                performance.now() - this._performanceContext.htmlCompletedAt;
+    public recordWebviewReady(webviewMetrics?: Record<string, unknown>): void {
+        if (this._performanceContext?.htmlCompletedAt === undefined) {
+            return;
+        }
+
+        this._performanceContext.metrics.webviewBootMs =
+            performance.now() - this._performanceContext.htmlCompletedAt;
+
+        const metricNames = [
+            'webviewResourceLoadMs',
+            'webviewScriptLoadMs',
+            'webviewScriptEvaluateMs',
+            'webviewReactMountMs',
+            'webviewReadyDispatchMs',
+        ] as const;
+        for (const name of metricNames) {
+            const value = webviewMetrics?.[name];
+            if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+                this._performanceContext.metrics[name] = value;
+            }
         }
     }
 

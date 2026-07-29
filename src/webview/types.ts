@@ -194,10 +194,18 @@ export interface VSCodeAPI {
   setState(state: any): void;
 }
 
+export interface WebviewPerformanceMarks {
+  htmlStartedAt: number;
+  scriptStartedAt?: number;
+  scriptEvaluatedAt?: number;
+  reactRenderStartedAt?: number;
+}
+
 declare global {
   interface Window {
     acquireVsCodeApi(): VSCodeAPI;
     vscodeAPI?: VSCodeAPI;
+    __honeyguiPerf?: WebviewPerformanceMarks;
   }
 }
 

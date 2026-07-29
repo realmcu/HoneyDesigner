@@ -104,13 +104,8 @@ export class WebviewContentProvider {
             const nonce = this.getNonce();
             const cspMetaTag = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data: vscode-resource: vscode-webview-resource:; media-src ${webview.cspSource} vscode-resource: vscode-webview-resource:; script-src ${webview.cspSource} 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; connect-src ${webview.cspSource};">`;
 
-            // 将 nonce 添加到 script 标签（如果有）
-            if (scriptUri) {
-                htmlContent = htmlContent.replace(
-                    /<script([^>]*)src=\"([^\"]+)\"([^>]*)><\/script>/g,
-                    `<script$1src="$2"$3 nonce="${nonce}"></script>`
-                );
-            }
+            // 将 nonce 添加到所有 script 标签（包括性能埋点的内联脚本）
+            htmlContent = htmlContent.replace(/<script(?![^>]*\bnonce=)([^>]*)>/g, `<script$1 nonce="${nonce}">`);
 
             // 确保CSP标签被添加，如果已经有则替换
             if (htmlContent.includes('<meta http-equiv="Content-Security-Policy"')) {

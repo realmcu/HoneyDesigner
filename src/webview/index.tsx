@@ -10,6 +10,10 @@ import './global.css';
 import './types';
 import { setLocale } from './i18n';
 
+if (window.__honeyguiPerf) {
+  window.__honeyguiPerf.scriptEvaluatedAt = performance.now();
+}
+
 // 安全初始化VSCode API，确保只获取一次
 if (!window.vscodeAPI) {
   try {
@@ -69,6 +73,10 @@ document.addEventListener('wheel', (e) => {
     target.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }, { passive: false });
+
+if (window.__honeyguiPerf) {
+  window.__honeyguiPerf.reactRenderStartedAt = performance.now();
+}
 
 const rootElement = document.getElementById('root');
 if (rootElement) {

@@ -4,6 +4,11 @@ export interface HmlHostPerformanceMetrics {
     htmlMs?: number;
     currentParseMs?: number;
     webviewBootMs?: number;
+    webviewResourceLoadMs?: number;
+    webviewScriptLoadMs?: number;
+    webviewScriptEvaluateMs?: number;
+    webviewReactMountMs?: number;
+    webviewReadyDispatchMs?: number;
     projectConfigMs?: number;
     projectScanMs?: number;
     loadPrepareMs?: number;
