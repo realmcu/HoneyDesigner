@@ -44,6 +44,8 @@ module.exports = (env, argv) => {
                 transpileOnly: !isProduction, // 开发环境下提高编译速度
                 compilerOptions: {
                   noEmitOnError: isProduction, // 生产环境下严格检查错误
+                  module: 'ESNext', // 保留 ESM 供 Webpack tree shaking
+                  moduleResolution: 'node',
                 },
               },
             },
