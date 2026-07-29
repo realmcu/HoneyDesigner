@@ -66,6 +66,9 @@ jobs:
           - name: settings
             repo: honeygui-template-settings
             engine: honeygui
+          - name: ebadge
+            repo: honeygui-template-EBadge
+            engine: honeygui
           - name: lvgl-test
             repo: lvgl-template-test
             engine: lvgl
@@ -132,6 +135,9 @@ jobs:
             engine: honeygui
           - name: settings
             repo: honeygui-template-settings
+            engine: honeygui
+          - name: ebadge
+            repo: honeygui-template-EBadge
             engine: honeygui
           - name: lvgl-test
             repo: lvgl-template-test

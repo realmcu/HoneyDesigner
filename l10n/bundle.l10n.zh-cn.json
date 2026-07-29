@@ -356,6 +356,7 @@
   "template.chatbot.description": "聊天机器人界面（轻量级）",
   "template.rotary.description": "旋钮控制界面（轻量级）",
   "template.settings.description": "设置界面（轻量级）",
+  "template.ebadge.description": "电子胸牌界面，包含蓝牙连接、菜单、分享页面及动画视频资源",
 
   "Not a HoneyGUI project. Please create a project first.": "这不是 HoneyGUI 项目，请先创建项目。",
   "Create Project": "创建项目",
