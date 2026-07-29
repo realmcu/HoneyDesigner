@@ -19,4 +19,4 @@ HML 规则变化时，必须同时更新英文规范源和中文镜像。
 ## 相关链接
 
 - [HoneyGUI SDK](https://github.com/realmcu/HoneyGUI)
-- [问题反馈](https://github.com/realmcu/HoneyGUI/issues)
+- [问题反馈](https://github.com/realmcu/HoneyDesigner/issues)

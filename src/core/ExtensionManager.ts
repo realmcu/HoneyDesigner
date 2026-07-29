@@ -628,7 +628,7 @@ curl -X POST http://localhost:38912/api/validate-hml \\
                     vscode.commands.executeCommand('honeygui.newProject');
                     break;
                 case '查看文档':
-                    vscode.env.openExternal(vscode.Uri.parse('https://gitee.com/realmcu/honeygui-design'));
+                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/realmcu/HoneyDesigner'));
                     break;
             }
         });

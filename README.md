@@ -26,8 +26,6 @@ Search VSCode Marketplace for **"HoneyGUI Visual Designer"** → Install
 | 2 | Design - Double-click .hml file, drag components to canvas |
 | 3 | Run - Click ▶ Compile & Simulate in toolbar |
 
-![HoneyGUI Designer](https://gitee.com/realmcu_admin/honeygui-design/raw/master/resources/screenshots/design-ui.png)
-
 ## Resource Conversion
 
 `Ctrl+Shift+P → HoneyGUI: Resource Conversion Tools`
@@ -53,4 +51,4 @@ MIT
 ## Links
 
 - [HoneyGUI SDK](https://github.com/realmcu/HoneyGUI)
-- [Report Issues](https://github.com/realmcu/HoneyGUI/issues)
+- [Report Issues](https://github.com/realmcu/HoneyDesigner/issues)

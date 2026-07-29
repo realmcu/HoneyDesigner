@@ -7,11 +7,11 @@
   "l10n": "./l10n",
   "repository": {
     "type": "git",
-    "url": "https://github.com/realmcu/HoneyGUI.git"
+    "url": "https://github.com/realmcu/HoneyDesigner.git"
   },
-  "homepage": "https://github.com/realmcu/HoneyGUI",
+  "homepage": "https://github.com/realmcu/HoneyDesigner",
   "bugs": {
-    "url": "https://github.com/realmcu/HoneyGUI/issues"
+    "url": "https://github.com/realmcu/HoneyDesigner/issues"
   },
   "publisher": "honeygui-visual-designer",
   "icon": "resources/HoneyGUI-LOGO.png",

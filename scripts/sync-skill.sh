@@ -26,7 +26,7 @@
 #   MIRROR_BRANCH      镜像分支，默认 main
 #   MIRROR_SKILLS_DIR  镜像仓库里存放各 skill 的子目录，默认 skills
 #   SKILL_NAME          镜像里本 skill 的子目录名，默认 honeygui-designer
-#   SOURCE_REPO         来源仓库（用于 provenance），默认 realmcu/honeygui-design
+#   SOURCE_REPO         来源仓库（用于 provenance），默认 realmcu/HoneyDesigner
 #   BOT_NAME            同步提交作者名，默认 skill-sync-bot
 #   BOT_EMAIL           同步提交作者邮箱，默认 skill-sync-bot@users.noreply.github.com
 set -euo pipefail
@@ -36,7 +36,7 @@ SKILL_NAME="${SKILL_NAME:-honeygui-designer}"
 MIRROR_REMOTE="${MIRROR_REMOTE:-git@github.com:realmcu/skills.git}"
 MIRROR_BRANCH="${MIRROR_BRANCH:-main}"
 MIRROR_SKILLS_DIR="${MIRROR_SKILLS_DIR:-skills}"
-SOURCE_REPO="${SOURCE_REPO:-realmcu/honeygui-design}"
+SOURCE_REPO="${SOURCE_REPO:-realmcu/HoneyDesigner}"
 BOT_NAME="${BOT_NAME:-skill-sync-bot}"
 BOT_EMAIL="${BOT_EMAIL:-skill-sync-bot@users.noreply.github.com}"
 

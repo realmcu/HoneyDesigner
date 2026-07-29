@@ -26,8 +26,6 @@ VSCode 扩展市场搜索 **"HoneyGUI Visual Designer"** → 安装
 | 2 | 设计界面 - 双击 .hml 文件，拖拽组件到画布 |
 | 3 | 编译运行 - 点击工具栏 ▶ 编译仿真 |
 
-![HoneyGUI Designer](https://gitee.com/realmcu_admin/honeygui-design/raw/master/resources/screenshots/design-ui.png)
-
 ## 资源转换
 
 `Ctrl+Shift+P → HoneyGUI: Resource Conversion Tools`
@@ -53,4 +51,4 @@ MIT
 ## 链接
 
 - [HoneyGUI SDK](https://github.com/realmcu/HoneyGUI)
-- [问题反馈](https://github.com/realmcu/HoneyGUI/issues)
+- [问题反馈](https://github.com/realmcu/HoneyDesigner/issues)
