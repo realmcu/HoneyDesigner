@@ -20,6 +20,9 @@ export class AssetManager extends EventEmitter {
     private _watchedAssetsDir: string | undefined;
     private _refreshDebounceTimer: NodeJS.Timeout | undefined;
     private _currentFilePath: string | undefined;
+    // 监听 VS Code 侧的文件重命名（例如资源管理器 F2、拖拽移动），
+    // 使 assets/ 目录下的重命名也能同步 conversion.json / alwaysConvert / HML 引用。
+    private _renameListener: vscode.Disposable | undefined;
 
     // Remember last used directory for file open dialogs
     private static _lastImagePickerDir: string | undefined;
@@ -27,6 +30,7 @@ export class AssetManager extends EventEmitter {
     constructor(panel: vscode.WebviewPanel) {
         super();
         this._panel = panel;
+        this.setupWorkspaceRenameListener();
     }
 
     /**
@@ -35,6 +39,8 @@ export class AssetManager extends EventEmitter {
     public dispose(): void {
         this._assetsWatcher?.dispose();
         this._assetsWatcher = undefined;
+        this._renameListener?.dispose();
+        this._renameListener = undefined;
         if (this._refreshDebounceTimer) {
             clearTimeout(this._refreshDebounceTimer);
             this._refreshDebounceTimer = undefined;
@@ -95,6 +101,69 @@ export class AssetManager extends EventEmitter {
         this._assetsWatcher.onDidCreate(debouncedRefresh);
         this._assetsWatcher.onDidDelete(debouncedRefresh);
         this._assetsWatcher.onDidChange(debouncedRefresh);
+    }
+
+    /**
+     * 监听 VS Code 工作区内的文件重命名（例如资源管理器 F2、拖拽移动）。
+     * 当被重命名的文件/目录位于当前项目的 assets/ 目录下，且新旧路径仍在同一 assets 目录内时，
+     * 复用面板重命名的同步链路：更新 HML 引用、conversion.json 的 items 与 alwaysConvert。
+     * 跨目录移动（源或目标不在同一 assets/ 下）不做同步，避免误伤。
+     */
+    private setupWorkspaceRenameListener(): void {
+        if (this._renameListener) {
+            return;
+        }
+        this._renameListener = vscode.workspace.onDidRenameFiles(async (event) => {
+            try {
+                if (!this._currentFilePath) {
+                    return;
+                }
+                const projectRoot = ProjectUtils.findProjectRoot(this._currentFilePath);
+                if (!projectRoot) {
+                    return;
+                }
+                const assetsDir = path.join(projectRoot, 'assets');
+                const assetsDirNorm = path.resolve(assetsDir);
+
+                const isUnderAssets = (p: string): boolean => {
+                    const rel = path.relative(assetsDirNorm, path.resolve(p));
+                    return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+                };
+
+                let anySynced = false;
+                for (const { oldUri, newUri } of event.files) {
+                    const oldFs = oldUri.fsPath;
+                    const newFs = newUri.fsPath;
+                    if (!isUnderAssets(oldFs) || !isUnderAssets(newFs)) {
+                        continue;
+                    }
+                    // 仅当两侧都在同一 assets 目录内时才处理
+                    const oldRel = path.relative(assetsDirNorm, path.resolve(oldFs)).replace(/\\/g, '/');
+                    const newRel = path.relative(assetsDirNorm, path.resolve(newFs)).replace(/\\/g, '/');
+                    if (!oldRel || !newRel) {
+                        continue;
+                    }
+                    // 新路径此刻已落地磁盘，可用于判定是文件夹还是文件
+                    let isFolder = false;
+                    try {
+                        isFolder = fs.existsSync(newFs) && fs.statSync(newFs).isDirectory();
+                    } catch { /* ignore */ }
+
+                    await this.updateAssetReferencesInHml(projectRoot, oldRel, newRel, isFolder);
+                    this.updateAlwaysConvertPath(projectRoot, oldRel, newRel, isFolder);
+                    this.updateConversionConfigPath(projectRoot, oldRel, newRel, isFolder);
+                    anySynced = true;
+                    logger.info(`[AssetManager] 已同步工作区重命名: ${oldRel} -> ${newRel}${isFolder ? ' (folder)' : ''}`);
+                }
+
+                if (anySynced) {
+                    // 刷新资源列表 UI
+                    this.handleLoadAssets(this._currentFilePath);
+                }
+            } catch (error) {
+                logger.error(`[AssetManager] 处理工作区重命名失败: ${error}`);
+            }
+        });
     }
 
     /**
@@ -184,19 +253,18 @@ export class AssetManager extends EventEmitter {
             if (stats.isDirectory()) {
                 // 递归扫描子目录
                 const children = this.scanAssetsDirectory(filePath, rootPath, isUser);
-                // user/ 目录即使为空也显示
-                if (children.length > 0 || relativePath === 'user') {
-                    const webviewUri = this._panel.webview.asWebviewUri(vscode.Uri.file(filePath));
-                    assets.push({
-                        name: file,
-                        path: webviewUri.toString(),
-                        relativePath: relativePath,
-                        type: 'folder',
-                        size: 0,
-                        children,
-                        ...(isUser && { isUserAsset: true })
-                    });
-                }
+                // 显示所有目录（含空目录）：空文件夹是用户显式创建的合法资源节点，
+                // 之前仅显示非空目录 + user/ 特例，会导致新建的空文件夹在面板上"不刷新"。
+                const webviewUri = this._panel.webview.asWebviewUri(vscode.Uri.file(filePath));
+                assets.push({
+                    name: file,
+                    path: webviewUri.toString(),
+                    relativePath: relativePath,
+                    type: 'folder',
+                    size: 0,
+                    children,
+                    ...(isUser && { isUserAsset: true })
+                });
             } else if (stats.isFile()) {
                 const ext = path.extname(file).toLowerCase();
                 const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
@@ -542,6 +610,104 @@ export class AssetManager extends EventEmitter {
     }
 
     /**
+     * 在当前资源目录下新建一个空文件夹。
+     * 命名约束:仅允许 A-Za-z0-9_.- ,不允许空格与其它符号(与用户\"无空格英文\"要求对齐)。
+     * @param parentPath 相对 assets/ 目录的父路径(正斜杠,空串表示 assets 根)
+     */
+    public async handleCreateAssetFolder(parentPath: string | undefined, currentFilePath: string | undefined): Promise<void> {
+        try {
+            if (!currentFilePath) {
+                vscode.window.showErrorMessage(vscode.l10n.t('Please save the design first'));
+                return;
+            }
+
+            const projectRoot = ProjectUtils.findProjectRoot(currentFilePath);
+            if (!projectRoot) {
+                vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+                return;
+            }
+
+            const assetsDir = ProjectUtils.getAssetsDir(projectRoot);
+            if (!fs.existsSync(assetsDir)) {
+                fs.mkdirSync(assetsDir, { recursive: true });
+            }
+
+            const cleanedParent = (parentPath || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+            const parentDir = cleanedParent ? path.join(assetsDir, cleanedParent) : assetsDir;
+            // 父路径必须存在于 assets/ 下,不允许越界
+            if (cleanedParent) {
+                const rel = path.relative(assetsDir, parentDir);
+                if (rel.startsWith('..') || path.isAbsolute(rel)) {
+                    logger.warn(`[Assets] 拒绝越界创建目录: parentPath=${parentPath}`);
+                    return;
+                }
+                if (!fs.existsSync(parentDir)) {
+                    fs.mkdirSync(parentDir, { recursive: true });
+                }
+            }
+
+            // 命名规则:英文、数字、下划线、点、连字符;不允许空格与其它符号
+            const nameRegex = /^[A-Za-z0-9_.-]+$/;
+
+            // 计算默认名(new_folder / new_folder_2 / ...),避免与已有条目冲突
+            const existingNames = new Set<string>();
+            try {
+                for (const entry of fs.readdirSync(parentDir, { withFileTypes: true })) {
+                    existingNames.add(entry.name);
+                }
+            } catch { /* ignore */ }
+            let defaultName = 'new_folder';
+            if (existingNames.has(defaultName)) {
+                let i = 2;
+                while (existingNames.has(`new_folder_${i}`)) i++;
+                defaultName = `new_folder_${i}`;
+            }
+
+            const input = await vscode.window.showInputBox({
+                prompt: vscode.l10n.t('Enter new folder name'),
+                value: defaultName,
+                valueSelection: [0, defaultName.length],
+                validateInput: (value) => {
+                    const trimmed = (value || '').trim();
+                    if (!trimmed || !nameRegex.test(trimmed)) {
+                        return vscode.l10n.t('Invalid folder name');
+                    }
+                    if (existingNames.has(trimmed)) {
+                        return vscode.l10n.t('Folder already exists: {0}', trimmed);
+                    }
+                    return null;
+                }
+            });
+
+            if (!input) {
+                return; // 用户取消
+            }
+            const finalName = input.trim();
+            if (!nameRegex.test(finalName)) {
+                return; // 双保险:validateInput 已阻止,理论上不会到这里
+            }
+
+            const targetDir = path.join(parentDir, finalName);
+            if (fs.existsSync(targetDir)) {
+                vscode.window.showErrorMessage(vscode.l10n.t('Folder already exists: {0}', finalName));
+                return;
+            }
+
+            fs.mkdirSync(targetDir, { recursive: false });
+
+            const shownRel = cleanedParent ? `${cleanedParent}/${finalName}` : finalName;
+            vscode.window.showInformationMessage(vscode.l10n.t('Folder created: {0}', shownRel));
+            logger.info(`[Assets] 已创建文件夹: assets/${shownRel}`);
+
+            // 刷新资源面板
+            this.handleLoadAssets(currentFilePath);
+        } catch (error) {
+            logger.error(`创建资源文件夹失败: ${error}`);
+            vscode.window.showErrorMessage(vscode.l10n.t('Failed to create folder'));
+        }
+    }
+
+    /**
      * 重命名资源文件或文件夹
      */
     public async handleRenameAsset(oldPath: string, newName: string, currentFilePath: string | undefined): Promise<void> {
@@ -559,27 +725,30 @@ export class AssetManager extends EventEmitter {
             const fullOldPath = path.join(assetsDir, oldPath);
             const dir = path.dirname(fullOldPath);
             const fullNewPath = path.join(dir, newName);
-            
+
             if (fs.existsSync(fullNewPath)) {
                 vscode.window.showErrorMessage(vscode.l10n.t('File name already exists'));
                 return;
             }
-            
+
+            // 记录旧路径是否为文件夹（重命名后需要以此驱动前缀级联）
+            const isFolder = fs.existsSync(fullOldPath) && fs.statSync(fullOldPath).isDirectory();
+
             // 计算新的相对路径
             const oldDir = path.dirname(oldPath);
             const newPath = oldDir === '.' ? newName : `${oldDir}/${newName}`;
-            
+
             // 更新所有 HML 文件中的引用
-            const updatedCount = await this.updateAssetReferencesInHml(projectRoot, oldPath, newPath);
-            
+            const updatedCount = await this.updateAssetReferencesInHml(projectRoot, oldPath, newPath, isFolder);
+
             // 重命名物理文件
             fs.renameSync(fullOldPath, fullNewPath);
-            
-            // Update alwaysConvert paths in project.json
-            this.updateAlwaysConvertPath(projectRoot, oldPath, newPath);
 
-            // Update conversion.json item paths
-            this.updateConversionConfigPath(projectRoot, oldPath, newPath);
+            // 同步 conversion.json 中的 alwaysConvert 白名单
+            this.updateAlwaysConvertPath(projectRoot, oldPath, newPath, isFolder);
+
+            // 同步 conversion.json 中的 items 配置
+            this.updateConversionConfigPath(projectRoot, oldPath, newPath, isFolder);
 
             if (updatedCount > 0) {
                 vscode.window.showInformationMessage(
@@ -588,7 +757,7 @@ export class AssetManager extends EventEmitter {
             } else {
                 vscode.window.showInformationMessage(vscode.l10n.t('Renamed successfully'));
             }
-            
+
             // 重新加载资源列表
             this.handleLoadAssets(currentFilePath);
         } catch (error) {
@@ -598,9 +767,10 @@ export class AssetManager extends EventEmitter {
     }
 
     /**
-     * Update alwaysConvert paths in conversion.json after rename
+     * Update alwaysConvert paths in conversion.json after rename.
+     * 文件：整表精确匹配替换；文件夹：对以 `${old}/` 为前缀的条目做批量替换。
      */
-    private updateAlwaysConvertPath(projectRoot: string, oldPath: string, newPath: string): void {
+    private updateAlwaysConvertPath(projectRoot: string, oldPath: string, newPath: string, isFolder: boolean): void {
         try {
             const configService = ConversionConfigService.getInstance();
             const config = configService.loadConfig(projectRoot);
@@ -608,14 +778,22 @@ export class AssetManager extends EventEmitter {
                 return;
             }
 
+            const normalizedOld = oldPath.replace(/\\/g, '/');
+            const normalizedNew = newPath.replace(/\\/g, '/');
+
             let updated = false;
             for (const category of ['images', 'videos', 'models', 'fonts'] as const) {
                 const list: string[] | undefined = config.alwaysConvert[category];
                 if (!list) continue;
-                const idx = list.indexOf(oldPath);
-                if (idx >= 0) {
-                    list[idx] = newPath;
-                    updated = true;
+                for (let i = 0; i < list.length; i++) {
+                    const entry = list[i];
+                    if (entry === normalizedOld) {
+                        list[i] = normalizedNew;
+                        updated = true;
+                    } else if (isFolder && entry.startsWith(normalizedOld + '/')) {
+                        list[i] = normalizedNew + entry.substring(normalizedOld.length);
+                        updated = true;
+                    }
                 }
             }
 
@@ -632,30 +810,57 @@ export class AssetManager extends EventEmitter {
     }
 
     /**
-     * Update conversion.json item paths after rename
+     * Update conversion.json item paths after rename.
+     * 文件：单条 key 改名；文件夹：对以 `${old}/` 为前缀的所有子 key 做批量改名。
      */
-    private updateConversionConfigPath(projectRoot: string, oldPath: string, newPath: string): void {
+    private updateConversionConfigPath(projectRoot: string, oldPath: string, newPath: string, isFolder: boolean): void {
         try {
-            const configPath = path.join(projectRoot, 'conversion.json');
-            if (!fs.existsSync(configPath)) {
-                return;
-            }
-
-            const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            const configService = ConversionConfigService.getInstance();
+            const config = configService.loadConfig(projectRoot);
             if (!config.items) {
                 return;
             }
 
-            // Normalize paths for matching
-            const normalizedOld = oldPath.replace(/\\/g, '/');
-            const normalizedNew = newPath.replace(/\\/g, '/');
+            const normalizedOld = oldPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+            const normalizedNew = newPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
-            if (config.items[normalizedOld] !== undefined) {
-                config.items[normalizedNew] = config.items[normalizedOld];
+            let changed = false;
+
+            if (isFolder) {
+                // 文件夹：把 old 自身及其所有子路径的 key 前缀替换为 new
+                for (const key of Object.keys(config.items)) {
+                    let nextKey: string | undefined;
+                    if (key === normalizedOld) {
+                        nextKey = normalizedNew;
+                    } else if (key.startsWith(normalizedOld + '/')) {
+                        nextKey = normalizedNew + key.substring(normalizedOld.length);
+                    }
+                    if (nextKey && nextKey !== key) {
+                        // 避免与已有条目冲突：以新 key 已存在的条目为基础，用旧 key 补齐缺失字段
+                        if (config.items[nextKey]) {
+                            config.items[nextKey] = { ...config.items[key], ...config.items[nextKey] };
+                        } else {
+                            config.items[nextKey] = config.items[key];
+                        }
+                        delete config.items[key];
+                        changed = true;
+                    }
+                }
+            } else if (config.items[normalizedOld] !== undefined) {
+                if (config.items[normalizedNew]) {
+                    config.items[normalizedNew] = { ...config.items[normalizedOld], ...config.items[normalizedNew] };
+                } else {
+                    config.items[normalizedNew] = config.items[normalizedOld];
+                }
                 delete config.items[normalizedOld];
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+                changed = true;
+            }
 
-                // Notify frontend to reload config
+            if (changed) {
+                configService.saveConfig(projectRoot, config);
+                logger.info(`[AssetManager] conversion.json items 已同步重命名: ${normalizedOld} -> ${normalizedNew}${isFolder ? ' (folder)' : ''}`);
+
+                // 通知前端重新加载配置
                 this._panel.webview.postMessage({
                     command: 'conversionConfigLoaded',
                     config
@@ -715,9 +920,10 @@ export class AssetManager extends EventEmitter {
      * @param projectRoot 项目根目录
      * @param oldPath 旧的资源相对路径（相对于 assets 目录）
      * @param newPath 新的资源相对路径（相对于 assets 目录）
+     * @param isFolder 是否为文件夹重命名。文件夹时会把 `assets/${old}/` 为前缀的所有引用替换。
      * @returns 更新的引用数量
      */
-    private async updateAssetReferencesInHml(projectRoot: string, oldPath: string, newPath: string): Promise<number> {
+    private async updateAssetReferencesInHml(projectRoot: string, oldPath: string, newPath: string, isFolder: boolean = false): Promise<number> {
         const uiDir = path.join(projectRoot, 'ui');
         if (!fs.existsSync(uiDir)) {
             return 0;
@@ -726,6 +932,8 @@ export class AssetManager extends EventEmitter {
         let totalUpdated = 0;
         const oldRef = `assets/${oldPath}`;
         const newRef = `assets/${newPath}`;
+        const oldPrefix = `assets/${oldPath}/`;
+        const newPrefix = `assets/${newPath}/`;
 
         // 递归扫描 HML 文件
         const scanAndUpdate = (dir: string) => {
@@ -737,10 +945,21 @@ export class AssetManager extends EventEmitter {
                 } else if (entry.name.endsWith('.hml')) {
                     try {
                         let content = fs.readFileSync(fullPath, 'utf-8');
-                        // 统计替换次数
-                        const matches = content.split(oldRef).length - 1;
+                        let matches = 0;
+                        if (isFolder) {
+                            // 文件夹：把 `assets/old/` 前缀替换为 `assets/new/`
+                            matches = content.split(oldPrefix).length - 1;
+                            if (matches > 0) {
+                                content = content.split(oldPrefix).join(newPrefix);
+                            }
+                        } else {
+                            // 文件：整串精确替换
+                            matches = content.split(oldRef).length - 1;
+                            if (matches > 0) {
+                                content = content.split(oldRef).join(newRef);
+                            }
+                        }
                         if (matches > 0) {
-                            content = content.split(oldRef).join(newRef);
                             fs.writeFileSync(fullPath, content, 'utf-8');
                             totalUpdated += matches;
                             logger.info(`更新 HML 文件引用: ${fullPath}, 替换 ${matches} 处`);

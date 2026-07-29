@@ -264,6 +264,10 @@ export class MessageHandler {
                 this._assetManager.handleRenameAsset(message.oldPath, message.newName, this._fileManager.currentFilePath);
                 break;
 
+            case 'createAssetFolder':
+                this._assetManager.handleCreateAssetFolder(message.parentPath, this._fileManager.currentFilePath);
+                break;
+
             case 'openAssetsFolder':
                 this._assetManager.handleOpenAssetsFolder(this._fileManager.currentFilePath);
                 break;

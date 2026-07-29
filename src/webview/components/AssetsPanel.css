@@ -140,6 +140,63 @@
   border-color: var(--vscode-focusBorder);
 }
 
+.upload-btn:disabled,
+.upload-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.upload-btn:disabled:hover,
+.upload-btn[disabled]:hover {
+  background: var(--vscode-button-secondaryBackground);
+  border-color: var(--vscode-input-border);
+}
+
+/* 上传方式下拉菜单容器（包裹按钮 + 弹层） */
+.upload-menu-container {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-menu-container > .upload-btn {
+  width: 100%;
+}
+
+.upload-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 140px;
+  background-color: var(--vscode-menu-background, #252526);
+  border: 1px solid var(--vscode-menu-border, #454545);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  padding: 4px 0;
+}
+
+.upload-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-menu-foreground, #cccccc);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.upload-menu-item:hover {
+  background: var(--vscode-menu-selectionBackground, #094771);
+  color: var(--vscode-menu-selectionForeground, #ffffff);
+}
+
 /* 灵活打包模式按钮 */
 .smart-packing-btn.active {
   color: var(--vscode-charts-green);

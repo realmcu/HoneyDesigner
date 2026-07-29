@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Edit2, Upload, FolderUp, Zap, PackageCheck } from 'lucide-react';
+import { Trash2, Edit2, Upload, FolderUp, FolderPlus, Zap, PackageCheck } from 'lucide-react';
 import { AssetFile } from '../types';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
@@ -455,8 +455,22 @@ const AssetsPanel: React.FC = () => {
   const [currentPath, setCurrentPath] = useState<string[]>([]);  // 当前浏览路径
   const [alwaysConvertAssets, setAlwaysConvertAssets] = useState<Set<string>>(new Set());  // 强制转换的资源集合
   const [smartPacking, setSmartPacking] = useState(false);  // 灵活打包模式
+  const [showUploadMenu, setShowUploadMenu] = useState(false);  // 上传方式下拉菜单
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const uploadMenuRef = useRef<HTMLDivElement>(null);
+
+  // 点击菜单外部时关闭上传下拉
+  useEffect(() => {
+    if (!showUploadMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (uploadMenuRef.current && !uploadMenuRef.current.contains(e.target as Node)) {
+        setShowUploadMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUploadMenu]);
 
   // 获取当前路径下的内容（仅用于"全部"分类）
   const getCurrentFolderContent = React.useMemo(() => {
@@ -1029,20 +1043,53 @@ const AssetsPanel: React.FC = () => {
           <option value="glass">{t('Glass')} ({counts.glass})</option>
           <option value="lottie">Lottie ({counts.lottie})</option>
         </select>
-        <button 
-          className="upload-btn" 
-          onClick={() => fileInputRef.current?.click()}
-          title={t('Upload files')}
+        <button
+          className="upload-btn"
+          onClick={() => {
+            if (activeCategory !== 'all') return;
+            window.vscodeAPI?.postMessage({
+              command: 'createAssetFolder',
+              parentPath: currentPath.join('/'),
+            });
+          }}
+          disabled={activeCategory !== 'all'}
+          title={activeCategory === 'all' ? t('New folder') : t('New folder tooltip category')}
         >
-          <Upload size={16} />
+          <FolderPlus size={16} />
         </button>
-        <button 
-          className="upload-btn" 
-          onClick={() => folderInputRef.current?.click()}
-          title={t('Upload folder')}
-        >
-          <FolderUp size={16} />
-        </button>
+        <div className="upload-menu-container" ref={uploadMenuRef}>
+          <button
+            className="upload-btn"
+            onClick={() => setShowUploadMenu(v => !v)}
+            title={t('Upload')}
+          >
+            <Upload size={16} />
+          </button>
+          {showUploadMenu && (
+            <div className="upload-dropdown-menu">
+              <button
+                className="upload-menu-item"
+                onClick={() => {
+                  setShowUploadMenu(false);
+                  fileInputRef.current?.click();
+                }}
+              >
+                <Upload size={14} />
+                <span>{t('Upload files')}</span>
+              </button>
+              <button
+                className="upload-menu-item"
+                onClick={() => {
+                  setShowUploadMenu(false);
+                  folderInputRef.current?.click();
+                }}
+              >
+                <FolderUp size={14} />
+                <span>{t('Upload folder')}</span>
+              </button>
+            </div>
+          )}
+        </div>
         <button
           className={`upload-btn smart-packing-btn${smartPacking ? ' active' : ''}`}
           onClick={() => {
