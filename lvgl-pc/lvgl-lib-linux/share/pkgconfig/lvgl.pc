@@ -1,4 +1,4 @@
-prefix="/home/runner/work/honeygui-design/honeygui-design/lvgl-pc/lvgl-lib-linux"
+prefix="/home/runner/work/HoneyDesigner/HoneyDesigner/lvgl-pc/lvgl-lib-linux"
 includedir="${prefix}/include/lvgl"
 libdir=${prefix}/lib
 
