@@ -1,7 +1,9 @@
 import * as http from 'http';
 import * as vscode from 'vscode';
 import { HmlValidationService, ValidationResult } from './HmlValidationService';
-import { SvgRasterizeService } from './SvgRasterizeService';
+// 仅作类型使用；实例在首次栅格化请求时通过动态 import 创建，
+// 避免 @resvg/resvg-wasm 在扩展激活期被同步 require。
+import type { SvgRasterizeService } from './SvgRasterizeService';
 import { loadProjectI18nCatalog } from '../project-i18n/files';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import type { I18nCatalog } from '../project-i18n/types';
@@ -181,8 +183,8 @@ export class ExtensionApiService implements vscode.Disposable {
             console.error('[API] Failed to initialize HmlValidationService:', error);
         }
 
-        // 初始化 SVG 栅格化服务（wasm 懒加载，构造本身无副作用）
-        this.svgRasterizer = new SvgRasterizeService();
+        // SVG 栅格化服务改为首次请求时惰性创建（见 getSvgRasterizer），
+        // 使 @resvg/resvg-wasm 不出现在激活路径上。
 
         this.server = http.createServer(async (req, res) => {
             // 设置 CORS 头，允许跨域访问
@@ -365,6 +367,18 @@ export class ExtensionApiService implements vscode.Disposable {
      * - 产物到 PNG 即止；PNG→.bin 由仿真/构建期处理。assetPath 形如 assets/<name>.png 供 HML 引用。
      * - loadedFonts 列出自动注入的 assets/*.ttf 文件名（去扩展名）；图标取材用矢量图标、不涉及 <text>，通常可忽略。
      */
+    /**
+     * 惰性获取 SVG 栅格化服务
+     * @resvg/resvg-wasm 体积较大，仅在真正收到栅格化请求时才加载模块
+     */
+    private async getSvgRasterizer(): Promise<SvgRasterizeService> {
+        if (!this.svgRasterizer) {
+            const { SvgRasterizeService } = await import('./SvgRasterizeService');
+            this.svgRasterizer = new SvgRasterizeService();
+        }
+        return this.svgRasterizer;
+    }
+
     private async handleSvgToImage(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         const body = await this.readBody(req);
 
@@ -376,15 +390,6 @@ export class ExtensionApiService implements vscode.Disposable {
                     code: 'INVALID_PARAMETER',
                     message: 'Required: svg (string), name (string), width (number); optional: height (number), overwrite (boolean)'
                 }
-            }));
-            return;
-        }
-
-        if (!this.svgRasterizer) {
-            res.statusCode = 500;
-            res.end(JSON.stringify({
-                success: false,
-                error: { code: 'SERVICE_UNAVAILABLE', message: 'SVG Rasterize Service is not initialized' }
             }));
             return;
         }
@@ -401,7 +406,8 @@ export class ExtensionApiService implements vscode.Disposable {
         const projectRoot = workspaceFolders[0].uri.fsPath;
 
         try {
-            const result = await this.svgRasterizer.svgToAsset(body.svg, projectRoot, body.name, {
+            const rasterizer = await this.getSvgRasterizer();
+            const result = await rasterizer.svgToAsset(body.svg, projectRoot, body.name, {
                 width: body.width,
                 height: typeof body.height === 'number' ? body.height : undefined,
                 overwrite: body.overwrite === true,

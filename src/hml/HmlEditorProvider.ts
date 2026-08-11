@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { DesignerPanel } from '../designer/DesignerPanel';
+// 仅作类型使用；实例在 resolveCustomTextEditor 内动态 import 后创建。
+// DesignerPanel 会递归拉入全套 codegen 与 mp4box/fast-xml-parser，
+// 顶层静态 import 会让它们在扩展激活时被同步 require。
+import type { DesignerPanel } from '../designer/DesignerPanel';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { logger } from '../utils/Logger';
 import { createHmlLoadPerformanceContext } from '../designer/HmlLoadPerformance';
@@ -75,7 +78,8 @@ export class HmlEditorProvider implements vscode.CustomTextEditorProvider {
         webviewPanel.title = `HML Designer: ${fileName}`;
         logger.debug(`[HmlEditorProvider] 设置面板标题: ${webviewPanel.title}`);
 
-        // 创建设计器面板实例
+        // 创建设计器面板实例（动态 import：保持扩展激活路径轻量）
+        const { DesignerPanel } = await import('../designer/DesignerPanel');
         const designerPanel = new DesignerPanel(webviewPanel, this.context, undefined, performanceContext);
         logger.debug(`[HmlEditorProvider] 创建DesignerPanel实例`);
 

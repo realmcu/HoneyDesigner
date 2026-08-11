@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { logger } from '../utils/Logger';
-import { DesignerPanel } from '../designer/DesignerPanel';
-import { CreateProjectPanel } from '../designer/CreateProjectPanel';
-import { ToolsPanel } from '../tools/ToolsPanel';
+// DesignerPanel / CreateProjectPanel / ToolsPanel 均通过命令回调内的动态 import 加载。
+// 它们会递归拉入全套 codegen 与资源转换服务（opentype.js / mp4box / pngjs 等），
+// 顶层静态 import 会让这些模块在扩展激活时被同步 require，明显拖慢启动。
 import * as path from 'path';
 import * as fs from 'fs';
 import { StatusBarManager } from '../ui/StatusBarManager';
@@ -29,6 +29,7 @@ export class CommandManager {
         this.registerCommand('honeygui.newProject', async () => {
             try {
                 logger.info('执行命令: honeygui.newProject');
+                const { CreateProjectPanel } = await import('../designer/CreateProjectPanel');
                 await CreateProjectPanel.createOrShow(this.context);
             } catch (error) {
                 logger.error(`新建项目失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -40,6 +41,7 @@ export class CommandManager {
         this.registerCommand('honeygui.tools', async () => {
             try {
                 logger.info('执行命令: honeygui.tools');
+                const { ToolsPanel } = await import('../tools/ToolsPanel');
                 ToolsPanel.createOrShow(this.context.extensionUri);
             } catch (error) {
                 logger.error(`打开资源转换工具失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -196,6 +198,7 @@ export class CommandManager {
         this.registerCommand('honeygui.codegen', async () => {
             try {
                 logger.info('执行命令: honeygui.codegen');
+                const { DesignerPanel } = await import('../designer/DesignerPanel');
                 const panel = DesignerPanel.currentPanel;
                 if (!panel) {
                     vscode.window.showWarningMessage(vscode.l10n.t('Please open HoneyGUI designer first'));
