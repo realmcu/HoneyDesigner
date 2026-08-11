@@ -30,7 +30,8 @@
     "Embedded UI"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "workspaceContains:project.json",
+    "workspaceContains:**/*.hml"
   ],
   "main": "./out/src/extension.js",
   "contributes": {
