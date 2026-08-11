@@ -2,6 +2,9 @@
  * HoneyGUI Designer Webview Entry Point
  */
 
+// 必须是第一个 import：为按需 chunk 设置 CSP nonce（详见该模块注释）。
+import './webpackNonce';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';

@@ -107,6 +107,13 @@ export class WebviewContentProvider {
             // 将 nonce 添加到所有 script 标签（包括性能埋点的内联脚本）
             htmlContent = htmlContent.replace(/<script(?![^>]*\bnonce=)([^>]*)>/g, `<script$1 nonce="${nonce}">`);
 
+            // 暴露 nonce 给 webview 运行时：按需加载的 chunk 会动态插入 <script>，
+            // 需要带上同一个 nonce 才能通过 CSP。入口脚本据此设置 __webpack_nonce__。
+            htmlContent = htmlContent.replace(
+                '</head>',
+                `<script nonce="${nonce}">window.__honeyguiNonce = "${nonce}";</script></head>`
+            );
+
             // 确保CSP标签被添加，如果已经有则替换
             if (htmlContent.includes('<meta http-equiv="Content-Security-Policy"')) {
                 htmlContent = htmlContent.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, cspMetaTag);

@@ -24,6 +24,10 @@ module.exports = (env, argv) => {
       path: path.resolve(__dirname, 'out/designer/webview'),
       filename: isProduction ? '[name].[contenthash].js' : 'webview.js',
       chunkFilename: isProduction ? '[name].[contenthash].chunk.js' : '[name].chunk.js',
+      // 'auto' 让运行时从当前脚本的 src 推导基地址。
+      // 主脚本由 WebviewContentProvider 以 webview.asWebviewUri() 注入，
+      // 因此按需 chunk 会从同一个 vscode-webview-resource:// 目录加载，不会 403。
+      publicPath: 'auto',
       clean: true,
     },
     resolve: {
@@ -105,9 +109,13 @@ module.exports = (env, argv) => {
           include: /\.js$/,
         }),
       ],
-      // VS Code Webview 中禁用代码分割
-      // 原因：所有资源必须通过 webview.asWebviewUri() 转换，SplitChunks 自动插入的 vendor 引用会报错 403
-      splitChunks: false,
+      // 只拆分按需加载（async）的 chunk，不自动拆分 initial chunk。
+      // 历史背景：曾整体关闭 splitChunks，因为自动拆出的 vendor initial chunk
+      // 不会经过 webview.asWebviewUri() 转换而报 403。async chunk 不同 ——
+      // 它们由 webpack 运行时按 publicPath:'auto' 加载，路径正确。
+      splitChunks: {
+        chunks: 'async',
+      },
       moduleIds: 'deterministic', // 减少输出文件名中的哈希长度
     },
     performance: {

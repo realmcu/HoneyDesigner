@@ -5,10 +5,7 @@ import ComponentLibrary, { componentDefinitions } from './components/ComponentLi
 import PropertiesPanel from './components/PropertiesPanel';
 import ConversionConfigPanel from './components/ConversionConfigPanel';
 import ComponentTree from './components/ComponentTree';
-import AssetsPanel from './components/AssetsPanel';
 import Toolbar from './components/Toolbar';
-import { ViewRelationModal } from './components/ViewRelationModal';
-import { CanvasEditorModal } from './components/CanvasEditorModal';
 import ProjectI18nManagerModal from './components/ProjectI18nManagerModal';
 import { Component, ComponentType } from './types';
 import type { NavEditResultMessage } from './types';
@@ -31,6 +28,17 @@ import './types';
 const DEBUG_DROP = false;
 
 import { usePanelResize, usePanelShortcuts } from './hooks/usePanelResize';
+import DeferredMount from './components/DeferredMount';
+
+// 以下三者各自拖入体积可观的依赖（three.js + lottie-web、@xyflow/react + d3、fabric），
+// 但都属于按需功能，因此拆成独立 chunk，首次使用时再加载。
+const AssetsPanel = React.lazy(() => import('./components/AssetsPanel'));
+const ViewRelationModal = React.lazy(() =>
+  import('./components/ViewRelationModal').then((m) => ({ default: m.ViewRelationModal }))
+);
+const CanvasEditorModal = React.lazy(() =>
+  import('./components/CanvasEditorModal').then((m) => ({ default: m.CanvasEditorModal }))
+);
 
 const App: React.FC = () => {
   const {
@@ -1724,7 +1732,12 @@ const App: React.FC = () => {
               <ComponentLibrary onComponentDragStart={() => {}} onCreateComponent={handleCreateComponentFromLibrary} />
             </div>
             <div style={{ display: activeTab === 'assets' ? 'contents' : 'none' }}>
-              <AssetsPanel />
+              <DeferredMount
+                activate={activeTab === 'assets'}
+                fallback={<div className="panel-loading">{t('Loading...')}</div>}
+              >
+                <AssetsPanel />
+              </DeferredMount>
             </div>
             <div style={{ display: activeTab === 'tree' ? 'contents' : 'none' }}>
               <ComponentTree onContextMenu={handleComponentContextMenu} isTabActive={activeTab === 'tree'} />
@@ -1807,18 +1820,22 @@ const App: React.FC = () => {
       </div>
 
       {/* View Relation Modal */}
-      <ViewRelationModal
-        visible={showViewRelationModal}
-        onClose={() => setShowViewRelationModal(false)}
-      />
+      <DeferredMount activate={showViewRelationModal}>
+        <ViewRelationModal
+          visible={showViewRelationModal}
+          onClose={() => setShowViewRelationModal(false)}
+        />
+      </DeferredMount>
 
       {/* Canvas Editor Modal */}
-      <CanvasEditorModal
-        isOpen={canvasEditorOpen}
-        initialSvg={getEditingCanvasSvg()}
-        onSave={handleCanvasSvgSave}
-        onClose={() => setCanvasEditorOpen(false)}
-      />
+      <DeferredMount activate={canvasEditorOpen}>
+        <CanvasEditorModal
+          isOpen={canvasEditorOpen}
+          initialSvg={getEditingCanvasSvg()}
+          onSave={handleCanvasSvgSave}
+          onClose={() => setCanvasEditorOpen(false)}
+        />
+      </DeferredMount>
 
       <ProjectI18nManagerModal />
 

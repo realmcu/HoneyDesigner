@@ -272,3 +272,13 @@
   background-color: var(--vscode-button-hoverBackground);
 }
 
+
+/* 按需 chunk 加载期间的面板占位 */
+.panel-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}

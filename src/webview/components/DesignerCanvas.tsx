@@ -17,7 +17,6 @@ import { calculateAlignment } from '../utils/dragAlignmentGuides';
 import { getAbsolutePosition, findComponentAtPosition, isContainerType } from '../utils/componentUtils';
 import { fromCanvasEvent, getCanvasCoordinates } from '../utils/canvasCoordinates';
 import { t } from '../i18n';
-import { captureDesignPng } from '../utils/captureDesign';
 import './DesignerCanvas.css';
 
 interface DesignerCanvasProps {
@@ -25,6 +24,20 @@ interface DesignerCanvasProps {
   onDrop?: (e: React.DragEvent) => void;
   onDragOver?: (e: React.DragEvent) => void;
   onCanvasDoubleClick?: (componentId: string) => void;
+}
+
+const REACT_LAZY_TYPE = Symbol.for('react.lazy');
+
+/**
+ * 判断控件是否为 React.lazy 产物（hg_3d / hg_lottie 等重型控件）。
+ * 这类控件首次渲染会挂起，必须置于 Suspense 边界内。
+ */
+function isLazyWidget(widget: unknown): boolean {
+  return (
+    typeof widget === 'object' &&
+    widget !== null &&
+    (widget as { $$typeof?: symbol }).$$typeof === REACT_LAZY_TYPE
+  );
 }
 
 const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDrop, onDragOver, onCanvasDoubleClick }) => {
@@ -153,7 +166,11 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
       const ids = selectedComponents.length > 1 ? selectedComponents : [component.id];
       const el = canvasRef.current;
       if (el) {
-        captureDesignPng(el, components, ids, { zoom, offset: canvasOffset })
+        // html2canvas 体积可观且仅此处用到，改为按需加载
+        import('../utils/captureDesign')
+          .then(({ captureDesignPng }) =>
+            captureDesignPng(el, components, ids, { zoom, offset: canvasOffset })
+          )
           .then((imageDataUrl) => {
             window.vscodeAPI?.postMessage({ command: 'copyForAI', imageDataUrl, selectedIds: ids });
           })
@@ -750,6 +767,18 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     // 是否显示 resize handles（仅对 hg_label 类型，选中且未锁定的组件）
     const showResizeHandles = component.type === 'hg_label' && (isSelected || isMultiSelected) && !component.locked && !isResizing;
 
+    // 懒加载控件（hg_3d / hg_lottie）首次渲染需要 Suspense 边界。
+    // 只包裹这类控件，其余控件的渲染路径保持不变，避免无谓的额外层级。
+    const needsSuspense = isLazyWidget(Widget);
+    const withSuspense = (node: React.ReactNode) =>
+      needsSuspense ? (
+        <React.Suspense key={component.id} fallback={null}>
+          {node}
+        </React.Suspense>
+      ) : (
+        node
+      );
+
     // 处理 resize 开始
     const onResizeStartHandler = (e: React.MouseEvent, direction: ResizeDirection, compId: string) => {
       handleResizeStart(e, direction, compId, component);
@@ -765,7 +794,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
         return child ? renderComponent(child, componentList) : null;
       });
 
-      return (
+      return withSuspense(
         <Widget key={component.id} component={component} style={style} handlers={handlers}>
           {children}
           {showResizeHandles && (
@@ -780,7 +809,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
       );
     }
 
-    return (
+    return withSuspense(
       <Widget key={component.id} component={component} style={style} handlers={handlers}>
         {showResizeHandles && (
           <ResizeHandles

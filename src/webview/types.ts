@@ -206,6 +206,8 @@ declare global {
     acquireVsCodeApi(): VSCodeAPI;
     vscodeAPI?: VSCodeAPI;
     __honeyguiPerf?: WebviewPerformanceMarks;
+    /** 宿主注入的 CSP nonce，供按需 chunk 的 <script> 标签使用 */
+    __honeyguiNonce?: string;
   }
 }
 
