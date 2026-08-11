@@ -1,5 +1,8 @@
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 import {
+  clearNavGraphScanCache,
   normalizeHmlFilePath,
   scanAllViews,
   scanProjectHml,
@@ -145,5 +148,92 @@ describe('navGraphScanner.scanAllViews (I8 边采集读路径)', () => {
 
     const homeIds = result.componentIdsByFile.get(normalizeHmlFilePath(ENTRY));
     expect(homeIds).toEqual(expect.arrayContaining(['view_home', 'btn_go_extra']));
+  });
+});
+
+/**
+ * 单文件解析结果缓存（避免每次打开/切换面板都全量 read + sha1 + parse）。
+ *
+ * 重点是"命中缓存后结果与全量扫描逐字一致"，以及 target 解析阶段对 edge 的
+ * 就地写入不会污染缓存 —— 后者若失守，第二次扫描会读到上一次的判定结果。
+ */
+describe('navGraphScanner 扫描缓存', () => {
+  beforeEach(() => {
+    clearNavGraphScanCache();
+  });
+
+  const stripVolatile = (result: Awaited<ReturnType<typeof scanProjectHml>>) =>
+    JSON.stringify({
+      views: result.views,
+      componentIds: result.componentIds,
+      duplicateIds: result.duplicateIds,
+      componentIdsByFile: [...result.componentIdsByFile.entries()],
+      errors: result.errors,
+    });
+
+  it('第二次扫描不再读盘与解析，且结果与首次完全一致', async () => {
+    const cold = { hmlReads: 0, hmlParses: 0 };
+    const first = await scanProjectHml(ENTRY, cold);
+    expect(cold.hmlReads).toBe(4);
+    expect(cold.hmlParses).toBe(4);
+
+    const warm = { hmlReads: 0, hmlParses: 0 };
+    const second = await scanProjectHml(ENTRY, warm);
+    expect(warm.hmlReads).toBe(0);
+    expect(warm.hmlParses).toBe(0);
+
+    expect(stripVolatile(second)).toEqual(stripVolatile(first));
+  });
+
+  it('返回的 edges 是副本，调用方改动不会污染后续扫描', async () => {
+    const first = await scanProjectHml(ENTRY);
+    const gesture = first.views
+      .find(v => v.viewKey === 'ui/home.hml#view_home')!
+      .edges.find(e => e.sourceControlId === 'view_home')!;
+    const originalValidity = gesture.isValid;
+
+    // 模拟调用方就地篡改（target 解析阶段正是这么写的）
+    gesture.isValid = !originalValidity;
+    gesture.target = 'mutated_by_caller';
+
+    const second = await scanProjectHml(ENTRY);
+    const sameEdge = second.views
+      .find(v => v.viewKey === 'ui/home.hml#view_home')!
+      .edges.find(e => e.sourceControlId === 'view_home')!;
+    expect(sameEdge.target).not.toBe('mutated_by_caller');
+    expect(sameEdge.isValid).toBe(originalValidity);
+  });
+
+  it('文件内容变化后缓存失效并重新解析', async () => {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-cache-'));
+    const hmlWith = (viewId: string) =>
+      `<?xml version="1.0" encoding="UTF-8"?>
+<hml>
+  <view id="main">
+    <hg_view id="${viewId}" x="0" y="0" w="240" h="240"></hg_view>
+  </view>
+</hml>
+`;
+    try {
+      fs.writeFileSync(
+        path.join(tmpRoot, 'project.json'),
+        JSON.stringify({ $schema: 'HoneyGUI', type: 'Designer', name: 'nav-cache', uiDir: 'ui' })
+      );
+      const uiDir = path.join(tmpRoot, 'ui');
+      fs.mkdirSync(uiDir);
+      const entry = path.join(uiDir, 'main.hml');
+      fs.writeFileSync(entry, hmlWith('view_one'));
+
+      const before = await scanProjectHml(entry);
+      expect(before.views.map(v => v.id)).toEqual(['view_one']);
+
+      // 改写为不同 id：内容长度也不同，mtime 与 size 均变化
+      fs.writeFileSync(entry, hmlWith('view_two_renamed'));
+
+      const after = await scanProjectHml(entry);
+      expect(after.views.map(v => v.id)).toEqual(['view_two_renamed']);
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
   });
 });

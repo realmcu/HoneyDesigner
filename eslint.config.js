@@ -6,7 +6,7 @@ const globals = require('globals');
 module.exports = [
   // Global ignore patterns (equivalent to ignorePatterns)
   {
-    ignores: ['node_modules', 'out', 'dist', '**/*.d.ts'],
+    ignores: ['node_modules', 'out', 'dist', '.vscode-test', '**/*.d.ts'],
   },
 
   // Equivalent of "extends: eslint:recommended"

@@ -31,6 +31,52 @@ export interface ProjectHmlScanError {
     message: string;
 }
 
+/** 单个 HML 文件的解析产出（可缓存部分） */
+interface ScannedFileResult {
+    /** 该文件内所有 hg_view 节点，edges 为原始采集结果（target 尚未解析） */
+    views: ViewNavNode[];
+    /** 该文件内所有带 id 的组件 id */
+    componentIds: string[];
+    fileHash: string;
+}
+
+/** 缓存条目：以 mtime + size 作为失效依据 */
+interface ScanCacheEntry extends ScannedFileResult {
+    mtimeMs: number;
+    size: number;
+}
+
+/**
+ * 单文件解析结果缓存。
+ *
+ * scanProjectHml 会在每次打开面板、切换文件时被调用，而项目里通常只有当前
+ * 文件发生了变化。逐文件缓存后，未变更的文件不再重复 read + sha1 + parse。
+ *
+ * 用 mtimeMs + size 判定失效：两者都取自一次 statSync，比读全文再算 hash 便宜得多。
+ * 返回给调用方的 views 始终是深拷贝，因为 target 解析阶段会就地写 edge 字段
+ * （isValid / targetAmbiguous / targetViewKey），不能让它污染缓存。
+ */
+const scanCache = new Map<string, ScanCacheEntry>();
+
+/**
+ * 缓存条目上限。正常项目远小于此值；设上限只为兜住异常情况
+ * （例如反复扫描不同临时目录）导致的无界增长。
+ */
+const SCAN_CACHE_MAX_ENTRIES = 2000;
+
+/** 清空扫描缓存（测试用，或需要强制全量重扫时） */
+export function clearNavGraphScanCache(): void {
+    scanCache.clear();
+}
+
+/** 深拷贝 view 节点，隔离调用方对 edges 的就地修改 */
+function cloneViews(views: ViewNavNode[]): ViewNavNode[] {
+    return views.map(view => ({
+        ...view,
+        edges: view.edges.map(edge => ({ ...edge })),
+    }));
+}
+
 export interface ProjectHmlScanResult {
     hmlFiles: HmlFileInfo[];
     views: ViewNavNode[];
@@ -61,6 +107,12 @@ export interface ViewNavNode {
     fileMtime?: number;
     /** 扫描时文件内容 hash（sha1） */
     fileHash?: string;
+    /**
+     * 原始 name 属性（未回落为 id）。
+     * name 索引只登记显式写了 name 的 view —— `name` 字段为兼容旧行为会回落成 id，
+     * 无法据此区分，故单独保留。
+     */
+    rawName?: string;
 }
 
 /** 采集边时的单文件上下文 */
@@ -114,6 +166,105 @@ export function scanAllHmlFiles(
 }
 
 /**
+ * 解析单个 HML 文件，得到其 view 节点与组件 id 列表。
+ *
+ * 命中缓存时不读盘、不解析，只做一次 statSync 校验 mtime + size。
+ * 返回值中的 views 为深拷贝，调用方可安全就地修改 edges。
+ */
+function scanSingleHmlFile(
+    hmlFile: HmlFileInfo,
+    metrics?: { hmlReads?: number; hmlParses?: number }
+): ScannedFileResult {
+    const cacheKey = normalizeHmlFilePath(hmlFile.path);
+    const stat = fs.statSync(hmlFile.path);
+
+    const cached = scanCache.get(cacheKey);
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+        return {
+            views: cloneViews(cached.views),
+            componentIds: [...cached.componentIds],
+            fileHash: cached.fileHash,
+        };
+    }
+
+    const content = fs.readFileSync(hmlFile.path, 'utf-8');
+    if (metrics) {
+        metrics.hmlReads = (metrics.hmlReads || 0) + 1;
+    }
+    const fileMtime = stat.mtimeMs;
+    const fileHash = crypto.createHash('sha1').update(content, 'utf8').digest('hex');
+    const fileRelative = hmlFile.relativePath.replace(/\\/g, '/');
+    // 旧字段：文件名去 .hml（向后兼容）
+    const fileId = hmlFile.name.replace('.hml', '');
+
+    const tempController = new HmlController();
+    const doc = tempController.parseContent(content, hmlFile.path);
+    if (metrics) {
+        metrics.hmlParses = (metrics.hmlParses || 0) + 1;
+    }
+    const components: Component[] = doc.view?.components || [];
+    const componentIds = components.filter(comp => Boolean(comp?.id)).map(comp => comp.id);
+
+    // 扁平模型 → id→component 与 parent→children[] 索引（T9 getViewControls 复用）
+    const { childrenOf } = buildComponentIndex(components);
+
+    const views: ViewNavNode[] = [];
+    for (const comp of components) {
+        if (comp?.type !== 'hg_view') {
+            continue;
+        }
+
+        const viewKey = `${fileRelative}#${comp.id}`;
+        const fileCtx: ViewScanFileContext = {
+            filePath: hmlFile.path,
+            fileRelative,
+            fileMtime,
+            fileHash,
+            viewKey,
+        };
+
+        const edges: ViewNavEdge[] = [];
+        // 1) view 自身（屏手势事件 + 定时器）
+        collectComponentSwitchViewEdges(comp, true, fileCtx, edges);
+        // 2) 后代控件，遇嵌套 hg_view 剪枝（子屏的边归子屏）
+        const queue: Component[] = [...(childrenOf.get(comp.id) || [])];
+        while (queue.length > 0) {
+            const child = queue.shift()!;
+            if (child.type === 'hg_view') {
+                continue;
+            }
+            collectComponentSwitchViewEdges(child, false, fileCtx, edges);
+            queue.push(...(childrenOf.get(child.id) || []));
+        }
+
+        views.push({
+            id: comp.id,
+            name: comp.name || comp.id,
+            file: fileId,
+            edges,
+            viewKey,
+            filePath: hmlFile.path,
+            fileRelative,
+            fileMtime,
+            fileHash,
+            rawName: comp.name,
+        });
+    }
+
+    if (scanCache.size >= SCAN_CACHE_MAX_ENTRIES && !scanCache.has(cacheKey)) {
+        // 简单淘汰：丢掉最早插入的一条（Map 保持插入顺序）
+        const oldest = scanCache.keys().next();
+        if (!oldest.done) {
+            scanCache.delete(oldest.value);
+        }
+    }
+    scanCache.set(cacheKey, { views, componentIds, fileHash, mtimeMs: stat.mtimeMs, size: stat.size });
+
+    // 同样返回拷贝：缓存里存的这份不能被调用方改动
+    return { views: cloneViews(views), componentIds: [...componentIds], fileHash };
+}
+
+/**
  * 扫描项目中所有 HML 文件的 view（包含跳转关系）
  *
  * 组件是扁平模型（children 是 id 数组、parent 是 id 引用），
@@ -155,76 +306,24 @@ export async function scanProjectHml(
 
     for (const hmlFile of hmlFiles) {
         try {
-            const content = fs.readFileSync(hmlFile.path, 'utf-8');
-            if (metrics) {
-                metrics.hmlReads = (metrics.hmlReads || 0) + 1;
-            }
-            const fileMtime = fs.statSync(hmlFile.path).mtimeMs;
-            const fileHash = crypto.createHash('sha1').update(content, 'utf8').digest('hex');
-            const fileRelative = hmlFile.relativePath.replace(/\\/g, '/');
-            // 旧字段：文件名去 .hml（向后兼容）
-            const fileId = hmlFile.name.replace('.hml', '');
+            const scanned = scanSingleHmlFile(hmlFile, metrics);
 
-            const tempController = new HmlController();
-            const doc = tempController.parseContent(content, hmlFile.path);
-            if (metrics) {
-                metrics.hmlParses = (metrics.hmlParses || 0) + 1;
-            }
-            const components: Component[] = doc.view?.components || [];
-            const componentIds = components.filter(comp => Boolean(comp?.id)).map(comp => comp.id);
-            componentIdsByFile.set(normalizeHmlFilePath(hmlFile.path), componentIds);
-            for (const id of componentIds) {
+            componentIdsByFile.set(normalizeHmlFilePath(hmlFile.path), scanned.componentIds);
+            for (const id of scanned.componentIds) {
                 idCounts.set(id, (idCounts.get(id) || 0) + 1);
             }
 
-            // 扁平模型 → id→component 与 parent→children[] 索引（T9 getViewControls 复用）
-            const { childrenOf } = buildComponentIndex(components);
-
-            for (const comp of components) {
-                if (comp?.type !== 'hg_view') {
-                    continue;
+            // 聚合到全局索引：依赖全部文件，无法缓存，每次重建
+            for (const view of scanned.views) {
+                const viewKey = view.viewKey!;
+                viewKeysById.set(view.id, [...(viewKeysById.get(view.id) || []), viewKey]);
+                // 注意用 view.name 而非 view.id：ViewNavNode.name 在无 name 时回落为 id，
+                // 而原实现只在 comp.name 存在时登记，这里用 rawName 保持一致
+                if (view.rawName) {
+                    viewKeysByName.set(view.rawName, [...(viewKeysByName.get(view.rawName) || []), viewKey]);
                 }
-
-                const viewKey = `${fileRelative}#${comp.id}`;
-                viewKeysById.set(comp.id, [...(viewKeysById.get(comp.id) || []), viewKey]);
-                if (comp.name) {
-                    viewKeysByName.set(comp.name, [...(viewKeysByName.get(comp.name) || []), viewKey]);
-                }
-
-                const fileCtx: ViewScanFileContext = {
-                    filePath: hmlFile.path,
-                    fileRelative,
-                    fileMtime,
-                    fileHash,
-                    viewKey,
-                };
-
-                const edges: ViewNavEdge[] = [];
-                // 1) view 自身（屏手势事件 + 定时器）
-                collectComponentSwitchViewEdges(comp, true, fileCtx, edges);
-                // 2) 后代控件，遇嵌套 hg_view 剪枝（子屏的边归子屏）
-                const queue: Component[] = [...(childrenOf.get(comp.id) || [])];
-                while (queue.length > 0) {
-                    const child = queue.shift()!;
-                    if (child.type === 'hg_view') {
-                        continue;
-                    }
-                    collectComponentSwitchViewEdges(child, false, fileCtx, edges);
-                    queue.push(...(childrenOf.get(child.id) || []));
-                }
-
-                pendingEdges.push(...edges);
-                allViews.push({
-                    id: comp.id,
-                    name: comp.name || comp.id,
-                    file: fileId,
-                    edges,
-                    viewKey,
-                    filePath: hmlFile.path,
-                    fileRelative,
-                    fileMtime,
-                    fileHash,
-                });
+                pendingEdges.push(...view.edges);
+                allViews.push(view);
             }
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
