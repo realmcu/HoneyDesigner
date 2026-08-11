@@ -4,6 +4,18 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [2.0.1] - 2026-08-11 (preview)
+
+### Added
+
+- 新增 eBadge 项目模板
+
+### Changed
+
+- 更新仿真库（Linux / Win32）
+
+---
+
 ## [2.0.0] - 2026-07-29
 
 ### Added
