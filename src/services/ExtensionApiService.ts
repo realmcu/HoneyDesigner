@@ -217,9 +217,9 @@ export class ExtensionApiService implements vscode.Disposable {
 
         return new Promise<void>((resolve, reject) => {
             this.server!.listen(this.port, '127.0.0.1', () => {
-                const message = `HoneyGUI Extension API Server started on http://localhost:${this.port}`;
-                console.log(message);
-                vscode.window.showInformationMessage(message);
+                // 成功启动是正常路径，静默记录日志即可，不弹信息框打扰用户；
+                // 仅启动失败（端口占用等）才通过 showErrorMessage 提示（见下方 error 分支）。
+                console.log(`HoneyGUI Extension API Server started on http://localhost:${this.port}`);
                 resolve();
             });
 
