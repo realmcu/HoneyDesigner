@@ -117,6 +117,18 @@
           "command": "honeygui.environment.refresh",
           "when": "view == honeygui.environment",
           "group": "navigation"
+        },
+        {
+          "command": "honeygui.environment.installAll",
+          "when": "view == honeygui.environment",
+          "group": "navigation@0"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "honeygui.environment.installOne",
+          "when": "view == honeygui.environment && viewItem == installable",
+          "group": "inline"
         }
       ]
     },
@@ -195,6 +207,18 @@
         "title": "%command.refreshEnvironment%",
         "category": "HoneyGUI",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "honeygui.environment.installAll",
+        "title": "%command.environment.installAll%",
+        "category": "HoneyGUI",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "honeygui.environment.installOne",
+        "title": "%command.environment.installOne%",
+        "category": "HoneyGUI",
+        "icon": "$(cloud-download)"
       }
     ],
     "keybindings": [

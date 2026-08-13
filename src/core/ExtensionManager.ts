@@ -587,6 +587,44 @@ curl -X POST http://localhost:38912/api/validate-hml \\
         this.disposables.push(guideCommand);
         this.context.subscriptions.push(guideCommand);
 
+        // 安装缺失项的共享处理逻辑（惰性加载 DependencyInstaller，避免激活开销）
+        const runInstall = async (toolIds: string[]) => {
+            if (toolIds.length === 0) {
+                vscode.window.showInformationMessage(
+                    vscode.l10n.t('All dependencies are installed.')
+                );
+                return;
+            }
+            const { DependencyInstaller } = await import('../simulation/DependencyInstaller');
+            DependencyInstaller.installInTerminal(toolIds);
+            if (DependencyInstaller.willNeedRestart(toolIds)) {
+                vscode.window.showInformationMessage(
+                    vscode.l10n.t('Installation started in terminal. Please restart VS Code after it completes, then re-check.')
+                );
+            } else {
+                vscode.window.showInformationMessage(
+                    vscode.l10n.t('Installation started in terminal. Click refresh to re-check after it completes.')
+                );
+            }
+        };
+
+        // 一键安装所有缺失项
+        const installAllCommand = vscode.commands.registerCommand('honeygui.environment.installAll', async () => {
+            await runInstall(envProvider.getMissingInstallableToolIds());
+        });
+        this.disposables.push(installAllCommand);
+        this.context.subscriptions.push(installAllCommand);
+
+        // 安装单个工具（右键菜单，参数为 EnvironmentItem 或 toolId）
+        const installOneCommand = vscode.commands.registerCommand('honeygui.environment.installOne', async (arg: unknown) => {
+            const toolId = typeof arg === 'string' ? arg : (arg as { toolId?: string })?.toolId;
+            if (toolId) {
+                await runInstall([toolId]);
+            }
+        });
+        this.disposables.push(installOneCommand);
+        this.context.subscriptions.push(installOneCommand);
+
         // 注册消息转发命令（用于 SimulationService 向 Webview 发送消息）
         const sendMessageCommand = vscode.commands.registerCommand('honeygui.sendMessageToWebview', (message: any) => {
             // 通过 HmlEditorProvider 的静态方法广播消息

@@ -16,6 +16,8 @@
   "command.explorerPreviewFocusDown": "在资源管理器中预览下一个 HML",
   "command.explorerPreviewFocusUp": "在资源管理器中预览上一个 HML",
   "command.refreshEnvironment": "刷新环境检查",
+  "command.environment.installAll": "安装缺失依赖",
+  "command.environment.installOne": "安装此依赖",
   "view.welcome": "欢迎",
   "view.environment": "环境",
   "view.quick": "快捷操作",

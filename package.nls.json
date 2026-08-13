@@ -16,6 +16,8 @@
   "command.explorerPreviewFocusDown": "Preview Next HML in Explorer",
   "command.explorerPreviewFocusUp": "Preview Previous HML in Explorer",
   "command.refreshEnvironment": "Refresh Environment Check",
+  "command.environment.installAll": "Install Missing Dependencies",
+  "command.environment.installOne": "Install This Dependency",
   "view.welcome": "WELCOME",
   "view.environment": "ENVIRONMENT",
   "view.quick": "QUICK",

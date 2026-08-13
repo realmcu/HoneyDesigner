@@ -111,6 +111,24 @@ export class EnvironmentViewProvider implements vscode.TreeDataProvider<Environm
     }
 
     /**
+     * 返回当前未安装、且存在安装命令映射的工具 id 列表。
+     * 供「一键安装缺失项」命令使用。
+     */
+    getMissingInstallableToolIds(): string[] {
+        const r = this.checkResult;
+        if (!r) {
+            return [];
+        }
+        const ids: string[] = [];
+        if (!r.pythonInstalled) { ids.push('python'); }
+        if (!r.sconsInstalled) { ids.push('scons'); }
+        if (!r.compilerInstalled) { ids.push('gcc'); }
+        if (r.sdlInstalled === false) { ids.push('sdl2'); }
+        if (!r.ffmpegInstalled) { ids.push('ffmpeg'); }
+        return ids;
+    }
+
+    /**
      * 显示安装指引
      */
     static showInstallGuide(toolId: string): void {
@@ -163,6 +181,8 @@ class EnvironmentItem extends vscode.TreeItem {
                 arguments: [toolId]
             };
             this.tooltip = vscode.l10n.t('Click to view installation instructions');
+            // 标记为可安装，供右键菜单「安装此项」使用
+            this.contextValue = 'installable';
         }
 
         switch (status) {
