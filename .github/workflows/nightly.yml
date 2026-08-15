@@ -1,6 +1,6 @@
 name: Nightly (packaged)
 
-# 每日构建：验证「打包流程」本身，并用打包安装后的 .vsix 跑 6 个模板工程的 e2e。
+# 每日构建：验证「打包流程」本身，并用打包安装后的 .vsix 跑 7 个模板工程的 e2e。
 # 与日常 CI(ci.yml) 的区别：ci.yml 用开发模式(源码目录)加载扩展，绕过了 vsce
 # package / .vscodeignore 过滤 / webview 产物落地；nightly 测的是真实分发物。
 on:
@@ -17,10 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 20.19
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.19.x
           cache: 'npm'
 
       - name: Install dependencies
@@ -30,7 +30,7 @@ jobs:
         run: npm run lint
 
       - name: Unit Tests
-        run: npm run test:unit
+        run: npm test
 
       # npm run package = compile && build:webview && check:deps && vsce package
       - name: Package extension
@@ -43,7 +43,7 @@ jobs:
           path: '*.vsix'
           if-no-files-found: error
 
-  # ── 2. Linux：安装 vsix 后跑 6 个模板工程 e2e ────────────────────────────
+  # ── 2. Linux：安装 vsix 后跑 7 个模板工程 e2e ────────────────────────────
   e2e-packaged:
     runs-on: ubuntu-latest
     needs: package
@@ -78,10 +78,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 20.19
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.19.x
           cache: 'npm'
 
       - name: Install system dependencies
@@ -113,7 +113,7 @@ jobs:
           TEST_WORKSPACE: /tmp/test-project
         run: xvfb-run -a npm run test:e2e
 
-  # ── 3. Windows：安装 vsix 后跑 6 个模板工程 e2e ──────────────────────────
+  # ── 3. Windows：安装 vsix 后跑 7 个模板工程 e2e ──────────────────────────
   e2e-packaged-win32:
     runs-on: windows-latest
     needs: package
@@ -148,10 +148,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 20.19
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.19.x
           cache: 'npm'
 
       - name: Setup Python

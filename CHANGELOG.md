@@ -4,6 +4,29 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [2.0.3] - 2026-08-15 (preview)
+
+### Added
+
+- 新增一键安装缺失编译依赖功能
+
+### Changed
+
+- 更新仿真库（Linux / Win32）
+
+### Fixed
+
+- 修复 API 服务器启动时弹出信息提示窗的问题
+
+### Performance
+
+- 优化启动性能：延迟加载重量级面板模块
+- 按需拆分 Webview 依赖，减少首屏加载体积
+- 缓存 HML 文件扫描结果，避免重复扫描
+- 仅在 HoneyGUI 项目工作区激活扩展
+
+---
+
 ## [2.0.1] - 2026-08-11 (preview)
 
 ### Added

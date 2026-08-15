@@ -1,0 +1,134 @@
+name: Publish VS Code extension
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish (for example v2.0.4)
+        required: true
+        type: string
+
+concurrency:
+  group: vscode-marketplace-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+
+    steps:
+      - name: Resolve release tag
+        id: release
+        env:
+          PUSH_TAG: ${{ github.ref_name }}
+          MANUAL_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$MANUAL_TAG"
+          else
+            tag="$PUSH_TAG"
+          fi
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag must use the vMAJOR.MINOR.PATCH format: $tag"
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+
+      - name: Setup Node.js 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.x
+          cache: npm
+
+      - name: Validate tag and package version
+        id: version
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+          lock_version=$(node -p "require('./package-lock.json').packages[''].version")
+          tag_version="${RELEASE_TAG#v}"
+
+          if [ "$tag_version" != "$package_version" ]; then
+            echo "::error::Tag $RELEASE_TAG does not match package.json version $package_version"
+            exit 1
+          fi
+
+          if [ "$lock_version" != "$package_version" ]; then
+            echo "::error::package-lock.json version $lock_version does not match package.json version $package_version"
+            exit 1
+          fi
+
+          patch="${package_version##*.}"
+          if (( patch % 2 == 0 )); then
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+            echo "pre_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=preview" >> "$GITHUB_OUTPUT"
+            echo "pre_release=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Build Webview
+        run: npm run build:webview
+
+      - name: Validate packaged dependencies
+        run: npm run check:deps
+
+      - name: Package VSIX
+        env:
+          PRE_RELEASE: ${{ steps.version.outputs.pre_release }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          args=()
+          if [ "$PRE_RELEASE" = "true" ]; then
+            args+=(--pre-release)
+          fi
+          npx vsce package "${args[@]}" --out "honeygui-visual-designer-${VERSION}.vsix"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: honeygui-visual-designer-${{ steps.version.outputs.version }}-${{ steps.version.outputs.channel }}
+          path: '*.vsix'
+          if-no-files-found: error
+
+      - name: Publish stable release
+        if: steps.version.outputs.pre_release == 'false'
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: npx vsce publish --packagePath "honeygui-visual-designer-${VERSION}.vsix"
+
+      - name: Publish preview release
+        if: steps.version.outputs.pre_release == 'true'
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: npx vsce publish --pre-release --packagePath "honeygui-visual-designer-${VERSION}.vsix"

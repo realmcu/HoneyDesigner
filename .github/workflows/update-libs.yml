@@ -153,17 +153,23 @@ jobs:
 
       - name: Commit and push if changed
         if: steps.diff.outputs.changed == 'true'
+        env:
+          SDK_SHA: ${{ steps.sdk-info.outputs.sha }}
+          SDK_MESSAGE: ${{ steps.sdk-info.outputs.message }}
+          LVGL_SHA: ${{ steps.lvgl-info.outputs.sha }}
         run: |
           git config user.name "honeygui-bot"
           git config user.email "bot@honeygui.dev"
 
           git add -A lib/sim/
           git add -A lvgl-pc/lvgl-lib-linux/
-          git commit -m "chore: update simulation libraries
-
-          SDK commit: ${{ steps.sdk-info.outputs.sha }}
-          SDK message: ${{ steps.sdk-info.outputs.message }}
-          LVGL commit: ${{ steps.lvgl-info.outputs.sha }}"
+          {
+            printf '%s\n\n' 'chore: update simulation libraries'
+            printf 'SDK commit: %s\n' "$SDK_SHA"
+            printf 'SDK message: %s\n' "$SDK_MESSAGE"
+            printf 'LVGL commit: %s\n' "$LVGL_SHA"
+          } > "$RUNNER_TEMP/update-libs-commit.txt"
+          git commit -F "$RUNNER_TEMP/update-libs-commit.txt"
 
           git push origin HEAD:master
 
@@ -337,17 +343,24 @@ jobs:
       - name: Commit and push if changed
         if: steps.diff.outputs.changed == 'true'
         shell: pwsh
+        env:
+          SDK_SHA: ${{ steps.sdk-info.outputs.sha }}
+          SDK_MESSAGE: ${{ steps.sdk-info.outputs.message }}
+          LVGL_SHA: ${{ steps.lvgl-info.outputs.sha }}
         run: |
           git config user.name "honeygui-bot"
           git config user.email "bot@honeygui.dev"
 
           git add -A lib/sim/win32/
           git add -A lvgl-pc/lvgl-lib/
-          git commit -m "chore: update Win32 simulation libraries
-
-          SDK commit: ${{ steps.sdk-info.outputs.sha }}
-          SDK message: ${{ steps.sdk-info.outputs.message }}
-          LVGL commit: ${{ steps.lvgl-info.outputs.sha }}"
+          @(
+            "chore: update Win32 simulation libraries"
+            ""
+            "SDK commit: $env:SDK_SHA"
+            "SDK message: $env:SDK_MESSAGE"
+            "LVGL commit: $env:LVGL_SHA"
+          ) | Set-Content -Path "$env:RUNNER_TEMP/update-libs-commit.txt"
+          git commit -F "$env:RUNNER_TEMP/update-libs-commit.txt"
 
           git pull --rebase origin master
           git push origin HEAD:master
