@@ -183,23 +183,31 @@ HmlEditorProvider.resolveCustomTextEditor()
 11. **发布正式版本**：
    - 当用户说"发布版本"、"发布正式版"或"publish"时，执行以下流程：
      1. 更新版本号到下一个偶数版本（如 1.6.30 → 1.6.32）, 根据 git 记录，总结更新 changelog
-     2. 执行 `npm install` 确保依赖最新
-     3. 执行 `npm run compile` 编译代码
-     4. 执行 `npm run build:webview` 构建前端
+     2. 同步更新 `package.json` 与 `package-lock.json` 中的版本号
+     3. 执行 `npm ci` 按锁文件安装依赖
+     4. 执行 `npm run lint`、`npm test`、`npm run compile`、`npm run build:webview` 和 `npm run check:deps`
      5. Commit: `chore: bump version to x.x.x`
-     6. 创建 Git Tag: `git tag vx.x.x`
-     7. Push to Gitee: `git push origin master --tags`
-     8. 执行 `vsce publish` 发布到 VSCode 插件市场
+     6. Push master: `git push origin master`
+     7. 等待并确认 GitHub Actions 的常规 `CI` 工作流全部通过
+     8. 创建 Git Tag: `git tag -a vx.x.x -m "vx.x.x"`
+     9. Push Tag: `git push origin vx.x.x`
+     10. 观察 GitHub Actions 的 `Publish VS Code extension` 工作流，确认正式版发布步骤成功
+     11. 在 VSCode Marketplace 公共页面确认新版本可见
+   - 正常发布入口是推送版本 Tag；不要在本地直接执行 `vsce publish`
 12. **发布测试版本**：
    - 当用户说"发布测试版"、"发布预览版"或"publish preview"时，执行以下流程：
      1. 更新版本号到下一个奇数版本（如 1.6.30 → 1.6.31）, 根据 git 记录，总结更新 changelog
-     2. 执行 `npm install` 确保依赖最新
-     3. 执行 `npm run compile` 编译代码
-     4. 执行 `npm run build:webview` 构建前端
+     2. 同步更新 `package.json` 与 `package-lock.json` 中的版本号
+     3. 执行 `npm ci` 按锁文件安装依赖
+     4. 执行 `npm run lint`、`npm test`、`npm run compile`、`npm run build:webview` 和 `npm run check:deps`
      5. Commit: `chore: bump version to x.x.x (preview)`
-     6. 创建 Git Tag: `git tag vx.x.x`
-     7. Push to Gitee: `git push origin master --tags`
-     8. 执行 `vsce publish --pre-release` 发布测试版到 VSCode 插件市场
+     6. Push master: `git push origin master`
+     7. 等待并确认 GitHub Actions 的常规 `CI` 工作流全部通过
+     8. 创建 Git Tag: `git tag -a vx.x.x -m "vx.x.x preview"`
+     9. Push Tag: `git push origin vx.x.x`
+     10. 观察 GitHub Actions 的 `Publish VS Code extension` 工作流，确认预览版发布步骤成功
+     11. 在 VSCode Marketplace 公共页面确认新版本可见且标记为 Pre-Release
+   - `.github/workflows/publish.yml` 根据 patch 奇偶自动选择正式版或预览版，不要手动传递 `--pre-release`
    - **测试版特性**：
      - 测试版用户不会自动更新到正式版
      - 测试版之间可以自动更新（如 1.6.31 → 1.6.33）
@@ -220,7 +228,7 @@ HmlEditorProvider.resolveCustomTextEditor()
 - ❌ 不要修改 `*_ui.c/h` 的保护区标记
 - ❌ 不要添加网络依赖功能
 - ❌ 不要随意创建文档
-- ❌ **不要发布到插件市场**（必须用户明确允许才可以执行 `vsce publish`）
+- ❌ **不要未经用户明确允许推送发布 Tag**（推送 `vX.Y.Z` 会自动发布到插件市场）
 
 ## AI 助手协作建议
 
@@ -246,10 +254,20 @@ HmlEditorProvider.resolveCustomTextEditor()
 
 ## VSCode 插件市场发布
 
-### 获取 Token
-发布前请联系 **王浩** 获取 VSCode Marketplace 的 PAT (Personal Access Token)。
+### 自动发布
+- 正常发布由 `.github/workflows/publish.yml` 完成，入口是推送格式为 `vX.Y.Z` 的 Git Tag；`workflow_dispatch` 仅用于对已有 Tag 手动重跑
+- 工作流会校验 Tag、`package.json` 和 `package-lock.json` 版本一致性，并依次执行 lint、完整单测、编译、Webview 构建、打包依赖审计、VSIX 打包和制品上传
+- 偶数 patch 自动发布正式版；奇数 patch 自动使用 `--pre-release` 发布预览版
+- Marketplace PAT 保存在 GitHub Actions Repository Secret `VSCE_PAT` 中，不要写入仓库、日志或命令行参数
+- 发布后必须检查 GitHub Actions 结果，并等待 Marketplace 公共索引出现新版本
 
-### 发布命令
+### 紧急手动兜底
+仅当 GitHub Actions 不可用且用户明确授权时，才允许使用本地安全发布脚本：
 ```bash
-vsce publish -p $VSCODE_MARKETPLACE_PAT
+# 正式版
+npm run publish:safe
+
+# 预览版
+npm run publish:safe -- --pre-release
 ```
+脚本通过环境变量 `VSCE_PAT` 读取凭据。手动发布完成后仍必须核验 Marketplace 版本。
