@@ -1,5 +1,6 @@
 import React from 'react';
-import { WidgetProps, widgetMemo } from './types';
+import type { WidgetProps } from './types';
+import { widgetMemo } from './types';
 import { ButtonWidget } from './ButtonWidget';
 import { LabelWidget } from './LabelWidget';
 import { TimeLabelWidget } from './TimeLabelWidget';
@@ -36,7 +37,8 @@ const LottieWidget = React.lazy(() =>
   import('./LottieWidget').then((m) => ({ default: m.LottieWidget }))
 );
 
-export { WidgetProps, widgetMemo } from './types';
+export type { WidgetProps } from './types';
+export { widgetMemo } from './types';
 
 /**
  * 组件类型到控件的映射
