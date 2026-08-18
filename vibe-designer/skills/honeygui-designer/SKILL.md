@@ -187,6 +187,22 @@ curl -X POST http://localhost:38912/api/validate-hml \
 
 详细 API：`references/http-api.md`。
 
+## 启动仿真
+
+用户要求运行或查看实际效果时，Agent 可调用 Extension HTTP API：
+
+```bash
+# 先打开目标项目的 HML，避免多项目工作区选错项目
+curl -X POST http://localhost:38912/api/open-text-editor \
+  -H "Content-Type: application/json" -d '{"filePath":"ui/main.hml"}'
+
+curl -X POST http://localhost:38912/api/simulation/run
+# 验证完成后停止
+curl -X POST http://localhost:38912/api/simulation/stop
+```
+
+启动前检查 `/health`；若需判断画面是否正确，必须查看仿真器窗口或截图，不能只凭 API 成功响应。服务不可用时明确告知用户，不能声称已运行仿真。
+
 ## 从设计器选区编辑（Copy for AI）
 
 用户在设计器里右键「复制给 AI」后，剪贴板会得到一段英文文本包，形如：
