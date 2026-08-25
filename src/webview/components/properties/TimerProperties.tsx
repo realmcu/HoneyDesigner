@@ -5,7 +5,7 @@ import { TimerConfig, TimerAction, AnimationSegment } from '../../../hml/types';
 import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES } from '../../../hml/eventTypes';
 import { useDesignerStore } from '../../store';
 import { NumberInput } from '../NumberInput';
-import { ChevronDown, ChevronRight, Trash2, Download } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Download, Check, Circle } from 'lucide-react';
 
 interface TimerPropertiesProps {
   componentId: string;
@@ -163,6 +163,49 @@ export const TimerProperties: React.FC<TimerPropertiesProps> = ({
       return t;
     });
     onUpdate(newTimers);
+  };
+
+  // 切换动画实现方式（预设动作与自定义回调互斥，切换时保留另一侧数据）
+  const handleChangeMode = (timer: TimerConfig, mode: 'preset' | 'custom') => {
+    if (timer.mode === mode) return;
+    if (mode === 'preset') {
+      // 切换到预设模式时，恢复之前保存的预设数据
+      const updates: Partial<TimerConfig> = { mode: 'preset' };
+      if (timer.segmentsBackup && timer.segmentsBackup.length > 0) {
+        updates.segments = timer.segmentsBackup;
+      } else if (!timer.segments || timer.segments.length === 0) {
+        updates.segments = [];
+      }
+      handleUpdateTimer(timer.id, updates);
+    } else {
+      // 切换到自定义模式时，备份当前的预设数据
+      const updates: Partial<TimerConfig> = {
+        mode: 'custom',
+        callback: timer.callback || `${componentId}_timer_cb`,
+      };
+      if (timer.segments && timer.segments.length > 0) {
+        updates.segmentsBackup = timer.segments;
+      }
+      handleUpdateTimer(timer.id, updates);
+    }
+  };
+
+  // 两种实现方式的配置摘要，让未选中一侧也能看出是否已有配置
+  const getModeSummary = (timer: TimerConfig, mode: 'preset' | 'custom'): string => {
+    if (mode === 'custom') {
+      return timer.callback || t('Not configured');
+    }
+    const presetSegments = timer.segments && timer.segments.length > 0
+      ? timer.segments
+      : (timer.segmentsBackup || []);
+    if (presetSegments.length > 0) {
+      const total = presetSegments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
+      return `${presetSegments.length} ${t('segments')} · ${total}ms`;
+    }
+    if (timer.actions && timer.actions.length > 0) {
+      return `${timer.actions.length} ${t('actions')}`;
+    }
+    return t('Not configured');
   };
 
   // 切换定时动画展开/折叠
@@ -325,74 +368,80 @@ export const TimerProperties: React.FC<TimerPropertiesProps> = ({
                   </div>
                 </div>
 
-                {/* 模式选择 */}
+                {/* 动画实现方式：预设动作与自定义回调二选一 */}
                 <div style={{ marginBottom: '12px' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '4px',
-                      marginBottom: '8px',
-                      borderBottom: '1px solid var(--vscode-panel-border)',
-                    }}
-                  >
-                    <button
-                      style={{
-                        flex: 1,
-                        padding: '4px 8px',
-                        background: timer.mode === 'preset' ? 'var(--vscode-editor-background)' : 'transparent',
-                        color: 'var(--vscode-foreground)',
-                        border: 'none',
-                        borderBottom:
-                          timer.mode === 'preset'
-                            ? '2px solid var(--vscode-focusBorder)'
-                            : '2px solid transparent',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        opacity: timer.mode === 'preset' ? 1 : 0.7,
-                      }}
-                      onClick={() => {
-                        // 切换到预设模式时，恢复之前保存的预设数据
-                        const updates: Partial<TimerConfig> = { mode: 'preset' };
-                        if (timer.segmentsBackup && timer.segmentsBackup.length > 0) {
-                          updates.segments = timer.segmentsBackup;
-                        } else if (!timer.segments || timer.segments.length === 0) {
-                          updates.segments = [];
-                        }
-                        handleUpdateTimer(timer.id, updates);
-                      }}
-                    >
-                      {t('Preset Actions')}
-                    </button>
-                    <button
-                      style={{
-                        flex: 1,
-                        padding: '4px 8px',
-                        background: timer.mode === 'custom' ? 'var(--vscode-editor-background)' : 'transparent',
-                        color: 'var(--vscode-foreground)',
-                        border: 'none',
-                        borderBottom:
-                          timer.mode === 'custom'
-                            ? '2px solid var(--vscode-focusBorder)'
-                            : '2px solid transparent',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        opacity: timer.mode === 'custom' ? 1 : 0.7,
-                      }}
-                      onClick={() => {
-                        // 切换到自定义模式时，备份当前的预设数据
-                        const updates: Partial<TimerConfig> = {
-                          mode: 'custom',
-                          callback: timer.callback || `${componentId}_timer_cb`,
-                        };
-                        // 如果当前有预设数据，备份它
-                        if (timer.segments && timer.segments.length > 0) {
-                          updates.segmentsBackup = timer.segments;
-                        }
-                        handleUpdateTimer(timer.id, updates);
-                      }}
-                    >
-                      {t('Custom Function')}
-                    </button>
+                  <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>
+                    {t('Animation Implementation')}
+                  </label>
+                  <div style={{ fontSize: '10px', opacity: 0.7, marginBottom: '6px', lineHeight: 1.4 }}>
+                    {t('The two options are mutually exclusive, only the selected one takes effect.')}
+                  </div>
+                  <div role="radiogroup" style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                    {(['preset', 'custom'] as const).map(mode => {
+                      const active = timer.mode === mode;
+                      const summary = getModeSummary(timer, mode);
+                      const label = mode === 'preset' ? t('Preset Actions') : t('Custom Callback');
+                      return (
+                        <button
+                          key={mode}
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => handleChangeMode(timer, mode)}
+                          title={active ? `${label}: ${summary}` : `${label}: ${summary} · ${t('Not in effect')}`}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            gap: '2px',
+                            padding: '6px 8px',
+                            background: active
+                              ? 'var(--vscode-button-background)'
+                              : 'var(--vscode-input-background)',
+                            color: active
+                              ? 'var(--vscode-button-foreground)'
+                              : 'var(--vscode-foreground)',
+                            border: active
+                              ? '1px solid var(--vscode-focusBorder)'
+                              : '1px solid var(--vscode-input-border)',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            opacity: active ? 1 : 0.8,
+                            textAlign: 'left',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontWeight: active ? 600 : 400,
+                              maxWidth: '100%',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {active ? <Check size={11} /> : <Circle size={11} />}
+                            {label}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '9px',
+                              opacity: 0.85,
+                              maxWidth: '100%',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {active ? summary : `${summary} · ${t('Not in effect')}`}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* 预设动作模式 */}
