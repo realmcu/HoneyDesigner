@@ -302,7 +302,7 @@
     "vscode:prepublish": "npm run compile && npm run build:webview",
     "compile": "node scripts/prepare-video-converter.js && npm run clean:src && tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint . --ignore-pattern \"**/dist/**\" --ignore-pattern \"src/**/*.js\"",
     "build:webview": "webpack --mode production",
     "build:webview:dev": "webpack --mode development",
     "watch:webview": "webpack --mode development --watch",
