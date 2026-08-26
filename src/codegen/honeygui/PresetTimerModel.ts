@@ -119,7 +119,7 @@ export function presetTimerStateNames(componentId: string) {
     startMs: `${componentId}_timer_start_ms`,
     started: `${componentId}_timer_started`,
     prevElapsedMs: `${componentId}_timer_prev_elapsed_ms`,
-    resetFn: `${componentId}_timer_reset_state`,
+    resetFn: `${componentId}_preset_animation_reset`,
     /**
      * Deprecated animation counter. Shipped project templates rewind a preset
      * animation from `user/` code by assigning 0 to it, so it stays generated as

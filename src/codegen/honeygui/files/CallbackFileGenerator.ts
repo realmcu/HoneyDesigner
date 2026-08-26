@@ -95,36 +95,43 @@ export class CallbackFileGenerator {
       code += `\n`;
     }
 
-    // Preset animations are driven by real elapsed time, so each component that
-    // owns one needs its own animation clock. Custom callbacks do not.
+    // Public preset animation control API. The elapsed-time clock itself stays
+    // file-local so user code depends on behaviour rather than implementation.
     const presetComponents = this.allComponents.filter(c => componentHasPresetTimer(c));
 
     if (presetComponents.length > 0) {
-      code += `// Preset animation clock state (defined in callbacks.c)\n`;
-      presetComponents.forEach(comp => {
-        const state = presetTimerStateNames(comp.id);
-        code += `extern uint32_t ${state.startMs};\n`;
-        code += `extern bool ${state.started};\n`;
-        code += `extern uint32_t ${state.prevElapsedMs};\n`;
-      });
-      code += `\n`;
-      code += `// Preset animation state reset (call before restarting an animation)\n`;
+      code += `// Stable preset animation control API\n`;
+      code += `// Call before creating or starting the object timer to replay from the beginning.\n`;
       presetComponents.forEach(comp => {
         code += `void ${presetTimerStateNames(comp.id).resetFn}(void);\n`;
       });
       code += `\n`;
     }
 
-    // Deprecated animation counter, kept so existing user/ code keeps compiling
+    // Deprecated animation counters remain externally visible during the
+    // migration window because generated user/ files are never overwritten.
     const timerComponents = this.allComponents.filter(c => componentHasAnyTimer(c));
 
     if (timerComponents.length > 0) {
-      code += `// Deprecated: assigning 0 requests an animation restart.\n`;
-      code += `// Call <id>_timer_reset_state() instead; this is no longer a frame counter.\n`;
+      code += `// Deprecated compatibility API; scheduled for removal in the next major version.\n`;
+      code += `// For preset animations, assigning 0 requests a restart. Custom timer state is user-owned.\n`;
+      code += `#if defined(${guardName}_IMPLEMENTATION)\n`;
+      code += `#define HONEYGUI_DESIGN_DEPRECATED(message)\n`;
+      code += `#elif defined(__clang__) || defined(__GNUC__)\n`;
+      code += `#define HONEYGUI_DESIGN_DEPRECATED(message) __attribute__((deprecated(message)))\n`;
+      code += `#elif defined(_MSC_VER)\n`;
+      code += `#define HONEYGUI_DESIGN_DEPRECATED(message) __declspec(deprecated(message))\n`;
+      code += `#else\n`;
+      code += `#define HONEYGUI_DESIGN_DEPRECATED(message)\n`;
+      code += `#endif\n`;
       timerComponents.forEach(comp => {
-        code += `extern uint16_t ${presetTimerStateNames(comp.id).legacyCount};\n`;
+        const state = presetTimerStateNames(comp.id);
+        const message = componentHasPresetTimer(comp)
+          ? `use ${state.resetFn}() instead`
+          : 'remove direct use; custom timer state is user-owned';
+        code += `HONEYGUI_DESIGN_DEPRECATED("${message}") extern uint16_t ${state.legacyCount};\n`;
       });
-      code += `\n`;
+      code += `#undef HONEYGUI_DESIGN_DEPRECATED\n\n`;
     }
 
     code += `// Event callback function declarations\n`;
@@ -200,7 +207,9 @@ export class CallbackFileGenerator {
     // Check if tp_algo.h is needed (for touch release area detection)
     const needsTpAlgo = this.checkNeedsTpAlgo();
     
-    let code = `#include "${baseName}_callbacks.h"
+    let code = `#define ${baseName.toUpperCase()}_CALLBACKS_H_IMPLEMENTATION
+#include "${baseName}_callbacks.h"
+#undef ${baseName.toUpperCase()}_CALLBACKS_H_IMPLEMENTATION
 #include "../ui/${baseName}_ui.h"
 #include "../user/${baseName}_user.h"
 #include <stdio.h>
@@ -245,12 +254,12 @@ export class CallbackFileGenerator {
     const presetComponents = this.allComponents.filter(c => componentHasPresetTimer(c));
 
     if (presetComponents.length > 0) {
-      code += `// Preset animation clock state (real elapsed time, not callback counts)\n`;
+      code += `// Internal preset animation clock state (real elapsed time, not callback counts)\n`;
       presetComponents.forEach(comp => {
         const state = presetTimerStateNames(comp.id);
-        code += `uint32_t ${state.startMs} = 0;\n`;
-        code += `bool ${state.started} = false;\n`;
-        code += `uint32_t ${state.prevElapsedMs} = 0;\n`;
+        code += `static uint32_t ${state.startMs} = 0;\n`;
+        code += `static bool ${state.started} = false;\n`;
+        code += `static uint32_t ${state.prevElapsedMs} = 0;\n`;
       });
       code += `\n`;
       presetComponents.forEach(comp => {

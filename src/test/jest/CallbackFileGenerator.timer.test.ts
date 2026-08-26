@@ -193,7 +193,7 @@ describe('preset timer reload and restart', () => {
       ],
     }));
 
-    expect(code).toContain('dial_timer_reset_state();');
+    expect(code).toContain('dial_preset_animation_reset();');
     // reload: false is configured on the target preset timer, but a preset
     // animation needs many callbacks, so the object timer must reload anyway.
     expect(code).toContain('gui_obj_create_timer(target, 10, true, dial_spin_cb);');
@@ -219,7 +219,7 @@ describe('preset timer reload and restart', () => {
 
     const body = generateControlTimerCallbackImpl(button, new Map([['dial', dial], ['btn', button]])).join('\n');
 
-    expect(body).toContain('dial_timer_reset_state();');
+    expect(body).toContain('dial_preset_animation_reset();');
     expect(body).toContain('gui_obj_create_timer(GUI_BASE(dial), 10, true, dial_spin_cb);');
   });
 
@@ -228,12 +228,21 @@ describe('preset timer reload and restart', () => {
 
     // Completing a one-shot animation stops the timer but keeps the finished
     // state; the clock is only rewound through the reset entry point.
-    expect(code).toContain(`void needle_timer_reset_state(void)
+    expect(code).toContain(`void needle_preset_animation_reset(void)
 {
     needle_timer_start_ms = 0;
     needle_timer_started = false;
     needle_timer_prev_elapsed_ms = 0;
 }`);
+    expect(code).toContain('static uint32_t needle_timer_start_ms = 0;');
+    expect(code).toContain('static bool needle_timer_started = false;');
+    expect(code).toContain('static uint32_t needle_timer_prev_elapsed_ms = 0;');
+
+    const header = new CallbackFileGenerator([makeNeedle({ stopOnComplete: true })]).generateHeader('Main');
+    expect(header).toContain('void needle_preset_animation_reset(void);');
+    expect(header).not.toContain('extern uint32_t needle_timer_start_ms;');
+    expect(header).not.toContain('extern bool needle_timer_started;');
+    expect(header).not.toContain('extern uint32_t needle_timer_prev_elapsed_ms;');
     expect(code).toContain(`    if (finished)
     {
         gui_obj_stop_timer(target);
@@ -278,8 +287,14 @@ describe('deprecated *_timer_cnt compatibility', () => {
     const impl = generator.generateImplementation('Main');
 
     // Both preset and custom timer owners had the counter before, so both keep it
-    expect(header).toContain('extern uint16_t needle_timer_cnt;');
-    expect(header).toContain('extern uint16_t clockLabel_timer_cnt;');
+    expect(header).toContain('HONEYGUI_DESIGN_DEPRECATED("use needle_preset_animation_reset() instead") extern uint16_t needle_timer_cnt;');
+    expect(header).toContain('HONEYGUI_DESIGN_DEPRECATED("remove direct use; custom timer state is user-owned") extern uint16_t clockLabel_timer_cnt;');
+    expect(header).toContain('#if defined(MAIN_CALLBACKS_H_IMPLEMENTATION)');
+    expect(header).toContain('#define HONEYGUI_DESIGN_DEPRECATED(message) __attribute__((deprecated(message)))');
+    expect(header).toContain('#define HONEYGUI_DESIGN_DEPRECATED(message) __declspec(deprecated(message))');
+    expect(impl).toContain(`#define MAIN_CALLBACKS_H_IMPLEMENTATION
+#include "Main_callbacks.h"
+#undef MAIN_CALLBACKS_H_IMPLEMENTATION`);
     expect(impl).toContain('uint16_t needle_timer_cnt = 0;');
     expect(impl).toContain('uint16_t clockLabel_timer_cnt = 0;');
   });
@@ -289,7 +304,7 @@ describe('deprecated *_timer_cnt compatibility', () => {
 
     expect(code).toContain(`    if (needle_timer_cnt == 0)
     {
-        needle_timer_reset_state();
+        needle_preset_animation_reset();
     }
     needle_timer_cnt = 1;`);
 
