@@ -4,6 +4,38 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [2.1.0] - 2026-08-26
+
+### Added
+
+- HoneyGUI 预设动画新增稳定的 `<组件ID>_preset_animation_reset()` 生成代码接口，用于从头重播动画
+
+### Changed
+
+- HoneyGUI 预设动画改为按真实经过时间计算进度；`duration` 现在表示实际毫秒时长，`interval` 仅控制采样频率
+- 预设动画的底层定时器固定为重载模式，单次播放或循环播放统一由 `stopOnComplete` 控制；`reload` 仅对自定义回调模式生效
+- 定时器属性面板明确区分互斥的「预设动作」与「自定义回调」模式，并在切换模式时保留另一侧配置
+- 设计器工具栏支持根据可用宽度自适应收纳操作，并通过「更多操作」菜单继续访问被折叠的功能
+
+### Fixed
+
+- 修复 HoneyGUI 预设动画时长随渲染帧率变化的问题，低帧率下仍会在设定时间到达终点
+- 修复动画跨越短时间段时可能遗漏离散动作，或在同一时间段内重复触发副作用的问题
+
+### Deprecated
+
+- `<组件ID>_timer_cnt` 仅作为旧工程的动画重播兼容标志保留，并计划在下一个主版本移除；请将 `<组件ID>_timer_cnt = 0;` 迁移为 `<组件ID>_preset_animation_reset();`，非零写入不再控制动画进度
+
+### Breaking Changes
+
+- HoneyGUI 预设动画不再以定时器回调次数作为时间来源。依赖 `interval` 调整动画速度，或依赖写入非零 `<组件ID>_timer_cnt` 跳转动画进度的用户代码，需要改用 `duration` 和新的 reset 接口
+
+### Internal
+
+- 更新 HoneyGUI Linux / Win32 仿真库，并同步 `gui_img_clip()` 接口
+
+---
+
 ## [2.0.3] - 2026-08-15 (preview)
 
 ### Added
