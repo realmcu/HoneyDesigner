@@ -8,6 +8,7 @@ import { getMessageCallbackName, generateEventCallbackName } from '../events/Eve
 import {
   NormalizedSegment,
   buildPresetTimeline,
+  componentHasAnyTimer,
   componentHasPresetTimer,
   isBoundaryAction,
   isPresetTimerConfig,
@@ -110,6 +111,18 @@ export class CallbackFileGenerator {
       code += `// Preset animation state reset (call before restarting an animation)\n`;
       presetComponents.forEach(comp => {
         code += `void ${presetTimerStateNames(comp.id).resetFn}(void);\n`;
+      });
+      code += `\n`;
+    }
+
+    // Deprecated animation counter, kept so existing user/ code keeps compiling
+    const timerComponents = this.allComponents.filter(c => componentHasAnyTimer(c));
+
+    if (timerComponents.length > 0) {
+      code += `// Deprecated: assigning 0 requests an animation restart.\n`;
+      code += `// Call <id>_timer_reset_state() instead; this is no longer a frame counter.\n`;
+      timerComponents.forEach(comp => {
+        code += `extern uint16_t ${presetTimerStateNames(comp.id).legacyCount};\n`;
       });
       code += `\n`;
     }
@@ -249,6 +262,19 @@ export class CallbackFileGenerator {
         code += `    ${state.prevElapsedMs} = 0;\n`;
         code += `}\n\n`;
       });
+    }
+
+    // Deprecated animation counter, kept so existing user/ code keeps compiling.
+    // Shipped templates rewind a preset animation by assigning 0 to it from
+    // user/ code, which the preset callbacks honour as a restart request.
+    const timerComponents = this.allComponents.filter(c => componentHasAnyTimer(c));
+
+    if (timerComponents.length > 0) {
+      code += `// Deprecated animation counter (restart request flag, not a frame counter)\n`;
+      timerComponents.forEach(comp => {
+        code += `uint16_t ${presetTimerStateNames(comp.id).legacyCount} = 0;\n`;
+      });
+      code += `\n`;
     }
 
     if (this.needsBoundaryHelper) {
@@ -789,6 +815,16 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
 
     // ---- timeline setup ---------------------------------------------------
     let statements = '';
+    // Deprecated compatibility: user/ code (including shipped templates) rewinds
+    // an animation by assigning 0 to the old counter. Honour that here, before the
+    // time origin is established, so the animation replays from its start.
+    statements += `    // Deprecated: <id>_timer_cnt = 0 from user code requests a restart\n`;
+    statements += `    if (${state.legacyCount} == 0)\n`;
+    statements += `    {\n`;
+    statements += `        ${state.resetFn}();\n`;
+    statements += `    }\n`;
+    statements += `    ${state.legacyCount} = 1;\n`;
+    statements += `    \n`;
     statements += `    uint32_t now_ms = gui_ms_get();\n`;
     if (needsFirstSample) {
       statements += `    bool first_sample = false;\n`;

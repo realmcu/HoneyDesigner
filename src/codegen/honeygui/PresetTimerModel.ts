@@ -98,6 +98,21 @@ export function componentHasPresetTimer(component: Component): boolean {
   return isLegacyPresetTimer(component);
 }
 
+/**
+ * Whether a component declares any timer at all, in either format.
+ *
+ * This is the emission rule for the deprecated `<id>_timer_cnt` compatibility
+ * symbol: it must cover exactly the set of components the counter used to be
+ * generated for, otherwise existing `user/` code stops compiling.
+ */
+export function componentHasAnyTimer(component: Component): boolean {
+  const timers = component.data?.timers;
+  if (Array.isArray(timers) && timers.length > 0) {
+    return true;
+  }
+  return component.data?.timerEnabled === true;
+}
+
 /** Names of the generated elapsed-time state symbols for a component. */
 export function presetTimerStateNames(componentId: string) {
   return {
@@ -105,6 +120,12 @@ export function presetTimerStateNames(componentId: string) {
     started: `${componentId}_timer_started`,
     prevElapsedMs: `${componentId}_timer_prev_elapsed_ms`,
     resetFn: `${componentId}_timer_reset_state`,
+    /**
+     * Deprecated animation counter. Shipped project templates rewind a preset
+     * animation from `user/` code by assigning 0 to it, so it stays generated as
+     * a restart request flag. It is no longer the animation's time source.
+     */
+    legacyCount: `${componentId}_timer_cnt`,
   };
 }
 
