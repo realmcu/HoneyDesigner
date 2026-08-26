@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useDesignerStore } from '../store';
 import { ChevronDown, ChevronRight, Eye, EyeOff, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import { componentIconMap } from './ComponentLibrary';
+import ComponentIcon from './icons/ComponentIcon';
 import { findComponentsWithBrokenRefs } from '../utils/componentUtils';
 import { t } from '../i18n';
 import './ComponentTree.css';
@@ -345,10 +346,10 @@ const ComponentTreeNode: React.FC<ComponentTreeNodeProps> = ({ componentId, leve
 
   const isSelected = selectedComponent === componentId || selectedComponents.includes(componentId);
 
-  // 获取组件图标
+  // 获取组件图标名（缺失时由 ComponentIcon 回落到占位图标）
   const getComponentIcon = () => {
     // 使用组件库中定义的图标
-    return componentIconMap[component.type] || '📦';
+    return componentIconMap[component.type];
   };
 
   // 获取组件显示名称（使用 id，与属性面板 Name 字段一致）
@@ -380,7 +381,9 @@ const ComponentTreeNode: React.FC<ComponentTreeNodeProps> = ({ componentId, leve
         )}
         {!hasChildren && <div className="tree-spacer" />}
 
-        <div className="tree-node-icon">{getComponentIcon()}</div>
+        <div className="tree-node-icon">
+          <ComponentIcon name={getComponentIcon()} size={16} />
+        </div>
 
         <div className="tree-node-label">{getComponentDisplayName()}</div>
 
@@ -779,7 +782,7 @@ const ComponentTree: React.FC<{ onContextMenu?: (e: React.MouseEvent, componentI
                 const p = components.find(c => c.id === pid);
                 pid = p?.parent || null;
               }
-              const icon = componentIconMap[comp.type] || '📦';
+              const icon = componentIconMap[comp.type];
               return (
                 <div
                   key={parentId}
@@ -803,7 +806,9 @@ const ComponentTree: React.FC<{ onContextMenu?: (e: React.MouseEvent, componentI
                   >
                     <ChevronDown size={14} />
                   </div>
-                  <div className="tree-node-icon">{icon}</div>
+                  <div className="tree-node-icon">
+                    <ComponentIcon name={icon} size={16} />
+                  </div>
                   <div className="tree-node-label">{comp.id}</div>
                 </div>
               );

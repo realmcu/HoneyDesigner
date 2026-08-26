@@ -3,6 +3,7 @@ import { ComponentType, ComponentDefinition, PropertyDefinition } from '../types
 import { t } from '../i18n';
 import { PARTICLE_EFFECT_TYPES } from '../constants/particleEffects';
 import { useDesignerStore } from '../store';
+import ComponentIcon, { ComponentIconName } from './icons/ComponentIcon';
 import './ComponentLibrary.css';
 
 interface ComponentLibraryProps {
@@ -17,17 +18,17 @@ interface ComponentLibraryProps {
 interface AdvancedVariant {
   type: ComponentType;
   label: string;
-  icon: string;
+  icon: ComponentIconName;
   preset?: any; // 预设属性
 }
 
 const advancedVariants: Record<string, AdvancedVariant[]> = {
   'hg_label': [
-    { type: 'hg_time_label', label: 'Time Label', icon: '🕐' },
+    { type: 'hg_time_label', label: 'Time Label', icon: 'time-label' },
     { 
       type: 'hg_timer_label', 
       label: '计时标签', 
-      icon: '⏱️',
+      icon: 'timer-label',
       preset: {
         text: '00:00:00',
         timerAutoStart: false
@@ -38,7 +39,7 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
     { 
       type: 'hg_rect', 
       label: 'Dual-State Button', 
-      icon: '🔲',
+      icon: 'dual-state',
       preset: {
         buttonMode: 'dual-state',
         buttonStateOnColor: '#00FF00',
@@ -48,7 +49,7 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
     { 
       type: 'hg_rect', 
       label: 'Opacity Button', 
-      icon: '✨',
+      icon: 'opacity',
       preset: {
         buttonMode: 'opacity',
         buttonPressedOpacity: 128,
@@ -60,7 +61,7 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
     { 
       type: 'hg_circle', 
       label: 'Dual-State Button', 
-      icon: '🔵',
+      icon: 'dual-state',
       preset: {
         buttonMode: 'dual-state',
         buttonStateOnColor: '#00FF00',
@@ -70,7 +71,7 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
     { 
       type: 'hg_circle', 
       label: 'Opacity Button', 
-      icon: '✨',
+      icon: 'opacity',
       preset: {
         buttonMode: 'opacity',
         buttonPressedOpacity: 128,
@@ -114,7 +115,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_button',
     name: 'Button',
-    icon: '🔘',
+    icon: 'button',
     defaultSize: { width: 100, height: 32 },
     properties: [
       ...textProps('Button'),
@@ -132,7 +133,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_label',
     name: 'Label/Text',
-    icon: '🏷️',
+    icon: 'label',
     defaultSize: { width: 100, height: 24 },
     properties: [
       { name: 'text', label: 'Display Text', type: 'string', defaultValue: 'Label', group: 'data' },
@@ -165,7 +166,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_time_label',
     name: 'Time Label',
-    icon: '🕐',
+    icon: 'time-label',
     defaultSize: { width: 120, height: 24 },
     properties: [
       { name: 'text', label: 'Display Text', type: 'string', defaultValue: '', group: 'data' },
@@ -191,7 +192,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_timer_label',
     name: 'Timer Label',
-    icon: '⏱️',
+    icon: 'timer-label',
     defaultSize: { width: 120, height: 24 },
     properties: [
       { name: 'text', label: 'Display Text', type: 'string', defaultValue: '00:00:00', group: 'data' },
@@ -220,7 +221,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_input',
     name: 'Input',
-    icon: '📝',
+    icon: 'input',
     engineSupport: { honeygui: 'unsupported' },
     defaultSize: { width: 200, height: 32 },
     properties: [
@@ -230,7 +231,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_image',
     name: 'Image',
-    icon: '🖼️',
+    icon: 'image',
     defaultSize: { width: 150, height: 150 },
     properties: [
       { name: 'src', label: 'Image Path', type: 'string', group: 'data' },
@@ -240,7 +241,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_checkbox',
     name: 'Checkbox',
-    icon: '☑️',
+    icon: 'checkbox',
     engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 120, height: 24 },
     properties: [
@@ -251,7 +252,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_radio',
     name: 'Radio',
-    icon: '⭕',
+    icon: 'radio',
     engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 120, height: 24 },
     properties: [
@@ -262,7 +263,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_switch',
     name: 'Switch',
-    icon: '🔀',
+    icon: 'switch',
     engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 50, height: 28 },
     properties: [
@@ -272,7 +273,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_progressbar',
     name: 'Progress Bar',
-    icon: '📊',
+    icon: 'progressbar',
     engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 200, height: 20 },
     properties: [
@@ -287,7 +288,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_slider',
     name: 'Slider',
-    icon: '🎚️',
+    icon: 'slider',
     engineSupport: { honeygui: 'unsupported', lvgl: 'ready' },
     defaultSize: { width: 200, height: 20 },
     properties: [
@@ -299,7 +300,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_view',
     name: 'View',
-    icon: '📱',
+    icon: 'view',
     defaultSize: { width: 350, height: 250 },
     properties: [
       { name: 'entry', label: 'Entry View', type: 'boolean', defaultValue: false, group: 'general' },
@@ -312,7 +313,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_window',
     name: 'Window',
-    icon: '🪟',
+    icon: 'window',
     defaultSize: { width: 450, height: 350 },
     properties: [
       { name: 'showBackground', label: 'Show Background', type: 'boolean', defaultValue: false, group: 'style' },
@@ -324,7 +325,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_canvas',
     name: 'Canvas',
-    icon: '🎨',
+    icon: 'canvas',
     engineSupport: { honeygui: 'unsupported', lvgl: 'unsupported' },
     defaultSize: { width: 300, height: 200 },
     properties: [
@@ -337,7 +338,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_list',
     name: 'List',
-    icon: '📜',
+    icon: 'list',
     defaultSize: { width: 300, height: 400 },
     properties: [
       { name: 'itemWidth', label: 'Item Width', type: 'number', defaultValue: 100, group: 'style' },
@@ -362,7 +363,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_video',
     name: 'Video',
-    icon: '🎬',
+    icon: 'video',
     engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 320, height: 240 },
     properties: [
@@ -374,7 +375,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_streaming',
     name: 'Streaming',
-    icon: '📡',
+    icon: 'streaming',
     engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 320, height: 240 },
     properties: [
@@ -387,7 +388,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_gif',
     name: 'GIF Animation',
-    icon: '🎞️',
+    icon: 'gif',
     engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 150, height: 150 },
     properties: [
@@ -399,7 +400,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_3d',
     name: '3D Model',
-    icon: '🧊',
+    icon: 'model-3d',
     engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 400, height: 400 },
     properties: [
@@ -423,7 +424,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_arc',
     name: 'Arc',
-    icon: '🌙',
+    icon: 'arc',
     defaultSize: { width: 96, height: 96 },
     properties: [
       { name: 'radius', label: 'Radius', type: 'number', defaultValue: 40, min: 0, group: 'style' },
@@ -439,7 +440,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_circle',
     name: 'Circle',
-    icon: '🔵',
+    icon: 'circle',
     defaultSize: { width: 80, height: 80 },
     properties: [
       { name: 'radius', label: 'Radius', type: 'number', defaultValue: 40, min: 0, group: 'style' },
@@ -461,7 +462,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_rect',
     name: 'Rectangle',
-    icon: '▭',
+    icon: 'rect',
     defaultSize: { width: 120, height: 80 },
     properties: [
       { name: 'borderRadius', label: 'Border Radius', type: 'number', defaultValue: 0, min: 0, group: 'style' },
@@ -483,7 +484,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_svg',
     name: 'SVG',
-    icon: '🎨',
+    icon: 'svg',
     engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 100, height: 100 },
     properties: [
@@ -493,7 +494,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_lottie',
     name: 'Lottie Animation',
-    icon: '🎬',
+    icon: 'lottie',
     engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 150, height: 150 },
     properties: [
@@ -505,7 +506,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_glass',
     name: 'Glass Effect',
-    icon: '🔮',
+    icon: 'glass',
     engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 150, height: 150 },
     properties: [
@@ -519,7 +520,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_particle',
     name: 'Particle Effect',
-    icon: '✨',
+    icon: 'particle',
     engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 200, height: 200 },
     properties: [
@@ -536,7 +537,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_menu_cellular',
     name: 'Menu Cellular',
-    icon: '⬡',
+    icon: 'menu-cellular',
     engineSupport: { lvgl: 'unsupported' },
     defaultSize: { width: 0, height: 0 }, // 创建时动态设置为项目分辨率
     properties: [
@@ -549,7 +550,7 @@ const componentDefinitions: ComponentDefinition[] = [
   {
     type: 'hg_qbcode',
     name: 'QR/Barcode',
-    icon: '▦',
+    icon: 'qrcode',
     engineSupport: { lvgl: 'ready' },
     defaultSize: { width: 200, height: 200 },
     properties: [
@@ -575,13 +576,13 @@ const componentCategories = [
  * 组件图标映射表
  * 用于在组件树和其他地方显示统一的组件图标
  */
-const componentIconMap: Record<string, string> = componentDefinitions.reduce((acc, def) => {
+const componentIconMap: Record<string, ComponentIconName> = componentDefinitions.reduce((acc, def) => {
   acc[def.type] = def.icon;
   return acc;
-}, {} as Record<string, string>);
+}, {} as Record<string, ComponentIconName>);
 
 // 添加不在组件库中显示但需要图标的组件
-componentIconMap['hg_list_item'] = '▫️';
+componentIconMap['hg_list_item'] = 'list-item';
 
 const ComponentLibrary: React.FC<ComponentLibraryProps> = ({ onComponentDragStart, onCreateComponent }) => {
   const projectConfig = useDesignerStore(state => state.projectConfig);
@@ -696,7 +697,9 @@ const ComponentLibrary: React.FC<ComponentLibraryProps> = ({ onComponentDragStar
                       onContextMenu={(e) => handleContextMenu(e, component.type)}
                       title={t(component.name as any)}
                     >
-                      <div className="component-icon">{component.icon}</div>
+                      <div className="component-icon">
+                        <ComponentIcon name={component.icon} size={24} />
+                      </div>
                       <div className="component-name">{t(component.name as any)}</div>
                     </div>
                     ))}
@@ -721,7 +724,9 @@ const ComponentLibrary: React.FC<ComponentLibraryProps> = ({ onComponentDragStar
               className="context-menu-item"
               onClick={() => handleVariantClick(variant)}
             >
-              <span className="context-menu-icon">{variant.icon}</span>
+              <span className="context-menu-icon">
+                <ComponentIcon name={variant.icon} size={16} />
+              </span>
               <span className="context-menu-label">{t(variant.label as any)}</span>
             </div>
           ))}

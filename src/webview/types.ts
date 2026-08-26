@@ -10,6 +10,7 @@ import type {
   ComponentData as HmlComponentData
 } from '../hml/types';
 import type { ProjectI18nIndex } from '../project-i18n/projectIndex';
+import type { ComponentIconName } from './components/icons/ComponentIcon';
 import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
 import type { EventType } from '../hml/eventTypes';
 
@@ -56,7 +57,7 @@ export type EngineSupport = 'ready' | 'unsupported';
 export interface ComponentDefinition {
   type: ComponentType;
   name: string;
-  icon: string;
+  icon: ComponentIconName;
   defaultSize: { width: number; height: number };
   properties: PropertyDefinition[];
   /**

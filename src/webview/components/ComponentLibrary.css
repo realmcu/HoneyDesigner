@@ -88,8 +88,13 @@
 
 
 .component-icon {
-  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   margin-bottom: 4px;
+  color: var(--vscode-foreground);
 }
 
 .component-name {
@@ -133,8 +138,12 @@
 }
 
 .context-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   margin-right: 8px;
-  font-size: 14px;
 }
 
 .context-menu-label {
