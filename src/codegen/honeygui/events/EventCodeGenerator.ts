@@ -3,6 +3,7 @@
  */
 import { Component } from '../../../hml/types';
 import { EventConfig } from '../../../hml/eventTypes';
+import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
 
 export interface EventCodeGenerator {
   /**
@@ -159,11 +160,15 @@ export function generateControlTimerCallbackImpl(component: Component, component
 
           if (target.action === 'start') {
             // Start timer
-            const callback = timer.mode === 'preset' 
+            const isPreset = timer.mode === 'preset';
+            const callback = isPreset
               ? `${target.componentId}_${timer.id}_cb`
               : (timer.callback || `${target.componentId}_timer_cb`);
-            callbackBody += `    ${target.componentId}_timer_cnt = 0; // Reset counter\n`;
-            callbackBody += `    gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timer.reload ? 'true' : 'false'}, ${callback});\n`;
+            if (isPreset) {
+              // Replay the animation from the start of its timeline
+              callbackBody += `    ${presetTimerStateNames(target.componentId).resetFn}();\n`;
+            }
+            callbackBody += `    gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timerReloadArg(isPreset, timer.reload ? 'true' : 'false')}, ${callback});\n`;
             callbackBody += `    gui_obj_start_timer(GUI_BASE(${target.componentId}));\n`;
           } else if (target.action === 'stop') {
             // Stop timer
@@ -226,11 +231,15 @@ export function generateMessageCallbackImpl(component: Component, componentMap: 
             
             if (target.action === 'start') {
               // Start timer
-              const callback = timer.mode === 'preset' 
+              const isPreset = timer.mode === 'preset';
+              const callback = isPreset
                 ? `${target.componentId}_${timer.id}_cb`
                 : (timer.callback || `${target.componentId}_timer_cb`);
-              body += `    ${target.componentId}_timer_cnt = 0; // Reset counter\n`;
-              body += `    gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timer.reload ? 'true' : 'false'}, ${callback});\n`;
+              if (isPreset) {
+                // Replay the animation from the start of its timeline
+                body += `    ${presetTimerStateNames(target.componentId).resetFn}();\n`;
+              }
+              body += `    gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timerReloadArg(isPreset, timer.reload ? 'true' : 'false')}, ${callback});\n`;
               body += `    gui_obj_start_timer(GUI_BASE(${target.componentId}));\n`;
             } else if (target.action === 'stop') {
               // Stop timer
@@ -345,11 +354,15 @@ export function generateKeyEventCallbackImpl(component: Component, componentMap:
                 if (!timer) return;
 
                 if (target.action === 'start') {
-                  const callback = timer.mode === 'preset'
+                  const isPreset = timer.mode === 'preset';
+                  const callback = isPreset
                     ? `${target.componentId}_${timer.id}_cb`
                     : (timer.callback || `${target.componentId}_timer_cb`);
-                  callbackBody += `        ${target.componentId}_timer_cnt = 0; // Reset counter\n`;
-                  callbackBody += `        gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timer.reload ? 'true' : 'false'}, ${callback});\n`;
+                  if (isPreset) {
+                    // Replay the animation from the start of its timeline
+                    callbackBody += `        ${presetTimerStateNames(target.componentId).resetFn}();\n`;
+                  }
+                  callbackBody += `        gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timerReloadArg(isPreset, timer.reload ? 'true' : 'false')}, ${callback});\n`;
                   callbackBody += `        gui_obj_start_timer(GUI_BASE(${target.componentId}));\n`;
                 } else if (target.action === 'stop') {
                   callbackBody += `        if (GUI_BASE(${target.componentId})->timer) {\n`;

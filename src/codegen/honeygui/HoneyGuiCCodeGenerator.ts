@@ -21,6 +21,7 @@ import { ListGenerator } from './components/ListGenerator';
 import { LabelGenerator } from './components/LabelGenerator';
 import { ArcGenerator } from './components/ArcGenerator';
 import { CallbackFileGenerator, UserFileGenerator, ProtectedAreaMerger } from './files';
+import { timerReloadArg } from './PresetTimerModel';
 
 // Re-export for backward compatibility
 export { Component } from '../../hml/types';
@@ -707,20 +708,22 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       if (enabledTimers.length > 0) {
         enabledTimers.forEach((timer: any) => {
           let callback: string;
+          let isPreset = false;
           // Preset action mode: supports segments (multi-step animation) or actions (single-step animation)
           if (timer.mode === 'preset' && ((timer.segments && timer.segments.length > 0) || (timer.actions && timer.actions.length > 0))) {
             // Preset action mode: generate callback function name from timer ID
             callback = `${component.id}_${timer.id}_cb`;
+            isPreset = true;
           } else if (timer.mode === 'custom' && timer.callback) {
             // Custom function mode
             callback = timer.callback;
           } else {
             return; // Skip invalid configuration
           }
-          
+
           const timerName = timer.name || timer.id;
           code += `${indentStr}// Bind timer: ${timerName}\n`;
-          code += `${indentStr}gui_obj_create_timer((gui_obj_t *)${component.id}, ${timer.interval}, ${timer.reload !== false ? 'true' : 'false'}, ${callback});\n`;
+          code += `${indentStr}gui_obj_create_timer((gui_obj_t *)${component.id}, ${timer.interval}, ${timerReloadArg(isPreset, timer.reload !== false ? 'true' : 'false')}, ${callback});\n`;
           // If not set to run immediately, call gui_obj_start_timer
           if (!timer.runImmediately) {
             code += `${indentStr}gui_obj_start_timer((gui_obj_t *)${component.id});\n`;
@@ -732,19 +735,21 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     else if (component.data?.timerEnabled === true) {
       const timerMode = component.data.timerMode || 'custom';
       let callback: string;
-      
+      let isPreset = false;
+
       if (timerMode === 'preset' && component.data.timerActions && component.data.timerActions.length > 0) {
         // Preset action mode: generate auto callback function name
         callback = `${component.id}_preset_timer_cb`;
+        isPreset = true;
       } else if (timerMode === 'custom' && component.data.timerCallback) {
         // Custom function mode
         callback = component.data.timerCallback;
       } else {
         return code; // Invalid configuration
       }
-      
+
       code += `${indentStr}// Bind timer\n`;
-      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)${component.id}, ${component.data.timerInterval || 1000}, ${component.data.timerReload !== false ? 'true' : 'false'}, ${callback});\n`;
+      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)${component.id}, ${component.data.timerInterval || 1000}, ${timerReloadArg(isPreset, component.data.timerReload !== false ? 'true' : 'false')}, ${callback});\n`;
       code += `${indentStr}gui_obj_start_timer((gui_obj_t *)${component.id});\n`;
     }
 

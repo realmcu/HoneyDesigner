@@ -1064,10 +1064,17 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 
 **引擎支持：** 两个引擎均消费相同的 `timers` 数据。
 
-- **HoneyGUI** 生成帧驱动的定时器回调（`gui_obj_create_timer`），每帧手动插值（仅限线性）。
+- **HoneyGUI** 生成的定时器回调（`gui_obj_create_timer`）在每次回调时按真实经过时间（`gui_ms_get()`）采样动画状态（仅限线性）。
 - **LVGL** 将可插值动作转换为原生 `lv_anim` 引擎（多段 → `lv_anim_timeline`），将离散动作转换为帧驱动的 `lv_timer` 回调。参见 §12.4 了解各动作的路由。
 
 缓动在两个引擎上**均仅支持线性** —— 没有每动作缓动属性。
+
+**时间语义（两个引擎一致）：** `duration` 表示真实经过的 wall-clock 时间，`interval`
+只是期望的采样频率。HoneyGUI 的对象定时器在 GUI 帧遍历阶段被检查，因此配置为
+`interval: 10` 的回调实际可能每帧才执行一次。动画进度是经过时间的纯函数：帧率偏低时
+动画会跳过中间视觉帧，但仍在配置的 `duration` 时刻到达终点，不会随渲染开销被拉长。
+离散动作在时间轴进入其所属段时触发一次，既不会每帧重复产生副作用，也不会因为一帧
+跨过某个短段而被静默丢失。
 
 ### 12.1 XML 表示
 
@@ -1083,15 +1090,15 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 | `id` | string | 唯一定时器标识符 |
 | `name` | string | 显示名称 |
 | `enabled` | boolean | 创建时绑定到组件 |
-| `runImmediately` | boolean | 立即执行第一帧 |
-| `interval` | number | 定时器间隔（毫秒） |
-| `reload` | boolean | 循环执行 |
+| `runImmediately` | boolean | 在下一轮 GUI 遍历即请求第一次回调，而不是先等一个 `interval` |
+| `interval` | number | 期望的采样间隔（毫秒）；只是回调频率的上界，不是动画的时间单位 |
+| `reload` | boolean | 循环执行（仅 `custom` 模式有效；`preset` 动画的底层定时器始终重载，由 `stopOnComplete` 决定播放一次还是循环） |
 | `mode` | enum | `preset`（内置动作）/ `custom`（C 回调） |
 | `actions` | TimerAction[] | 单段动画动作 |
-| `segments` | AnimationSegment[] | 多段动画 |
+| `segments` | AnimationSegment[] | 多段动画；每段 `duration` 均为真实经过的毫秒数 |
 | `callback` | string | 自定义回调函数名（`custom` 模式） |
-| `duration` | number | 总时长（毫秒） |
-| `stopOnComplete` | boolean | 总时长结束后停止 |
+| `duration` | number | 总时长（真实经过的毫秒数） |
+| `stopOnComplete` | boolean | 到达总时长后停在精确终点；为 `false` 时基于最初的时间原点循环 |
 | `enableLog` | boolean | 启用调试日志 |
 
 ### 12.3 TimerAction 类型

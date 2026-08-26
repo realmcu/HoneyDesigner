@@ -6,6 +6,7 @@ import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { ComponentGeneratorFactory } from './index';
 import { EventGeneratorFactory } from '../events';
+import { timerReloadArg } from '../PresetTimerModel';
 
 export class ListGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -366,8 +367,10 @@ export class ListGenerator implements ComponentCodeGenerator {
       const enabledTimers = listItem.data.timers.filter((timer: any) => timer.enabled === true);
       enabledTimers.forEach((timer: any) => {
         let callback: string;
+        let isPreset = false;
         if (timer.mode === 'preset' && ((timer.segments && timer.segments.length > 0) || (timer.actions && timer.actions.length > 0))) {
           callback = `${listItem.id}_${timer.id}_cb`;
+          isPreset = true;
         } else if (timer.mode === 'custom' && timer.callback) {
           callback = timer.callback;
         } else {
@@ -375,23 +378,25 @@ export class ListGenerator implements ComponentCodeGenerator {
         }
         const timerName = timer.name || timer.id;
         code += `${indentStr}// Bind timer: ${timerName}\n`;
-        code += `${indentStr}gui_obj_create_timer((gui_obj_t *)note, ${timer.interval}, ${timer.reload !== false ? 'true' : 'false'}, ${callback});\n`;
+        code += `${indentStr}gui_obj_create_timer((gui_obj_t *)note, ${timer.interval}, ${timerReloadArg(isPreset, timer.reload !== false ? 'true' : 'false')}, ${callback});\n`;
         if (!timer.runImmediately) {
           code += `${indentStr}gui_obj_start_timer((gui_obj_t *)note);\n`;
         }
       });
     } else if (listItem.data?.timerEnabled === true) {
       let callback: string;
+      let isPreset = false;
       const timerMode = listItem.data.timerMode || 'custom';
       if (timerMode === 'preset' && listItem.data.timerActions && listItem.data.timerActions.length > 0) {
         callback = `${listItem.id}_preset_timer_cb`;
+        isPreset = true;
       } else if (timerMode === 'custom' && listItem.data.timerCallback) {
         callback = listItem.data.timerCallback;
       } else {
         return code;
       }
       code += `${indentStr}// Bind timer\n`;
-      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)note, ${listItem.data.timerInterval || 1000}, ${listItem.data.timerReload !== false ? 'true' : 'false'}, ${callback});\n`;
+      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)note, ${listItem.data.timerInterval || 1000}, ${timerReloadArg(isPreset, listItem.data.timerReload !== false ? 'true' : 'false')}, ${callback});\n`;
       code += `${indentStr}gui_obj_start_timer((gui_obj_t *)note);\n`;
     }
 

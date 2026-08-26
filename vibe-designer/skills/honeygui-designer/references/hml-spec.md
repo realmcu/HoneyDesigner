@@ -1107,13 +1107,24 @@ Multiple actions per event and multiple events per component are supported:
 Components can have timer-driven animations via the `timers` attribute (stored as a JSON array string).
 
 **Engine support:** the same `timers` data is consumed by **both** engines.
-- **HoneyGUI** generates a frame-driven timer callback (`gui_obj_create_timer`) that
-  manually interpolates each frame (linear only).
+- **HoneyGUI** generates a timer callback (`gui_obj_create_timer`) that samples the
+  animation state from real elapsed time (`gui_ms_get()`) on every callback
+  (linear only).
 - **LVGL** translates interpolatable actions to the native `lv_anim` engine
   (multi-segment → `lv_anim_timeline`) and discrete actions to a frame-driven
   `lv_timer` callback. See §12.4 for the per-action routing.
 
 Easing is **linear only** on both engines — there is no per-action easing attribute.
+
+**Time semantics (both engines):** `duration` is real wall-clock time, and
+`interval` is only the requested sampling rate. HoneyGUI object timers are polled
+during the GUI frame walk, so a callback configured with `interval: 10` may in
+practice only run once per rendered frame. Animation progress is therefore a pure
+function of elapsed time: on a low frame rate the animation skips intermediate
+visual frames but still reaches its endpoint at the configured `duration`, and it
+never stretches with rendering cost. Discrete actions fire once when the timeline
+enters their segment, so they are neither repeated every frame nor silently lost
+when a frame jumps over a short segment.
 
 ### 12.1 XML Representation
 
@@ -1129,15 +1140,15 @@ Easing is **linear only** on both engines — there is no per-action easing attr
 | `id` | string | Unique timer identifier |
 | `name` | string | Display name |
 | `enabled` | boolean | Bind to component at creation time |
-| `runImmediately` | boolean | Execute first frame immediately |
-| `interval` | number | Timer interval in milliseconds |
-| `reload` | boolean | Loop execution |
+| `runImmediately` | boolean | Request the first callback on the next GUI pass instead of waiting one `interval` |
+| `interval` | number | Requested sampling interval in milliseconds; an upper bound on callback frequency, not an animation time unit |
+| `reload` | boolean | Loop execution (`custom` mode only; `preset` animations always reload the underlying timer and use `stopOnComplete`) |
 | `mode` | enum | `preset` (built-in actions) / `custom` (C callback) |
 | `actions` | TimerAction[] | Single-segment animation actions |
-| `segments` | AnimationSegment[] | Multi-segment animation |
+| `segments` | AnimationSegment[] | Multi-segment animation; each `duration` is real wall-clock milliseconds |
 | `callback` | string | Custom callback function name (`custom` mode) |
-| `duration` | number | Total duration in milliseconds |
-| `stopOnComplete` | boolean | Stop after total duration |
+| `duration` | number | Total real wall-clock duration in milliseconds |
+| `stopOnComplete` | boolean | Stop at the exact endpoint after the total duration; `false` loops from the original time origin |
 | `enableLog` | boolean | Enable debug logging |
 
 ### 12.3 TimerAction Types

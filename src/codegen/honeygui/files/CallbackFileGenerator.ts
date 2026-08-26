@@ -5,11 +5,26 @@
 import { Component } from '../../../hml/types';
 import { EventGeneratorFactory } from '../events';
 import { getMessageCallbackName, generateEventCallbackName } from '../events/EventCodeGenerator';
+import {
+  NormalizedSegment,
+  buildPresetTimeline,
+  componentHasPresetTimer,
+  isBoundaryAction,
+  isPresetTimerConfig,
+  normalizeLegacyTimerSegments,
+  normalizeTimerConfigSegments,
+  presetTimerStateNames,
+} from '../PresetTimerModel';
+
+/** Name of the generated file-local helper used for segment entry detection. */
+const BOUNDARY_HELPER_NAME = 'preset_anim_boundary_crossed';
 
 export class CallbackFileGenerator {
   private components: Component[];
   private componentMap: Map<string, Component>;
   private allComponents: Component[]; // Flat array containing all nested components
+  /** Set while emitting preset callbacks that need the segment entry helper. */
+  private needsBoundaryHelper = false;
 
   constructor(components: Component[]) {
     this.components = components;
@@ -79,23 +94,22 @@ export class CallbackFileGenerator {
       code += `\n`;
     }
 
-    // Collect all components with timers to declare counters
-    const componentsWithTimers = this.allComponents.filter(c => {
-      // New format: has timers array
-      if (c.data?.timers && Array.isArray(c.data.timers) && c.data.timers.length > 0) {
-        return true;  // All components with timers need counters
-      }
-      // Legacy format: has timerEnabled
-      if (c.data?.timerEnabled === true) {
-        return true;  // All components with timers need counters
-      }
-      return false;
-    });
+    // Preset animations are driven by real elapsed time, so each component that
+    // owns one needs its own animation clock. Custom callbacks do not.
+    const presetComponents = this.allComponents.filter(c => componentHasPresetTimer(c));
 
-    if (componentsWithTimers.length > 0) {
-      code += `// Timer animation counters (defined in callbacks.c)\n`;
-      componentsWithTimers.forEach(comp => {
-        code += `extern uint16_t ${comp.id}_timer_cnt;\n`;
+    if (presetComponents.length > 0) {
+      code += `// Preset animation clock state (defined in callbacks.c)\n`;
+      presetComponents.forEach(comp => {
+        const state = presetTimerStateNames(comp.id);
+        code += `extern uint32_t ${state.startMs};\n`;
+        code += `extern bool ${state.started};\n`;
+        code += `extern uint32_t ${state.prevElapsedMs};\n`;
+      });
+      code += `\n`;
+      code += `// Preset animation state reset (call before restarting an animation)\n`;
+      presetComponents.forEach(comp => {
+        code += `void ${presetTimerStateNames(comp.id).resetFn}(void);\n`;
       });
       code += `\n`;
     }
@@ -209,25 +223,36 @@ export class CallbackFileGenerator {
       code += `\n`;
     }
 
-    // Define timer animation counter variables
-    const componentsWithTimers = this.allComponents.filter(c => {
-      // New format: has timers array
-      if (c.data?.timers && Array.isArray(c.data.timers) && c.data.timers.length > 0) {
-        return true;  // All components with timers need counters
-      }
-      // Legacy format: has timerEnabled
-      if (c.data?.timerEnabled === true) {
-        return true;  // All components with timers need counters
-      }
-      return false;
-    });
+    // Generate the preset timer callbacks up front: emitting them tells us
+    // whether the segment entry helper below is actually referenced.
+    this.needsBoundaryHelper = false;
+    const timerCallbackImpls = this.collectTimerCallbackImpls(existingFunctions);
 
-    if (componentsWithTimers.length > 0) {
-      code += `// Timer animation counters\n`;
-      componentsWithTimers.forEach(comp => {
-        code += `uint16_t ${comp.id}_timer_cnt = 0;\n`;
+    // Define the preset animation clock state and its reset entry point
+    const presetComponents = this.allComponents.filter(c => componentHasPresetTimer(c));
+
+    if (presetComponents.length > 0) {
+      code += `// Preset animation clock state (real elapsed time, not callback counts)\n`;
+      presetComponents.forEach(comp => {
+        const state = presetTimerStateNames(comp.id);
+        code += `uint32_t ${state.startMs} = 0;\n`;
+        code += `bool ${state.started} = false;\n`;
+        code += `uint32_t ${state.prevElapsedMs} = 0;\n`;
       });
       code += `\n`;
+      presetComponents.forEach(comp => {
+        const state = presetTimerStateNames(comp.id);
+        code += `void ${state.resetFn}(void)\n`;
+        code += `{\n`;
+        code += `    ${state.startMs} = 0;\n`;
+        code += `    ${state.started} = false;\n`;
+        code += `    ${state.prevElapsedMs} = 0;\n`;
+        code += `}\n\n`;
+      });
+    }
+
+    if (this.needsBoundaryHelper) {
+      code += this.generateBoundaryHelper();
     }
 
     code += `// Event callback function implementations\n\n`;
@@ -250,8 +275,7 @@ export class CallbackFileGenerator {
       code += impl + '\n\n';
     });
 
-    // Generate preset timer callback implementations (skip existing ones)
-    const timerCallbackImpls = this.collectTimerCallbackImpls(existingFunctions);
+    // Emit the preset timer callback implementations collected above
     if (timerCallbackImpls.length > 0) {
       code += `// Preset timer callback functions\n\n`;
       timerCallbackImpls.forEach(impl => {
@@ -631,311 +655,324 @@ void ${callback}(void *obj)
   }
 
   /**
-   * Generate preset action timer callback function
+   * Generate the preset callback for the legacy `timerActions` / `timerDuration` format
    */
   private generatePresetTimerCallback(component: Component): string {
-    const callback = `${component.id}_preset_timer_cb`;
-    const actions = component.data?.timerActions || [];
-    const duration = component.data?.timerDuration || 1000;
-    const interval = component.data?.timerInterval || 1000;
-    const stopOnComplete = component.data?.timerStopOnComplete !== false;
-    
-    // Calculate cnt_max
-    const cntMax = Math.ceil(duration / interval);
-    
-    const cntVarName = `${component.id}_timer_cnt`;
-    
-    let code = `void ${callback}(void *obj)\n{\n`;
-    code += `    gui_obj_t *target = (gui_obj_t *)obj;\n`;
-    code += `    const uint16_t cnt_max = ${cntMax};\n`;
-    code += `    \n`;
-    
-    // Generate code for each action
-    actions.forEach((action: any) => {
-      if (action.type === 'position') {
-        // Position adjustment action
-        code += `    // Adjust position: (${action.fromX}, ${action.fromY}) -> (${action.toX}, ${action.toY})\n`;
-        code += `    const int16_t x_origin = ${action.fromX};\n`;
-        code += `    const int16_t y_origin = ${action.fromY};\n`;
-        code += `    const int16_t x_target = ${action.toX};\n`;
-        code += `    const int16_t y_target = ${action.toY};\n`;
-        code += `    int16_t x_cur = x_origin + (x_target - x_origin) * ${cntVarName} / cnt_max;\n`;
-        code += `    int16_t y_cur = y_origin + (y_target - y_origin) * ${cntVarName} / cnt_max;\n`;
-        code += `    gui_obj_move(target, x_cur, y_cur);\n`;
-        code += `    \n`;
-      } else if (action.type === 'size') {
-        // Size adjustment action (hg_window only)
-        code += `    // Adjust size: (${action.fromW}, ${action.fromH}) -> (${action.toW}, ${action.toH})\n`;
-        code += `    const int16_t w_origin = ${action.fromW};\n`;
-        code += `    const int16_t h_origin = ${action.fromH};\n`;
-        code += `    const int16_t w_target = ${action.toW};\n`;
-        code += `    const int16_t h_target = ${action.toH};\n`;
-        code += `    int16_t w_cur = w_origin + (w_target - w_origin) * ${cntVarName} / cnt_max;\n`;
-        code += `    int16_t h_cur = h_origin + (h_target - h_origin) * ${cntVarName} / cnt_max;\n`;
-        code += `    target->w = w_cur;\n`;
-        code += `    target->h = h_cur;\n`;
-        code += `    \n`;
-      } else if (action.type === 'opacity') {
-        // Opacity adjustment action
-        code += `    // Adjust opacity: ${action.from} -> ${action.to}\n`;
-        code += `    const uint8_t opacity_origin = ${action.from};\n`;
-        code += `    const uint8_t opacity_target = ${action.to};\n`;
-        code += `    int16_t opacity_cur = opacity_origin + (opacity_target - opacity_origin) * ${cntVarName} / cnt_max;\n`;
-        // hg_image uses gui_img_set_opacity, other components use target->opacity_value
-        if (component.type === 'hg_image') {
-          code += `    gui_img_set_opacity((gui_img_t *)target, opacity_cur);\n`;
-        } else {
-          code += `    target->opacity_value = opacity_cur;\n`;
-        }
-        code += `    \n`;
-      } else if (action.type === 'rotation') {
-        // Rotation adjustment action (hg_image only)
-        code += `    // Adjust rotation: ${action.angleOrigin}° -> ${action.angleTarget}°\n`;
-        code += `    const float angle_origin = ${action.angleOrigin};\n`;
-        code += `    const float angle_target = ${action.angleTarget};\n`;
-        code += `    float angle_cur = angle_origin + (angle_target - angle_origin) * ${cntVarName} / cnt_max;\n`;
-        code += `    gui_img_rotation((gui_img_t *)target, angle_cur);\n`;
-        code += `    \n`;
-      } else if (action.type === 'scale') {
-        // Scale adjustment action (hg_image only)
-        code += `    // Adjust scale: (${action.zoomXOrigin}, ${action.zoomYOrigin}) -> (${action.zoomXTarget}, ${action.zoomYTarget})\n`;
-        code += `    const float zoom_x_origin = ${action.zoomXOrigin};\n`;
-        code += `    const float zoom_x_target = ${action.zoomXTarget};\n`;
-        code += `    const float zoom_y_origin = ${action.zoomYOrigin};\n`;
-        code += `    const float zoom_y_target = ${action.zoomYTarget};\n`;
-        code += `    float zoom_x_cur = zoom_x_origin + (zoom_x_target - zoom_x_origin) * ${cntVarName} / cnt_max;\n`;
-        code += `    float zoom_y_cur = zoom_y_origin + (zoom_y_target - zoom_y_origin) * ${cntVarName} / cnt_max;\n`;
-        code += `    gui_img_scale((gui_img_t *)target, zoom_x_cur, zoom_y_cur);\n`;
-        code += `    \n`;
-      } else if (action.type === 'setFocus') {
-        // Set focus action (applies to all components)
-        code += `    // Set focus\n`;
-        code += `    gui_obj_focus_set(target);\n`;
-        code += `    \n`;
-      }
-    });
-    
-    // Increment counter
-    code += `    ${cntVarName}++;\n`;
-    
-    // Handle completion after reaching total duration
-    if (stopOnComplete) {
-      code += `    if (${cntVarName} >= cnt_max) {\n`;
-      code += `        gui_obj_stop_timer(target);\n`;
-      code += `        ${cntVarName} = 0; // Reset counter\n`;
-      code += `    }\n`;
-    } else {
-      code += `    if (${cntVarName} >= cnt_max) {\n`;
-      code += `        ${cntVarName} = 0; // Reset counter, continue loop\n`;
-      code += `    }\n`;
-    }
-    
-    code += `}\n`;
-    
-    return code;
+    return this.emitPresetTimerCallback(
+      component,
+      `${component.id}_preset_timer_cb`,
+      undefined,
+      normalizeLegacyTimerSegments(component),
+      component.data?.timerStopOnComplete !== false,
+      false
+    );
   }
 
   /**
-   * Generate preset action timer callback from TimerConfig (supports multi-segment animation)
+   * Generate the preset callback for a `TimerConfig` (single or multi-segment)
    */
   private generatePresetTimerCallbackFromConfig(component: Component, timer: any): string {
-    const callback = `${component.id}_${timer.id}_cb`;
-    const segments = timer.segments || [];
-    const interval = timer.interval || 1000;
-    const stopOnComplete = timer.stopOnComplete !== false;
-    const timerName = timer.name || timer.id;
-    
-    // If multi-segment animation exists, use multi-segment generation logic
-    if (segments.length > 0) {
-      return this.generateMultiSegmentTimerCallback(component, timer, callback, timerName, interval, stopOnComplete, segments);
+    return this.emitPresetTimerCallback(
+      component,
+      `${component.id}_${timer.id}_cb`,
+      timer.name || timer.id,
+      normalizeTimerConfigSegments(timer),
+      timer.stopOnComplete !== false,
+      timer.enableLog === true
+    );
+  }
+
+  /**
+   * Generate the file-local segment entry helper.
+   *
+   * A boundary counts as crossed when it lies inside the half-open interval
+   * (prev_ms, now_ms]. Both ends are phases within a single cycle, so boundaries
+   * from earlier cycles cannot be replayed; `cycle_skipped` covers the case where
+   * one callback gap swallowed one or more whole cycles.
+   */
+  private generateBoundaryHelper(): string {
+    return `// Was the segment boundary at at_ms crossed within (prev_ms, now_ms]?
+static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t now_ms, bool cycle_wrapped, bool cycle_skipped)
+{
+    if (cycle_skipped)
+    {
+        // At least one whole cycle elapsed since the previous sample
+        return true;
     }
-    
-    // Otherwise use legacy single-segment animation logic
-    const actions = timer.actions || [];
-    const duration = timer.duration || 1000;
-    const delayStart = timer.delayStart || 0;
-    
-    // Calculate cnt_max and cnt_wait
-    const cntMax = Math.ceil(duration / interval);
-    const cntWait = Math.ceil(delayStart / interval);
-    
-    const cntVarName = `${component.id}_timer_cnt`;
-    
-    let code = `/**
- * ${timerName}
- * Component: ${component.id}
- * Mode: Preset actions (single segment)
- */
-void ${callback}(void *obj)\n{\n`;
-    code += `    gui_obj_t *target = (gui_obj_t *)obj;\n`;
-    code += `    const uint16_t cnt_max = ${cntMax};\n`;
-    
-    // Add cnt_wait if delayed start is configured
-    if (delayStart > 0) {
-      code += `    const uint16_t cnt_wait = ${cntWait}; // Delay start: ${delayStart}ms\n`;
-      code += `    \n`;
-      code += `    // Delay start check\n`;
-      code += `    if (${cntVarName} <= cnt_wait) {\n`;
-      code += `        ${cntVarName}++;\n`;
-      code += `        return;\n`;
-      code += `    }\n`;
-      code += `    \n`;
-    } else {
-      code += `    \n`;
+    if (cycle_wrapped)
+    {
+        return (at_ms > prev_ms) || (at_ms <= now_ms);
     }
-    
-    // Generate code for each action
-    actions.forEach((action: any) => {
-      code += this.generateActionCode(action, delayStart > 0, cntVarName, 'cnt_wait', 'cnt_max', component);
+    return (at_ms > prev_ms) && (at_ms <= now_ms);
+}
+
+`;
+  }
+
+  /**
+   * Emit a preset animation callback driven by real elapsed time.
+   *
+   * `gui_obj_timer_handler()` only promises an upper bound on callback frequency,
+   * so animation state is sampled from `gui_ms_get()` instead of accumulated per
+   * callback. A dropped callback then only lowers the visual sampling density:
+   * every callback recomputes the state as a pure function of elapsed time, so the
+   * animation still reaches its endpoint at the configured wall-clock time.
+   */
+  private emitPresetTimerCallback(
+    component: Component,
+    callback: string,
+    timerName: string | undefined,
+    rawSegments: NormalizedSegment[],
+    stopOnComplete: boolean,
+    enableLog: boolean
+  ): string {
+    const state = presetTimerStateNames(component.id);
+    const { segments, starts, ends, totalDuration } = buildPresetTimeline(rawSegments);
+
+    let doc = `/**\n`;
+    if (timerName) {
+      doc += ` * ${timerName}\n`;
+    }
+    doc += ` * Component: ${component.id}\n`;
+    doc += ` * Mode: Preset actions, driven by real elapsed time (gui_ms_get)\n`;
+    doc += ` * Timeline: ${segments.length} segment(s), ${totalDuration} ms total, ${stopOnComplete ? 'one-shot' : 'looping'}\n`;
+    doc += ` */\n`;
+
+    // Degenerate timeline: there is no duration to interpolate over. Apply the
+    // final state once and stop, so no generated expression divides or mods by 0.
+    if (totalDuration === 0) {
+      let code = doc;
+      code += `void ${callback}(void *obj)\n{\n`;
+      code += `    gui_obj_t *target = (gui_obj_t *)obj;\n`;
+      code += `    \n`;
+      code += `    // Total duration is 0 ms: apply the final state once, then stop\n`;
+      code += `    ${state.started} = true;\n`;
+      code += `    ${state.startMs} = gui_ms_get();\n`;
+      code += `    ${state.prevElapsedMs} = 0;\n`;
+      code += `    \n`;
+      segments.forEach(segment => {
+        segment.actions.forEach(action => {
+          code += this.generateActionCode(action, '1.0f', component);
+        });
+      });
+      code += `    gui_obj_stop_timer(target);\n`;
+      code += `}\n`;
+      return code;
+    }
+
+    const classified = segments.map((segment, idx) => {
+      // A 0 ms segment is an instantaneous boundary: everything it carries,
+      // including otherwise interpolated actions, applies at its endpoint value.
+      const instantaneous = segment.duration === 0;
+      return {
+        idx,
+        duration: segment.duration,
+        start: starts[idx],
+        end: ends[idx],
+        boundaryActions: instantaneous ? segment.actions : segment.actions.filter(a => isBoundaryAction(a)),
+        sampledActions: instantaneous ? [] : segment.actions.filter(a => !isBoundaryAction(a)),
+      };
     });
-    
-    // Increment counter
-    code += `    ${cntVarName}++;\n`;
-    
-    // Add gui_log output if logging is enabled
-    if (timer.enableLog) {
-      code += `    gui_log("${callback}: cnt=%d\\n", ${cntVarName});\n`;
+
+    const boundarySegments = classified.filter(s => s.boundaryActions.length > 0);
+    // Every segment with a real duration stays in the locator chain, even when it
+    // has no sampled action, so the branches remain mutually exclusive.
+    const chain = classified.filter(s => s.duration > 0);
+    const chainHasWork = chain.some(s => s.sampledActions.length > 0);
+    const needsBoundary = boundarySegments.length > 0;
+    const needsFirstSample = boundarySegments.some(s => s.start === 0);
+    const needsTimeline = needsBoundary || chainHasWork || enableLog;
+
+    if (needsBoundary) {
+      this.needsBoundaryHelper = true;
     }
-    
-    // Handle completion after reaching total duration
-    const totalCnt = delayStart > 0 ? `cnt_wait + cnt_max` : `cnt_max`;
+
+    // ---- timeline setup ---------------------------------------------------
+    let statements = '';
+    statements += `    uint32_t now_ms = gui_ms_get();\n`;
+    if (needsFirstSample) {
+      statements += `    bool first_sample = false;\n`;
+    }
+    statements += `    \n`;
+    statements += `    // The time origin is established by the first callback of a run\n`;
+    statements += `    if (!${state.started})\n`;
+    statements += `    {\n`;
+    statements += `        ${state.started} = true;\n`;
+    statements += `        ${state.startMs} = now_ms;\n`;
+    statements += `        ${state.prevElapsedMs} = 0;\n`;
+    if (needsFirstSample) {
+      statements += `        first_sample = true;\n`;
+    }
+    statements += `    }\n`;
+    statements += `    \n`;
+    statements += `    // Unsigned subtraction stays correct across uint32_t clock wrap\n`;
+    statements += `    uint32_t total_elapsed_ms = now_ms - ${state.startMs};\n`;
+    if (needsBoundary) {
+      statements += `    uint32_t prev_elapsed_ms = ${state.prevElapsedMs};\n`;
+    }
+    // Publish the new sample before running actions: switchTimer returns early.
+    statements += `    ${state.prevElapsedMs} = total_elapsed_ms;\n`;
+    statements += `    \n`;
+
     if (stopOnComplete) {
-      code += `    if (${cntVarName} >= ${totalCnt}) {\n`;
-      code += `        gui_obj_stop_timer(target);\n`;
-      code += `        ${cntVarName} = 0; // Reset counter\n`;
-      code += `    }\n`;
-    } else {
-      code += `    if (${cntVarName} >= ${totalCnt}) {\n`;
-      code += `        ${cntVarName} = 0; // Reset counter, continue loop\n`;
-      code += `    }\n`;
+      statements += `    // One-shot: clamp the timeline so the last sample lands on the endpoint\n`;
+      statements += `    bool finished = (total_elapsed_ms >= total_duration_ms);\n`;
+      if (needsTimeline) {
+        statements += `    uint32_t timeline_ms = finished ? total_duration_ms : total_elapsed_ms;\n`;
+      }
+    } else if (needsTimeline) {
+      statements += `    // Loop against the original origin so frame error cannot accumulate\n`;
+      statements += `    uint32_t timeline_ms = total_elapsed_ms % total_duration_ms;\n`;
     }
-    
+
+    if (needsBoundary) {
+      if (stopOnComplete) {
+        statements += `    uint32_t prev_timeline_ms = (prev_elapsed_ms > total_duration_ms) ? total_duration_ms : prev_elapsed_ms;\n`;
+      } else {
+        statements += `    uint32_t prev_timeline_ms = prev_elapsed_ms % total_duration_ms;\n`;
+        statements += `    bool cycle_skipped = (total_elapsed_ms - prev_elapsed_ms) >= total_duration_ms;\n`;
+        statements += `    bool cycle_wrapped = cycle_skipped || (timeline_ms < prev_timeline_ms);\n`;
+      }
+    }
+
+    if (enableLog) {
+      statements += `    gui_log("${callback}: elapsed=%u timeline=%u\\n", (unsigned int)total_elapsed_ms, (unsigned int)timeline_ms);\n`;
+    }
+    statements += `    \n`;
+
+    // ---- segment entry actions -------------------------------------------
+    if (needsBoundary) {
+      const wrappedArg = stopOnComplete ? 'false' : 'cycle_wrapped';
+      const skippedArg = stopOnComplete ? 'false' : 'cycle_skipped';
+      statements += `    // Segment entry actions: fire once per entry, not once per frame\n`;
+      boundarySegments.forEach(segment => {
+        const crossed = `${BOUNDARY_HELPER_NAME}(seg${segment.idx}_start_ms, prev_timeline_ms, timeline_ms, ${wrappedArg}, ${skippedArg})`;
+        // A boundary at offset 0 never falls inside (prev, now]; the first sample
+        // of a run has to trigger it explicitly.
+        const condition = segment.start === 0 ? `first_sample || ${crossed}` : crossed;
+        statements += `    if (${condition})\n`;
+        statements += `    {\n`;
+        statements += `        // Segment ${segment.idx + 1}${segment.duration === 0 ? ' (0 ms boundary)' : ''}\n`;
+        segment.boundaryActions.forEach(action => {
+          statements += CallbackFileGenerator.indentBlock(this.generateActionCode(action, '1.0f', component), 4);
+        });
+        statements += `    }\n`;
+        statements += `    \n`;
+      });
+    }
+
+    // ---- sampled state of the current segment ----------------------------
+    if (chainHasWork) {
+      statements += `    // Sampled state of the segment the timeline is currently inside\n`;
+      if (chain.length === 1) {
+        const segment = chain[0];
+        statements += `    // Segment ${segment.idx + 1}: ${segment.duration} ms\n`;
+        statements += this.generateProgressCode(segment.idx, 4, true);
+        segment.sampledActions.forEach(action => {
+          statements += this.generateActionCode(action, 'progress', component);
+        });
+      } else {
+        chain.forEach((segment, chainIdx) => {
+          const isLast = chainIdx === chain.length - 1;
+          if (chainIdx === 0) {
+            statements += `    if (timeline_ms < seg${segment.idx}_end_ms)\n`;
+          } else if (isLast) {
+            statements += `    else\n`;
+          } else {
+            statements += `    else if (timeline_ms < seg${segment.idx}_end_ms)\n`;
+          }
+          statements += `    {\n`;
+          statements += `        // Segment ${segment.idx + 1}: ${segment.duration} ms\n`;
+          if (segment.sampledActions.length === 0) {
+            statements += `        // No sampled action, this segment only takes time\n`;
+          } else {
+            statements += this.generateProgressCode(segment.idx, 8, isLast);
+            segment.sampledActions.forEach(action => {
+              statements += CallbackFileGenerator.indentBlock(this.generateActionCode(action, 'progress', component), 4);
+            });
+          }
+          statements += `    }\n`;
+        });
+      }
+      statements += `    \n`;
+    }
+
+    if (stopOnComplete) {
+      statements += `    if (finished)\n`;
+      statements += `    {\n`;
+      statements += `        gui_obj_stop_timer(target);\n`;
+      statements += `    }\n`;
+    }
+
+    // ---- assemble ---------------------------------------------------------
+    // Only declare boundary constants that the body actually reads: the
+    // simulation build compiles generated code with -Werror=unused-variable.
+    const constCandidates: Array<[string, number]> = [['total_duration_ms', totalDuration]];
+    classified.forEach(segment => {
+      constCandidates.push([`seg${segment.idx}_start_ms`, segment.start]);
+      constCandidates.push([`seg${segment.idx}_end_ms`, segment.end]);
+    });
+
+    let constBlock = '';
+    constCandidates.forEach(([name, value]) => {
+      if (new RegExp(`\\b${name}\\b`).test(statements)) {
+        constBlock += `    const uint32_t ${name} = ${value}u;\n`;
+      }
+    });
+    if (constBlock) {
+      constBlock = `    // Timeline boundaries in real milliseconds\n${constBlock}    \n`;
+    }
+
+    let code = doc;
+    code += `void ${callback}(void *obj)\n{\n`;
+    code += /\btarget\b/.test(statements)
+      ? `    gui_obj_t *target = (gui_obj_t *)obj;\n`
+      : `    GUI_UNUSED(obj);\n`;
+    code += `    \n`;
+    code += constBlock;
+    code += statements;
     code += `}\n`;
-    
+
     return code;
   }
 
   /**
-   * Generate multi-segment animation timer callback function
+   * Generate the normalized progress of one segment from the current timeline
+   * position. `clamp` is needed wherever the timeline can land exactly on the
+   * segment end, which happens on the final sample of a one-shot animation.
    */
-  private generateMultiSegmentTimerCallback(
-    component: Component,
-    timer: any,
-    callback: string,
-    timerName: string,
-    interval: number,
-    stopOnComplete: boolean,
-    segments: any[]
-  ): string {
-    // Calculate cnt_max for each segment
-    const segmentCntMaxes = segments.map(seg => Math.ceil(seg.duration / interval));
-    const totalCntMax = segmentCntMaxes.reduce((sum, cnt) => sum + cnt, 0);
-    
-    const cntVarName = `${component.id}_timer_cnt`;
-    
-    let code = `/**
- * ${timerName}
- * Component: ${component.id}
- * Mode: Preset actions (multi-segment animation)
- * Segments: ${segments.length}
- */
-void ${callback}(void *obj)\n{\n`;
-    code += `    gui_obj_t *target = (gui_obj_t *)obj;\n`;
-    code += `    const uint16_t total_cnt_max = ${totalCntMax};\n`;
-    code += `    \n`;
-    
-    // Generate boundary constants for each segment
-    let cumulativeCnt = 0;
-    segments.forEach((seg, idx) => {
-      const segCntMax = segmentCntMaxes[idx];
-      code += `    const uint16_t seg${idx}_start = ${cumulativeCnt};\n`;
-      code += `    const uint16_t seg${idx}_end = ${cumulativeCnt + segCntMax};\n`;
-      cumulativeCnt += segCntMax;
-    });
-    code += `    \n`;
-    
-    // Increment cnt before condition check
-    code += `    ${cntVarName}++;\n`;
-    
-    // Add gui_log output if logging is enabled
-    if (timer.enableLog) {
-      code += `    gui_log("${callback}: cnt=%d\\n", ${cntVarName});\n`;
+  private generateProgressCode(segmentIdx: number, indent: number, clamp: boolean): string {
+    const pad = ' '.repeat(indent);
+    const start = `seg${segmentIdx}_start_ms`;
+    const end = `seg${segmentIdx}_end_ms`;
+    let code = `${pad}float progress = (float)(timeline_ms - ${start}) / (float)(${end} - ${start});\n`;
+    if (clamp) {
+      code += `${pad}if (progress > 1.0f)\n`;
+      code += `${pad}{\n`;
+      code += `${pad}    progress = 1.0f;\n`;
+      code += `${pad}}\n`;
     }
-    
-    code += `    \n`;
-    
-    // Generate conditional branches for each segment (using if-else for efficiency)
-    segments.forEach((seg, idx) => {
-      const actions = seg.actions || [];
-      const ifKeyword = idx === 0 ? 'if' : 'else if';
-      
-      if (actions.length === 0) {
-        // Empty segment (wait)
-        code += `    // Segment ${idx + 1}: Wait ${seg.duration}ms\n`;
-        code += `    ${ifKeyword} (${cntVarName} > seg${idx}_start && ${cntVarName} <= seg${idx}_end) {\n`;
-        code += `        // No action, just wait\n`;
-        code += `    }\n`;
-      } else {
-        // Check if all actions need no segment counter (view switch, image change, visibility, timer toggle, focus, color without initial value, etc.)
-        const allNoSegCounter = actions.every((action: any) => 
-          action.type === 'switchView' || 
-          action.type === 'changeImage' || 
-          action.type === 'visibility' || 
-          action.type === 'switchTimer' || 
-          action.type === 'setFocus' ||
-          (action.type === 'fgColor' && !action.fgColorFrom) ||
-          (action.type === 'bgColor' && !action.bgColorFrom)
-        );
-        
-        // Segment with actions
-        code += `    // Segment ${idx + 1}: ${seg.duration}ms, ${actions.length} action(s)\n`;
-        code += `    ${ifKeyword} (${cntVarName} > seg${idx}_start && ${cntVarName} <= seg${idx}_end) {\n`;
-        
-        // Only generate segment counter when interpolation is needed
-        if (!allNoSegCounter) {
-          code += `        uint16_t seg_cnt = ${cntVarName} - seg${idx}_start;\n`;
-          code += `        const uint16_t seg_cnt_max = seg${idx}_end - seg${idx}_start;\n`;
-          code += `        \n`;
-        }
-        
-        // Generate code for each action
-        actions.forEach((action: any) => {
-          const actionCode = this.generateActionCode(action, false, 'seg_cnt', '', 'seg_cnt_max', component);
-          // Handle indentation
-          const indentedCode = actionCode.split('\n').map(line => line ? `        ${line}` : line).join('\n');
-          code += indentedCode;
-        });
-        
-        code += `    }\n`;
-      }
-    });
-    
-    code += `    \n`;
-    
-    // Handle completion after reaching total duration
-    if (stopOnComplete) {
-      code += `    if (${cntVarName} >= total_cnt_max) {\n`;
-      code += `        gui_obj_stop_timer(target);\n`;
-      code += `        ${cntVarName} = 0; // Reset counter\n`;
-      code += `    }\n`;
-    } else {
-      code += `    if (${cntVarName} >= total_cnt_max) {\n`;
-      code += `        ${cntVarName} = 0; // Reset counter, continue loop\n`;
-      code += `    }\n`;
-    }
-    
-    code += `}\n`;
-    
     return code;
+  }
+
+  /**
+   * Add `extra` spaces of indentation to every non-empty line of a code block
+   */
+  private static indentBlock(code: string, extra: number): string {
+    if (extra <= 0) {
+      return code;
+    }
+    const pad = ' '.repeat(extra);
+    return code.split('\n').map(line => (line.trim() ? pad + line : line)).join('\n');
   }
 
   /**
    * Generate code for a single action
+   * @param progressExpr Normalized progress in [0, 1] as a C float expression
    */
-  private generateActionCode(action: any, hasDelay: boolean, cntVar: string, waitVar: string, maxVar: string, component?: Component): string {
+  private generateActionCode(action: any, progressExpr: string, component?: Component): string {
     let code = '';
-    const progressExpr = hasDelay ? `(${cntVar} - ${waitVar}) / ${maxVar}` : `${cntVar} / ${maxVar}`;
-    
+
     if (action.type === 'visibility') {
       // Set visibility action
       const visible = action.visible !== false; // Defaults to true
@@ -979,7 +1016,11 @@ void ${callback}(void *obj)\n{\n`;
           code += `        "${path}"${idx < processedPaths.length - 1 ? ',' : ''}\n`;
         });
         code += `    };\n`;
-        code += `    uint16_t index = (${processedPaths.length} - 1) * ${progressExpr};\n`;
+        code += `    uint16_t index = (uint16_t)((${processedPaths.length} - 1) * ${progressExpr});\n`;
+        code += `    if (index >= ${processedPaths.length})\n`;
+        code += `    {\n`;
+        code += `        index = ${processedPaths.length} - 1;\n`;
+        code += `    }\n`;
         code += `    gui_img_set_src((gui_img_t *)target, (const uint8_t *)img_data_array[index], IMG_SRC_FILESYS);\n`;
         code += `    gui_img_refresh_size((gui_img_t *)target);\n`;
         code += `    \n`;
@@ -1037,9 +1078,16 @@ void ${callback}(void *obj)\n{\n`;
             continue;
           }
           
+          const isPreset = targetTimer.mode === 'preset';
           code += `    // Start timer animation: ${timerName}\n`;
-          code += `    ${component?.id}_timer_cnt = 0; // Reset counter\n`;
-          code += `    gui_obj_create_timer(target, ${targetTimer.interval}, ${targetTimer.reload !== false ? 'true' : 'false'}, ${callback});\n`;
+          if (isPreset) {
+            // Restart from the beginning of the animation timeline
+            code += `    ${presetTimerStateNames(component!.id).resetFn}();\n`;
+          }
+          // A preset animation needs many callbacks to finish, so the underlying
+          // timer always reloads; stopOnComplete decides one-shot vs looping.
+          const reload = isPreset ? 'true' : (targetTimer.reload !== false ? 'true' : 'false');
+          code += `    gui_obj_create_timer(target, ${targetTimer.interval}, ${reload}, ${callback});\n`;
           // Call gui_obj_start_timer if the target timer is not set to run immediately
           if (!targetTimer.runImmediately) {
             code += `    gui_obj_start_timer(target);\n`;
@@ -1060,8 +1108,8 @@ void ${callback}(void *obj)\n{\n`;
       code += `    const int16_t y_origin = ${action.fromY};\n`;
       code += `    const int16_t x_target = ${action.toX};\n`;
       code += `    const int16_t y_target = ${action.toY};\n`;
-      code += `    int16_t x_cur = x_origin + (x_target - x_origin) * ${progressExpr};\n`;
-      code += `    int16_t y_cur = y_origin + (y_target - y_origin) * ${progressExpr};\n`;
+      code += `    int16_t x_cur = (int16_t)(x_origin + (x_target - x_origin) * ${progressExpr});\n`;
+      code += `    int16_t y_cur = (int16_t)(y_origin + (y_target - y_origin) * ${progressExpr});\n`;
       code += `    gui_obj_move(target, x_cur, y_cur);\n`;
       code += `    \n`;
     } else if (action.type === 'size') {
@@ -1071,8 +1119,8 @@ void ${callback}(void *obj)\n{\n`;
       code += `    const int16_t h_origin = ${action.fromH};\n`;
       code += `    const int16_t w_target = ${action.toW};\n`;
       code += `    const int16_t h_target = ${action.toH};\n`;
-      code += `    int16_t w_cur = w_origin + (w_target - w_origin) * ${progressExpr};\n`;
-      code += `    int16_t h_cur = h_origin + (h_target - h_origin) * ${progressExpr};\n`;
+      code += `    int16_t w_cur = (int16_t)(w_origin + (w_target - w_origin) * ${progressExpr});\n`;
+      code += `    int16_t h_cur = (int16_t)(h_origin + (h_target - h_origin) * ${progressExpr});\n`;
       code += `    target->w = w_cur;\n`;
       code += `    target->h = h_cur;\n`;
       code += `    \n`;
@@ -1081,7 +1129,7 @@ void ${callback}(void *obj)\n{\n`;
       code += `    // Adjust opacity: ${action.from} -> ${action.to}\n`;
       code += `    const uint8_t opacity_origin = ${action.from};\n`;
       code += `    const uint8_t opacity_target = ${action.to};\n`;
-      code += `    int16_t opacity_cur = opacity_origin + (opacity_target - opacity_origin) * ${progressExpr};\n`;
+      code += `    int16_t opacity_cur = (int16_t)(opacity_origin + (opacity_target - opacity_origin) * ${progressExpr});\n`;
       // hg_image uses gui_img_set_opacity, other components use target->opacity_value
       if (component?.type === 'hg_image') {
         code += `    gui_img_set_opacity((gui_img_t *)target, opacity_cur);\n`;
@@ -1125,11 +1173,11 @@ void ${callback}(void *obj)\n{\n`;
         code += `    uint8_t g_to = (fg_color_to >> 8) & 0xFF;\n`;
         code += `    uint8_t b_to = fg_color_to & 0xFF;\n`;
         code += `    // Calculate current color\n`;
-        code += `    uint8_t a_cur = a_from + (a_to - a_from) * ${progressExpr};\n`;
-        code += `    uint8_t r_cur = r_from + (r_to - r_from) * ${progressExpr};\n`;
-        code += `    uint8_t g_cur = g_from + (g_to - g_from) * ${progressExpr};\n`;
-        code += `    uint8_t b_cur = b_from + (b_to - b_from) * ${progressExpr};\n`;
-        code += `    uint32_t fg_color_cur = (a_cur << 24) | (r_cur << 16) | (g_cur << 8) | b_cur;\n`;
+        code += `    uint8_t a_cur = (uint8_t)(a_from + (a_to - a_from) * ${progressExpr});\n`;
+        code += `    uint8_t r_cur = (uint8_t)(r_from + (r_to - r_from) * ${progressExpr});\n`;
+        code += `    uint8_t g_cur = (uint8_t)(g_from + (g_to - g_from) * ${progressExpr});\n`;
+        code += `    uint8_t b_cur = (uint8_t)(b_from + (b_to - b_from) * ${progressExpr});\n`;
+        code += `    uint32_t fg_color_cur = ((uint32_t)a_cur << 24) | ((uint32_t)r_cur << 16) | ((uint32_t)g_cur << 8) | b_cur;\n`;
         code += `    gui_img_a8_recolor((gui_img_t *)target, fg_color_cur);\n`;
       } else {
         // No initial value, set target value directly
@@ -1154,11 +1202,11 @@ void ${callback}(void *obj)\n{\n`;
         code += `    uint8_t g_to = (bg_color_to >> 8) & 0xFF;\n`;
         code += `    uint8_t b_to = bg_color_to & 0xFF;\n`;
         code += `    // Calculate current color\n`;
-        code += `    uint8_t a_cur = a_from + (a_to - a_from) * ${progressExpr};\n`;
-        code += `    uint8_t r_cur = r_from + (r_to - r_from) * ${progressExpr};\n`;
-        code += `    uint8_t g_cur = g_from + (g_to - g_from) * ${progressExpr};\n`;
-        code += `    uint8_t b_cur = b_from + (b_to - b_from) * ${progressExpr};\n`;
-        code += `    uint32_t bg_color_cur = (a_cur << 24) | (r_cur << 16) | (g_cur << 8) | b_cur;\n`;
+        code += `    uint8_t a_cur = (uint8_t)(a_from + (a_to - a_from) * ${progressExpr});\n`;
+        code += `    uint8_t r_cur = (uint8_t)(r_from + (r_to - r_from) * ${progressExpr});\n`;
+        code += `    uint8_t g_cur = (uint8_t)(g_from + (g_to - g_from) * ${progressExpr});\n`;
+        code += `    uint8_t b_cur = (uint8_t)(b_from + (b_to - b_from) * ${progressExpr});\n`;
+        code += `    uint32_t bg_color_cur = ((uint32_t)a_cur << 24) | ((uint32_t)r_cur << 16) | ((uint32_t)g_cur << 8) | b_cur;\n`;
         code += `    gui_img_a8_fix_bg((gui_img_t *)target, bg_color_cur);\n`;
       } else {
         // No initial value, set target value directly

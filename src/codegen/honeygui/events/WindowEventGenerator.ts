@@ -9,6 +9,7 @@
  */
 import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, generateMessageCallbackImpl, generateControlTimerCallbackImpl, generateKeyEventCallbackImpl, getMessageCallbackName, generateEventCallbackName } from './EventCodeGenerator';
+import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
 
 export class WindowEventGenerator implements EventCodeGenerator {
 
@@ -260,11 +261,15 @@ ${callbackBody}}`);
 
           if (target.action === 'start') {
             // Start timer
-            const callback = timer.mode === 'preset' 
+            const isPreset = timer.mode === 'preset';
+            const callback = isPreset
               ? `${target.componentId}_${timer.id}_cb`
               : (timer.callback || `${target.componentId}_timer_cb`);
-            code += `${indent}${target.componentId}_timer_cnt = 0; // Reset counter\n`;
-            code += `${indent}gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timer.reload ? 'true' : 'false'}, ${callback});\n`;
+            if (isPreset) {
+              // Replay the animation from the start of its timeline
+              code += `${indent}${presetTimerStateNames(target.componentId).resetFn}();\n`;
+            }
+            code += `${indent}gui_obj_create_timer(GUI_BASE(${target.componentId}), ${timer.interval}, ${timerReloadArg(isPreset, timer.reload ? 'true' : 'false')}, ${callback});\n`;
             code += `${indent}gui_obj_start_timer(GUI_BASE(${target.componentId}));\n`;
           } else if (target.action === 'stop') {
             // Stop timer

@@ -5,6 +5,7 @@
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor } from '../utils';
+import { timerReloadArg } from '../PresetTimerModel';
 
 // Event type to GUI_EVENT mapping (for view switch events)
 // Note: Key events (onKeyShortPress, onKeyLongPress) should use gui_obj_add_event_cb, not gui_view_switch_on_event
@@ -359,10 +360,12 @@ export class ViewGenerator implements ComponentCodeGenerator {
 
     enabledTimers.forEach((timer: any) => {
       let callback: string;
+      let isPreset = false;
       // Preset action mode: supports segments (multi-step animation) or actions (single-step animation)
       if (timer.mode === 'preset' && ((timer.segments && timer.segments.length > 0) || (timer.actions && timer.actions.length > 0))) {
         // Preset action mode: generate callback function name from timer ID
         callback = `${component.id}_${timer.id}_cb`;
+        isPreset = true;
       } else if (timer.mode === 'custom' && timer.callback) {
         // Custom function mode
         callback = timer.callback;
@@ -372,7 +375,7 @@ export class ViewGenerator implements ComponentCodeGenerator {
 
       const timerName = timer.name || timer.id;
       code += `${indentStr}// Bind timer: ${timerName}\n`;
-      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)view, ${timer.interval}, ${timer.reload !== false ? 'true' : 'false'}, ${callback});\n`;
+      code += `${indentStr}gui_obj_create_timer((gui_obj_t *)view, ${timer.interval}, ${timerReloadArg(isPreset, timer.reload !== false ? 'true' : 'false')}, ${callback});\n`;
       // If not set to run immediately, call gui_obj_start_timer
       if (!timer.runImmediately) {
         code += `${indentStr}gui_obj_start_timer((gui_obj_t *)view);\n`;
