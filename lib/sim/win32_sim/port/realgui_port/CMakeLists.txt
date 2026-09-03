@@ -12,6 +12,10 @@ if(1) #set to 1 to enable or variable to for dependency
     file(GLOB SOURCES "*.c" "*.cpp")
     file(GLOB HEADERS "*.h" "*.hpp")
 
+    if(NOT CONFIG_REALTEK_BUILD_AUDIO)
+        list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gui_port_audio.c")
+    endif()
+
 
     # Determine if we should create a library
     if((NOT HEADERS) AND (NOT SOURCES))
@@ -30,13 +34,6 @@ if(1) #set to 1 to enable or variable to for dependency
     if(SOURCES AND HEADERS)
         target_sources(${GUI_TARGET_NAME} PRIVATE ${SOURCES})
         target_include_directories(${GUI_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    endif()
-
-    # Add compile definitions
-    if(CONFIG_REALTEK_BUILD_AUDIO)
-        target_compile_definitions(${GUI_TARGET_NAME} PRIVATE
-            GUI_ENABLE_AUDIO
-        )
     endif()
 
     # Process subdirectories regardless
