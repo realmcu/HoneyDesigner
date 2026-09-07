@@ -1,5 +1,6 @@
 import React from 'react';
 import { Languages } from 'lucide-react';
+import { ICON_META } from './toolbarIcons';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
 
@@ -14,7 +15,7 @@ const ProjectI18nLocaleSelect: React.FC = () => {
 
   return (
     <div className="project-i18n-locale-select" title={t('Preview Language')}>
-      <Languages size={14} strokeWidth={1.5} />
+      <Languages {...ICON_META} />
       <select
         aria-label={t('Preview Language')}
         value={previewLocale}

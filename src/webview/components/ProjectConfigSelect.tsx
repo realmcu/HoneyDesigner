@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Settings, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { ICON_CARET, ICON_META } from './toolbarIcons';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
 
@@ -75,7 +76,7 @@ const ProjectConfigSelect: React.FC = () => {
 
   return (
     <div className="project-config-select" ref={containerRef} title={t('Project Config')}>
-      <Settings size={14} strokeWidth={1.5} />
+      <Settings {...ICON_META} />
       <button
         type="button"
         className="project-config-trigger"
@@ -86,7 +87,7 @@ const ProjectConfigSelect: React.FC = () => {
         <span className="project-config-trigger-label">
           {activeProjectConfig ?? t('Custom Config')}
         </span>
-        <ChevronDown size={12} strokeWidth={1.6} />
+        <ChevronDown {...ICON_CARET} />
       </button>
       <button
         type="button"
@@ -96,7 +97,7 @@ const ProjectConfigSelect: React.FC = () => {
         aria-label={t('New Config')}
         disabled={isBusy}
       >
-        <Plus size={14} strokeWidth={1.6} />
+        <Plus {...ICON_META} />
       </button>
 
       {open && (
@@ -118,7 +119,7 @@ const ProjectConfigSelect: React.FC = () => {
                   title={t('Delete Config')}
                   aria-label={t('Delete Config')}
                 >
-                  <Trash2 size={13} strokeWidth={1.6} />
+                  <Trash2 {...ICON_META} />
                 </button>
               </div>
             ))

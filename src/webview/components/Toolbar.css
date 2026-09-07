@@ -7,6 +7,13 @@
   --toolbar-control-padding: 9px;
   --toolbar-menu-radius: 6px;
   --toolbar-transition: 120ms ease;
+  --toolbar-disabled-opacity: 0.42;
+  /* 有边框的控件共用同一套容器色：按钮（default）、下拉（field）、版本徽标（meta）。
+     button.secondaryBackground 与 dropdown.background 在多数主题下只差一点点，
+     分开用不会读成两个层级，只会读成没对齐的同一个颜色。蓝色仅留给 primary。 */
+  --toolbar-surface: var(--vscode-button-secondaryBackground, var(--vscode-dropdown-background, transparent));
+  --toolbar-surface-border: var(--vscode-button-border, var(--vscode-panel-border));
+  --toolbar-surface-hover: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground));
   position: relative;
   z-index: 20;
   height: var(--toolbar-height);
@@ -43,6 +50,12 @@
   opacity: 0.55;
 }
 
+/* 相邻分组整组折叠后隐藏，避免悬空竖线。折叠计算按分隔线全部可见预留宽度，
+   因此这里用 display: none 不会让宽度判定与显隐互相牵连。 */
+.toolbar-divider.toolbar-divider-hidden {
+  display: none;
+}
+
 .toolbar-button,
 .toolbar-icon-button {
   height: var(--toolbar-control-height);
@@ -73,21 +86,29 @@
   padding: 0;
 }
 
+/* Hover 只加深底色，边框保持各层级本色；focusBorder 仅用于焦点，不参与悬停。 */
 .toolbar-button:hover:not(:disabled),
-.toolbar-icon-button:hover:not(:disabled) {
+.toolbar-icon-button:hover:not(:disabled),
+.project-config-trigger:hover:not(:disabled) {
   background-color: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
-  border-color: var(--vscode-widget-border, var(--vscode-panel-border));
 }
 
-.toolbar-button.secondary {
-  background-color: var(--vscode-button-secondaryBackground, transparent);
+/* default 层级：会写文件或跑流程的操作。纯图标形态（串口下载、清理）共用同一套外观。 */
+.toolbar-button.secondary,
+.toolbar-icon-button.secondary {
+  background-color: var(--toolbar-surface);
   color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  border-color: var(--vscode-button-border, var(--vscode-panel-border));
+  border-color: var(--toolbar-surface-border);
 }
 
-.toolbar-button.secondary:hover:not(:disabled) {
-  background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground));
-  border-color: var(--vscode-focusBorder);
+.toolbar-button.secondary:hover:not(:disabled),
+.toolbar-icon-button.secondary:hover:not(:disabled) {
+  background-color: var(--toolbar-surface-hover);
+}
+
+.toolbar-button.secondary:active:not(:disabled),
+.toolbar-icon-button.secondary:active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--toolbar-surface-hover) 88%, #000);
 }
 
 .toolbar-button:focus-visible,
@@ -100,17 +121,34 @@
   outline-offset: -1px;
 }
 
+/* 按下反馈统一为底色变化。工具栏内不使用位移或缩放，
+   同时中和 global.css 对所有 button 生效的 scale(0.98)。 */
+.toolbar button:active:not(:disabled) {
+  transform: none;
+}
+
 .toolbar-button:active:not(:disabled),
-.toolbar-icon-button:active:not(:disabled) {
-  transform: translateY(1px);
+.toolbar-icon-button:active:not(:disabled),
+.project-config-trigger:active:not(:disabled) {
+  background-color: var(
+    --vscode-toolbar-activeBackground,
+    color-mix(in srgb, var(--vscode-foreground) 16%, transparent)
+  );
 }
 
 .toolbar-button:disabled,
 .toolbar-icon-button:disabled,
 .toolbar-icon-button.disabled {
-  opacity: 0.42;
+  opacity: var(--toolbar-disabled-opacity);
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* 进行中的按钮不可点击，但仍是活跃状态：保持不透明，
+   否则作为唯一进行中信号的 spinner 会被禁用态淡化到看不清。 */
+.toolbar-button:disabled:has(.toolbar-spinner),
+.toolbar-icon-button:disabled:has(.toolbar-spinner) {
+  opacity: 1;
 }
 
 .toolbar-button.active,
@@ -121,13 +159,10 @@
   border-color: color-mix(in srgb, var(--vscode-focusBorder) 55%, transparent);
 }
 
-.toolbar-button.running {
-  color: var(--vscode-button-foreground);
-  background-color: var(--vscode-button-background);
-  border-color: var(--vscode-button-background);
-}
-
-.toolbar-button.secondary.running {
+/* 进行中：quiet 与 default 层级一律用主色底表达活跃状态。
+   本规则位于 .secondary 之后，因此无需再为 .secondary.running 单独重复一遍。 */
+.toolbar-button.running,
+.toolbar-icon-button.running {
   color: var(--vscode-button-foreground);
   background-color: var(--vscode-button-background);
   border-color: var(--vscode-button-background);
@@ -149,6 +184,10 @@
   background-color: var(--vscode-button-hoverBackground);
 }
 
+.toolbar-button.primary:active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--vscode-button-hoverBackground) 88%, #000);
+}
+
 .toolbar-button.primary.running {
   background-color: var(--vscode-testing-iconFailed, var(--vscode-button-background));
   border-color: var(--vscode-testing-iconFailed, var(--vscode-button-border, transparent));
@@ -160,6 +199,39 @@
 .align-menu-item svg,
 .sim-menu-item svg {
   flex: 0 0 auto;
+}
+
+/* 进行中指示器 */
+@keyframes toolbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toolbar-spinner {
+  animation: toolbar-spin 900ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-spinner {
+    animation: none;
+  }
+}
+
+/* 多态文案叠放：隐藏态只参与宽度计算，按钮宽度恒为最长文案的宽度，
+   切换状态时不会因宽度变化推动同排其它按钮位移。 */
+.toolbar-label-stack {
+  display: inline-grid;
+  justify-items: center;
+}
+
+.toolbar-label-stack > * {
+  grid-area: 1 / 1;
+}
+
+.toolbar-label-ghost {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .toolbar-segmented {
@@ -275,7 +347,7 @@
 
 .align-menu-item:disabled,
 .toolbar-menu-item:disabled {
-  opacity: 0.42;
+  opacity: var(--toolbar-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -413,10 +485,6 @@
   border-radius: var(--toolbar-control-radius) 0 0 var(--toolbar-control-radius);
 }
 
-.toolbar-split-button .split-main.running {
-  border-radius: var(--toolbar-control-radius);
-}
-
 .toolbar-split-button .split-arrow {
   min-width: 24px;
   width: 24px;
@@ -477,8 +545,8 @@
   gap: 4px;
   padding: 0 3px 0 7px;
   color: var(--vscode-descriptionForeground);
-  background-color: var(--vscode-dropdown-background, transparent);
-  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+  background-color: var(--toolbar-surface);
+  border: 1px solid var(--toolbar-surface-border);
   border-radius: var(--toolbar-control-radius);
   transition: border-color var(--toolbar-transition), background-color var(--toolbar-transition);
 }
@@ -495,9 +563,10 @@
   font-size: 12px;
 }
 
+/* 悬停时边框提亮一档，但不使用 focusBorder，避免与键盘焦点态混淆。 */
 .project-i18n-locale-select:hover,
 .project-config-select:hover {
-  border-color: var(--vscode-focusBorder);
+  border-color: color-mix(in srgb, var(--vscode-foreground) 35%, transparent);
 }
 
 .project-i18n-locale-select:focus-within,
@@ -530,7 +599,7 @@
 
 .project-config-trigger:disabled,
 .project-config-select-btn:disabled {
-  opacity: 0.42;
+  opacity: var(--toolbar-disabled-opacity);
   cursor: default;
 }
 
@@ -607,6 +676,8 @@
   margin-left: -2px;
 }
 
+/* 只读信息，但仍用与按钮相同的容器外观，避免无边框时在这一排里显得突兀。
+   不提供 hover 反馈，靠"划过去没有任何变化"区分于相邻的可操作下拉。 */
 .toolbar-version-badge {
   height: var(--toolbar-control-height);
   max-width: 150px;
@@ -616,11 +687,12 @@
   flex: 0 1 auto;
   padding: 0 8px;
   color: var(--vscode-descriptionForeground);
-  background-color: var(--vscode-dropdown-background, transparent);
-  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+  background-color: var(--toolbar-surface);
+  border: 1px solid var(--toolbar-surface-border);
   border-radius: var(--toolbar-control-radius);
   font-size: 11px;
   white-space: nowrap;
+  cursor: default;
 }
 
 .toolbar-version-badge span {

@@ -11,6 +11,7 @@ import {
   Grid,
   Info,
   Languages,
+  LoaderCircle,
   Maximize2,
   MoreHorizontal,
   Package,
@@ -25,6 +26,7 @@ import { AlignType, DistributeType, ResizeType, getAlignmentConfigsByCategory } 
 import { t } from '../i18n';
 import ProjectI18nLocaleSelect from './ProjectI18nLocaleSelect';
 import ProjectConfigSelect from './ProjectConfigSelect';
+import { ICON, ICON_CARET, ICON_CHECK, ICON_MENU, ICON_META } from './toolbarIcons';
 import './Toolbar.css';
 
 type ToolbarItemId =
@@ -59,12 +61,32 @@ const COLLAPSE_ORDER: ToolbarItemId[] = [
   'codegen',
 ];
 
+// 分隔线总数：文档操作后 1 条 + 右侧分组 2 条。折叠计算按全部可见预留宽度。
+const TOTAL_DIVIDERS = 3;
+
 const setsEqual = (left: Set<ToolbarItemId>, right: Set<ToolbarItemId>): boolean => {
   if (left.size !== right.size) {
     return false;
   }
   return Array.from(left).every((item) => right.has(item));
 };
+
+// 进行中指示器：只替换图标位，按钮文案保持不变。
+// 文案一旦变长变短，按钮宽度就会变化并推动同排其它按钮位移。
+const BusySpinner: React.FC = () => (
+  <LoaderCircle className="toolbar-spinner" {...ICON} />
+);
+
+// 文案确实需要切换时（如仿真/停止），把所有可能文案叠放到同一网格单元，
+// 隐藏态只参与宽度计算，使按钮宽度恒等于最长文案的宽度。
+const StableLabel: React.FC<{ current: string; variants: string[] }> = ({ current, variants }) => (
+  <span className="toolbar-label-stack">
+    {variants.map((text, index) => (
+      <span key={index} className="toolbar-label-ghost" aria-hidden="true">{text}</span>
+    ))}
+    <span>{current}</span>
+  </span>
+);
 
 const Toolbar: React.FC = () => {
   const {
@@ -139,15 +161,19 @@ const Toolbar: React.FC = () => {
         const existingItems = COLLAPSE_ORDER.filter((id) => itemRefs.current.has(id));
 
         // 固定区域：文档操作、分隔线、弹性空白的最小宽度、仿真和更多按钮。
+        // 三条分组分隔线一律按可见预留宽度：分隔线的显隐取决于折叠结果，
+        // 若按实际显隐测量，会让折叠判定反过来依赖自己的输出。
         const fixedWidth = documentActions.getBoundingClientRect().width
-          + divider.getBoundingClientRect().width
+          + divider.getBoundingClientRect().width * TOTAL_DIVIDERS
           + simulation.getBoundingClientRect().width
           + 4;
         const itemWidth = existingItems.reduce((total, id) => {
           return total + (itemRefs.current.get(id)?.getBoundingClientRect().width || 0);
         }, 0);
         // 全部项目可见时不为“更多”预留空间；首次发生折叠时再计入该按钮。
-        let requiredWidth = fixedWidth + itemWidth + Math.max(0, existingItems.length + 3) * gap;
+        // gap 数 = flex 子元素数 - 1，固定子元素为文档操作、三条分隔线、弹性空白、仿真。
+        let requiredWidth = fixedWidth + itemWidth
+          + Math.max(0, existingItems.length + TOTAL_DIVIDERS + 2) * gap;
         const nextOverflow = new Set<ToolbarItemId>();
         if (requiredWidth > availableWidth) {
           requiredWidth += more.getBoundingClientRect().width + gap;
@@ -358,6 +384,12 @@ const Toolbar: React.FC = () => {
   const hasProjectOverflow = ['projectConfig', 'locale', 'i18nManager', 'guiVersion']
     .some((id) => isOverflowed(id as ToolbarItemId));
   const hasBuildOverflow = isOverflowed('convert') || isOverflowed('codegen');
+  // 分组分隔线在相邻组整组折叠后隐藏，避免留下悬空竖线。
+  // 构建组含永不折叠的仿真按钮，因此始终可见，无需判断。
+  const projectGroupVisible = (['projectConfig', 'locale', 'i18nManager'] as ToolbarItemId[])
+    .some((id) => !isOverflowed(id))
+    || (!!guiVersion && !isOverflowed('guiVersion'));
+  const deployGroupVisible = !isOverflowed('download') || !isOverflowed('clean');
   const hasOverflowedOperation = (operationInProgress === 'convert' && isOverflowed('convert'))
     || (operationInProgress === 'codegen' && isOverflowed('codegen'))
     || (operationInProgress === 'download' && isOverflowed('download'))
@@ -372,7 +404,7 @@ const Toolbar: React.FC = () => {
           title={`${t('Save')} (Ctrl+S)`}
           aria-label={t('Save')}
         >
-          <Save size={16} strokeWidth={1.4} />
+          <Save {...ICON} />
           <span>{t('Save')}</span>
         </button>
         <div className="toolbar-segmented">
@@ -383,7 +415,7 @@ const Toolbar: React.FC = () => {
             aria-label={t('Undo')}
             disabled={!canUndo()}
           >
-            <RotateCcw size={16} strokeWidth={1.4} />
+            <RotateCcw {...ICON} />
           </button>
           <button
             className="toolbar-icon-button"
@@ -392,7 +424,7 @@ const Toolbar: React.FC = () => {
             aria-label={t('Redo')}
             disabled={!canRedo()}
           >
-            <RotateCw size={16} strokeWidth={1.4} />
+            <RotateCw {...ICON} />
           </button>
         </div>
       </div>
@@ -406,7 +438,7 @@ const Toolbar: React.FC = () => {
           title={t('View Relations')}
           aria-label={t('View Relations')}
         >
-          <GitBranch size={16} strokeWidth={1.4} />
+          <GitBranch {...ICON} />
         </button>
       </div>
 
@@ -417,7 +449,7 @@ const Toolbar: React.FC = () => {
           title={showAlignmentGuides ? t('Hide guides') : t('Show guides')}
           aria-label={showAlignmentGuides ? t('Hide guides') : t('Show guides')}
         >
-          <Grid size={16} strokeWidth={1.4} />
+          <Grid {...ICON} />
         </button>
       </div>
 
@@ -430,7 +462,7 @@ const Toolbar: React.FC = () => {
             aria-label={t('Align and distribute')}
             disabled={selectedComponents.length < 2}
           >
-            <AlignLeft size={16} strokeWidth={1.4} />
+            <AlignLeft {...ICON} />
             {selectedComponents.length >= 2 && <span className="selection-badge">{selectedComponents.length}</span>}
           </button>
           {showAlignMenu && selectedComponents.length >= 2 && (
@@ -481,7 +513,7 @@ const Toolbar: React.FC = () => {
             title={t('Background Color')}
             aria-label={t('Background Color')}
           >
-            <Palette size={16} strokeWidth={1.4} />
+            <Palette {...ICON} />
           </button>
           {showColorPicker && (
             <div className="color-picker-dropdown">
@@ -512,7 +544,7 @@ const Toolbar: React.FC = () => {
 
       <div ref={(node) => setItemRef('fit', node)} className={itemClassName('fit')}>
         <button className="toolbar-icon-button" onClick={fitContentToView} title={t('Fit All Content')} aria-label={t('Fit All Content')}>
-          <Maximize2 size={16} strokeWidth={1.4} />
+          <Maximize2 {...ICON} />
         </button>
       </div>
 
@@ -528,11 +560,11 @@ const Toolbar: React.FC = () => {
 
       <div ref={(node) => setItemRef('i18nManager', node)} className={itemClassName('i18nManager')}>
         <button
-          className="toolbar-button"
+          className="toolbar-button secondary"
           onClick={() => setProjectI18nManagerOpen(true)}
           title={t('Open I18n Manager')}
         >
-          <Languages size={16} strokeWidth={1.4} />
+          <Languages {...ICON} />
           <span>{t('I18n Manager')}</span>
         </button>
       </div>
@@ -540,11 +572,13 @@ const Toolbar: React.FC = () => {
       {guiVersion && (
         <div ref={(node) => setItemRef('guiVersion', node)} className={itemClassName('guiVersion')}>
           <div className="toolbar-version-badge" title={guiVersionTitle}>
-            <Info size={14} strokeWidth={1.4} />
+            <Info {...ICON_META} />
             <span>{guiVersion.engine} {guiVersion.tag}</span>
           </div>
         </div>
       )}
+
+      <div className={`toolbar-divider ${projectGroupVisible ? '' : 'toolbar-divider-hidden'}`} />
 
       <div ref={(node) => setItemRef('convert', node)} className={itemClassName('convert')}>
         <button
@@ -553,8 +587,8 @@ const Toolbar: React.FC = () => {
           title={t('Convert Resource Tooltip')}
           disabled={isBusy}
         >
-          <Package size={16} strokeWidth={1.4} />
-          <span>{operationInProgress === 'convert' ? t('Converting...') : t('Convert Resource')}</span>
+          {operationInProgress === 'convert' ? <BusySpinner /> : <Package {...ICON} />}
+          <span>{t('Convert Resource')}</span>
         </button>
       </div>
 
@@ -565,8 +599,8 @@ const Toolbar: React.FC = () => {
           title={t('Generate Code')}
           disabled={isBusy}
         >
-          <Code size={16} strokeWidth={1.4} />
-          <span>{operationInProgress === 'codegen' ? t('Generating...') : t('Generate Code')}</span>
+          {operationInProgress === 'codegen' ? <BusySpinner /> : <Code {...ICON} />}
+          <span>{t('Generate Code')}</span>
         </button>
       </div>
 
@@ -583,32 +617,38 @@ const Toolbar: React.FC = () => {
           title={isSimulationRunning ? t('Stop Simulation') : t('Compile & Simulate')}
           disabled={isBusy && !isSimulationRunning}
         >
-          {isSimulationRunning ? <Square size={15} strokeWidth={1.5} /> : <Rocket size={16} strokeWidth={1.4} />}
-          <span>{isSimulationRunning ? t('Stop') : operationInProgress === 'simulate' ? t('Starting...') : t('Simulate')}</span>
+          {isSimulationRunning
+            ? <Square {...ICON} />
+            : operationInProgress === 'simulate'
+              ? <BusySpinner />
+              : <Rocket {...ICON} />}
+          <StableLabel
+            current={isSimulationRunning ? t('Stop') : t('Simulate')}
+            variants={[t('Simulate'), t('Stop')]}
+          />
         </button>
-        {!isSimulationRunning && (
-          <button
-            className="toolbar-button primary split-arrow"
-            onClick={() => {
-              setShowMoreMenu(false);
-              setShowSimMenu(!showSimMenu);
-            }}
-            disabled={isBusy}
-            title={t('Configure simulation flow')}
-            aria-label={t('Configure simulation flow')}
-          >
-            <ChevronDown size={12} strokeWidth={2} />
-          </button>
-        )}
+        {/* 运行中保留箭头并禁用，卸载它会让按钮宽度突变 24px。 */}
+        <button
+          className="toolbar-button primary split-arrow"
+          onClick={() => {
+            setShowMoreMenu(false);
+            setShowSimMenu(!showSimMenu);
+          }}
+          disabled={isBusy}
+          title={t('Configure simulation flow')}
+          aria-label={t('Configure simulation flow')}
+        >
+          <ChevronDown {...ICON_CARET} />
+        </button>
         {showSimMenu && (
           <div className="sim-dropdown-menu">
             <div className="sim-menu-title">{t('Simulation Flow')}</div>
             {flowSteps.map(({ key, label, Icon }) => (
               <button key={key} className="sim-menu-item" onClick={() => toggleFlowStep(key)}>
                 <span className={`flow-checkbox ${simulationFlow[key] ? 'checked' : ''}`}>
-                  {simulationFlow[key] && <Check size={12} strokeWidth={3} />}
+                  {simulationFlow[key] && <Check {...ICON_CHECK} />}
                 </span>
-                <Icon size={14} strokeWidth={1.4} />
+                <Icon {...ICON_MENU} />
                 <span>{label}</span>
               </button>
             ))}
@@ -617,15 +657,29 @@ const Toolbar: React.FC = () => {
         )}
       </div>
 
+      <div className={`toolbar-divider ${deployGroupVisible ? '' : 'toolbar-divider-hidden'}`} />
+
       <div ref={(node) => setItemRef('download', node)} className={itemClassName('download')}>
-        <button className="toolbar-icon-button" onClick={handleUartDownload} title={t('UART Download')} aria-label={t('UART Download')} disabled={isBusy}>
-          <Download size={16} strokeWidth={1.4} />
+        <button
+          className={`toolbar-icon-button secondary ${operationInProgress === 'download' ? 'running' : ''}`}
+          onClick={handleUartDownload}
+          title={t('UART Download')}
+          aria-label={t('UART Download')}
+          disabled={isBusy}
+        >
+          {operationInProgress === 'download' ? <BusySpinner /> : <Download {...ICON} />}
         </button>
       </div>
 
       <div ref={(node) => setItemRef('clean', node)} className={itemClassName('clean')}>
-        <button className="toolbar-icon-button" onClick={handleClean} title={t('Clean Build')} aria-label={t('Clean Build')} disabled={isBusy}>
-          <BrushCleaning size={16} strokeWidth={1.4} />
+        <button
+          className={`toolbar-icon-button secondary ${operationInProgress === 'clean' ? 'running' : ''}`}
+          onClick={handleClean}
+          title={t('Clean Build')}
+          aria-label={t('Clean Build')}
+          disabled={isBusy}
+        >
+          {operationInProgress === 'clean' ? <BusySpinner /> : <BrushCleaning {...ICON} />}
         </button>
       </div>
 
@@ -644,7 +698,7 @@ const Toolbar: React.FC = () => {
             aria-expanded={showMoreMenu}
             tabIndex={overflowedItems.size === 0 ? -1 : 0}
           >
-            <MoreHorizontal size={17} strokeWidth={1.6} />
+            <MoreHorizontal {...ICON} />
             {hasOverflowedOperation && <span className="toolbar-operation-dot" />}
           </button>
 
@@ -655,13 +709,13 @@ const Toolbar: React.FC = () => {
                   <div className="toolbar-menu-title">{t('Canvas Tools')}</div>
                   {isOverflowed('relations') && (
                     <button className={`toolbar-menu-item ${showViewRelationModal ? 'active' : ''}`} onClick={() => closeMoreAndRun(() => setShowViewRelationModal(!showViewRelationModal))}>
-                      <GitBranch size={15} strokeWidth={1.4} />
+                      <GitBranch {...ICON_MENU} />
                       <span>{t('View Relations')}</span>
                     </button>
                   )}
                   {isOverflowed('guides') && (
                     <button className={`toolbar-menu-item ${showAlignmentGuides ? 'active' : ''}`} onClick={() => closeMoreAndRun(() => setShowAlignmentGuides(!showAlignmentGuides))}>
-                      <Grid size={15} strokeWidth={1.4} />
+                      <Grid {...ICON_MENU} />
                       <span>{showAlignmentGuides ? t('Hide guides') : t('Show guides')}</span>
                     </button>
                   )}
@@ -673,9 +727,9 @@ const Toolbar: React.FC = () => {
                         disabled={selectedComponents.length < 2}
                         title={selectedComponents.length < 2 ? t('Select at least 2 components') : ''}
                       >
-                        <AlignLeft size={15} strokeWidth={1.4} />
+                        <AlignLeft {...ICON_MENU} />
                         <span>{t('Align and distribute')}</span>
-                        <ChevronDown className={showOverflowAlignMenu ? 'expanded' : ''} size={13} strokeWidth={1.6} />
+                        <ChevronDown className={showOverflowAlignMenu ? 'expanded' : ''} {...ICON_CARET} />
                       </button>
                       {showOverflowAlignMenu && selectedComponents.length >= 2 && (
                         <div className="toolbar-inline-submenu">
@@ -723,14 +777,14 @@ const Toolbar: React.FC = () => {
                         >
                           <span className="toolbar-color-swatch" style={{ backgroundColor: color, border: color === '#ffffff' ? '1px solid #999' : undefined }} />
                           <span>{label}</span>
-                          {canvasBackgroundColor === color && <Check size={13} strokeWidth={2} />}
+                          {canvasBackgroundColor === color && <Check {...ICON_CHECK} />}
                         </button>
                       ))}
                     </>
                   )}
                   {isOverflowed('fit') && (
                     <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(fitContentToView)}>
-                      <Maximize2 size={15} strokeWidth={1.4} />
+                      <Maximize2 {...ICON_MENU} />
                       <span>{t('Fit All Content')}</span>
                     </button>
                   )}
@@ -749,13 +803,13 @@ const Toolbar: React.FC = () => {
                   )}
                   {isOverflowed('i18nManager') && (
                     <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(() => setProjectI18nManagerOpen(true))}>
-                      <Languages size={15} strokeWidth={1.4} />
+                      <Languages {...ICON_MENU} />
                       <span>{t('I18n Manager')}</span>
                     </button>
                   )}
                   {isOverflowed('guiVersion') && guiVersion && (
                     <div className="toolbar-version-details" title={guiVersionTitle}>
-                      <Info size={14} strokeWidth={1.4} />
+                      <Info {...ICON_META} />
                       <span>{guiVersion.engine} {guiVersion.tag}</span>
                     </div>
                   )}
@@ -768,13 +822,13 @@ const Toolbar: React.FC = () => {
                   <div className="toolbar-menu-title">{t('Build Actions')}</div>
                   {isOverflowed('convert') && (
                     <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(handleConvertResource)} disabled={isBusy}>
-                      <Package size={15} strokeWidth={1.4} />
+                      <Package {...ICON_MENU} />
                       <span>{operationInProgress === 'convert' ? t('Converting...') : t('Convert Resource')}</span>
                     </button>
                   )}
                   {isOverflowed('codegen') && (
                     <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(handleGenerateAllCode)} disabled={isBusy}>
-                      <Code size={15} strokeWidth={1.4} />
+                      <Code {...ICON_MENU} />
                       <span>{operationInProgress === 'codegen' ? t('Generating...') : t('Generate Code')}</span>
                     </button>
                   )}
@@ -786,7 +840,7 @@ const Toolbar: React.FC = () => {
                 <>
                   <div className="toolbar-menu-title">{t('Deployment')}</div>
                   <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(handleUartDownload)} disabled={isBusy}>
-                    <Download size={15} strokeWidth={1.4} />
+                    <Download {...ICON_MENU} />
                     <span>{t('UART Download')}</span>
                   </button>
                   <div className="toolbar-menu-divider" />
@@ -797,7 +851,7 @@ const Toolbar: React.FC = () => {
                 <>
                   <div className="toolbar-menu-title">{t('Maintenance')}</div>
                   <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(handleClean)} disabled={isBusy}>
-                    <BrushCleaning size={15} strokeWidth={1.4} />
+                    <BrushCleaning {...ICON_MENU} />
                     <span>{t('Clean Build')}</span>
                   </button>
                 </>
