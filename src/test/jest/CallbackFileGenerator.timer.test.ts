@@ -66,9 +66,7 @@ describe('preset timer callback contract', () => {
     // Progress must come from gui_ms_get(), not from a callback counter.
     expect(code).toContain('gui_ms_get()');
     expect(code).not.toContain('cnt_max');
-    // The old counter survives only as a restart request flag, never as a
-    // progress source: no interpolation may read it.
-    expect(code).not.toMatch(/\*\s*needle_timer_cnt|needle_timer_cnt\s*\//);
+    expect(code).not.toContain('needle_timer_cnt');
   });
 
   it('loops by taking the modulo of the original time origin', () => {
@@ -262,14 +260,8 @@ describe('preset timer reload and restart', () => {
   });
 });
 
-describe('deprecated *_timer_cnt compatibility', () => {
-  /**
-   * Shipped project templates rewind a preset animation from `user/` code with
-   * `<id>_timer_cnt = 0;`, so the symbol is a de-facto public API. Generated code
-   * never overwrites `user/`, so removing it breaks existing projects at compile
-   * time. It stays declared and is honoured as a restart request.
-   */
-  it('still declares and defines the counter for every component with a timer', () => {
+describe('preset timer public API', () => {
+  it('exposes only the reset function to user code', () => {
     const generator = new CallbackFileGenerator([
       makeComponent('needle', {
         timers: [{
@@ -286,32 +278,11 @@ describe('deprecated *_timer_cnt compatibility', () => {
     const header = generator.generateHeader('Main');
     const impl = generator.generateImplementation('Main');
 
-    // Both preset and custom timer owners had the counter before, so both keep it
-    expect(header).toContain('HONEYGUI_DESIGN_DEPRECATED("use needle_preset_animation_reset() instead") extern uint16_t needle_timer_cnt;');
-    expect(header).toContain('HONEYGUI_DESIGN_DEPRECATED("remove direct use; custom timer state is user-owned") extern uint16_t clockLabel_timer_cnt;');
-    expect(header).toContain('#if defined(MAIN_CALLBACKS_H_IMPLEMENTATION)');
-    expect(header).toContain('#define HONEYGUI_DESIGN_DEPRECATED(message) __attribute__((deprecated(message)))');
-    expect(header).toContain('#define HONEYGUI_DESIGN_DEPRECATED(message) __declspec(deprecated(message))');
-    expect(impl).toContain(`#define MAIN_CALLBACKS_H_IMPLEMENTATION
-#include "Main_callbacks.h"
-#undef MAIN_CALLBACKS_H_IMPLEMENTATION`);
-    expect(impl).toContain('uint16_t needle_timer_cnt = 0;');
-    expect(impl).toContain('uint16_t clockLabel_timer_cnt = 0;');
-  });
-
-  it('treats a zero written by user code as a restart request, before the origin is set', () => {
-    const code = generate(makeNeedle({ stopOnComplete: false }));
-
-    expect(code).toContain(`    if (needle_timer_cnt == 0)
-    {
-        needle_preset_animation_reset();
-    }
-    needle_timer_cnt = 1;`);
-
-    // The restart must be handled before the time origin is established,
-    // otherwise the reset would be undone by the same callback.
-    expect(code.indexOf('needle_timer_cnt = 1;'))
-      .toBeLessThan(code.indexOf('if (!needle_timer_started)'));
+    expect(header).toContain('void needle_preset_animation_reset(void);');
+    expect(header).not.toContain('_timer_cnt');
+    expect(impl).not.toContain('_timer_cnt');
+    expect(impl).toContain('#include "Main_callbacks.h"');
+    expect(impl).not.toContain('_CALLBACKS_H_IMPLEMENTATION');
   });
 });
 

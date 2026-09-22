@@ -8,7 +8,6 @@ import { getMessageCallbackName, generateEventCallbackName } from '../events/Eve
 import {
   NormalizedSegment,
   buildPresetTimeline,
-  componentHasAnyTimer,
   componentHasPresetTimer,
   isBoundaryAction,
   isPresetTimerConfig,
@@ -108,32 +107,6 @@ export class CallbackFileGenerator {
       code += `\n`;
     }
 
-    // Deprecated animation counters remain externally visible during the
-    // migration window because generated user/ files are never overwritten.
-    const timerComponents = this.allComponents.filter(c => componentHasAnyTimer(c));
-
-    if (timerComponents.length > 0) {
-      code += `// Deprecated compatibility API; scheduled for removal in the next major version.\n`;
-      code += `// For preset animations, assigning 0 requests a restart. Custom timer state is user-owned.\n`;
-      code += `#if defined(${guardName}_IMPLEMENTATION)\n`;
-      code += `#define HONEYGUI_DESIGN_DEPRECATED(message)\n`;
-      code += `#elif defined(__clang__) || defined(__GNUC__)\n`;
-      code += `#define HONEYGUI_DESIGN_DEPRECATED(message) __attribute__((deprecated(message)))\n`;
-      code += `#elif defined(_MSC_VER)\n`;
-      code += `#define HONEYGUI_DESIGN_DEPRECATED(message) __declspec(deprecated(message))\n`;
-      code += `#else\n`;
-      code += `#define HONEYGUI_DESIGN_DEPRECATED(message)\n`;
-      code += `#endif\n`;
-      timerComponents.forEach(comp => {
-        const state = presetTimerStateNames(comp.id);
-        const message = componentHasPresetTimer(comp)
-          ? `use ${state.resetFn}() instead`
-          : 'remove direct use; custom timer state is user-owned';
-        code += `HONEYGUI_DESIGN_DEPRECATED("${message}") extern uint16_t ${state.legacyCount};\n`;
-      });
-      code += `#undef HONEYGUI_DESIGN_DEPRECATED\n\n`;
-    }
-
     code += `// Event callback function declarations\n`;
 
     const callbackFunctions = this.collectCallbackFunctions();
@@ -207,9 +180,7 @@ export class CallbackFileGenerator {
     // Check if tp_algo.h is needed (for touch release area detection)
     const needsTpAlgo = this.checkNeedsTpAlgo();
     
-    let code = `#define ${baseName.toUpperCase()}_CALLBACKS_H_IMPLEMENTATION
-#include "${baseName}_callbacks.h"
-#undef ${baseName.toUpperCase()}_CALLBACKS_H_IMPLEMENTATION
+    let code = `#include "${baseName}_callbacks.h"
 #include "../ui/${baseName}_ui.h"
 #include "../user/${baseName}_user.h"
 #include <stdio.h>
@@ -271,19 +242,6 @@ export class CallbackFileGenerator {
         code += `    ${state.prevElapsedMs} = 0;\n`;
         code += `}\n\n`;
       });
-    }
-
-    // Deprecated animation counter, kept so existing user/ code keeps compiling.
-    // Shipped templates rewind a preset animation by assigning 0 to it from
-    // user/ code, which the preset callbacks honour as a restart request.
-    const timerComponents = this.allComponents.filter(c => componentHasAnyTimer(c));
-
-    if (timerComponents.length > 0) {
-      code += `// Deprecated animation counter (restart request flag, not a frame counter)\n`;
-      timerComponents.forEach(comp => {
-        code += `uint16_t ${presetTimerStateNames(comp.id).legacyCount} = 0;\n`;
-      });
-      code += `\n`;
     }
 
     if (this.needsBoundaryHelper) {
@@ -630,7 +588,7 @@ void ${callback}(void *obj)
 #ifdef __cplusplus
     }
 #endif
-    
+
     if (${implFuncName}) {
         ${implFuncName}();
     } else {
@@ -672,7 +630,7 @@ void ${callback}(void *obj)
 #ifdef __cplusplus
     }
 #endif
-    
+
     if (${implFuncName}) {
         ${implFuncName}();
     } else {
@@ -779,12 +737,12 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       let code = doc;
       code += `void ${callback}(void *obj)\n{\n`;
       code += `    gui_obj_t *target = (gui_obj_t *)obj;\n`;
-      code += `    \n`;
+      code += `\n`;
       code += `    // Total duration is 0 ms: apply the final state once, then stop\n`;
       code += `    ${state.started} = true;\n`;
       code += `    ${state.startMs} = gui_ms_get();\n`;
       code += `    ${state.prevElapsedMs} = 0;\n`;
-      code += `    \n`;
+      code += `\n`;
       segments.forEach(segment => {
         segment.actions.forEach(action => {
           code += this.generateActionCode(action, '1.0f', component);
@@ -824,21 +782,11 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
 
     // ---- timeline setup ---------------------------------------------------
     let statements = '';
-    // Deprecated compatibility: user/ code (including shipped templates) rewinds
-    // an animation by assigning 0 to the old counter. Honour that here, before the
-    // time origin is established, so the animation replays from its start.
-    statements += `    // Deprecated: <id>_timer_cnt = 0 from user code requests a restart\n`;
-    statements += `    if (${state.legacyCount} == 0)\n`;
-    statements += `    {\n`;
-    statements += `        ${state.resetFn}();\n`;
-    statements += `    }\n`;
-    statements += `    ${state.legacyCount} = 1;\n`;
-    statements += `    \n`;
     statements += `    uint32_t now_ms = gui_ms_get();\n`;
     if (needsFirstSample) {
       statements += `    bool first_sample = false;\n`;
     }
-    statements += `    \n`;
+    statements += `\n`;
     statements += `    // The time origin is established by the first callback of a run\n`;
     statements += `    if (!${state.started})\n`;
     statements += `    {\n`;
@@ -849,7 +797,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       statements += `        first_sample = true;\n`;
     }
     statements += `    }\n`;
-    statements += `    \n`;
+    statements += `\n`;
     statements += `    // Unsigned subtraction stays correct across uint32_t clock wrap\n`;
     statements += `    uint32_t total_elapsed_ms = now_ms - ${state.startMs};\n`;
     if (needsBoundary) {
@@ -857,7 +805,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     }
     // Publish the new sample before running actions: switchTimer returns early.
     statements += `    ${state.prevElapsedMs} = total_elapsed_ms;\n`;
-    statements += `    \n`;
+    statements += `\n`;
 
     if (stopOnComplete) {
       statements += `    // One-shot: clamp the timeline so the last sample lands on the endpoint\n`;
@@ -883,7 +831,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     if (enableLog) {
       statements += `    gui_log("${callback}: elapsed=%u timeline=%u\\n", (unsigned int)total_elapsed_ms, (unsigned int)timeline_ms);\n`;
     }
-    statements += `    \n`;
+    statements += `\n`;
 
     // ---- segment entry actions -------------------------------------------
     if (needsBoundary) {
@@ -902,7 +850,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
           statements += CallbackFileGenerator.indentBlock(this.generateActionCode(action, '1.0f', component), 4);
         });
         statements += `    }\n`;
-        statements += `    \n`;
+        statements += `\n`;
       });
     }
 
@@ -939,7 +887,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
           statements += `    }\n`;
         });
       }
-      statements += `    \n`;
+      statements += `\n`;
     }
 
     if (stopOnComplete) {
@@ -965,7 +913,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       }
     });
     if (constBlock) {
-      constBlock = `    // Timeline boundaries in real milliseconds\n${constBlock}    \n`;
+      constBlock = `    // Timeline boundaries in real milliseconds\n${constBlock}\n`;
     }
 
     let code = doc;
@@ -973,7 +921,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     code += /\btarget\b/.test(statements)
       ? `    gui_obj_t *target = (gui_obj_t *)obj;\n`
       : `    GUI_UNUSED(obj);\n`;
-    code += `    \n`;
+    code += `\n`;
     code += constBlock;
     code += statements;
     code += `}\n`;
@@ -1023,7 +971,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       const visible = action.visible !== false; // Defaults to true
       code += `    // Set visibility: ${visible ? 'show' : 'hide'}\n`;
       code += `    gui_obj_hidden(target, ${visible ? 'false' : 'true'});\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'changeImage') {
       // Change image action (hg_image only)
       let imagePath = action.imagePath || '';
@@ -1038,7 +986,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       code += `    // Change image: ${imagePath}\n`;
       code += `    gui_img_set_src((gui_img_t *)target, (const uint8_t *)"${imagePath}", IMG_SRC_FILESYS);\n`;
       code += `    gui_img_refresh_size((gui_img_t *)target);\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'imageSequence') {
       // Image sequence action (hg_image only)
       const imageSequence = action.imageSequence || [];
@@ -1068,7 +1016,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
         code += `    }\n`;
         code += `    gui_img_set_src((gui_img_t *)target, (const uint8_t *)img_data_array[index], IMG_SRC_FILESYS);\n`;
         code += `    gui_img_refresh_size((gui_img_t *)target);\n`;
-        code += `    \n`;
+        code += `\n`;
       }
     } else if (action.type === 'switchView') {
       // Switch view action
@@ -1077,7 +1025,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
       code += `    // Switch view: ${targetName}\n`;
       code += `    gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'switchTimer') {
       // Timer toggle action (new: supports multiple timer controls)
       const timerTargets = action.timerTargets || [];
@@ -1145,7 +1093,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       }
       
       code += `    return; // Return immediately after timer control\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'position') {
       // Position adjustment action
       code += `    // Adjust position: (${action.fromX}, ${action.fromY}) -> (${action.toX}, ${action.toY})\n`;
@@ -1156,7 +1104,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       code += `    int16_t x_cur = (int16_t)(x_origin + (x_target - x_origin) * ${progressExpr});\n`;
       code += `    int16_t y_cur = (int16_t)(y_origin + (y_target - y_origin) * ${progressExpr});\n`;
       code += `    gui_obj_move(target, x_cur, y_cur);\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'size') {
       // Size adjustment action (hg_window only)
       code += `    // Adjust size: (${action.fromW}, ${action.fromH}) -> (${action.toW}, ${action.toH})\n`;
@@ -1168,7 +1116,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       code += `    int16_t h_cur = (int16_t)(h_origin + (h_target - h_origin) * ${progressExpr});\n`;
       code += `    target->w = w_cur;\n`;
       code += `    target->h = h_cur;\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'opacity') {
       // Opacity adjustment action
       code += `    // Adjust opacity: ${action.from} -> ${action.to}\n`;
@@ -1181,7 +1129,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       } else {
         code += `    target->opacity_value = opacity_cur;\n`;
       }
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'rotation') {
       // Rotation adjustment action (hg_image only)
       code += `    // Adjust rotation: ${action.angleOrigin}° -> ${action.angleTarget}°\n`;
@@ -1189,7 +1137,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       code += `    const float angle_target = ${action.angleTarget};\n`;
       code += `    float angle_cur = angle_origin + (angle_target - angle_origin) * ${progressExpr};\n`;
       code += `    gui_img_rotation((gui_img_t *)target, angle_cur);\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'scale') {
       // Scale adjustment action (hg_image only)
       code += `    // Adjust scale: (${action.zoomXOrigin}, ${action.zoomYOrigin}) -> (${action.zoomXTarget}, ${action.zoomYTarget})\n`;
@@ -1200,7 +1148,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       code += `    float zoom_x_cur = zoom_x_origin + (zoom_x_target - zoom_x_origin) * ${progressExpr};\n`;
       code += `    float zoom_y_cur = zoom_y_origin + (zoom_y_target - zoom_y_origin) * ${progressExpr};\n`;
       code += `    gui_img_scale((gui_img_t *)target, zoom_x_cur, zoom_y_cur);\n`;
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'fgColor') {
       // Foreground color adjustment action (hg_image only)
       if (action.fgColorFrom) {
@@ -1229,7 +1177,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
         code += `    // Set foreground color: ${action.fgColorTo}\n`;
         code += `    gui_img_a8_recolor((gui_img_t *)target, ${action.fgColorTo});\n`;
       }
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'bgColor') {
       // Background color adjustment action (hg_image only)
       if (action.bgColorFrom) {
@@ -1258,12 +1206,12 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
         code += `    // Set background color: ${action.bgColorTo}\n`;
         code += `    gui_img_a8_fix_bg((gui_img_t *)target, ${action.bgColorTo});\n`;
       }
-      code += `    \n`;
+      code += `\n`;
     } else if (action.type === 'setFocus') {
       // Set focus action (applies to all components)
       code += `    // Set focus\n`;
       code += `    gui_obj_focus_set(target);\n`;
-      code += `    \n`;
+      code += `\n`;
     }
     
     return code;
@@ -1351,22 +1299,22 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     // Split time format requires special handling
     if (timeFormat === 'HH:mm-split') {
       code += `    GUI_UNUSED(p);\n`;
-      code += `    \n`;
+      code += `\n`;
       code += `    time_t now = time(NULL);\n`;
       code += `    struct tm *t = localtime(&now);\n`;
       code += `    if (t == NULL)\n`;
       code += `    {\n`;
       code += `        return;\n`;
       code += `    }\n`;
-      code += `    \n`;
+      code += `\n`;
       code += `    // Update time string\n`;
       code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_hour, t->tm_min);\n`;
-      code += `    \n`;
+      code += `\n`;
       code += `    // Update hour component (first 2 characters)\n`;
       code += `    if (${componentId}_hour) {\n`;
       code += `        gui_text_content_set(${componentId}_hour, ${componentId}_time_str, 2);\n`;
       code += `    }\n`;
-      code += `    \n`;
+      code += `\n`;
       code += `    // Update minute component (last 2 characters, skip colon)\n`;
       code += `    if (${componentId}_min) {\n`;
       code += `        gui_text_content_set(${componentId}_min, ${componentId}_time_str + 3, 2);\n`;
@@ -1374,14 +1322,14 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     } else {
       // Standard time format handling
       code += `    GUI_UNUSED(p);\n`;
-      code += `    \n`;
+      code += `\n`;
       code += `    time_t now = time(NULL);\n`;
       code += `    struct tm *t = localtime(&now);\n`;
       code += `    if (t == NULL)\n`;
       code += `    {\n`;
       code += `        return;\n`;
       code += `    }\n`;
-      code += `    \n`;
+      code += `\n`;
 
       // Generate different snprintf calls based on format
       if (timeFormat === 'HH:mm:ss') {
@@ -1400,7 +1348,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
         code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min);\n`;
       }
 
-      code += `    \n`;
+      code += `\n`;
       code += `    gui_text_content_set((gui_text_t *)${componentId}, ${componentId}_time_str, strlen(${componentId}_time_str));\n`;
     }
     
@@ -1462,7 +1410,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     code += `void ${componentId}_timer_update_cb(void *p)\n`;
     code += `{\n`;
     code += `    GUI_UNUSED(p);\n`;
-    code += `    \n`;
+    code += `\n`;
     
     if (timerType === 'stopwatch') {
       // Stopwatch: based on stopwatch implementation
@@ -1480,10 +1428,10 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       code += `    }\n`;
     }
     
-    code += `    \n`;
+    code += `\n`;
     code += `    // Format timer string\n`;
     code += `    ${formatLogic}\n`;
-    code += `    \n`;
+    code += `\n`;
     code += `    // Update display\n`;
     code += `    gui_text_content_set((gui_text_t *)${componentId}, ${componentId}_timer_str, strlen(${componentId}_timer_str));\n`;
     code += `}`;
