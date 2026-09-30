@@ -19,6 +19,11 @@ AGENTS.md
 CLAUDE.md
 eslint.config.js
 
+# 浏览器版静态站点产物（npm run build:web），独立部署，不随插件发布
+dist/**
+webpack.web.config.js
+tsconfig.web.json
+
 # 源码（编译后的在 out/ 目录）
 src/**
 !src/designer/templates/**

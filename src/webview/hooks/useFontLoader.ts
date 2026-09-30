@@ -208,6 +208,7 @@ export function clearFontCache(fontPath?: string): void {
     loadedFonts.delete(fontPath);
   } else {
     loadedFonts.clear();
+    uriCache.clear();
   }
 }
 

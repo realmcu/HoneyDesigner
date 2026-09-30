@@ -30,6 +30,7 @@
     "node_modules",
     ".vscode-test",
     "src/webview",
+    "src/web",
     "src/HoneyGUI/tool/D2XML"
   ]
 }

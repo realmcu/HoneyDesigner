@@ -209,7 +209,7 @@ const App: React.FC = () => {
     }
 
     // Listen for messages from extension
-    window.addEventListener('message', (event) => {
+    const handleHostMessage = (event: MessageEvent) => {
       const message = event.data;
 
       switch (message.command) {
@@ -836,7 +836,8 @@ const App: React.FC = () => {
           useDesignerStore.getState().markDirty();
           break;
       }
-    });
+    };
+    window.addEventListener('message', handleHostMessage);
 
     // 添加错误监听器
     window.addEventListener('error', handleGlobalError);
@@ -855,6 +856,7 @@ const App: React.FC = () => {
 
     // 清理函数
     return () => {
+      window.removeEventListener('message', handleHostMessage);
       window.removeEventListener('error', handleGlobalError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };

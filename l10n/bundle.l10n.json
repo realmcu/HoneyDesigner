@@ -450,5 +450,8 @@
   "Checking video assets...": "Checking video assets...",
 
   "File not found": "File not found",
-  "Invalid OSM XML format": "Invalid OSM XML format"
+  "Invalid OSM XML format": "Invalid OSM XML format",
+
+  "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.": "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.",
+  "Opening folders in the system file manager is not available in the browser.": "Opening folders in the system file manager is not available in the browser."
 }

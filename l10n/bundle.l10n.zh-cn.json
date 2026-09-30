@@ -450,5 +450,8 @@
   "Checking video assets...": "检查视频资源...",
 
   "File not found": "文件未找到",
-  "Invalid OSM XML format": "无效的 OSM XML 格式"
+  "Invalid OSM XML format": "无效的 OSM XML 格式",
+
+  "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.": "此功能需要本机工具链。请将工程导出为 ZIP，并在安装了 HoneyGUI 插件的 VS Code 中打开。",
+  "Opening folders in the system file manager is not available in the browser.": "浏览器中无法在系统文件管理器里打开文件夹。"
 }

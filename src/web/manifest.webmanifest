@@ -1,0 +1,12 @@
+{
+  "name": "HoneyGUI Designer Web",
+  "short_name": "HoneyGUI",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#1e1e1e",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
