@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [master]
   workflow_run:
-    workflows: ["Update Simulation Libraries"]
+    workflows: ["Update Simulation Libraries (Windows)"]
     types: [completed]
     branches: [master]
 

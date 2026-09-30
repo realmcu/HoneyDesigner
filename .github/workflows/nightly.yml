@@ -4,8 +4,8 @@ name: Nightly (packaged)
 # 与日常 CI(ci.yml) 的区别：ci.yml 用开发模式(源码目录)加载扩展，绕过了 vsce
 # package / .vscodeignore 过滤 / webview 产物落地；nightly 测的是真实分发物。
 on:
-  # 独立定时，排在 update-libs(UTC 19:49) 之后足够久，正常日已能测到当天更新的库；
-  # 与 update-libs 的成败解耦——即便 update-libs 失败，打包/e2e 回归仍照常自测。
+  # 独立定时，排在 update-libs-linux(UTC 19:49) 及 update-libs-windows 之后足够久，正常日已能测到当天更新的库；
+  # 与 update-libs-* 的成败解耦——即便其失败，打包/e2e 回归仍照常自测。
   schedule:
     - cron: '23 22 * * *'  # UTC 22:23（北京时间次日 06:23），错开整点高峰
   workflow_dispatch:       # 也允许随时手动触发
