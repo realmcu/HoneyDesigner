@@ -38,7 +38,7 @@ const FIXTURES: Record<string, string> = {
 
 const EXTERNAL_PROJECTS: Record<string, { path: string; entry: string }> = {
     dashboard: {
-        path: 'honeygui-template-dashboard',
+        path: path.join('template-repos', 'honeygui-template-dashboard'),
         entry: 'ui/DashboardMain.hml',
     },
 };
