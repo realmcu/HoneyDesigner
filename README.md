@@ -18,6 +18,15 @@ Visual Embedded GUI Designer | Drag & Drop → Auto-generate C Code → Compile 
 
 Search VSCode Marketplace for **"HoneyGUI Visual Designer"** → Install
 
+## Web Version
+
+Try it in the browser without installing anything: **https://realmcu.github.io/HoneyDesigner/**
+
+- Design HML and generate HoneyGUI / LVGL C code in Chrome, Edge or Firefox
+- Projects are stored in the browser; import and export them as ZIP. In Chrome and Edge you can also open a local project folder directly
+- Works offline after the first visit and can be installed as an app from the address bar
+- Simulation, UART download and resource conversion need the VS Code extension: export the project as ZIP and open it in VS Code
+
 ## Quick Start
 
 | Step | Action |

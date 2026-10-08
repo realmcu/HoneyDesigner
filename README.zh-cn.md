@@ -18,6 +18,15 @@
 
 VSCode 扩展市场搜索 **"HoneyGUI Visual Designer"** → 安装
 
+## 网页版
+
+无需安装，直接在浏览器中使用：**https://realmcu.github.io/HoneyDesigner/**
+
+- 在 Chrome、Edge 或 Firefox 中设计 HML，生成 HoneyGUI / LVGL C 代码
+- 工程保存在浏览器中，可导入、导出 ZIP；Chrome 和 Edge 还可以直接打开本地工程文件夹
+- 首次访问后可离线使用，也可以从地址栏安装为应用
+- 仿真、串口下载和资源转换需要使用 VS Code 插件：导出 ZIP 后用 VS Code 打开即可
+
 ## 快速开始
 
 | 步骤 | 操作 |
