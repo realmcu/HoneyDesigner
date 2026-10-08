@@ -68,10 +68,27 @@ self.addEventListener('install', event => {
     })());
 });
 
+/** 记录当前与上一个激活版本的缓存名 */
+const META_CACHE = `${CACHE_PREFIX}meta`;
+const ACTIVE_VERSIONS_KEY = new URL('__active-versions', self.location.href).toString();
+
+async function readActiveVersions(): Promise<string[]> {
+    const response = await (await caches.open(META_CACHE)).match(ACTIVE_VERSIONS_KEY);
+    return response ? await response.json() as string[] : [];
+}
+
 self.addEventListener('activate', event => {
     event.waitUntil((async () => {
         const manifest = await loadManifest();
-        const keep = new Set([RUNTIME_CACHE, manifest ? `${CACHE_PREFIX}${manifest.version}` : '']);
+        // 保留上一个版本的预缓存：新版本激活时，旧页面可能还没刷新，
+        // 仍会按需加载旧的带哈希 chunk，而服务器上已经没有这些文件
+        let versions = await readActiveVersions();
+        if (manifest) {
+            const current = `${CACHE_PREFIX}${manifest.version}`;
+            versions = [current, ...versions.filter(v => v !== current)].slice(0, 2);
+            await (await caches.open(META_CACHE)).put(ACTIVE_VERSIONS_KEY, new Response(JSON.stringify(versions)));
+        }
+        const keep = new Set([RUNTIME_CACHE, META_CACHE, ...versions]);
         const keys = await caches.keys();
         await Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && !keep.has(key)).map(key => caches.delete(key)));
         await self.clients.claim();
@@ -116,25 +133,73 @@ async function serveVfs(event: SwFetchEvent, filePath: string): Promise<Response
     });
 }
 
-/** 网络优先，离线时回退到预缓存/运行时缓存 */
+/**
+ * 生产构建的 JS/CSS 文件名带内容哈希（如 main.ed25873fb4c2f3de3ad8.js），同名即同内容，
+ * 可以直接用缓存。开发构建的 main.js 没有哈希，不匹配，仍走网络优先以便看到最新改动。
+ */
+const HASHED_ASSET = /\.[0-9a-f]{16,}(\.chunk)?\.(js|css)$/;
+/** 弱网时 index.html 最多等这么久，超时就先用缓存打开（新版本在下次打开时生效） */
+const NAVIGATION_TIMEOUT_MS = 3000;
+
+/** 必须在把 response 交给页面之前同步调用：clone 要早于页面读取 body */
+function putInRuntimeCache(request: Request, response: Response): void {
+    if (response.ok && response.type === 'basic') {
+        const copy = response.clone();
+        void caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+    }
+}
+
+async function cachedFallback(request: Request): Promise<Response | undefined> {
+    const cached = await caches.match(request, { ignoreSearch: request.mode === 'navigate' });
+    if (cached || request.mode !== 'navigate') {
+        return cached;
+    }
+    return caches.match(new URL('./', self.registration.scope).toString());
+}
+
+/** 缓存优先：命中预缓存/运行时缓存时不发网络请求 */
+async function cacheFirst(request: Request): Promise<Response> {
+    const cached = await caches.match(request);
+    if (cached) {
+        return cached;
+    }
+    const response = await fetch(request);
+    putInRuntimeCache(request, response);
+    return response;
+}
+
+function rejectAfter(timeoutMs: number): Promise<never> {
+    return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs));
+}
+
+/**
+ * 网络优先，离线时回退到缓存。
+ * 页面导航额外带超时：弱网下超过 NAVIGATION_TIMEOUT_MS 先用缓存打开，网络请求继续
+ * 在后台完成并刷新缓存，新版本在下次打开时生效。没有缓存（首次访问）时等待网络。
+ */
 async function networkFirst(request: Request): Promise<Response> {
-    try {
-        const response = await fetch(request);
-        if (response.ok && response.type === 'basic') {
-            const cache = await caches.open(RUNTIME_CACHE);
-            void cache.put(request, response.clone());
-        }
+    const network = fetch(request).then(response => {
+        putInRuntimeCache(request, response);
         return response;
+    });
+    try {
+        if (request.mode !== 'navigate') {
+            return await network;
+        }
+        try {
+            return await Promise.race([network, rejectAfter(NAVIGATION_TIMEOUT_MS)]);
+        } catch (error) {
+            const cached = await cachedFallback(request);
+            if (cached) {
+                network.catch(() => { /* 离线：后台请求失败可忽略 */ });
+                return cached;
+            }
+            return await network;
+        }
     } catch (error) {
-        const cached = await caches.match(request, { ignoreSearch: request.mode === 'navigate' });
+        const cached = await cachedFallback(request);
         if (cached) {
             return cached;
-        }
-        if (request.mode === 'navigate') {
-            const shell = await caches.match(new URL('./', self.registration.scope).toString());
-            if (shell) {
-                return shell;
-            }
         }
         throw error;
     }
@@ -156,5 +221,5 @@ self.addEventListener('fetch', event => {
         event.respondWith(serveVfs(event, filePath));
         return;
     }
-    event.respondWith(networkFirst(request));
+    event.respondWith(HASHED_ASSET.test(pathname) ? cacheFirst(request) : networkFirst(request));
 });
