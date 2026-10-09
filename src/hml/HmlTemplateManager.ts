@@ -31,7 +31,8 @@ export class HmlTemplateManager {
         resolution: string,
         appId?: string,
         minSdk?: string,
-        pixelMode?: string
+        pixelMode?: string,
+        entry = true
     ): string {
         // 解析分辨率
         const { width, height } = ProjectUtils.parseResolution(resolution);
@@ -44,7 +45,7 @@ export class HmlTemplateManager {
         <author name="Anonymous" />
     </meta>
     <view>
-        <hg_view id="${projectName}MainView" entry="true" x="0" y="0" width="${width}" height="${height}" backgroundColor="#000000" />
+        <hg_view id="${projectName}MainView" entry="${entry}" x="0" y="0" width="${width}" height="${height}" backgroundColor="#000000" />
     </view>
 </hml>`;
     }
