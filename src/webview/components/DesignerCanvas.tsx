@@ -41,6 +41,7 @@ function isLazyWidget(widget: unknown): boolean {
 }
 
 const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDrop, onDragOver, onCanvasDoubleClick }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [pendingDragComponent, setPendingDragComponent] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -86,7 +87,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
   } = useDesignerStore();
   
   // 使用画布缩放 Hook
-  const { handleWheel, showZoomHint } = useCanvasZoom(zoom, setZoom, canvasOffset, setCanvasOffset);
+  useCanvasZoom(containerRef, zoom, setZoom, canvasOffset, setCanvasOffset);
   
   // 使用画布拖拽 Hook
   const {
@@ -823,31 +824,11 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     );
   };
 
-  // 处理设计区域的滚动
-  const handleContainerWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    // Ctrl + 滚轮：缩放（已有功能）
-    if (e.ctrlKey) {
-      e.preventDefault();
-      handleWheel(e);
-      return;
-    }
-    
-    // Shift + 滚轮：左右滚动
-    if (e.shiftKey) {
-      e.preventDefault();
-      const container = e.currentTarget;
-      container.scrollLeft += e.deltaY;
-      return;
-    }
-    
-    // 普通滚轮：上下滚动（浏览器默认行为，不需要处理）
-  }, [handleWheel]);
-
   // 扩展画布区域，使其成为可滚动的大型画布
   return (
     <div 
+      ref={containerRef}
       className="designer-canvas-container"
-      onWheel={handleContainerWheel}
     >
       {/* 可扩展的画布区域 */}
       <div
@@ -928,24 +909,6 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
           }
         }}
       >
-          {/* 缩放提示 */}
-          {showZoomHint && (
-            <div className="zoom-hint" style={{
-              position: 'absolute',
-              top: '10px',
-              right: '10px',
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: 'white',
-              padding: '5px 10px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              pointerEvents: 'none',
-              zIndex: 1000
-            }}>
-              {t('Ctrl+Scroll to zoom')} ({Math.round(zoom * 100)}%)
-            </div>
-          )}
-          
         <div
           style={{
             position: 'absolute',
