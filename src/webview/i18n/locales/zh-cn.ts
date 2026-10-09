@@ -260,6 +260,8 @@ const zhCN = {
   'New Config': '新建配置',
   'Delete Config': '删除配置',
   'No Configs': '暂无配置',
+  'Project Settings': '工程设置',
+  'Open project.json': '打开 project.json',
   'I18n keys': '词条',
   'Unbound texts': '未绑定文本',
   'Some HML files could not be scanned': '部分 HML 文件无法扫描',

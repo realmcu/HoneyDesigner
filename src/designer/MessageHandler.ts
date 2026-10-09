@@ -456,6 +456,10 @@ export class MessageHandler {
                 await this._handleDeleteProjectConfig(message.name);
                 break;
 
+            case 'openProjectJson':
+                await this._handleOpenProjectJson();
+                break;
+
             case 'saveProjectI18nCatalog':
                 this._handleSaveProjectI18nCatalog(message.catalog);
                 break;
@@ -1283,6 +1287,23 @@ export class MessageHandler {
         } catch (error) {
             logger.error(`[MessageHandler] 删除工程配置失败: ${error}`);
             vscode.window.showErrorMessage(vscode.l10n.t('Failed to delete config: {0}', error instanceof Error ? error.message : String(error)));
+        }
+    }
+
+    /**
+     * 在文本编辑器中打开根目录 project.json
+     */
+    private async _handleOpenProjectJson(): Promise<void> {
+        const projectRoot = this._requireProjectRoot();
+        if (!projectRoot) {
+            return;
+        }
+        try {
+            const doc = await vscode.workspace.openTextDocument(path.join(projectRoot, 'project.json'));
+            await vscode.window.showTextDocument(doc);
+        } catch (error) {
+            logger.error(`[MessageHandler] 打开 project.json 失败: ${error}`);
+            vscode.window.showErrorMessage(vscode.l10n.t('Failed to open project.json: {0}', error instanceof Error ? error.message : String(error)));
         }
     }
 

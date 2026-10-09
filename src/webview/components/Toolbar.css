@@ -462,17 +462,6 @@
   flex: 1;
 }
 
-.toolbar-version-details {
-  min-height: 30px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 10px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 /* Simulate split button */
 .toolbar-split-button {
   display: inline-flex;
@@ -676,28 +665,73 @@
   margin-left: -2px;
 }
 
-/* 只读信息，但仍用与按钮相同的容器外观，避免无边框时在这一排里显得突兀。
-   不提供 hover 反馈，靠"划过去没有任何变化"区分于相邻的可操作下拉。 */
-.toolbar-version-badge {
-  height: var(--toolbar-control-height);
-  max-width: 150px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex: 0 1 auto;
-  padding: 0 8px;
-  color: var(--vscode-descriptionForeground);
-  background-color: var(--toolbar-surface);
-  border: 1px solid var(--toolbar-surface-border);
-  border-radius: var(--toolbar-control-radius);
-  font-size: 11px;
-  white-space: nowrap;
-  cursor: default;
+/* 工程入口 */
+.project-menu {
+  position: relative;
+  flex-shrink: 0;
 }
 
-.toolbar-version-badge span {
+.project-menu-trigger {
+  max-width: 180px;
+  gap: 5px;
+  padding: 0 6px 0 8px;
+  font-weight: 500;
+}
+
+.project-menu-name {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.project-menu-popover {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 1000;
+  min-width: 280px;
+  padding: 4px;
+  color: var(--vscode-menu-foreground, #cccccc);
+  background-color: var(--vscode-menu-background, #252526);
+  border: 1px solid var(--vscode-menu-border, #454545);
+  border-radius: var(--toolbar-menu-radius);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.32);
+}
+
+.project-menu-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.project-menu-label {
+  flex-shrink: 0;
+  color: var(--vscode-descriptionForeground, #999999);
+}
+
+.project-menu-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-menu-locales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  white-space: normal;
+}
+
+.project-menu-locales .default {
+  font-weight: 600;
+}
+
+.project-menu-row .project-config-trigger {
+  max-width: 150px;
 }
 
 /* Responsive overflow is calculated from the toolbar's measured width. */

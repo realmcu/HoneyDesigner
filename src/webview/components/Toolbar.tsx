@@ -9,8 +9,6 @@ import {
   Download,
   GitBranch,
   Grid,
-  Info,
-  Languages,
   LoaderCircle,
   Maximize2,
   MoreHorizontal,
@@ -25,8 +23,8 @@ import {
 import { AlignType, DistributeType, ResizeType, getAlignmentConfigsByCategory } from '../utils/alignmentUtils';
 import { t } from '../i18n';
 import ProjectI18nLocaleSelect from './ProjectI18nLocaleSelect';
-import ProjectConfigSelect from './ProjectConfigSelect';
-import { ICON, ICON_CARET, ICON_CHECK, ICON_MENU, ICON_META } from './toolbarIcons';
+import ProjectMenu from './ProjectMenu';
+import { ICON, ICON_CARET, ICON_CHECK, ICON_MENU } from './toolbarIcons';
 import './Toolbar.css';
 
 type ToolbarItemId =
@@ -35,34 +33,29 @@ type ToolbarItemId =
   | 'alignment'
   | 'background'
   | 'fit'
-  | 'projectConfig'
   | 'locale'
-  | 'i18nManager'
-  | 'guiVersion'
   | 'convert'
   | 'codegen'
   | 'download'
   | 'clean';
 
 // 从前到后依次收入“更多”。高频构建操作最后折叠。
+// 工程级功能统一收在 ProjectMenu 中，它属于固定区域，不参与折叠。
 const COLLAPSE_ORDER: ToolbarItemId[] = [
-  'guiVersion',
   'clean',
   'download',
-  'i18nManager',
   'background',
   'relations',
   'guides',
   'alignment',
   'fit',
-  'projectConfig',
   'locale',
   'convert',
   'codegen',
 ];
 
-// 分隔线总数：文档操作后 1 条 + 右侧分组 2 条。折叠计算按全部可见预留宽度。
-const TOTAL_DIVIDERS = 3;
+// 分隔线总数：文档操作后 1 条 + 部署组前 1 条。折叠计算按全部可见预留宽度。
+const TOTAL_DIVIDERS = 2;
 
 const setsEqual = (left: Set<ToolbarItemId>, right: Set<ToolbarItemId>): boolean => {
   if (left.size !== right.size) {
@@ -110,8 +103,6 @@ const Toolbar: React.FC = () => {
     setOperationInProgress,
     simulationFlow,
     setSimulationFlow,
-    guiVersion,
-    setProjectI18nManagerOpen,
   } = useDesignerStore();
 
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -160,7 +151,7 @@ const Toolbar: React.FC = () => {
         const availableWidth = toolbar.clientWidth - horizontalPadding - 12;
         const existingItems = COLLAPSE_ORDER.filter((id) => itemRefs.current.has(id));
 
-        // 固定区域：文档操作、分隔线、弹性空白的最小宽度、仿真和更多按钮。
+        // 固定区域：工程入口与文档操作、分隔线、弹性空白的最小宽度、仿真和更多按钮。
         // 三条分组分隔线一律按可见预留宽度：分隔线的显隐取决于折叠结果，
         // 若按实际显隐测量，会让折叠判定反过来依赖自己的输出。
         const fixedWidth = documentActions.getBoundingClientRect().width
@@ -207,7 +198,7 @@ const Toolbar: React.FC = () => {
       cancelAnimationFrame(animationFrame);
       observer.disconnect();
     };
-  }, [guiVersion]);
+  }, []);
 
   useEffect(() => {
     if (overflowedItems.size === 0) {
@@ -374,21 +365,10 @@ const Toolbar: React.FC = () => {
     action();
   };
 
-  const guiVersionTitle = guiVersion
-    ? guiVersion.engine === 'LVGL'
-      ? `LVGL ${guiVersion.tag}`
-      : `HoneyGUI ${guiVersion.tag}\n${t('Branch')}: ${guiVersion.branch}\nCommit: ${guiVersion.commit}\n${t('Build Date')}: ${guiVersion.buildDate}`
-    : '';
-  const hasCanvasOverflow = ['relations', 'guides', 'alignment', 'background', 'fit']
-    .some((id) => isOverflowed(id as ToolbarItemId));
-  const hasProjectOverflow = ['projectConfig', 'locale', 'i18nManager', 'guiVersion']
+  const hasCanvasOverflow = ['relations', 'guides', 'alignment', 'background', 'fit', 'locale']
     .some((id) => isOverflowed(id as ToolbarItemId));
   const hasBuildOverflow = isOverflowed('convert') || isOverflowed('codegen');
-  // 分组分隔线在相邻组整组折叠后隐藏，避免留下悬空竖线。
-  // 构建组含永不折叠的仿真按钮，因此始终可见，无需判断。
-  const projectGroupVisible = (['projectConfig', 'locale', 'i18nManager'] as ToolbarItemId[])
-    .some((id) => !isOverflowed(id))
-    || (!!guiVersion && !isOverflowed('guiVersion'));
+  // 部署组整组折叠后隐藏其分隔线，避免留下悬空竖线。
   const deployGroupVisible = !isOverflowed('download') || !isOverflowed('clean');
   const hasOverflowedOperation = (operationInProgress === 'convert' && isOverflowed('convert'))
     || (operationInProgress === 'codegen' && isOverflowed('codegen'))
@@ -398,6 +378,8 @@ const Toolbar: React.FC = () => {
   return (
     <div ref={toolbarRef} className="toolbar" onContextMenu={(event) => event.preventDefault()}>
       <div ref={documentActionsRef} className="toolbar-section toolbar-document-actions">
+        <ProjectMenu />
+        <div className="toolbar-divider" />
         <button
           className="toolbar-button secondary"
           onClick={handleSave}
@@ -548,37 +530,11 @@ const Toolbar: React.FC = () => {
         </button>
       </div>
 
-      <div className="toolbar-spacer" />
-
-      <div ref={(node) => setItemRef('projectConfig', node)} className={itemClassName('projectConfig')}>
-        <ProjectConfigSelect />
-      </div>
-
       <div ref={(node) => setItemRef('locale', node)} className={itemClassName('locale')}>
         <ProjectI18nLocaleSelect />
       </div>
 
-      <div ref={(node) => setItemRef('i18nManager', node)} className={itemClassName('i18nManager')}>
-        <button
-          className="toolbar-button secondary"
-          onClick={() => setProjectI18nManagerOpen(true)}
-          title={t('Open I18n Manager')}
-        >
-          <Languages {...ICON} />
-          <span>{t('I18n Manager')}</span>
-        </button>
-      </div>
-
-      {guiVersion && (
-        <div ref={(node) => setItemRef('guiVersion', node)} className={itemClassName('guiVersion')}>
-          <div className="toolbar-version-badge" title={guiVersionTitle}>
-            <Info {...ICON_META} />
-            <span>{guiVersion.engine} {guiVersion.tag}</span>
-          </div>
-        </div>
-      )}
-
-      <div className={`toolbar-divider ${projectGroupVisible ? '' : 'toolbar-divider-hidden'}`} />
+      <div className="toolbar-spacer" />
 
       <div ref={(node) => setItemRef('convert', node)} className={itemClassName('convert')}>
         <button
@@ -788,29 +744,9 @@ const Toolbar: React.FC = () => {
                       <span>{t('Fit All Content')}</span>
                     </button>
                   )}
-                  <div className="toolbar-menu-divider" />
-                </>
-              )}
-
-              {hasProjectOverflow && (
-                <>
-                  <div className="toolbar-menu-title">{t('Project')}</div>
-                  {(isOverflowed('projectConfig') || isOverflowed('locale')) && (
+                  {isOverflowed('locale') && (
                     <div className="toolbar-menu-controls">
-                      {isOverflowed('projectConfig') && <ProjectConfigSelect />}
-                      {isOverflowed('locale') && <ProjectI18nLocaleSelect />}
-                    </div>
-                  )}
-                  {isOverflowed('i18nManager') && (
-                    <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(() => setProjectI18nManagerOpen(true))}>
-                      <Languages {...ICON_MENU} />
-                      <span>{t('I18n Manager')}</span>
-                    </button>
-                  )}
-                  {isOverflowed('guiVersion') && guiVersion && (
-                    <div className="toolbar-version-details" title={guiVersionTitle}>
-                      <Info {...ICON_META} />
-                      <span>{guiVersion.engine} {guiVersion.tag}</span>
+                      <ProjectI18nLocaleSelect />
                     </div>
                   )}
                   <div className="toolbar-menu-divider" />
