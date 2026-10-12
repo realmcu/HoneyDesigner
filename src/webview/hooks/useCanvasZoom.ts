@@ -16,12 +16,15 @@ export const useCanvasZoom = (
     if (!container) return;
 
     const handleWheel = (event: WheelEvent) => {
-      // React's delegated wheel listener may be passive, so cancel the browser gesture here.
-      event.preventDefault();
       if (event.shiftKey && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
         container.scrollLeft += event.deltaY;
         return;
       }
+      if (!event.ctrlKey && !event.metaKey) return;
+
+      // Cancel browser page zoom only for the canvas zoom gesture.
+      event.preventDefault();
       if (event.deltaY === 0) return;
 
       const { zoom: currentZoom, canvasOffset: currentOffset, setZoom: updateZoom, setCanvasOffset: updateOffset } = state.current;
