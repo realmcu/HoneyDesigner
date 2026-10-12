@@ -87,6 +87,7 @@
   "Delete config \"{0}\"? This only removes the file under config/, project.json is unaffected.": "Delete config \"{0}\"? This only removes the file under config/, project.json is unaffected.",
   "Delete": "Delete",
   "Failed to delete config: {0}": "Failed to delete config: {0}",
+  "Failed to open project.json: {0}": "Failed to open project.json: {0}",
   "Select HML file to preview": "Select HML file to preview",
 
   "Saving file...": "Saving file...",

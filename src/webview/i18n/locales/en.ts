@@ -260,6 +260,8 @@ const en = {
   'New Config': 'New Config',
   'Delete Config': 'Delete Config',
   'No Configs': 'No configs',
+  'Project Settings': 'Project Settings',
+  'Open project.json': 'Open project.json',
   'I18n keys': 'Keys',
   'Unbound texts': 'Unbound texts',
   'Some HML files could not be scanned': 'Some HML files could not be scanned',

@@ -87,6 +87,7 @@
   "Delete config \"{0}\"? This only removes the file under config/, project.json is unaffected.": "删除配置「{0}」？仅删除 config/ 下的文件，不影响当前 project.json。",
   "Delete": "删除",
   "Failed to delete config: {0}": "删除配置失败：{0}",
+  "Failed to open project.json: {0}": "打开 project.json 失败：{0}",
   "Select HML file to preview": "选择要预览的 HML 文件",
 
   "Saving file...": "正在保存文件...",
