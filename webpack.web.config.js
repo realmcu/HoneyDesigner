@@ -50,7 +50,7 @@ class PrecacheManifestPlugin {
         { name: 'PrecacheManifestPlugin', stage: webpack.Compilation.PROCESS_ASSETS_STAGE_REPORT },
         (assets) => {
           const files = Object.keys(assets)
-            .filter(name => !name.endsWith('.map') && !name.endsWith('.LICENSE.txt'))
+            .filter(name => !name.endsWith('.map') && !name.endsWith('.LICENSE.txt') && !/^examples\/.*\.zip$/.test(name))
             .sort();
           const manifest = { version: compilation.hash, files: ['./', ...files.map(name => `./${name}`)] };
           compilation.emitAsset('precache-manifest.json', new webpack.sources.RawSource(JSON.stringify(manifest, null, 2)));
@@ -172,6 +172,8 @@ module.exports = (env, argv) => {
       new CopyStaticFilesPlugin([
         [path.resolve(__dirname, 'src/web/manifest.webmanifest'), 'manifest.webmanifest'],
         [path.resolve(__dirname, 'src/web/icon.svg'), 'icon.svg'],
+        [path.resolve(__dirname, 'src/web/examples/chatbot.zip'), 'examples/chatbot.zip'],
+        [path.resolve(__dirname, 'src/web/examples/chatbot.png'), 'examples/chatbot.png'],
       ]),
       ...(isProduction ? [new MiniCssExtractPlugin({ filename: '[name].[contenthash].css' })] : []),
       new PrecacheManifestPlugin(),
@@ -183,7 +185,14 @@ module.exports = (env, argv) => {
       moduleIds: 'deterministic',
     },
     devServer: {
-      static: { directory: path.resolve(__dirname, 'dist/web') },
+      static: [
+        {
+          directory: path.resolve(__dirname, 'src/web/examples'),
+          publicPath: '/examples',
+          watch: true,
+        },
+        { directory: path.resolve(__dirname, 'dist/web') },
+      ],
       port: 3100,
       hot: false,
       liveReload: true,

@@ -17,6 +17,7 @@ import { importProjectZip } from '../host/projectZip';
 import { isDirectoryAccessSupported, getWebLocale, setWebLocale, WebLocale } from '../host/webEnvironment';
 import { DEFAULT_ROMFS_BASE_ADDR } from '../../common/ProjectConfig';
 import { t, setLocale } from '../../webview/i18n';
+import { WEB_EXAMPLES } from '../host/exampleProjects';
 
 const RESOLUTIONS = ['410X502', '480X272', '800X480', '1024X600', '1280X720'];
 const MIN_SDKS = ['API 2: HoneyGUI V1.1.0', 'API 3: HoneyGUI V1.2.0', 'API 4: HoneyGUI V2.0.0'];
@@ -148,6 +149,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | undefined>();
     const [locale, setLocaleState] = useState<WebLocale>(getWebLocale());
+    const [loadingExample, setLoadingExample] = useState<string | null>(null);
     const zipInputRef = useRef<HTMLInputElement>(null);
 
     const refresh = () => listProjects().then(setProjects).catch(err => setError(String(err)));
@@ -184,6 +186,30 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
             onOpen(project);
         } catch (err) {
             setError(t('Import failed: {0}', err instanceof Error ? err.message : String(err)));
+        }
+    };
+
+    const openExample = async (example: typeof WEB_EXAMPLES[number]) => {
+        if (loadingExample) return;
+        setError(undefined);
+        setLoadingExample(example.id);
+        try {
+            const response = await fetch(new URL(example.archive, document.baseURI));
+            if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+            const imported = importProjectZip(example.archive, new Uint8Array(await response.arrayBuffer()));
+            const project: StoredProject = {
+                id: createProjectId(),
+                name: imported.name,
+                mode: 'browser',
+                updatedAt: Date.now(),
+            };
+            await writeBrowserFiles(project.id, imported.files);
+            await saveProjectRecord(project);
+            onOpen(project);
+        } catch (err) {
+            setError(t('Example could not be opened: {0}', err instanceof Error ? err.message : String(err)));
+        } finally {
+            setLoadingExample(null);
         }
     };
 
@@ -273,6 +299,28 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                             }}
                         />
                     </div>
+
+                    <section className="web-examples">
+                        <h2>{t('Example Projects')}</h2>
+                        <div className="web-examples-list">
+                            {WEB_EXAMPLES.map(example => (
+                                <button key={example.id} className="web-example" type="button"
+                                    disabled={loadingExample !== null}
+                                    onClick={() => void openExample(example)}>
+                                    <span className="web-example-image">
+                                        <img src={new URL(example.thumbnail, document.baseURI).toString()} alt="" />
+                                    </span>
+                                    <span className="web-example-details">
+                                        <strong>{example.name}</strong>
+                                        <span className="web-muted">{t(example.descriptionKey)}</span>
+                                        <span className="web-example-action">
+                                            {loadingExample === example.id ? t('Loading...') : t('Open Example')}
+                                        </span>
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
 
                     <section className="web-card">
                         <h2>{t('Recent Projects')}</h2>

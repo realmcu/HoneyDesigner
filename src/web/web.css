@@ -278,6 +278,46 @@
 .web-project-open:hover { background: var(--vscode-list-hoverBackground); }
 .web-project-name { font-weight: 600; }
 
+/* ---------- 示例工程 ---------- */
+
+.web-examples { margin-bottom: 24px; }
+.web-examples h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.web-examples-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 280px)); gap: 12px; }
+.web-example {
+  display: flex;
+  min-height: 120px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  background: var(--vscode-sideBar-background);
+  color: var(--vscode-foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.web-example:hover:not(:disabled) { border-color: var(--vscode-focusBorder); background: var(--vscode-list-hoverBackground); }
+.web-example:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.web-example:disabled { opacity: 0.65; cursor: wait; }
+.web-example-image {
+  flex: 0 0 38%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #243d43;
+}
+.web-example-image img { display: block; width: 100%; max-height: 110px; object-fit: contain; }
+.web-example-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px;
+}
+.web-example-details strong { font-size: 14px; }
+.web-example-details .web-muted { font-size: 12px; line-height: 1.4; }
+.web-example-action { margin-top: auto; color: var(--vscode-textLink-foreground); font-weight: 600; }
+
 /* ---------- 工作台 ---------- */
 
 .web-workbench { height: 100%; display: flex; flex-direction: column; }
