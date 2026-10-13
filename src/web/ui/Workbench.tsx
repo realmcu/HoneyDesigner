@@ -228,6 +228,22 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                                 mainHmlPath={findMainHml(phase.opened.projectRoot) || phase.opened.hmlPath}
                                 onOpenFile={openFile} onDeleteFile={deleteFile} />
                         )}
+                        {/* 贴边收起/展开按钮，交互与设计器左侧面板一致 */}
+                        <div className={`web-explorer-edge ${explorerVisible ? '' : 'collapsed'}`}>
+                            {/* 与设计器左侧面板一致，在 mousedown 时切换，避免点击被设计器的全局鼠标处理吞掉；键盘触发仍走 click */}
+                            <button className="web-explorer-edge-button"
+                                onMouseDown={event => {
+                                    if (event.button !== 0) return;
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setExplorerVisible(value => !value);
+                                }}
+                                onClick={event => { if (event.detail === 0) setExplorerVisible(value => !value); }}
+                                title={explorerVisible ? t('Hide Project Files') : t('Show Project Files')}
+                                aria-label={explorerVisible ? t('Hide Project Files') : t('Show Project Files')}>
+                                {explorerVisible ? '◀' : '▶'}
+                            </button>
+                        </div>
                         <div className="web-workspace-designer"><App key={project.id} /></div>
                     </div>
                 )}
