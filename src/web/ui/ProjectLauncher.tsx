@@ -308,9 +308,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                                     disabled={loadingExample !== null}
                                     onClick={() => void openExample(example)}>
                                     <span className="web-example-image">
-                                        {example.thumbnail
-                                            ? <img src={new URL(example.thumbnail, document.baseURI).toString()} alt="" />
-                                            : <span className="web-example-fallback" aria-hidden="true">{example.name}</span>}
+                                        <img src={new URL(example.thumbnail, document.baseURI).toString()} alt="" />
                                     </span>
                                     <span className="web-example-details">
                                         <strong>{example.name}</strong>
