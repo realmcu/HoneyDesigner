@@ -12,7 +12,12 @@ interface ResizeState {
   startHeight: number;
   startPosX: number;
   startPosY: number;
+  componentType: Component['type'] | null;
+  startStyle: Component['style'];
 }
+
+/** 尺寸由 style.radius 决定、必须保持正方形的几何控件 */
+export const RADIUS_SIZED_TYPES: Component['type'][] = ['hg_circle', 'hg_arc'];
 
 interface UseComponentResizeProps {
   zoom: number;
@@ -39,6 +44,8 @@ export const useComponentResize = ({
     startHeight: 0,
     startPosX: 0,
     startPosY: 0,
+    componentType: null,
+    startStyle: undefined,
   });
 
   // 使用 ref 存储最新的 resize 状态，避免闭包问题
@@ -67,6 +74,8 @@ export const useComponentResize = ({
       startHeight: component.position.height,
       startPosX: component.position.x,
       startPosY: component.position.y,
+      componentType: component.type,
+      startStyle: component.style,
     });
   }, []);
 
@@ -126,6 +135,23 @@ export const useComponentResize = ({
         break;
     }
 
+    // 圆形/弧形：始终保持正方形，并通过 style.radius 修改尺寸，
+    // 由 store 根据半径（及弧形线宽）回算 width/height，保证与属性面板一致
+    if (state.componentType && RADIUS_SIZED_TYPES.includes(state.componentType)) {
+      const isArc = state.componentType === 'hg_arc';
+      const inset = isArc ? (state.startStyle?.strokeWidth ?? 8) : 0;
+      const radius = Math.max(1, Math.round(Math.max(newWidth, newHeight) / 2 - inset));
+      const size = 2 * (radius + inset);
+      // 固定拖拽方向对面的角
+      const x = state.direction.includes('w') ? state.startPosX + state.startWidth - size : state.startPosX;
+      const y = state.direction.includes('n') ? state.startPosY + state.startHeight - size : state.startPosY;
+      updateComponent(state.componentId, {
+        position: { x, y, width: size, height: size },
+        style: { ...state.startStyle, radius },
+      });
+      return;
+    }
+
     // Shift 键保持宽高比
     if (shiftKey && ['se', 'sw', 'ne', 'nw'].includes(state.direction)) {
       const aspectRatio = state.startWidth / state.startHeight;
@@ -176,6 +202,8 @@ export const useComponentResize = ({
       startHeight: 0,
       startPosX: 0,
       startPosY: 0,
+      componentType: null,
+      startStyle: undefined,
     });
   }, []);
 

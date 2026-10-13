@@ -4,7 +4,7 @@ import { Component, ComponentType } from '../types';
 import { useCanvasZoom } from '../hooks/useCanvasZoom';
 import { useCanvasDrag } from '../hooks/useCanvasDrag';
 import { useContextMenu } from '../hooks/useContextMenu';
-import { useComponentResize } from '../hooks/useComponentResize';
+import { useComponentResize, RADIUS_SIZED_TYPES } from '../hooks/useComponentResize';
 import { calculateComponentStyle, createComponentHandlers } from '../utils/componentRenderer';
 import { widgetRegistry } from './widgets';
 import { ContextMenu } from './ContextMenu';
@@ -12,6 +12,10 @@ import { executeMenuAction, MenuActionHelpers } from '../services/contextMenuAct
 import { ViewConnectionLayer } from './ViewConnectionLayer';
 import { AlignmentGuides, AlignmentLine } from './AlignmentGuides';
 import { ResizeHandles, ResizeDirection } from './ResizeHandles';
+
+/** 画布上可直接拖拽手柄修改尺寸的组件类型 */
+const RESIZABLE_TYPES: ComponentType[] = ['hg_label', 'hg_rect', 'hg_circle', 'hg_arc'];
+const CORNER_DIRECTIONS: ResizeDirection[] = ['nw', 'ne', 'sw', 'se'];
 import { MoveHandle } from './MoveHandle';
 import { calculateAlignment } from '../utils/dragAlignmentGuides';
 import { getAbsolutePosition, findComponentAtPosition, isContainerType } from '../utils/componentUtils';
@@ -765,8 +769,10 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
       );
     }
 
-    // 是否显示 resize handles（仅对 hg_label 类型，选中且未锁定的组件）
-    const showResizeHandles = component.type === 'hg_label' && (isSelected || isMultiSelected) && !component.locked && !isResizing;
+    // 是否显示 resize handles（文本与基础图形，选中且未锁定的组件）
+    const showResizeHandles = RESIZABLE_TYPES.includes(component.type) && (isSelected || isMultiSelected) && !component.locked && !isResizing;
+    // 圆形/弧形只能等比缩放，仅显示四角手柄
+    const resizeDirections = RADIUS_SIZED_TYPES.includes(component.type) ? CORNER_DIRECTIONS : undefined;
 
     // 懒加载控件（hg_3d / hg_lottie）首次渲染需要 Suspense 边界。
     // 只包裹这类控件，其余控件的渲染路径保持不变，避免无谓的额外层级。
@@ -803,6 +809,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
               componentId={component.id}
               width={component.position.width}
               height={component.position.height}
+              directions={resizeDirections}
               onResizeStart={onResizeStartHandler}
             />
           )}
@@ -817,6 +824,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
             componentId={component.id}
             width={component.position.width}
             height={component.position.height}
+            directions={resizeDirections}
             onResizeStart={onResizeStartHandler}
           />
         )}

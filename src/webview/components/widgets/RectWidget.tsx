@@ -6,7 +6,7 @@ interface GradientStop {
   color: string;
 }
 
-export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers }) => {
+export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
   const s = component.style || {};
   const d = component.data || {};
   
@@ -57,5 +57,5 @@ export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers }
     opacity: opacity / 255,
   };
 
-  return <div style={rectStyle} {...handlers} />;
+  return <div style={rectStyle} {...handlers}>{children}</div>;
 };

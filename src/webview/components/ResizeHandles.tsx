@@ -7,6 +7,8 @@ interface ResizeHandlesProps {
   componentId: string;
   width: number;
   height: number;
+  /** 只显示指定方向的手柄，默认显示全部 8 个 */
+  directions?: ResizeDirection[];
   onResizeStart: (e: React.MouseEvent, direction: ResizeDirection, componentId: string) => void;
 }
 
@@ -18,6 +20,7 @@ export const ResizeHandles: React.FC<ResizeHandlesProps> = ({
   componentId,
   width,
   height,
+  directions,
   onResizeStart,
 }) => {
   const handleSize = 8;
@@ -45,7 +48,7 @@ export const ResizeHandles: React.FC<ResizeHandlesProps> = ({
 
   return (
     <>
-      {handles.map(({ direction, style }) => (
+      {handles.filter(({ direction }) => !directions || directions.includes(direction)).map(({ direction, style }) => (
         <div
           key={direction}
           className={`resize-handle resize-handle-${direction}`}

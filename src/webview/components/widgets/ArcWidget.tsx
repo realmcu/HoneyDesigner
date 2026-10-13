@@ -6,7 +6,7 @@ interface GradientStop {
   color: string;
 }
 
-export const ArcWidget: React.FC<WidgetProps> = ({ component, style, handlers }) => {
+export const ArcWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
   const width = component.position?.width ?? 100;
   const height = component.position?.height ?? 100;
   const s = component.style || {};
@@ -236,6 +236,7 @@ export const ArcWidget: React.FC<WidgetProps> = ({ component, style, handlers })
           />
         </svg>
       )}
+      {children}
     </div>
   );
 };

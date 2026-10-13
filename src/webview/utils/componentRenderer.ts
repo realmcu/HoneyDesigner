@@ -77,7 +77,8 @@ export const calculateComponentStyle = (
     overflowValue = (isDraggingChild || selfShowOverflow || hasChildWithOverflow) 
       ? 'visible' 
       : 'hidden';
-  }else if (borderRadiusValue) {
+  }else if (borderRadiusValue && !isGeometryWidget) {
+    // 几何控件没有子内容，圆角背景无需裁剪；不裁剪才能显示伸出边缘的尺寸手柄
     overflowValue = 'hidden';
   }
 
