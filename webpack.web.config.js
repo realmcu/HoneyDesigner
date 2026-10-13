@@ -42,6 +42,29 @@ class CopyStaticFilesPlugin {
   }
 }
 
+/** 复制首页已启用的示例资源。 */
+class CopyExampleFilesPlugin {
+  apply(compiler) {
+    compiler.hooks.thisCompilation.tap('CopyExampleFilesPlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        { name: 'CopyExampleFilesPlugin', stage: webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL },
+        () => {
+          const fs = require('fs');
+          const dir = path.resolve(__dirname, 'src/web/examples');
+          if (!fs.existsSync(dir)) {
+            return;
+          }
+          for (const name of ['chatbot.zip', 'chatbot.png', 'dashboard.zip', 'dashboard.png']) {
+            const from = path.join(dir, name);
+            compilation.fileDependencies.add(from);
+            compilation.emitAsset(`examples/${name}`, new webpack.sources.RawSource(fs.readFileSync(from)));
+          }
+        }
+      );
+    });
+  }
+}
+
 /** 输出 precache-manifest.json：Service Worker 安装时据此缓存全部静态资源，实现离线可用 */
 class PrecacheManifestPlugin {
   apply(compiler) {
@@ -172,9 +195,8 @@ module.exports = (env, argv) => {
       new CopyStaticFilesPlugin([
         [path.resolve(__dirname, 'src/web/manifest.webmanifest'), 'manifest.webmanifest'],
         [path.resolve(__dirname, 'src/web/icon.svg'), 'icon.svg'],
-        [path.resolve(__dirname, 'src/web/examples/chatbot.zip'), 'examples/chatbot.zip'],
-        [path.resolve(__dirname, 'src/web/examples/chatbot.png'), 'examples/chatbot.png'],
       ]),
+      new CopyExampleFilesPlugin(),
       ...(isProduction ? [new MiniCssExtractPlugin({ filename: '[name].[contenthash].css' })] : []),
       new PrecacheManifestPlugin(),
     ],

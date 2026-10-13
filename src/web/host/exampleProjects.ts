@@ -1,13 +1,23 @@
 import { AVAILABLE_TEMPLATES } from '../../template/TemplateConfig';
 
-// The first web release offers only a checked-in Chat Bot snapshot.
+// Curated snapshots are bundled with the site; customers never fetch from Gitee.
 const chatbot = AVAILABLE_TEMPLATES.find(template => template.id === 'chatbot');
-if (!chatbot) throw new Error('Chat Bot template is not configured');
+const dashboard = AVAILABLE_TEMPLATES.find(template => template.id === 'dashboard');
+if (!chatbot || !dashboard) throw new Error('Web example templates are not configured');
 
-export const WEB_EXAMPLES = [{
-    id: chatbot.id,
-    name: chatbot.name,
-    descriptionKey: 'template.chatbot.description',
-    archive: 'examples/chatbot.zip',
-    thumbnail: 'examples/chatbot.png',
-}] as const;
+export const WEB_EXAMPLES = [
+    {
+        id: chatbot.id,
+        name: chatbot.name,
+        descriptionKey: 'template.chatbot.description',
+        archive: 'examples/chatbot.zip',
+        thumbnail: 'examples/chatbot.png',
+    },
+    {
+        id: dashboard.id,
+        name: dashboard.name,
+        descriptionKey: 'template.dashboard.description',
+        archive: 'examples/dashboard.zip',
+        thumbnail: 'examples/dashboard.png',
+    },
+] as const;
