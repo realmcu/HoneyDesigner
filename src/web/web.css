@@ -396,6 +396,49 @@
 .web-explorer-create-actions { display: flex; justify-content: flex-end; gap: 5px; }
 .web-explorer-create .web-muted { font-size: 11px; overflow-wrap: anywhere; }
 
+/* 工程文件树贴边收起/展开按钮，样式与设计器左侧面板的按钮一致 */
+.web-explorer-edge {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 4px;
+  transition: background-color 0.2s;
+}
+.web-explorer-edge:not(.collapsed):hover { background: var(--vscode-focusBorder); }
+.web-explorer-edge.collapsed {
+  flex-basis: 20px;
+  background: var(--vscode-sideBar-background);
+  border-right: 1px solid var(--vscode-panel-border);
+}
+.web-explorer-edge-button {
+  position: absolute;
+  top: 50%;
+  right: -10px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 10px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+.web-explorer-edge:hover .web-explorer-edge-button,
+.web-explorer-edge-button:focus-visible { opacity: 1; }
+.web-explorer-edge-button:hover { background: var(--vscode-button-hoverBackground); }
+.web-explorer-edge.collapsed .web-explorer-edge-button {
+  right: auto;
+  left: 0;
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
 @media (max-width: 700px) {
   .web-explorer { width: 170px; flex-basis: 170px; }
 }
