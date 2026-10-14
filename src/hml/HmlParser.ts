@@ -600,7 +600,7 @@ export class HmlParser {
       // 文本样式属性
       'align', 'hAlign', 'vAlign', 'letterSpacing', 'lineSpacing', 'wordWrap', 'wordBreak',
       // 渐变属性
-      'useGradient', 'gradientType', 'gradientDirection',
+      'useGradient', 'gradientType', 'gradientDirection', 'gradientBox',
       // 透明度
       'opacity',
       // 进度条属性

@@ -2,6 +2,7 @@ import React from 'react';
 import { WidgetProps } from './types';
 import { useFontLoader } from '../../hooks/useFontLoader';
 import { useTextLayout, getTextLayoutParams } from '../../hooks/useTextLayout';
+import { useTextGradient } from '../../hooks/useTextGradient';
 
 /**
  * 计时器标签控件
@@ -82,12 +83,21 @@ export const TimerLabelWidget: React.FC<WidgetProps> = ({ component, style, hand
 
   // ========== 排版计算（共用逻辑） ==========
   const layoutParams = getTextLayoutParams(component, fontFamily);
-  const { containerStyle, textBlockStyle } = useTextLayout(layoutParams, style);
+  const { lineHeight, containerStyle, textBlockStyle } = useTextLayout(layoutParams, style);
+  const shownText = userText || displayText;
+
+  const gradient = useTextGradient(component, {
+    text: shownText,
+    fontFamily,
+    fontSize: layoutParams.fontSize,
+    layoutKey: [style?.width, style?.height, lineHeight, layoutParams.wordWrap, layoutParams.letterSpacing,
+      layoutParams.hAlign, layoutParams.vAlign, layoutParams.wordBreak].join('|'),
+  });
 
   return (
-    <div key={component.id} style={containerStyle} {...handlers}>
+    <div key={component.id} ref={gradient.containerRef} style={containerStyle} {...handlers}>
       <div style={textBlockStyle}>
-        <span>{userText || displayText}</span>
+        <span ref={gradient.textRef} style={gradient.textStyle}>{shownText}</span>
       </div>
       {children}
     </div>

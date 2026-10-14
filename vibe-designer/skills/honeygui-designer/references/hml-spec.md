@@ -552,6 +552,28 @@ V202S pairing example:
 | `fontType` | enum | bitmap | `bitmap` / `vector` |
 | `renderMode` | enum | 4 | Anti-alias bits: `1` / `2` / `4` / `8` |
 
+#### Gradient Fill
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `useGradient` | boolean | false | Enable linear gradient fill |
+| `gradientDirection` | enum | horizontal | `horizontal` / `vertical` / `diagonal_tl_br` / `diagonal_tr_bl` |
+| `gradientBox` | enum | layout | Box the gradient spans: `layout` (advance width × line height) / `ink` (glyph ink bounds) / `widget` (widget rect) |
+| `gradientStops` | JSON array | — | Color stops `[{"position":0,"color":"#ff2020"},{"position":1,"color":"#4060ff"}]`, `position` in 0–1, 2–8 stops |
+
+- Takes effect only on the HoneyGUI engine with `fontType="vector"`; bitmap fonts and LVGL projects keep the flat `color`.
+- Scaled or rotated text and emoji also fall back to `color` on device, so keep `color` set.
+- The gradient replaces only the text RGB; widget opacity still applies.
+- Scrolling text: `layout` / `ink` gradients move with the text, `widget` gradients stay fixed on the widget.
+- `hg_time_label` and `hg_timer_label` support it too; keep `layout` so the gradient does not jump with digit ink widths.
+
+```xml
+<hg_label id="title" x="20" y="20" width="200" height="40" text="HoneyGUI"
+          fontFile="/NotoSansSC-Medium.ttf" fontType="vector" fontSize="32"
+          useGradient="true" gradientDirection="horizontal" gradientBox="layout"
+          gradientStops='[{"position":0,"color":"#ff2020"},{"position":1,"color":"#4060ff"}]' />
+```
+
 #### Scrolling Text
 
 | Attribute | Type | Default | Description |
@@ -1433,7 +1455,7 @@ src/
 The HML parser categorizes XML attributes into the following buckets:
 
 ### Style Attributes
-`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `opacity`
+`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### Data Attributes
 `text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`

@@ -715,6 +715,21 @@ const en = {
   'Diagonal gradient: top-right to bottom-left': 'Diagonal gradient: top-right to bottom-left',
   'Linear gradient': 'Linear gradient',
   'Tip: For full arcs (e.g. 270-270), SDK auto-compensates gradient angle for rounded caps': 'Tip: For full arcs (e.g. 270-270), SDK auto-compensates gradient angle for rounded caps',
+  'Maximum color stops reached': 'At most {0} color stops are supported',
+
+  // Text gradient
+  'Fallback Color': 'Fallback Color',
+  'Used where the device cannot draw the gradient': 'Used where the device cannot draw the gradient (scaled or rotated text, emoji)',
+  'Gradient requires vector font': 'Gradient requires a vector font',
+  'Left to Right': 'Left to Right',
+  'Top to Bottom': 'Top to Bottom',
+  'Top-Left to Bottom-Right': 'Top-Left to Bottom-Right',
+  'Top-Right to Bottom-Left': 'Top-Right to Bottom-Left',
+  'Gradient Box': 'Gradient Box',
+  'Gradient Box Help': 'The box the gradient stretches across. Text layout: advance width x line height, stable when the text changes. Glyph ink: tight bounds of the glyph outlines. Widget: the whole widget, stays fixed while the text scrolls.',
+  'Text Layout Box': 'Text Layout',
+  'Glyph Ink Box': 'Glyph Ink',
+  'Widget Box': 'Widget',
 
   // AssetsPanel
   'Drag files here': 'Drag files here',

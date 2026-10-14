@@ -59,6 +59,8 @@ export class TimeLabelGenerator extends LabelGenerator {
       code += `${indentStr}gui_text_type_set((gui_text_t *)${component.id}, "${convertedFontFile}", ${fontMode});\n`;
     }
 
+    code += this.generateTextGradient(component, indentStr, `(gui_text_t *)${component.id}`);
+
     // Text alignment
     const textMode = this.getTextMode(component);
     code += `${indentStr}gui_text_mode_set((gui_text_t *)${component.id}, ${textMode});\n`;
@@ -179,6 +181,7 @@ export class TimeLabelGenerator extends LabelGenerator {
       code += `${indentStr}gui_text_type_set(${component.id}_hour, "${convertedFontFile}", ${fontMode});\n`;
     }
     code += `${indentStr}gui_text_mode_set(${component.id}_hour, CENTER);\n`;
+    code += this.generateTextGradient(component, indentStr, `${component.id}_hour`);
     
     const letterSpacing = component.style?.letterSpacing;
     if (letterSpacing !== undefined && letterSpacing !== 0) {
@@ -197,6 +200,7 @@ export class TimeLabelGenerator extends LabelGenerator {
       code += `${indentStr}gui_text_type_set(${component.id}_colon, "${convertedFontFile}", ${fontMode});\n`;
     }
     code += `${indentStr}gui_text_mode_set(${component.id}_colon, CENTER);\n`;
+    code += this.generateTextGradient(component, indentStr, `${component.id}_colon`);
     
     // Generate minute label
     code += `${indentStr}// Split time - minute\n`;
@@ -206,6 +210,7 @@ export class TimeLabelGenerator extends LabelGenerator {
       code += `${indentStr}gui_text_type_set(${component.id}_min, "${convertedFontFile}", ${fontMode});\n`;
     }
     code += `${indentStr}gui_text_mode_set(${component.id}_min, CENTER);\n`;
+    code += this.generateTextGradient(component, indentStr, `${component.id}_min`);
     
     if (letterSpacing !== undefined && letterSpacing !== 0) {
       code += `${indentStr}gui_text_extra_letter_spacing_set(${component.id}_min, ${letterSpacing});\n`;
@@ -255,6 +260,7 @@ export class TimeLabelGenerator extends LabelGenerator {
       code += `${indentStr}gui_text_type_set(${component.id}_hour, "${convertedFontFile}", ${fontMode});\n`;
     }
     code += `${indentStr}gui_text_mode_set(${component.id}_hour, RIGHT);\n`;
+    code += this.generateTextGradient(component, indentStr, `${component.id}_hour`);
     
     const letterSpacing = component.style?.letterSpacing;
     if (letterSpacing !== undefined && letterSpacing !== 0) {
@@ -273,6 +279,7 @@ export class TimeLabelGenerator extends LabelGenerator {
       code += `${indentStr}gui_text_type_set(${component.id}_colon, "${convertedFontFile}", ${fontMode});\n`;
     }
     code += `${indentStr}gui_text_mode_set(${component.id}_colon, LEFT);\n`;
+    code += this.generateTextGradient(component, indentStr, `${component.id}_colon`);
     
     // Generate minute label
     code += `${indentStr}// Split time - minute\n`;
@@ -282,6 +289,7 @@ export class TimeLabelGenerator extends LabelGenerator {
       code += `${indentStr}gui_text_type_set(${component.id}_min, "${convertedFontFile}", ${fontMode});\n`;
     }
     code += `${indentStr}gui_text_mode_set(${component.id}_min, LEFT);\n`;
+    code += this.generateTextGradient(component, indentStr, `${component.id}_min`);
     
     if (letterSpacing !== undefined && letterSpacing !== 0) {
       code += `${indentStr}gui_text_extra_letter_spacing_set(${component.id}_min, ${letterSpacing});\n`;

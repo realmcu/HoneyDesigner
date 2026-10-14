@@ -2,6 +2,8 @@ import React from 'react';
 import { WidgetProps } from './types';
 import { useFontLoader } from '../../hooks/useFontLoader';
 import { useTextLayout, getTextLayoutParams } from '../../hooks/useTextLayout';
+import { useTextGradient } from '../../hooks/useTextGradient';
+import { GradientTextSpan } from './GradientTextSpan';
 
 /**
  * 时间标签控件
@@ -54,10 +56,14 @@ export const TimeLabelWidget: React.FC<WidgetProps> = ({ component, style, handl
 
   // ========== 排版计算（共用逻辑） ==========
   const layoutParams = getTextLayoutParams(component, fontFamily);
-  const { cssLineHeight, containerStyle, textBlockStyle } = useTextLayout(layoutParams, style);
+  const { lineHeight, cssLineHeight, containerStyle, textBlockStyle } = useTextLayout(layoutParams, style);
 
   const actualFontSize = layoutParams.fontSize;
   const containerWidth = typeof style?.width === 'number' ? style.width : 0;
+  const layoutKey = [style?.width, style?.height, lineHeight, layoutParams.wordWrap, layoutParams.letterSpacing,
+    layoutParams.hAlign, layoutParams.vAlign, layoutParams.wordBreak].join('|');
+
+  const gradient = useTextGradient(component, { text, fontFamily, fontSize: actualFontSize, layoutKey });
 
   // 拆分时间的特殊渲染
   if (isSplitTime && layoutParams.wordWrap && text.includes(':')) {
@@ -72,34 +78,49 @@ export const TimeLabelWidget: React.FC<WidgetProps> = ({ component, style, handl
       return (
         <div key={component.id} style={containerStyle} {...handlers}>
           <div style={{...textBlockStyle, display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-            <div style={{ 
-              fontFamily: fontFamily || 'inherit', 
-              lineHeight: cssLineHeight,
-              width: `${numWidth}px`,
-              marginLeft: `${colonWidth}px`,
-              textAlign: 'center'
-            }}>
-              {hour}
-            </div>
+            <GradientTextSpan
+              component={component}
+              text={hour}
+              fontFamily={fontFamily}
+              fontSize={actualFontSize}
+              layoutKey={layoutKey}
+              style={{
+                fontFamily: fontFamily || 'inherit',
+                lineHeight: cssLineHeight,
+                width: `${numWidth}px`,
+                marginLeft: `${colonWidth}px`,
+                textAlign: 'center'
+              }}
+            />
             <div style={{ 
               display: 'flex',
               width: '100%',
               lineHeight: cssLineHeight
             }}>
-              <div style={{ 
-                fontFamily: fontFamily || 'inherit',
-                width: `${colonWidth}px`,
-                textAlign: 'center'
-              }}>
-                :
-              </div>
-              <div style={{ 
-                fontFamily: fontFamily || 'inherit',
-                width: `${numWidth}px`,
-                textAlign: 'center'
-              }}>
-                {minute}
-              </div>
+              <GradientTextSpan
+                component={component}
+                text=":"
+                fontFamily={fontFamily}
+                fontSize={actualFontSize}
+                layoutKey={layoutKey}
+                style={{
+                  fontFamily: fontFamily || 'inherit',
+                  width: `${colonWidth}px`,
+                  textAlign: 'center'
+                }}
+              />
+              <GradientTextSpan
+                component={component}
+                text={minute}
+                fontFamily={fontFamily}
+                fontSize={actualFontSize}
+                layoutKey={layoutKey}
+                style={{
+                  fontFamily: fontFamily || 'inherit',
+                  width: `${numWidth}px`,
+                  textAlign: 'center'
+                }}
+              />
             </div>
           </div>
           {children}
@@ -109,9 +130,9 @@ export const TimeLabelWidget: React.FC<WidgetProps> = ({ component, style, handl
   }
 
   return (
-    <div key={component.id} style={containerStyle} {...handlers}>
+    <div key={component.id} ref={gradient.containerRef} style={containerStyle} {...handlers}>
       <div style={textBlockStyle}>
-        <span>{text}</span>
+        <span ref={gradient.textRef} style={gradient.textStyle}>{text}</span>
       </div>
       {children}
     </div>

@@ -5,7 +5,21 @@
 import * as path from 'path';
 import { Component } from '../../../hml/types';
 import { resolveLocalizedText } from '../../../project-i18n/catalog';
+import { isVectorTextFont, resolveTextGradient } from '../../../shared/textGradient';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+
+const TEXT_GRADIENT_DIR_ENUM: Record<string, string> = {
+  horizontal: 'GUI_TEXT_GRADIENT_HORIZONTAL',
+  vertical: 'GUI_TEXT_GRADIENT_VERTICAL',
+  diagonal_tl_br: 'GUI_TEXT_GRADIENT_DIAGONAL_TL_BR',
+  diagonal_tr_bl: 'GUI_TEXT_GRADIENT_DIAGONAL_TR_BL',
+};
+
+const TEXT_GRADIENT_BOX_ENUM: Record<string, string> = {
+  layout: 'GUI_TEXT_GRADIENT_BOX_LAYOUT',
+  ink: 'GUI_TEXT_GRADIENT_BOX_INK',
+  widget: 'GUI_TEXT_GRADIENT_BOX_WIDGET',
+};
 
 export class LabelGenerator implements ComponentCodeGenerator {
 
@@ -61,6 +75,8 @@ export class LabelGenerator implements ComponentCodeGenerator {
       const typeSetFunction = enableScroll ? 'gui_scroll_text_type_set' : 'gui_text_type_set';
       code += `${indentStr}${typeSetFunction}((${widgetCast} *)${component.id}, "${convertedFontFile}", ${fontMode});\n`;
     }
+
+    code += this.generateTextGradient(component, indentStr, `(gui_text_t *)${component.id}`);
 
     // Text alignment - scroll text doesn't need gui_text_mode_set since gui_scroll_text_scroll_set has mode parameter
     if (!enableScroll) {
@@ -136,6 +152,40 @@ export class LabelGenerator implements ComponentCodeGenerator {
     }
 
     return resolveLocalizedText(catalog, key, catalog.activeLocale ?? catalog.defaultLocale, fallbackText).text;
+  }
+
+  /**
+   * Generate gradient fill setters for one gui_text_t target.
+   * The SDK only draws gradients for TTF text, so bitmap fonts emit nothing.
+   * gui_text_set_gradient() resets the handles, so it must precede the box setter.
+   * @param target C expression of type gui_text_t *
+   */
+  protected generateTextGradient(component: Component, indentStr: string, target: string): string {
+    const gradient = resolveTextGradient(component.style, component.data);
+    if (!gradient || !isVectorTextFont(component.data)) {
+      return '';
+    }
+
+    const stopLines = gradient.stops.map((stop) => {
+      const position = Number.isInteger(stop.position) ? `${stop.position}.0f` : `${stop.position}f`;
+      return `${indentStr}        {${position}, {.color.argb_full = ${this.colorToArgbHex(stop.color)}}},\n`;
+    }).join('');
+
+    let code = `${indentStr}{\n`;
+    code += `${indentStr}    const gui_text_gradient_stop_t stops[] = {\n${stopLines}${indentStr}    };\n`;
+    code += `${indentStr}    gui_text_set_gradient(${target}, ${TEXT_GRADIENT_DIR_ENUM[gradient.direction]}, stops, ${gradient.stops.length});\n`;
+    code += `${indentStr}}\n`;
+    code += `${indentStr}gui_text_set_gradient_box(${target}, ${TEXT_GRADIENT_BOX_ENUM[gradient.box]});\n`;
+    return code;
+  }
+
+  /**
+   * Convert #RRGGBB / #RRGGBBAA to a 0xAARRGGBB literal
+   */
+  protected colorToArgbHex(color: string): string {
+    const hex = color.slice(1).toUpperCase();
+    const alpha = hex.length === 8 ? hex.slice(6, 8) : 'FF';
+    return `0x${alpha}${hex.slice(0, 6)}`;
   }
 
   /**

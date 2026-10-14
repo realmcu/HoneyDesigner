@@ -26,6 +26,7 @@ const COMPONENT_PROPERTY_TYPES: Record<string, Record<string, PropertyType>> = {
     toggleMode: 'boolean',
   },
   hg_label: {
+    useGradient: 'boolean',
     wordWrap: 'boolean',
     wordBreak: 'boolean',
     scrollReverse: 'boolean',
@@ -42,12 +43,14 @@ const COMPONENT_PROPERTY_TYPES: Record<string, Record<string, PropertyType>> = {
     fontSize: 'number',
   },
   hg_time_label: {
+    useGradient: 'boolean',
     wordWrap: 'boolean',
     letterSpacing: 'number',
     lineSpacing: 'number',
     fontSize: 'number',
   },
   hg_timer_label: {
+    useGradient: 'boolean',
     timerAutoStart: 'boolean',
     wordWrap: 'boolean',
     timerInitialValue: 'number',

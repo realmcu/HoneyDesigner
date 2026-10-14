@@ -3,6 +3,7 @@ import { WidgetProps } from './types';
 import { useFontLoader } from '../../hooks/useFontLoader';
 import { useFontGlyphCheck } from '../../hooks/useFontGlyphCheck';
 import { useTextLayout, getTextLayoutParams } from '../../hooks/useTextLayout';
+import { useTextGradient } from '../../hooks/useTextGradient';
 import { useDesignerStore } from '../../store';
 import { resolveLocalizedText } from '../../../project-i18n/catalog';
 import { estimateTextPixelWidth } from '../../../project-i18n/textMetrics';
@@ -135,15 +136,30 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
     };
   }, [enableScroll, scrollPreview, scrollDirection, scrollReverse, scrollStartOffset, scrollEndOffset, scrollInterval, scrollDuration, text, actualFontSize, containerWidth, containerHeight, lineHeight, wordWrap, component.style?.letterSpacing]);
 
+  const isScrolling = Boolean(enableScroll && scrollPreview);
+  const translateX = isScrolling && scrollDirection === 'horizontal' ? -scrollOffset : 0;
+  const translateY = isScrolling && scrollDirection !== 'horizontal' ? -scrollOffset : 0;
+
+  const gradient = useTextGradient(component, {
+    text,
+    fontFamily,
+    fontSize: actualFontSize,
+    translateX,
+    translateY,
+    layoutKey: [containerWidth, containerHeight, lineHeight, wordWrap, letterSpacing,
+      component.style?.hAlign, component.style?.vAlign, component.style?.wordBreak].join('|'),
+  });
+
   const scrollTextStyle: React.CSSProperties = {
     fontFamily: fontFamily || 'inherit',
     display: 'inline-block',
-    transform: enableScroll && scrollPreview
+    transform: isScrolling
       ? scrollDirection === 'horizontal'
         ? `translateX(${-scrollOffset}px)`
         : `translateY(${-scrollOffset}px)`
       : 'none',
     transition: 'none',
+    ...gradient.textStyle,
   };
 
   const diagnosticMessages: string[] = [];
@@ -228,9 +244,9 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   }
 
   return (
-    <div key={component.id} style={containerStyle} {...handlers}>
+    <div key={component.id} ref={gradient.containerRef} style={containerStyle} {...handlers}>
       <div style={textBlockStyle}>
-        <span style={scrollTextStyle}>{text}</span>
+        <span ref={gradient.textRef} style={scrollTextStyle}>{text}</span>
       </div>
       {renderDiagnosticBadges()}
       {children}

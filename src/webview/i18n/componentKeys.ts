@@ -97,6 +97,7 @@ export const propertyLabelKeys: Record<string, string> = {
   'fillColor': 'Fill Color',
   'gradientType': 'Gradient Type',
   'gradientDirection': 'Gradient Direction',
+  'gradientBox': 'Gradient Box',
   'distortion': 'Distortion (%)',
   'region': 'Effect Range (%)',
 };

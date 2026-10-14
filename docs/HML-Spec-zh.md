@@ -535,6 +535,28 @@ V202S 配对界面示例：
 | `fontType` | enum | bitmap | `bitmap` / `vector` |
 | `renderMode` | enum | 4 | 抗锯齿位数：`1` / `2` / `4` / `8` |
 
+#### 渐变填充
+
+| 属性 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `useGradient` | boolean | false | 启用线性渐变填充 |
+| `gradientDirection` | enum | horizontal | `horizontal` / `vertical` / `diagonal_tl_br` / `diagonal_tr_bl` |
+| `gradientBox` | enum | layout | 渐变铺满的参照框：`layout`（字宽 × 行高）/ `ink`（字形墨迹包围盒）/ `widget`（控件矩形） |
+| `gradientStops` | JSON 数组 | — | 色标 `[{"position":0,"color":"#ff2020"},{"position":1,"color":"#4060ff"}]`，`position` 取 0–1，2–8 个 |
+
+- 仅 HoneyGUI 引擎、`fontType="vector"` 时生效；点阵字体、LVGL 工程保持 `color` 纯色。
+- 设备上缩放或旋转的文本、emoji 也回退为 `color`，因此 `color` 仍需设置。
+- 渐变只替换文字 RGB，控件透明度仍然叠加。
+- 滚动文本：`layout` / `ink` 渐变随文字移动，`widget` 渐变固定在控件上。
+- `hg_time_label` 与 `hg_timer_label` 同样支持；推荐保持 `layout`，避免 `ink` 随数字字形宽度跳动。
+
+```xml
+<hg_label id="title" x="20" y="20" width="200" height="40" text="HoneyGUI"
+          fontFile="/NotoSansSC-Medium.ttf" fontType="vector" fontSize="32"
+          useGradient="true" gradientDirection="horizontal" gradientBox="layout"
+          gradientStops='[{"position":0,"color":"#ff2020"},{"position":1,"color":"#4060ff"}]' />
+```
+
 #### 滚动文本
 
 | 属性 | 类型 | 默认值 | 说明 |
@@ -1378,7 +1400,7 @@ src/
 HML 解析器将 XML 属性归类到以下几组：
 
 ### 样式属性
-`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `opacity`
+`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### 数据属性
 `text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`

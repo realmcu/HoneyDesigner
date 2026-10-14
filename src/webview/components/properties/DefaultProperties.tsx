@@ -14,6 +14,10 @@ import { summarizeI18nAutoCharsetForKeys } from '../../../project-i18n/autoChars
 import { detectScripts } from '../../../project-i18n/script';
 import { estimateTextPixelWidth } from '../../../project-i18n/textMetrics';
 import { HelpIcon } from './HelpIcon';
+import { GradientStopsEditor } from './GradientStopsEditor';
+import { TEXT_GRADIENT_MAX_STOPS, DEFAULT_TEXT_GRADIENT_BOX } from '../../../shared/textGradient';
+
+const TEXT_GRADIENT_PROPS = ['useGradient', 'gradientDirection', 'gradientBox'];
 
 // 字体文件扩展名
 const FONT_EXTS = ['ttf', 'otf', 'woff', 'woff2', 'bin'];
@@ -262,6 +266,32 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
       style: {
         ...component.style,
         [property]: value,
+      },
+    });
+  };
+
+  // 文本渐变：HoneyGUI 仅对矢量字体绘制，LVGL 无对应能力
+  const supportsTextGradient = !isLvglProject && definition?.properties.some(p => p.name === 'useGradient') === true;
+  const isVectorFont = (component.data as any)?.fontType === 'vector';
+  const useTextGradientFill = (component.style as any)?.useGradient === true;
+  const textGradientStops: { position: number; color: string }[] = Array.isArray((component.data as any)?.gradientStops)
+    ? (component.data as any).gradientStops
+    : [];
+
+  const handleTextGradientToggle = (enabled: boolean) => {
+    const style = { ...component.style, useGradient: enabled };
+    if (!enabled || textGradientStops.length > 0) {
+      onUpdate({ style });
+      return;
+    }
+    onUpdate({
+      style,
+      data: {
+        ...component.data,
+        gradientStops: [
+          { position: 0, color: '#ff2020' },
+          { position: 1, color: '#4060ff' },
+        ],
       },
     });
   };
@@ -1179,19 +1209,47 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                     </div>
                     {/* 其他样式属性（排除对齐、间距、换行相关） */}
                     {definition.properties
-                      .filter(p => p.group === 'style' && !['hAlign', 'vAlign', 'letterSpacing', 'lineSpacing', 'wordWrap', 'wordBreak'].includes(p.name))
+                      .filter(p => p.group === 'style' && !['hAlign', 'vAlign', 'letterSpacing', 'lineSpacing', 'wordWrap', 'wordBreak', ...TEXT_GRADIENT_PROPS].includes(p.name))
                       .map((property) => (
                         <div key={property.name} className="property-item">
-                          <label>{t(property.label as any)}</label>
+                          <label>
+                            {property.name === 'color' && supportsTextGradient && useTextGradientFill
+                              ? t('Fallback Color')
+                              : t(property.label as any)}
+                          </label>
                           <PropertyEditor
                             type={property.type as any}
                             value={(component.style as any)?.[property.name]}
                             onChange={(value) => handleStyleChange(property.name, value)}
                             options={property.options as string[]}
-                            hint={(property as any).hint ? t((property as any).hint) : undefined}
+                            hint={property.name === 'color' && supportsTextGradient && useTextGradientFill
+                              ? t('Used where the device cannot draw the gradient')
+                              : (property as any).hint ? t((property as any).hint) : undefined}
                           />
                         </div>
                       ))}
+                    {/* 渐变填充开关 - 紧跟颜色；详细设置在「渐变设置」组 */}
+                    {supportsTextGradient && (
+                      <div className="property-item">
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', opacity: isVectorFont ? 1 : 0.5 }}
+                          title={isVectorFont ? undefined : t('Gradient requires vector font')}
+                        >
+                          <PropertyEditor
+                            type="boolean"
+                            value={useTextGradientFill}
+                            onChange={(value) => handleTextGradientToggle(value)}
+                            disabled={!isVectorFont && !useTextGradientFill}
+                          />
+                          <span style={{ fontSize: '12px' }}>{t('Enable Gradient')}</span>
+                          {!isVectorFont && (
+                            <span style={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)' }}>
+                              ({t('Gradient requires vector font')})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {/* Word wrap and word break - 滚动时根据方向自动处理 */}
                     <div className="property-item">
                       <label>{t('Line Break')}</label>
@@ -1290,6 +1348,62 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                         />
                       </div>
                     ))
+                )}
+              </CollapsibleGroup>
+            )}
+
+            {/* Text Gradient Settings */}
+            {supportsTextGradient && useTextGradientFill && (
+              <CollapsibleGroup title={t('Gradient Settings')}>
+                {!isVectorFont && (
+                  <div className="property-warning" style={{ marginBottom: '8px' }}>
+                    {t('Gradient requires vector font')}
+                  </div>
+                )}
+                <div className="property-item">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <label style={{ fontSize: '12px' }}>{t('Gradient Direction')}</label>
+                      <PropertyEditor
+                        type="select"
+                        value={(component.style as any)?.gradientDirection || 'horizontal'}
+                        onChange={(value) => handleStyleChange('gradientDirection', value)}
+                        options={[
+                          { value: 'horizontal', label: t('Left to Right') },
+                          { value: 'vertical', label: t('Top to Bottom') },
+                          { value: 'diagonal_tl_br', label: t('Top-Left to Bottom-Right') },
+                          { value: 'diagonal_tr_bl', label: t('Top-Right to Bottom-Left') },
+                        ]}
+                      />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {t('Gradient Box')}
+                        <HelpIcon title={t('Gradient Box Help')} />
+                      </label>
+                      <PropertyEditor
+                        type="select"
+                        value={(component.style as any)?.gradientBox || DEFAULT_TEXT_GRADIENT_BOX}
+                        onChange={(value) => handleStyleChange('gradientBox', value)}
+                        options={[
+                          { value: 'layout', label: t('Text Layout Box') },
+                          { value: 'ink', label: t('Glyph Ink Box') },
+                          { value: 'widget', label: t('Widget Box') },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <GradientStopsEditor
+                  stops={textGradientStops}
+                  onChange={(stops) => handleDataChange('gradientStops', stops)}
+                  defaultColor={(component.style as any)?.color || '#ffffff'}
+                  maxStops={TEXT_GRADIENT_MAX_STOPS}
+                />
+                {textGradientStops.length < 2 && (
+                  <div className="property-warning" style={{ marginTop: '8px' }}>
+                    {t('At least 2 color stops are required to form a gradient')}
+                  </div>
                 )}
               </CollapsibleGroup>
             )}

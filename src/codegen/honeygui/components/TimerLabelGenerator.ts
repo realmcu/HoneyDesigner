@@ -68,6 +68,8 @@ export class TimerLabelGenerator extends LabelGenerator {
       code += `${indentStr}${typeSetFunction}((${widgetCast} *)${component.id}, "${convertedFontFile}", ${fontMode});\n`;
     }
 
+    code += this.generateTextGradient(component, indentStr, `(gui_text_t *)${component.id}`);
+
     // Text alignment - scroll text doesn't need gui_text_mode_set
     if (!enableScroll) {
       const textMode = this.getTextMode(component);

@@ -5,14 +5,9 @@ import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
 import { HelpIcon } from './HelpIcon';
-import { NumberInput } from '../NumberInput';
+import { GradientStopsEditor, GradientStop } from './GradientStopsEditor';
 import { componentDefinitions } from '../ComponentLibrary';
 import { t } from '../../i18n';
-
-interface GradientStop {
-  position: number;  // 0.0 - 1.0
-  color: string;     // #RRGGBB
-}
 
 export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
@@ -62,28 +57,6 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
         [property]: value,
       },
     });
-  };
-
-  // 添加渐变色标
-  const handleAddGradientStop = () => {
-    const newStop: GradientStop = {
-      position: gradientStops.length === 0 ? 0 : 1,
-      color: '#007acc'
-    };
-    handleDataChange('gradientStops', [...gradientStops, newStop]);
-  };
-
-  // 删除渐变色标
-  const handleRemoveGradientStop = (index: number) => {
-    const newStops = gradientStops.filter((_, i) => i !== index);
-    handleDataChange('gradientStops', newStops);
-  };
-
-  // 更新渐变色标
-  const handleUpdateGradientStop = (index: number, field: 'position' | 'color', value: any) => {
-    const newStops = [...gradientStops];
-    newStops[index] = { ...newStops[index], [field]: value };
-    handleDataChange('gradientStops', newStops);
   };
 
   return (
@@ -136,181 +109,79 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
             {/* Gradient Settings */}
             {useGradient && (
               <CollapsibleGroup title={t('Gradient Settings')}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                  <button
-                    onClick={handleAddGradientStop}
-                    style={{
-                      padding: '2px 8px',
-                      fontSize: '12px',
-                      backgroundColor: 'var(--vscode-button-background)',
-                      color: 'var(--vscode-button-foreground)',
-                      border: 'none',
-                      borderRadius: '2px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    + {t('Add Color Stop')}
-                  </button>
-                </div>
-
-                {/* 渐变类型提示 */}
-                <div style={{ 
-                  padding: '8px',
-                  marginBottom: '8px',
-                  backgroundColor: 'var(--vscode-textBlockQuote-background)',
-                  borderLeft: '3px solid var(--vscode-textBlockQuote-border)',
-                  fontSize: '11px',
-                  color: 'var(--vscode-descriptionForeground)'
-                }}>
-                  {getGradientHint()}
-                </div>
-
-                {/* 弧形渐变角度设置 */}
-                {component.type === 'hg_arc' && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
-                          {t('Gradient Start Angle')}
-                        </label>
-                        <PropertyEditor
-                          type="number"
-                          value={component.data?.gradientStartAngle ?? component.style?.startAngle ?? 0}
-                          onChange={(value) => handleDataChange('gradientStartAngle', value)}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                          {t('Gradient End Angle')}
-                          <HelpIcon title={t('Tip: For full arcs (e.g. 270-270), SDK auto-compensates gradient angle for rounded caps')} />
-                        </label>
-                        <PropertyEditor
-                          type="number"
-                          value={component.data?.gradientEndAngle ?? component.style?.endAngle ?? 360}
-                          onChange={(value) => handleDataChange('gradientEndAngle', value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 圆形角度渐变的额外参数 */}
-                {component.type === 'hg_circle' && component.style?.gradientType === 'angular' && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
-                          {t('Start Angle')}
-                        </label>
-                        <PropertyEditor
-                          type="number"
-                          value={component.data?.gradientStartAngle ?? 0}
-                          onChange={(value) => handleDataChange('gradientStartAngle', value)}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
-                          {t('End Angle')}
-                        </label>
-                        <PropertyEditor
-                          type="number"
-                          value={component.data?.gradientEndAngle ?? 360}
-                          onChange={(value) => handleDataChange('gradientEndAngle', value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {gradientStops.length === 0 ? (
+                <GradientStopsEditor
+                  stops={gradientStops}
+                  onChange={(stops) => handleDataChange('gradientStops', stops)}
+                >
+                  {/* 渐变类型提示 */}
                   <div style={{ 
-                    padding: '12px', 
-                    color: 'var(--vscode-descriptionForeground)',
-                    fontSize: '12px',
-                    textAlign: 'center'
+                    padding: '8px',
+                    marginBottom: '8px',
+                    backgroundColor: 'var(--vscode-textBlockQuote-background)',
+                    borderLeft: '3px solid var(--vscode-textBlockQuote-border)',
+                    fontSize: '11px',
+                    color: 'var(--vscode-descriptionForeground)'
                   }}>
-                    {t('Click Add Color Stop to configure gradient')}
+                    {getGradientHint()}
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {gradientStops.map((stop, index) => (
-                      <div 
-                        key={index}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px',
-                          backgroundColor: 'var(--vscode-editor-background)',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>
-                            {t('Position (0-1)')}
+  
+                  {/* 弧形渐变角度设置 */}
+                  {component.type === 'hg_arc' && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                            {t('Gradient Start Angle')}
                           </label>
-                          <NumberInput
-                            min={0}
-                            max={1}
-                            emptyValue={0}
-                            value={stop.position}
-                            onChange={(v) => handleUpdateGradientStop(index, 'position', v)}
-                            style={{
-                              width: '100%',
-                              padding: '4px 6px',
-                              backgroundColor: 'var(--vscode-input-background)',
-                              color: 'var(--vscode-input-foreground)',
-                              border: '1px solid var(--vscode-input-border)',
-                              borderRadius: '2px',
-                            }}
+                          <PropertyEditor
+                            type="number"
+                            value={component.data?.gradientStartAngle ?? component.style?.startAngle ?? 0}
+                            onChange={(value) => handleDataChange('gradientStartAngle', value)}
                           />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>
-                            {t('Color')}
+                        <div>
+                          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                            {t('Gradient End Angle')}
+                            <HelpIcon title={t('Tip: For full arcs (e.g. 270-270), SDK auto-compensates gradient angle for rounded caps')} />
                           </label>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            <input
-                              type="color"
-                              value={stop.color}
-                              onChange={(e) => handleUpdateGradientStop(index, 'color', e.target.value)}
-                              style={{ width: '30px', height: '28px', padding: 0, border: 'none' }}
-                            />
-                            <input
-                              type="text"
-                              value={stop.color}
-                              onChange={(e) => handleUpdateGradientStop(index, 'color', e.target.value)}
-                              style={{
-                                flex: 1,
-                                padding: '4px 6px',
-                                backgroundColor: 'var(--vscode-input-background)',
-                                color: 'var(--vscode-input-foreground)',
-                                border: '1px solid var(--vscode-input-border)',
-                                borderRadius: '2px',
-                              }}
-                            />
-                          </div>
+                          <PropertyEditor
+                            type="number"
+                            value={component.data?.gradientEndAngle ?? component.style?.endAngle ?? 360}
+                            onChange={(value) => handleDataChange('gradientEndAngle', value)}
+                          />
                         </div>
-                        <button
-                          onClick={() => handleRemoveGradientStop(index)}
-                          style={{
-                            padding: '4px 8px',
-                            backgroundColor: 'var(--vscode-button-secondaryBackground)',
-                            color: 'var(--vscode-button-secondaryForeground)',
-                            border: 'none',
-                            borderRadius: '2px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            marginTop: '16px',
-                          }}
-                          title={t('Delete this color stop')}
-                        >
-                          ✕
-                        </button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  )}
+  
+                  {/* 圆形角度渐变的额外参数 */}
+                  {component.type === 'hg_circle' && component.style?.gradientType === 'angular' && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                            {t('Start Angle')}
+                          </label>
+                          <PropertyEditor
+                            type="number"
+                            value={component.data?.gradientStartAngle ?? 0}
+                            onChange={(value) => handleDataChange('gradientStartAngle', value)}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                            {t('End Angle')}
+                          </label>
+                          <PropertyEditor
+                            type="number"
+                            value={component.data?.gradientEndAngle ?? 360}
+                            onChange={(value) => handleDataChange('gradientEndAngle', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </GradientStopsEditor>
 
                 {gradientStops.length > 0 && (
                   <div style={{ 

@@ -715,6 +715,21 @@ const zhCN = {
   'Diagonal gradient: top-right to bottom-left': '对角渐变：从右上到左下',
   'Linear gradient': '线性渐变',
   'Tip: For full arcs (e.g. 270-270), SDK auto-compensates gradient angle for rounded caps': '提示：对于完整圆弧（如 270-270），SDK 会自动补偿渐变角度以绘制圆角封端',
+  'Maximum color stops reached': '最多支持 {0} 个色标',
+
+  // 文本渐变
+  'Fallback Color': '回退颜色',
+  'Used where the device cannot draw the gradient': '设备无法绘制渐变时使用（缩放或旋转的文本、emoji）',
+  'Gradient requires vector font': '渐变仅对矢量字体生效',
+  'Left to Right': '从左到右',
+  'Top to Bottom': '从上到下',
+  'Top-Left to Bottom-Right': '从左上到右下',
+  'Top-Right to Bottom-Left': '从右上到左下',
+  'Gradient Box': '渐变范围',
+  'Gradient Box Help': '渐变铺满的参照框。文本排版：字宽 × 行高，文字变化时较稳定；字形轮廓：字形墨迹的紧包围盒；控件：整个控件区域，文本滚动时渐变保持不动。',
+  'Text Layout Box': '文本排版',
+  'Glyph Ink Box': '字形轮廓',
+  'Widget Box': '控件',
 
   // AssetsPanel
   'Drag files here': '拖拽文件到此处',
