@@ -32,6 +32,7 @@ export type ComponentType =
   | 'hg_switch'
   | 'hg_slider'
   | 'hg_progressbar'
+  | 'hg_progress'
   | 'hg_image'
   | 'hg_gif'
   | 'hg_view'

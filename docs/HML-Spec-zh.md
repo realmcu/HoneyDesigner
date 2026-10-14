@@ -223,6 +223,7 @@ commit `340bc18`（2026-06-15）从 `engineSupport` 重新生成的快照。
 | **图形** | `hg_arc` | ✅ | ✅ |
 | | `hg_circle` | ✅ | ✅ |
 | | `hg_rect` | ✅ | ✅ |
+| | `hg_progress` | ✅ | ❌ |
 | | `hg_svg` | ✅ | ✅ |
 | | `hg_qbcode` | ✅ | ✅ |
 | | `hg_glass` | ✅ | ❌ |
@@ -1395,6 +1396,44 @@ src/
 
 ---
 
+### `hg_progress` - 进度条（仅 HoneyGUI）
+
+引擎：HoneyGUI 就绪；LVGL 不支持。它是叶子控件，不是容器，也不能包含 HML 子控件。
+内部生成一个窗口；线性模式生成轨道与填充矩形，分段模式生成最多 64 个矩形段。
+这是只显示数值的进度条，不是可拖动滑块。
+初始值在创建时显示，运行时更新必须调用生成的 C 接口。
+
+```xml
+<hg_progress id="volume_level" x="20" y="40" width="220" height="24"
+             progressMode="linear" orientation="horizontal" fillStart="left" borderRadius="12"
+             min="0" max="100" value="50"
+             activeColor="#3edb88" activeOpacity="255"
+             inactiveColor="#343b42" inactiveOpacity="255" />
+<hg_progress id="level_steps" x="20" y="80" width="220" height="24"
+             progressMode="segmented" segmentCount="12" segmentGap="3" fillStart="left"
+             borderRadius="4" min="0" max="100" value="50"
+             activeColor="#3edb88" activeOpacity="255"
+             inactiveColor="#343b42" inactiveOpacity="255" />
+```
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `progressMode` | 枚举 | linear | `linear` 连续填充或 `segmented` 分段 |
+| `segmentCount` | 整数 (1-64) | 12 | 段数，仅分段模式 |
+| `segmentGap` | 非负整数 | 3 | 段间距（像素），仅分段模式 |
+| `orientation` | 枚举 | horizontal | `horizontal` 或 `vertical`（从下到上填充）；在设计器中切换方向会交换宽高 |
+| `fillStart` | 枚举 | 水平 left，垂直 bottom | 水平可选 `left` / `right`，垂直可选 `bottom` / `top`。设计器切换方向时左对应下、右对应上，反之亦然。 |
+| `borderRadius` | 非负整数 | 12 | 轨道/填充或每段的圆角半径，上限为较短边的一半 |
+| `min`、`max`、`value` | int32 | 0、100、50 | 范围及初始值，超出范围时截断 |
+| `activeColor`、`inactiveColor` | #RRGGBB | #3edb88、#343b42 | 已填充及未填充颜色 |
+| `activeOpacity`、`inactiveOpacity` | 整数 (0-255) | 255 | 已填充及未填充透明度（0 完全透明、255 不透明） |
+
+生成的 `<design>_ui.h` 声明 `void volume_level_set_value(int32_t value);`。
+请在视图创建后（例如用户回调中）调用它更新填充或分段颜色；它不会修改 HML 文件。
+设计器中选中控件后，可拖动四角或四边的手柄缩放。
+
+---
+
 ## 属性分类参考
 
 HML 解析器将 XML 属性归类到以下几组：
@@ -1403,7 +1442,7 @@ HML 解析器将 XML 属性归类到以下几组：
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### 数据属性
-`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`
 
 ### 元属性
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`

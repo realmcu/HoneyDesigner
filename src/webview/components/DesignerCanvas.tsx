@@ -14,7 +14,7 @@ import { AlignmentGuides, AlignmentLine } from './AlignmentGuides';
 import { ResizeHandles, ResizeDirection } from './ResizeHandles';
 
 /** 画布上可直接拖拽手柄修改尺寸的组件类型 */
-const RESIZABLE_TYPES: ComponentType[] = ['hg_label', 'hg_rect', 'hg_circle', 'hg_arc'];
+const RESIZABLE_TYPES: ComponentType[] = ['hg_label', 'hg_rect', 'hg_circle', 'hg_arc', 'hg_progress'];
 const CORNER_DIRECTIONS: ResizeDirection[] = ['nw', 'ne', 'sw', 'se'];
 import { MoveHandle } from './MoveHandle';
 import { calculateAlignment } from '../utils/dragAlignmentGuides';
@@ -133,6 +133,26 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     canvasOffset,
     updateComponent,
   });
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const handleMove = (event: MouseEvent) => {
+      if (!canvasRef.current?.contains(event.target as Node)) {
+        handleResizeMove(event, event.shiftKey);
+      }
+    };
+    const handleUp = (event: MouseEvent) => {
+      if (!canvasRef.current?.contains(event.target as Node)) {
+        handleResizeEnd();
+      }
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
   
   // 菜单动作辅助函数
   const menuActionHelpers: MenuActionHelpers = {
@@ -770,7 +790,8 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     }
 
     // 是否显示 resize handles（文本与基础图形，选中且未锁定的组件）
-    const showResizeHandles = RESIZABLE_TYPES.includes(component.type) && (isSelected || isMultiSelected) && !component.locked && !isResizing;
+    const showResizeHandles = RESIZABLE_TYPES.includes(component.type) && (isSelected || isMultiSelected) && !component.locked
+      && (!isResizing || resizingComponentId === component.id);
     // 圆形/弧形只能等比缩放，仅显示四角手柄
     const resizeDirections = RADIUS_SIZED_TYPES.includes(component.type) ? CORNER_DIRECTIONS : undefined;
 

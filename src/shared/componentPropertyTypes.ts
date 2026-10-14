@@ -145,6 +145,15 @@ const COMPONENT_PROPERTY_TYPES: Record<string, Record<string, PropertyType>> = {
     buttonPressedOpacity: 'number',
     buttonReleasedOpacity: 'number',
   },
+  hg_progress: {
+    segmentCount: 'number',
+    segmentGap: 'number',
+    activeOpacity: 'number',
+    inactiveOpacity: 'number',
+    min: 'number',
+    max: 'number',
+    value: 'number',
+  },
 
   // ─── 多媒体 ───
   hg_video: {

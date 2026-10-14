@@ -9,6 +9,7 @@ import { InputWidget } from './InputWidget';
 import { CheckboxWidget } from './CheckboxWidget';
 import { RadioWidget } from './RadioWidget';
 import { ProgressBarWidget } from './ProgressBarWidget';
+import { ProgressWidget } from './ProgressWidget';
 import { SliderWidget } from './SliderWidget';
 import { SwitchWidget } from './SwitchWidget';
 import { ContainerWidget } from './ContainerWidget';
@@ -55,6 +56,7 @@ export const widgetRegistry: Record<string, React.ComponentType<WidgetProps>> = 
   hg_checkbox: widgetMemo(CheckboxWidget),
   hg_radio: widgetMemo(RadioWidget),
   hg_progressbar: widgetMemo(ProgressBarWidget),
+  hg_progress: widgetMemo(ProgressWidget),
   hg_slider: widgetMemo(SliderWidget),
   hg_switch: widgetMemo(SwitchWidget),
   hg_view: widgetMemo(ContainerWidget),

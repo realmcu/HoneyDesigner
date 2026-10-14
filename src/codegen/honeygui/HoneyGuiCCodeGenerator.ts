@@ -20,6 +20,8 @@ import { ComponentGeneratorFactory, GeneratorContext } from './components';
 import { ListGenerator } from './components/ListGenerator';
 import { LabelGenerator } from './components/LabelGenerator';
 import { ArcGenerator } from './components/ArcGenerator';
+import { ProgressGenerator } from './components/ProgressGenerator';
+import { progressConfig } from '../../shared/progressConfig';
 import { CallbackFileGenerator, UserFileGenerator, ProtectedAreaMerger } from './files';
 import { timerReloadArg } from './PresetTimerModel';
 
@@ -162,8 +164,11 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       code += `#include "gui_view_instance.h"\n`;
     }
 
-    if (hasWindow) {
+    if (hasWindow || componentTypes.includes('hg_progress')) {
       code += `#include "gui_win.h"\n`;
+    }
+    if (componentTypes.includes('hg_progress')) {
+      code += `#include "gui_rect.h"\n#include <stdint.h>\n`;
     }
 
     // Check for text-related components (label, time_label, scroll_text)
@@ -263,6 +268,16 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       }
     });
 
+    for (const comp of this.components.filter(c => c.type === 'hg_progress')) {
+      const config = progressConfig(comp.data, comp.style);
+      if (config.mode === 'linear') {
+        code += `extern gui_rounded_rect_t *${comp.id}_track, *${comp.id}_fill;\n`;
+      } else {
+        code += `extern gui_rounded_rect_t *${comp.id}_segments[${config.count}];\n`;
+      }
+      code += `extern void ${comp.id}_set_value(int32_t value);\n`;
+    }
+
     // Toggle button state management function declarations
     const toggleButtons = this.components.filter(c => c.type === 'hg_button' && (c.data?.toggleMode === true || c.data?.toggleMode === 'true'));
     if (toggleButtons.length > 0) {
@@ -355,6 +370,10 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
         }
       }
     });
+
+    for (const comp of this.components.filter(c => c.type === 'hg_progress')) {
+      code += new ProgressGenerator().generateValueSetter(comp);
+    }
 
     // Generate global time string variables for time labels
     if (timeLabels.length > 0) {
@@ -923,6 +942,7 @@ static void ${component.id}_breath_anim_cb(void *p)
       case 'hg_gif':
         return 'gui_gif_t';
       case 'hg_window':
+      case 'hg_progress':
         return 'gui_win_t';
       case 'hg_list':
         return 'gui_list_t';

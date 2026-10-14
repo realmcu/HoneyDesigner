@@ -230,6 +230,7 @@ commit `340bc18` (2026-06-15) regenerated from `engineSupport`.
 | **Graphics** | `hg_arc` | ✅ | ✅ |
 | | `hg_circle` | ✅ | ✅ |
 | | `hg_rect` | ✅ | ✅ |
+| | `hg_progress` | ✅ | ❌ |
 | | `hg_svg` | ✅ | ✅ |
 | | `hg_qbcode` | ✅ | ✅ |
 | | `hg_glass` | ✅ | ❌ |
@@ -1450,6 +1451,47 @@ src/
 
 ---
 
+### `hg_progress` - Progress (HoneyGUI only)
+
+Engine: HoneyGUI ready; LVGL unsupported. This is a leaf control, not a container.
+Internally it creates a window and either a track and fill (`linear`) or up to 64
+rectangles (`segmented`). Do not add HML children. This is a display-only progress
+indicator, not a draggable slider. The initial value is rendered on creation;
+runtime updates require the generated C setter.
+
+```xml
+<hg_progress id="volume_level" x="20" y="40" width="220" height="24"
+             progressMode="linear" orientation="horizontal" fillStart="left" borderRadius="12"
+             min="0" max="100" value="50"
+             activeColor="#3edb88" activeOpacity="255"
+             inactiveColor="#343b42" inactiveOpacity="255" />
+<hg_progress id="level_steps" x="20" y="80" width="220" height="24"
+             progressMode="segmented" segmentCount="12" segmentGap="3" fillStart="left"
+             borderRadius="4" min="0" max="100" value="50"
+             activeColor="#3edb88" activeOpacity="255"
+             inactiveColor="#343b42" inactiveOpacity="255" />
+```
+
+| Attribute | Type | Default | Meaning |
+|-----------|------|---------|---------|
+| `progressMode` | enum | linear | `linear` continuous fill or `segmented` blocks |
+| `segmentCount` | integer (1-64) | 12 | Number of segments; segmented mode only |
+| `segmentGap` | integer (>=0) | 3 | Gap in pixels; segmented mode only |
+| `orientation` | enum | horizontal | `horizontal` or `vertical` (fills bottom to top); changing direction in the designer swaps width and height |
+| `fillStart` | enum | left (horizontal), bottom (vertical) | Horizontal: `left` / `right`; vertical: `bottom` / `top`. Changing orientation in the designer maps left to bottom and right to top (and vice versa). |
+| `borderRadius` | integer (>=0) | 12 | Track/fill or each segment; clamped to half the shorter side |
+| `min`, `max`, `value` | int32 | 0, 100, 50 | Range and initial value; value is clamped |
+| `activeColor`, `inactiveColor` | #RRGGBB | #3edb88, #343b42 | Filled and unfilled colors |
+| `activeOpacity`, `inactiveOpacity` | integer (0-255) | 255 | Filled and unfilled opacity (0 transparent, 255 opaque) |
+
+The generated `<design>_ui.h` declares `void volume_level_set_value(int32_t value);`.
+Call it after the view has been created (for example from user callbacks); the
+implementation clamps the value and updates the fill or segment colors. This setter
+does not mutate the HML file. In the designer, select the control and drag its
+corner or edge handles to resize it.
+
+---
+
 ## Attribute Classification Reference
 
 The HML parser categorizes XML attributes into the following buckets:
@@ -1458,7 +1500,7 @@ The HML parser categorizes XML attributes into the following buckets:
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### Data Attributes
-`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`
 
 ### Meta Attributes
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`

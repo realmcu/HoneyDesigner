@@ -9,6 +9,7 @@ import { HgListProperties } from './HgListProperties';
 import { ListItemProperties } from './ListItemProperties';
 import { GeometryProperties } from './GeometryProperties';
 import { DefaultProperties } from './DefaultProperties';
+import { ProgressProperties } from './ProgressProperties';
 import { HgParticleProperties } from './HgParticleProperties';
 import { HgMenuCellularProperties } from './HgMenuCellularProperties';
 import { HgQbcodeProperties } from './HgQbcodeProperties';
@@ -28,6 +29,7 @@ export const propertyPanelRegistry: Record<ComponentType, React.FC<PropertyPanel
   hg_switch: DefaultProperties,
   hg_slider: DefaultProperties,
   hg_progressbar: DefaultProperties,
+  hg_progress: ProgressProperties,
   hg_image: HgImageProperties,
   hg_gif: HgGifProperties,
   hg_window: HgWindowProperties,
