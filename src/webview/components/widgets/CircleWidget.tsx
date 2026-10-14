@@ -1,5 +1,6 @@
 import React from 'react';
 import { WidgetProps } from './types';
+import { useGeometryButtonPreview } from './useGeometryButtonPreview';
 
 interface GradientStop {
   position: number;
@@ -7,13 +8,17 @@ interface GradientStop {
 }
 
 export const CircleWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
+  const { isOn, previewHandlers } = useGeometryButtonPreview(component);
   const width = component.position?.width ?? 100;
   const height = component.position?.height ?? 100;
   const s = component.style || {};
   const d = component.data || {};
   
   const radius = s.radius ?? 40;
-  const fillColor = s.fillColor ?? '#007acc';
+  const isDualState = d.buttonMode === 'dual-state';
+  const fillColor = isDualState
+    ? (isOn ? d.buttonStateOnColor || '#00FF00' : d.buttonStateOffColor || '#FF0000')
+    : s.fillColor ?? '#007acc';
   const opacity = s.opacity !== undefined ? s.opacity / 255 : 1;
 
   // 渐变设置
@@ -82,12 +87,12 @@ export const CircleWidget: React.FC<WidgetProps> = ({ component, style, handlers
   };
 
   // 确定填充颜色
-  const fill = useGradient && gradientStops.length >= 2 
+  const fill = !isDualState && useGradient && gradientStops.length >= 2
     ? `url(#${gradientId})` 
     : fillColor;
 
   return (
-    <div style={{ ...style, overflow: 'visible' }} {...handlers}>
+    <div style={{ ...style, overflow: 'visible' }} {...handlers} {...previewHandlers}>
       <svg width={width} height={height} style={{ display: 'block' }}>
         {renderGradient()}
         <circle

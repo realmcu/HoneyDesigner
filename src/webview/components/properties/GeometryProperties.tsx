@@ -339,6 +339,80 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
               </CollapsibleGroup>
             )}
 
+            {(component.type === 'hg_rect' || component.type === 'hg_circle') && (
+              <CollapsibleGroup title={t('Interaction')}>
+                <div className="property-item">
+                  <label>{t('Button Mode')}</label>
+                  <PropertyEditor
+                    type="select"
+                    value={component.data?.buttonMode || 'none'}
+                    onChange={(value) => handleDataChange('buttonMode', value)}
+                    options={[
+                      { value: 'none', label: t('none') },
+                      { value: 'dual-state', label: t('dual-state') },
+                      { value: 'opacity', label: t('opacity') },
+                    ]}
+                  />
+                </div>
+                {component.data?.buttonMode === 'dual-state' && (
+                  <>
+                    <div className="property-item">
+                      <label>{t('Initial State')}</label>
+                      <PropertyEditor
+                        type="select"
+                        value={component.data?.buttonInitialState || 'off'}
+                        onChange={(value) => handleDataChange('buttonInitialState', value)}
+                        options={[
+                          { value: 'off', label: t('off') },
+                          { value: 'on', label: t('on') },
+                        ]}
+                      />
+                    </div>
+                    <div className="property-item">
+                      <label>{t('Off State Color')}</label>
+                      <PropertyEditor
+                        type="color"
+                        value={component.data?.buttonStateOffColor || '#FF0000'}
+                        onChange={(value) => handleDataChange('buttonStateOffColor', value)}
+                      />
+                    </div>
+                    <div className="property-item">
+                      <label>{t('On State Color')}</label>
+                      <PropertyEditor
+                        type="color"
+                        value={component.data?.buttonStateOnColor || '#00FF00'}
+                        onChange={(value) => handleDataChange('buttonStateOnColor', value)}
+                      />
+                    </div>
+                  </>
+                )}
+                {component.data?.buttonMode === 'opacity' && (
+                  <>
+                    <div className="property-item">
+                      <label>{t('Pressed Opacity')}</label>
+                      <PropertyEditor
+                        type="number"
+                        value={component.data?.buttonPressedOpacity ?? 128}
+                        onChange={(value) => handleDataChange('buttonPressedOpacity', value)}
+                        min={0}
+                        max={255}
+                      />
+                    </div>
+                    <div className="property-item">
+                      <label>{t('Released Opacity')}</label>
+                      <PropertyEditor
+                        type="number"
+                        value={component.data?.buttonReleasedOpacity ?? 255}
+                        onChange={(value) => handleDataChange('buttonReleasedOpacity', value)}
+                        min={0}
+                        max={255}
+                      />
+                    </div>
+                  </>
+                )}
+              </CollapsibleGroup>
+            )}
+
             {/* General Properties - 通用属性（如弧形群组） */}
             {definition && definition.properties.filter(p => p.group === 'general').length > 0 && (
               <CollapsibleGroup title={t('Advanced')} defaultCollapsed={true}>

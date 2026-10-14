@@ -53,7 +53,7 @@ export class RectGenerator implements ComponentCodeGenerator {
     // Note: opacity already set in gui_rgba, no separate opacity_value needed
 
     // Gradient settings
-    if (component.style?.useGradient && component.data?.gradientStops) {
+    if (component.data?.buttonMode !== 'dual-state' && component.style?.useGradient && component.data?.gradientStops) {
       const stops = component.data.gradientStops as Array<{ position: number; color: string }>;
       if (stops.length >= 2) {
         const direction = component.style?.gradientDirection || 'horizontal';

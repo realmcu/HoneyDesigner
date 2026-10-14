@@ -1,5 +1,6 @@
 import React from 'react';
 import { WidgetProps } from './types';
+import { useGeometryButtonPreview } from './useGeometryButtonPreview';
 
 interface GradientStop {
   position: number;
@@ -7,11 +8,15 @@ interface GradientStop {
 }
 
 export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
+  const { isOn, previewHandlers } = useGeometryButtonPreview(component);
   const s = component.style || {};
   const d = component.data || {};
   
   const borderRadius = s.borderRadius ?? 0;
-  const fillColor = s.fillColor ?? '#007acc';
+  const isDualState = d.buttonMode === 'dual-state';
+  const fillColor = isDualState
+    ? (isOn ? d.buttonStateOnColor || '#00FF00' : d.buttonStateOffColor || '#FF0000')
+    : s.fillColor ?? '#007acc';
   const opacity = s.opacity ?? 255;
 
   // 渐变设置
@@ -21,7 +26,7 @@ export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers, 
 
   // 生成 CSS 渐变
   const getGradientBackground = () => {
-    if (!useGradient || gradientStops.length < 2) {
+    if (isDualState || !useGradient || gradientStops.length < 2) {
       return fillColor;
     }
 
@@ -57,5 +62,5 @@ export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers, 
     opacity: opacity / 255,
   };
 
-  return <div style={rectStyle} {...handlers}>{children}</div>;
+  return <div style={rectStyle} {...handlers} {...previewHandlers}>{children}</div>;
 };

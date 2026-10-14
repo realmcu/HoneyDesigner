@@ -1174,11 +1174,17 @@ const App: React.FC = () => {
       Object.assign(defaultData, preset);
     }
 
+    const isGeometryButton = (componentType === 'hg_circle' || componentType === 'hg_rect')
+      && preset?.buttonMode && preset.buttonMode !== 'none';
+    const componentName = isGeometryButton
+      ? componentId.replace(/_(\d+)$/, '_button_$1')
+      : componentId;
+
     // 创建新组件对象
     const newComponent: Component = {
       id: componentId,
       type: componentType,
-      name: componentId,
+      name: componentName,
       position: {
         x: positionX,
         y: positionY,

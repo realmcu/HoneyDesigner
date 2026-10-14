@@ -894,6 +894,8 @@ const en = {
   'Opacity States': 'Opacity States',
   'Pressed': 'Pressed',
   'Released': 'Released',
+  'Pressed Opacity': 'Pressed Opacity',
+  'Released Opacity': 'Released Opacity',
 
   // Timer animations
   'Run immediately': 'Run immediately',
