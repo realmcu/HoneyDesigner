@@ -12,6 +12,7 @@ import { WebviewContentProvider } from './WebviewContentProvider';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CodeGenerationService } from '../services/CodeGenerationService';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
+import { filterPanelsByProject } from './projectPanelFilter';
 import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
 import { performance } from 'perf_hooks';
 
@@ -66,6 +67,22 @@ export class DesignerPanel {
      */
     public static getPanel(filePath: string): DesignerPanel | undefined {
         return DesignerPanel.panelRegistry.get(PendingWriteRegistry.normalizePathKey(filePath));
+    }
+
+    /**
+     * 向同一项目下的其他设计器面板广播消息（排除 excludeFilePath 对应的发起面板）。
+     * i18n/strings.json 是项目级文件，自写登记会让其他面板的 watcher 回灌被吞，需主动广播。
+     */
+    public static broadcastToProject(projectRoot: string, message: unknown, excludeFilePath?: string): void {
+        const targets = filterPanelsByProject(
+            DesignerPanel.panelRegistry.values(),
+            panel => panel.currentFilePath,
+            projectRoot,
+            excludeFilePath
+        );
+        for (const panel of targets) {
+            panel._panel.webview.postMessage(message);
+        }
     }
 
     /**

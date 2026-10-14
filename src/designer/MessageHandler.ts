@@ -1346,10 +1346,16 @@ export class MessageHandler {
                 logger.warn(`[MessageHandler] i18n catalog 写后读回失败，登记退化为纯时间窗: ${readErr}`);
             }
 
-            this._panel.webview.postMessage({
+            const savedMessage = {
                 command: 'projectI18nCatalogSaved',
                 projectI18nCatalog: normalizedCatalog
-            });
+            };
+            this._panel.webview.postMessage(savedMessage);
+
+            // 登记表是全局的：发起面板的 watcher 消费后，同项目其他面板的 watcher 回灌会被吞，
+            // 必须在此主动广播，否则其他画布的预览语言停留在旧值。
+            const { DesignerPanel } = require('./DesignerPanel') as typeof import('./DesignerPanel');
+            DesignerPanel.broadcastToProject(projectRoot, savedMessage, this._fileManager.currentFilePath);
 
             logger.debug('[MessageHandler] 项目多语言目录已保存');
         } catch (error) {
