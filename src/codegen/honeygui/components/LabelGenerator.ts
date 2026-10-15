@@ -323,7 +323,8 @@ export class LabelGenerator implements ComponentCodeGenerator {
     const fontSize = component.data?.fontSize || 16;
     const renderMode = parseInt(component.data?.renderMode || '4', 10);
 
-    const fontDir = path.dirname(fontFile);
+    // HML font paths start with "/" (VFS root), not a host filesystem root.
+    const fontDir = path.posix.dirname(String(fontFile).replace(/\\/g, '/').replace(/^\/+/, ''));
     
     let convertedFileName: string;
     if (fontType === 'vector') {
@@ -332,9 +333,6 @@ export class LabelGenerator implements ComponentCodeGenerator {
       convertedFileName = `${fontName}_size${fontSize}_bits${renderMode}_bitmap.bin`;
     }
 
-    if (fontDir && fontDir !== '.') {
-      return `${fontDir}/${convertedFileName}`;
-    }
-    return convertedFileName;
+    return fontDir === '.' ? `/${convertedFileName}` : `/${fontDir}/${convertedFileName}`;
   }
 }

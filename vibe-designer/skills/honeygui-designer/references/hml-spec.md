@@ -1454,8 +1454,9 @@ src/
 ### `hg_progress` - Progress (HoneyGUI only)
 
 Engine: HoneyGUI ready; LVGL unsupported. This is a leaf control, not a container.
-Internally it creates a window and either a track and fill (`linear`) or up to 64
-rectangles (`segmented`). Do not add HML children. This is a display-only progress
+Internally it creates a window and either a track and fill (`linear`), up to 64
+rectangles (`segmented`), a track and fill arc (`arc`), or up to 64 arcs
+(`arc-segmented`). Do not add HML children. This is a display-only progress
 indicator, not a draggable slider. The initial value is rendered on creation;
 runtime updates require the generated C setter.
 
@@ -1470,23 +1471,45 @@ runtime updates require the generated C setter.
              borderRadius="4" min="0" max="100" value="50"
              activeColor="#3edb88" activeOpacity="255"
              inactiveColor="#343b42" inactiveOpacity="255" />
+<hg_progress id="dial_level" x="20" y="120" width="100" height="100"
+             progressMode="arc" arcStartAngle="-90" arcSweepAngle="360"
+             arcStrokeWidth="8" min="0" max="100" value="50"
+             showValueLabel="true" valueLabelFormat="percent" valueLabelColor="#ffffff"
+             fontSize="16" fontFile="/NotoSansSC-Medium.ttf" fontType="bitmap"
+             activeColor="#4945b5" inactiveColor="#dcd9ff" />
+<hg_progress id="dial_steps" x="140" y="120" width="100" height="100"
+             progressMode="arc-segmented" segmentCount="8" arcSegmentGap="8"
+             arcStartAngle="-90" arcSweepAngle="360" arcDirection="counterclockwise" arcStrokeWidth="8"
+             min="0" max="100" value="50"
+             activeColor="#4945b5" inactiveColor="#dcd9ff" />
 ```
 
 | Attribute | Type | Default | Meaning |
 |-----------|------|---------|---------|
-| `progressMode` | enum | linear | `linear` continuous fill or `segmented` blocks |
-| `segmentCount` | integer (1-64) | 12 | Number of segments; segmented mode only |
-| `segmentGap` | integer (>=0) | 3 | Gap in pixels; segmented mode only |
-| `orientation` | enum | horizontal | `horizontal` or `vertical` (fills bottom to top); changing direction in the designer swaps width and height |
-| `fillStart` | enum | left (horizontal), bottom (vertical) | Horizontal: `left` / `right`; vertical: `bottom` / `top`. Changing orientation in the designer maps left to bottom and right to top (and vice versa). |
-| `borderRadius` | integer (>=0) | 12 | Track/fill or each segment; clamped to half the shorter side |
+| `progressMode` | enum | linear | `linear`, `segmented`, `arc`, or `arc-segmented` |
+| `segmentCount` | integer (1-64) | 12 | Number of segments; both segmented modes only |
+| `segmentGap` | integer (>=0) | 3 | Gap in pixels; linear segmented mode only |
+| `arcStartAngle` | number (-360 to 360) | -90 | Arc start angle in degrees (0 at right, positive clockwise) |
+| `arcSweepAngle` | number (1-360) | 360 | Arc sweep in degrees |
+| `arcDirection` | enum | clockwise | `clockwise` or `counterclockwise`; progress starts at `arcStartAngle` |
+| `arcStrokeWidth` | integer (>=1) | 8 | Arc stroke width in pixels; limited by widget size |
+| `arcSegmentGap` | number (>=0) | 8 | Gap in degrees between arc segments; limited to leave at least one degree per segment |
+| `orientation` | enum | horizontal | Linear modes only: `horizontal` or `vertical` (fills bottom to top); changing direction in the designer swaps width and height |
+| `fillStart` | enum | left (horizontal), bottom (vertical) | Linear modes only: horizontal `left` / `right`, vertical `bottom` / `top` |
+| `borderRadius` | integer (>=0) | 12 | Linear modes only: track/fill or each segment; clamped to half the shorter side |
 | `min`, `max`, `value` | int32 | 0, 100, 50 | Range and initial value; value is clamped |
 | `activeColor`, `inactiveColor` | #RRGGBB | #3edb88, #343b42 | Filled and unfilled colors |
 | `activeOpacity`, `inactiveOpacity` | integer (0-255) | 255 | Filled and unfilled opacity (0 transparent, 255 opaque) |
+| `showValueLabel` | boolean | false | Create a centered numeric label in any of the four modes |
+| `valueLabelFormat` | enum | percent | `percent` shows rounded range percentage (e.g. `72%`); `value` shows the current integer |
+| `valueLabelColor` | #RRGGBB | #ffffff | Numeric label color |
+| `fontSize`, `fontFile`, `fontType`, `renderMode` | font settings | 16, empty, bitmap, 4 | Numeric label font; supply a project font in `assets/` as `fontFile="/name.ttf"` for firmware rendering. Bitmap fonts are converted at this size. |
+| `valueLabelOffsetX`, `valueLabelOffsetY` | integer | 0 | Label position offset in pixels relative to center |
 
 The generated `<design>_ui.h` declares `void volume_level_set_value(int32_t value);`.
 Call it after the view has been created (for example from user callbacks); the
-implementation clamps the value and updates the fill or segment colors. This setter
+implementation clamps the value and updates the linear fill, arc sweep, or segment colors and the
+optional numeric label. This setter
 does not mutate the HML file. In the designer, select the control and drag its
 corner or edge handles to resize it.
 
@@ -1500,7 +1523,7 @@ The HML parser categorizes XML attributes into the following buckets:
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### Data Attributes
-`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`
 
 ### Meta Attributes
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`

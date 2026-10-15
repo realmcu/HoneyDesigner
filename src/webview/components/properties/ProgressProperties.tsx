@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FolderOpen } from 'lucide-react';
 import type { PropertyPanelProps } from './types';
 import { BaseProperties } from './BaseProperties';
 import { CollapsibleGroup } from './CollapsibleGroup';
@@ -34,28 +35,152 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   <PropertyEditor type="number" value={field.value} onChange={value => update(field.key, value)} />
                 </div>
               ))}
+              <div className="property-item">
+                <label>{t('Show Value Label')}</label>
+                <PropertyEditor type="boolean" value={config.showValueLabel}
+                  onChange={value => update('showValueLabel', value)} />
+              </div>
+              {config.showValueLabel && (
+                <>
+                  <div className="property-item">
+                    <label>{t('Value Label Format')}</label>
+                    <PropertyEditor type="select" value={config.valueLabelFormat}
+                      options={[
+                        { value: 'percent', label: t('Percentage') },
+                        { value: 'value', label: t('Current Value') },
+                      ]}
+                      onChange={value => update('valueLabelFormat', value)} />
+                  </div>
+                  <div className="property-item">
+                    <label>{t('Value Label Color')}</label>
+                    <PropertyEditor type="color" value={config.valueLabelColor}
+                      onChange={value => update('valueLabelColor', value)} />
+                  </div>
+                  <div className="property-item">
+                    <label>{t('Value Label Font Size')}</label>
+                    <PropertyEditor type="number" value={config.valueLabelFontSize} min={1} max={255}
+                      onChange={value => update('fontSize', Math.round(value))} />
+                  </div>
+                  <div className="property-item">
+                    <label>{t('Font File')}</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <PropertyEditor type="string" value={component.data?.fontFile ?? ''}
+                          onChange={value => update('fontFile', value)} />
+                      </div>
+                      <button type="button"
+                        onClick={() => window.vscodeAPI?.postMessage({
+                          command: 'selectFontPath',
+                          componentId: component.id,
+                        })}
+                        title={t('Font File')}
+                        aria-label={t('Font File')}
+                        style={{
+                          flex: '0 0 28px', width: 28, height: 28, marginTop: 4,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          backgroundColor: 'var(--vscode-button-background)',
+                          color: 'var(--vscode-button-foreground)',
+                          border: 'none', borderRadius: 2, cursor: 'pointer',
+                        }}>
+                        <FolderOpen size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="property-item">
+                    <label>{t('Font Type')}</label>
+                    <PropertyEditor type="select" value={component.data?.fontType || 'bitmap'}
+                      options={[
+                        { value: 'bitmap', label: t('Bitmap font') },
+                        { value: 'vector', label: t('Vector font') },
+                      ]}
+                      onChange={value => update('fontType', value)} />
+                  </div>
+                  <div className="property-item">
+                    <label>{t('Value Label Offset X')}</label>
+                    <PropertyEditor type="number" value={config.valueLabelOffsetX}
+                      onChange={value => update('valueLabelOffsetX', Math.round(value))} />
+                  </div>
+                  <div className="property-item">
+                    <label>{t('Value Label Offset Y')}</label>
+                    <PropertyEditor type="number" value={config.valueLabelOffsetY}
+                      onChange={value => update('valueLabelOffsetY', Math.round(value))} />
+                  </div>
+                </>
+              )}
             </CollapsibleGroup>
             <CollapsibleGroup title={t('Style')}>
               <div className="property-item">
                 <label>{t('Progress Mode')}</label>
                 <PropertyEditor type="select" value={config.mode}
-                  options={[{ value: 'linear', label: t('Linear') }, { value: 'segmented', label: t('Segmented') }]}
-                  onChange={value => update('progressMode', value)} />
+                  options={[
+                    { value: 'linear', label: t('Linear') },
+                    { value: 'segmented', label: t('Segmented') },
+                    { value: 'arc', label: t('Arc Progress') },
+                    { value: 'arc-segmented', label: t('Segmented Arc') },
+                  ]}
+                  onChange={value => {
+                    const wasArc = config.mode.startsWith('arc');
+                    const isArc = String(value).startsWith('arc');
+                    const { width, height } = component.position;
+                    const isDefaultSize = wasArc
+                      ? width === 100 && height === 100
+                      : config.vertical ? width === 24 && height === 220 : width === 220 && height === 24;
+                    const longestSide = Math.max(width, height);
+                    const nextSize = isDefaultSize
+                      ? (isArc ? { width: 100, height: 100 }
+                        : config.vertical ? { width: 24, height: 220 } : { width: 220, height: 24 })
+                      : (isArc ? { width: longestSide, height: longestSide }
+                        : config.vertical ? { width: 24, height: longestSide } : { width: longestSide, height: 24 });
+                    onUpdate({
+                      data: { ...component.data, progressMode: value },
+                      ...(wasArc !== isArc ? {
+                        position: { ...component.position, ...nextSize },
+                      } : {}),
+                    });
+                  }} />
               </div>
-              {config.mode === 'segmented' && (
+              {(config.mode === 'segmented' || config.mode === 'arc-segmented') && (
                 <>
                   <div className="property-item">
                     <label>{t('Segment Count')}</label>
                     <PropertyEditor type="number" value={config.count} min={1} max={64}
                       onChange={value => update('segmentCount', Math.round(value))} />
                   </div>
-                  <div className="property-item">
+                  {config.mode === 'segmented' && <div className="property-item">
                     <label>{t('Segment Gap')}</label>
                     <PropertyEditor type="number" value={config.gap} min={0}
                       onChange={value => update('segmentGap', Math.round(value))} />
-                  </div>
+                  </div>}
                 </>
               )}
+              {config.mode.startsWith('arc') && (
+                <>
+                  <div className="property-item">
+                    <label>{t('Arc Direction')}</label>
+                    <PropertyEditor type="select" value={config.arcDirection}
+                      options={[
+                        { value: 'clockwise', label: t('Clockwise') },
+                        { value: 'counterclockwise', label: t('Counterclockwise') },
+                      ]}
+                      onChange={value => update('arcDirection', value)} />
+                  </div>
+                  {([
+                    ['arcStartAngle', 'Arc Start Angle', config.arcStartAngle, -360, 360],
+                    ['arcSweepAngle', 'Arc Sweep Angle', config.arcSweepAngle, 1, 360],
+                    ['arcStrokeWidth', 'Arc Stroke Width', config.arcStrokeWidth, 1, 10000],
+                    ...(config.mode === 'arc-segmented'
+                      ? [['arcSegmentGap', 'Arc Segment Gap', config.arcSegmentGap, 0, 360]]
+                      : []),
+                  ] as Array<[string, string, number, number, number]>).map(([key, label, value, min, max]) => (
+                    <div className="property-item" key={key}>
+                      <label>{t(label as Parameters<typeof t>[0])}</label>
+                      <PropertyEditor type="number" value={value} min={min} max={max}
+                        onChange={next => update(key, next)} />
+                    </div>
+                  ))}
+                </>
+              )}
+              {!config.mode.startsWith('arc') && <>
               <div className="property-item">
                 <label>{t('Border Radius')}</label>
                 <PropertyEditor type="number" value={config.cornerRadius} min={0}
@@ -94,6 +219,7 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                     : [{ value: 'left', label: t('Left') }, { value: 'right', label: t('Right') }]}
                   onChange={value => update('fillStart', value)} />
               </div>
+              </>}
               <div className="property-item">
                 <label>{t('Active Color')}</label>
                 <PropertyEditor type="color" value={config.activeColor} onChange={value => update('activeColor', value)} />

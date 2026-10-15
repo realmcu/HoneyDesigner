@@ -1,9 +1,12 @@
 import type { Component } from '../../../hml/types';
-import { activeSegmentCount, progressConfig, progressCornerRadius, segmentBounds } from '../../../shared/progressConfig';
+import { activeSegmentCount, arcGeometry, arcSegmentAngles, progressConfig, progressCornerRadius, progressLabelText, segmentBounds } from '../../../shared/progressConfig';
 import { convertColorWithOpacity } from '../utils';
 import type { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { LabelGenerator } from './LabelGenerator';
 
-export class ProgressGenerator implements ComponentCodeGenerator {
+const cFloat = (value: number) => `${Number.isInteger(value) ? `${value}.0` : value}f`;
+
+export class ProgressGenerator extends LabelGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
     const config = progressConfig(component.data, component.style);
     const active = activeSegmentCount(config);
@@ -12,11 +15,28 @@ export class ProgressGenerator implements ComponentCodeGenerator {
     const height = Math.max(1, Math.round(component.position.height));
     const pad = '    '.repeat(indent);
     let code = `${pad}${component.id} = gui_win_create(${context.getParentRef(component)}, "${component.id}", ${x}, ${y}, ${width}, ${height});\n`;
-    if (config.mode === 'linear') {
+    if (config.mode.startsWith('arc')) {
+      const { cx, cy, radius, stroke } = arcGeometry(config, width, height);
+      const centerX = Math.round(cx);
+      const centerY = Math.round(cy);
+      const parent = `(gui_obj_t *)${component.id}`;
+      if (config.mode === 'arc') {
+        const end = config.arcStartAngle + (config.arcDirection === 'clockwise' ? 1 : -1) * config.arcSweepAngle;
+        code += `${pad}${component.id}_track = gui_arc_create(${parent}, "${component.id}_track", ${centerX}, ${centerY}, ${radius}, ${Math.min(config.arcStartAngle, end)}, ${Math.max(config.arcStartAngle, end)}, ${stroke}, ${convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity)});\n`;
+        code += `${pad}${component.id}_fill = gui_arc_create(${parent}, "${component.id}_fill", ${centerX}, ${centerY}, ${radius}, ${config.arcDirection === 'clockwise' ? config.arcStartAngle : config.arcStartAngle - 1}, ${config.arcDirection === 'clockwise' ? config.arcStartAngle + 1 : config.arcStartAngle}, ${stroke}, ${convertColorWithOpacity(config.activeColor, config.activeOpacity)});\n`;
+      } else {
+        for (let index = 0; index < config.count; index++) {
+          const { start, end } = arcSegmentAngles(config, width, height, index);
+          const color = index < active
+            ? convertColorWithOpacity(config.activeColor, config.activeOpacity)
+            : convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
+          code += `${pad}${component.id}_arcs[${index}] = gui_arc_create(${parent}, "${component.id}_arc_${index}", ${centerX}, ${centerY}, ${radius}, ${Math.min(start, end)}, ${Math.max(start, end)}, ${stroke}, ${color});\n`;
+        }
+      }
+    } else if (config.mode === 'linear') {
       const radius = progressCornerRadius(config, width, height);
       code += `${pad}${component.id}_track = gui_rect_create((gui_obj_t *)${component.id}, "${component.id}_track", 0, 0, ${width}, ${height}, ${radius}, ${convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity)});\n`;
       code += `${pad}${component.id}_fill = gui_rect_create((gui_obj_t *)${component.id}, "${component.id}_fill", 0, 0, 1, 1, 0, ${convertColorWithOpacity(config.activeColor, config.activeOpacity)});\n`;
-      code += `${pad}${component.id}_set_value(${config.value});\n`;
     } else {
       for (let index = 0; index < config.count; index++) {
         const bounds = segmentBounds(config, width, height, index);
@@ -26,6 +46,21 @@ export class ProgressGenerator implements ComponentCodeGenerator {
           : convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
         code += `${pad}${component.id}_segments[${index}] = gui_rect_create((gui_obj_t *)${component.id}, "${component.id}_seg_${index}", ${bounds.x}, ${bounds.y}, ${bounds.width}, ${bounds.height}, ${radius}, ${color});\n`;
       }
+    }
+    if (config.showValueLabel) {
+      const label = `${component.id}_label`;
+      code += `${pad}${label} = gui_text_create((gui_obj_t *)${component.id}, "${label}", ${config.valueLabelOffsetX}, ${config.valueLabelOffsetY}, ${width}, ${height});\n`;
+      code += `${pad}gui_text_set(${label}, ${component.id}_label_text, ${this.getFontType(component)}, ${convertColorWithOpacity(config.valueLabelColor, 255)}, ${progressLabelText(config).length}, ${config.valueLabelFontSize});\n`;
+      if (component.data?.fontFile) {
+        code += `${pad}gui_text_type_set(${label}, "${this.getConvertedFontFileName(component)}", ${this.getFontMode()});\n`;
+      }
+      code += `${pad}gui_text_mode_set(${label}, LEFT);\n`;
+    }
+    if (config.mode === 'linear' || config.mode === 'arc' || config.showValueLabel) {
+      code += `${pad}${component.id}_set_value(${config.value});\n`;
+    }
+    if (config.showValueLabel) {
+      code += `${pad}gui_obj_create_timer((gui_obj_t *)${component.id}_label, 50, false, ${component.id}_center_label);\n`;
     }
     return code;
   }
@@ -41,6 +76,83 @@ export class ProgressGenerator implements ComponentCodeGenerator {
     const { id } = component;
     const active = convertColorWithOpacity(config.activeColor, config.activeOpacity);
     const inactive = convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
+    const labelState = config.showValueLabel
+      ? `gui_text_t *${id}_label = NULL;
+static char ${id}_label_text[24] = "${progressLabelText(config)}";
+
+static void ${id}_center_label(void *obj)
+{
+    gui_text_t *label = (gui_text_t *)obj;
+    if (label == NULL) return;
+    if (label->char_width_sum <= 0 || label->char_height_sum <= 0) {
+        gui_text_layout_measure(label);
+    }
+    // An unconverted bitmap font may not provide metrics during creation.
+    int32_t label_width = label->char_width_sum;
+    if (label_width <= 0) {
+        label_width = 0;
+        for (const char *ch = ${id}_label_text; *ch != '\\0'; ++ch) {
+            label_width += ${config.valueLabelFontSize} * (*ch == '1' ? 45 : *ch == '%' ? 80 : *ch == '-' ? 40 : 60) / 100;
+        }
+    }
+    int32_t label_height = label->char_height_sum;
+    if (label_height <= 0) label_height = ${config.valueLabelFontSize};
+    gui_text_move(label,
+                  ${config.valueLabelOffsetX} + (${Math.max(1, Math.round(component.position.width))} - label_width) / 2,
+                  ${config.valueLabelOffsetY} + (${Math.max(1, Math.round(component.position.height))} - label_height) / 2);
+}
+`
+      : '';
+    const labelUpdate = config.showValueLabel
+      ? `    if (${id}_label != NULL) {
+        snprintf(${id}_label_text, sizeof(${id}_label_text), ${config.valueLabelFormat === 'percent'
+          ? `"%ld%%", (long)((((int64_t)value - (int64_t)${config.min}) * 100 + ${Math.floor((config.max - config.min) / 2)}) / ${config.max - config.min})`
+          : '"%ld", (long)value'});
+        gui_text_content_set(${id}_label, ${id}_label_text, (uint16_t)strlen(${id}_label_text));
+        ${id}_center_label(${id}_label);
+    }
+`
+      : '';
+    if (config.mode === 'arc') {
+      return `
+gui_arc_t *${id}_track = NULL;
+gui_arc_t *${id}_fill = NULL;
+${labelState}
+
+void ${id}_set_value(int32_t value)
+{
+    if (${id}_fill == NULL) return;
+    if (value < ${config.min}) value = ${config.min};
+    if (value > ${config.max}) value = ${config.max};
+${labelUpdate}
+    if (value == ${config.min}) {
+        gui_obj_hidden((gui_obj_t *)${id}_fill, true);
+        return;
+    }
+    gui_arc_set_${config.arcDirection === 'clockwise' ? 'end' : 'start'}_angle(${id}_fill, ${cFloat(config.arcStartAngle)} ${config.arcDirection === 'clockwise' ? '+' : '-'} ${cFloat(config.arcSweepAngle)} * (float)((int64_t)value - (int64_t)${config.min}) / ${config.max - config.min});
+    gui_obj_hidden((gui_obj_t *)${id}_fill, false);
+}
+`;
+    }
+    if (config.mode === 'arc-segmented') {
+      return `
+gui_arc_t *${id}_arcs[${config.count}] = {0};
+${labelState}
+
+void ${id}_set_value(int32_t value)
+{
+    if (value < ${config.min}) value = ${config.min};
+    if (value > ${config.max}) value = ${config.max};
+${labelUpdate}
+    int32_t count = (int32_t)((((int64_t)value - (int64_t)${config.min}) * ${config.count} + ${config.max - config.min - 1}) / ${config.max - config.min});
+    for (int32_t i = 0; i < ${config.count}; ++i) {
+        if (${id}_arcs[i] != NULL) {
+            gui_arc_set_color(${id}_arcs[i], i < count ? ${active} : ${inactive});
+        }
+    }
+}
+`;
+    }
     if (config.mode === 'linear') {
       const width = Math.max(1, Math.round(component.position.width));
       const height = Math.max(1, Math.round(component.position.height));
@@ -48,12 +160,14 @@ export class ProgressGenerator implements ComponentCodeGenerator {
       return `
 gui_rounded_rect_t *${id}_track = NULL;
 gui_rounded_rect_t *${id}_fill = NULL;
+${labelState}
 
 void ${id}_set_value(int32_t value)
 {
     if (${id}_fill == NULL) return;
     if (value < ${config.min}) value = ${config.min};
     if (value > ${config.max}) value = ${config.max};
+${labelUpdate}
     int32_t length = (int32_t)((((int64_t)value - (int64_t)${config.min}) * ${extent} + ${Math.floor((config.max - config.min) / 2)}) / ${config.max - config.min});
     if (length == 0) {
         gui_obj_hidden((gui_obj_t *)${id}_fill, true);
@@ -71,11 +185,13 @@ void ${id}_set_value(int32_t value)
     }
     return `
 gui_rounded_rect_t *${id}_segments[${config.count}] = {0};
+${labelState}
 
 void ${id}_set_value(int32_t value)
 {
     if (value < ${config.min}) value = ${config.min};
     if (value > ${config.max}) value = ${config.max};
+${labelUpdate}
     int32_t count = (int32_t)((((int64_t)value - (int64_t)${config.min}) * ${config.count} + ${config.max - config.min - 1}) / ${config.max - config.min});
     for (int32_t i = 0; i < ${config.count}; ++i) {
         if (${id}_segments[i] != NULL) {

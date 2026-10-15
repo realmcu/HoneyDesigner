@@ -169,6 +169,12 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     }
     if (componentTypes.includes('hg_progress')) {
       code += `#include "gui_rect.h"\n#include <stdint.h>\n`;
+      if (this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).mode.startsWith('arc'))) {
+        code += `#include "gui_arc.h"\n`;
+      }
+      if (this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).showValueLabel)) {
+        code += `#include "gui_text.h"\n`;
+      }
     }
 
     // Check for text-related components (label, time_label, scroll_text)
@@ -272,8 +278,12 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
       const config = progressConfig(comp.data, comp.style);
       if (config.mode === 'linear') {
         code += `extern gui_rounded_rect_t *${comp.id}_track, *${comp.id}_fill;\n`;
-      } else {
+      } else if (config.mode === 'segmented') {
         code += `extern gui_rounded_rect_t *${comp.id}_segments[${config.count}];\n`;
+      } else if (config.mode === 'arc') {
+        code += `extern gui_arc_t *${comp.id}_track, *${comp.id}_fill;\n`;
+      } else {
+        code += `extern gui_arc_t *${comp.id}_arcs[${config.count}];\n`;
       }
       code += `extern void ${comp.id}_set_value(int32_t value);\n`;
     }
@@ -334,6 +344,7 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     // Collect all time labels and timer labels
     const timeLabels = this.components.filter(c => c.type === 'hg_time_label');
     const timerLabels = this.components.filter(c => c.type === 'hg_timer_label');
+    const hasProgressLabels = this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).showValueLabel);
     
     let code = `/**
  * ${baseName} UI Implementation (Auto-generated, do not modify manually)
@@ -348,7 +359,7 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     if (timeLabels.length > 0) {
       code += `#include <time.h>\n`;
     }
-    if (timerLabels.length > 0) {
+    if (timerLabels.length > 0 || hasProgressLabels) {
       code += `#include <stdio.h>\n`;
       code += `#include <string.h>\n`;
     }
