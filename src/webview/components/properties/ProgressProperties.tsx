@@ -151,6 +151,41 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                     <PropertyEditor type="number" value={config.gap} min={0}
                       onChange={value => update('segmentGap', Math.round(value))} />
                   </div>}
+                  <div className="property-item">
+                    <label>{t('Segment Color Mode')}</label>
+                    <PropertyEditor type="select" value={config.colorMode}
+                      options={[
+                        { value: 'single', label: t('Single Color') },
+                        { value: 'positional', label: t('Fixed Zones') },
+                        { value: 'state', label: t('State Thresholds') },
+                      ]}
+                      onChange={value => update('colorMode', value)} />
+                  </div>
+                  {config.colorMode !== 'single' && (
+                    <>
+                      <div className="property-item">
+                        <label>{t('Low Threshold (%)')}</label>
+                        <PropertyEditor type="number" value={config.thresholdLow} min={0} max={config.thresholdHigh}
+                          onChange={value => update('thresholdLow', Math.round(value))} />
+                      </div>
+                      <div className="property-item">
+                        <label>{t('High Threshold (%)')}</label>
+                        <PropertyEditor type="number" value={config.thresholdHigh} min={config.thresholdLow} max={100}
+                          onChange={value => update('thresholdHigh', Math.round(value))} />
+                      </div>
+                      {([
+                        ['zoneLowColor', 'Low Zone Color', config.zoneLowColor],
+                        ['zoneMidColor', 'Middle Zone Color', config.zoneMidColor],
+                        ['zoneHighColor', 'High Zone Color', config.zoneHighColor],
+                      ] as const).map(([key, label, color]) => (
+                        <div className="property-item" key={key}>
+                          <label>{t(label)}</label>
+                          <PropertyEditor type="color" value={color}
+                            onChange={value => update(key, value)} />
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
               {config.mode.startsWith('arc') && (
@@ -220,10 +255,10 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   onChange={value => update('fillStart', value)} />
               </div>
               </>}
-              <div className="property-item">
+              {(config.mode === 'linear' || config.mode === 'arc' || config.colorMode === 'single') && <div className="property-item">
                 <label>{t('Active Color')}</label>
                 <PropertyEditor type="color" value={config.activeColor} onChange={value => update('activeColor', value)} />
-              </div>
+              </div>}
               <div className="property-item">
                 <label>{t('Active Opacity')}</label>
                 <PropertyEditor type="number" value={config.activeOpacity} min={0} max={255}

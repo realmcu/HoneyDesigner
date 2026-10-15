@@ -148,6 +148,8 @@ const COMPONENT_PROPERTY_TYPES: Record<string, Record<string, PropertyType>> = {
   hg_progress: {
     segmentCount: 'number',
     segmentGap: 'number',
+    thresholdLow: 'number',
+    thresholdHigh: 'number',
     activeOpacity: 'number',
     inactiveOpacity: 'number',
     min: 'number',

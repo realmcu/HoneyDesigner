@@ -1,5 +1,5 @@
 import type { Component } from '../../../hml/types';
-import { activeSegmentCount, arcGeometry, arcSegmentAngles, progressConfig, progressCornerRadius, progressLabelText, segmentBounds } from '../../../shared/progressConfig';
+import { activeSegmentCount, arcGeometry, arcSegmentAngles, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
 import { convertColorWithOpacity } from '../utils';
 import type { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { LabelGenerator } from './LabelGenerator';
@@ -28,7 +28,7 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
         for (let index = 0; index < config.count; index++) {
           const { start, end } = arcSegmentAngles(config, width, height, index);
           const color = index < active
-            ? convertColorWithOpacity(config.activeColor, config.activeOpacity)
+            ? convertColorWithOpacity(segmentActiveColor(config, index), config.activeOpacity)
             : convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
           code += `${pad}${component.id}_arcs[${index}] = gui_arc_create(${parent}, "${component.id}_arc_${index}", ${centerX}, ${centerY}, ${radius}, ${Math.min(start, end)}, ${Math.max(start, end)}, ${stroke}, ${color});\n`;
         }
@@ -42,7 +42,7 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
         const bounds = segmentBounds(config, width, height, index);
         const radius = progressCornerRadius(config, bounds.width, bounds.height);
         const color = index < active
-          ? convertColorWithOpacity(config.activeColor, config.activeOpacity)
+          ? convertColorWithOpacity(segmentActiveColor(config, index), config.activeOpacity)
           : convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
         code += `${pad}${component.id}_segments[${index}] = gui_rect_create((gui_obj_t *)${component.id}, "${component.id}_seg_${index}", ${bounds.x}, ${bounds.y}, ${bounds.width}, ${bounds.height}, ${radius}, ${color});\n`;
       }
@@ -76,6 +76,20 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
     const { id } = component;
     const active = convertColorWithOpacity(config.activeColor, config.activeOpacity);
     const inactive = convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
+    const lowColor = convertColorWithOpacity(config.zoneLowColor, config.activeOpacity);
+    const midColor = convertColorWithOpacity(config.zoneMidColor, config.activeOpacity);
+    const highColor = convertColorWithOpacity(config.zoneHighColor, config.activeOpacity);
+    const zoneColor = config.colorMode === 'positional'
+      ? `(i * 100 < ${config.thresholdLow * config.count} ? ${lowColor} : i * 100 < ${config.thresholdHigh * config.count} ? ${midColor} : ${highColor})`
+      : config.colorMode === 'state' ? 'zone_color' : active;
+    const stateColor = config.colorMode === 'state'
+      ? `    int64_t progress = (int64_t)value - (int64_t)${config.min};
+    gui_color_t zone_color = progress * 100 < (int64_t)${config.thresholdLow} * ${config.max - config.min}
+        ? ${lowColor}
+        : progress * 100 < (int64_t)${config.thresholdHigh} * ${config.max - config.min}
+            ? ${midColor} : ${highColor};
+`
+      : '';
     const labelState = config.showValueLabel
       ? `gui_text_t *${id}_label = NULL;
 static char ${id}_label_text[24] = "${progressLabelText(config)}";
@@ -145,9 +159,10 @@ void ${id}_set_value(int32_t value)
     if (value > ${config.max}) value = ${config.max};
 ${labelUpdate}
     int32_t count = (int32_t)((((int64_t)value - (int64_t)${config.min}) * ${config.count} + ${config.max - config.min - 1}) / ${config.max - config.min});
+${stateColor}
     for (int32_t i = 0; i < ${config.count}; ++i) {
         if (${id}_arcs[i] != NULL) {
-            gui_arc_set_color(${id}_arcs[i], i < count ? ${active} : ${inactive});
+            gui_arc_set_color(${id}_arcs[i], i < count ? ${zoneColor} : ${inactive});
         }
     }
 }
@@ -193,9 +208,10 @@ void ${id}_set_value(int32_t value)
     if (value > ${config.max}) value = ${config.max};
 ${labelUpdate}
     int32_t count = (int32_t)((((int64_t)value - (int64_t)${config.min}) * ${config.count} + ${config.max - config.min - 1}) / ${config.max - config.min});
+${stateColor}
     for (int32_t i = 0; i < ${config.count}; ++i) {
         if (${id}_segments[i] != NULL) {
-            gui_rect_set_color(${id}_segments[i], i < count ? ${active} : ${inactive});
+            gui_rect_set_color(${id}_segments[i], i < count ? ${zoneColor} : ${inactive});
         }
     }
 }

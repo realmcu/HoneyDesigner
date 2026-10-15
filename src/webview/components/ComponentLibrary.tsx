@@ -330,6 +330,8 @@ const componentDefinitions: ComponentDefinition[] = [
         options: ['left', 'right', 'top', 'bottom'], group: 'data' },
       { name: 'borderRadius', label: 'Border Radius', type: 'number', defaultValue: 12, min: 0, group: 'style' },
       { name: 'activeColor', label: 'Active Color', type: 'color', defaultValue: '#3edb88', group: 'data' },
+      { name: 'colorMode', label: 'Segment Color Mode', type: 'select', defaultValue: 'single',
+        options: ['single', 'positional', 'state'], group: 'data' },
       { name: 'activeOpacity', label: 'Active Opacity', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'data' },
       { name: 'inactiveColor', label: 'Inactive Color', type: 'color', defaultValue: '#343b42', group: 'data' },
       { name: 'inactiveOpacity', label: 'Inactive Opacity', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'data' },

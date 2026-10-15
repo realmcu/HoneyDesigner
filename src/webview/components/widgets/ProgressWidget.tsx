@@ -1,6 +1,6 @@
 import React from 'react';
 import type { WidgetProps } from './types';
-import { activeSegmentCount, arcGeometry, arcSegmentAngles, linearFillLength, progressConfig, progressCornerRadius, progressLabelText, segmentBounds } from '../../../shared/progressConfig';
+import { activeSegmentCount, arcGeometry, arcSegmentAngles, linearFillLength, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
 import { useFontLoader } from '../../hooks/useFontLoader';
 
 function arcPath(cx: number, cy: number, radius: number, start: number, end: number): string {
@@ -49,7 +49,7 @@ export const ProgressWidget: React.FC<WidgetProps> = ({ component, style, handle
             const angles = arcSegmentAngles(config, width, height, index);
             const activeSegment = index < active;
             return drawArc(angles.start, angles.end,
-              activeSegment ? config.activeColor : config.inactiveColor,
+              activeSegment ? segmentActiveColor(config, index) : config.inactiveColor,
               activeSegment ? config.activeOpacity : config.inactiveOpacity, index);
           })}
         </svg>
@@ -79,7 +79,7 @@ export const ProgressWidget: React.FC<WidgetProps> = ({ component, style, handle
             width: bounds.width,
             height: bounds.height,
             borderRadius: progressCornerRadius(config, bounds.width, bounds.height),
-            backgroundColor: index < active ? config.activeColor : config.inactiveColor,
+            backgroundColor: index < active ? segmentActiveColor(config, index) : config.inactiveColor,
             opacity: (index < active ? config.activeOpacity : config.inactiveOpacity) / 255,
             pointerEvents: 'none',
           }} />

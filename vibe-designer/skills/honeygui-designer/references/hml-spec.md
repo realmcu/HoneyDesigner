@@ -1471,6 +1471,11 @@ runtime updates require the generated C setter.
              borderRadius="4" min="0" max="100" value="50"
              activeColor="#3edb88" activeOpacity="255"
              inactiveColor="#343b42" inactiveOpacity="255" />
+<hg_progress id="battery" x="20" y="110" width="220" height="24"
+             progressMode="segmented" segmentCount="12" value="15"
+             colorMode="state" thresholdLow="20" thresholdHigh="50"
+             zoneLowColor="#e8564a" zoneMidColor="#f2b33d" zoneHighColor="#3edb88"
+             inactiveColor="#343b42" />
 <hg_progress id="dial_level" x="20" y="120" width="100" height="100"
              progressMode="arc" arcStartAngle="-90" arcSweepAngle="360"
              arcStrokeWidth="8" min="0" max="100" value="50"
@@ -1500,6 +1505,9 @@ runtime updates require the generated C setter.
 | `min`, `max`, `value` | int32 | 0, 100, 50 | Range and initial value; value is clamped |
 | `activeColor`, `inactiveColor` | #RRGGBB | #3edb88, #343b42 | Filled and unfilled colors |
 | `activeOpacity`, `inactiveOpacity` | integer (0-255) | 255 | Filled and unfilled opacity (0 transparent, 255 opaque) |
+| `colorMode` | enum | single | Segmented modes only: `single` uses `activeColor`; `positional` colors lit segments by position; `state` colors all lit segments by the current value. Continuous modes ignore it. |
+| `thresholdLow`, `thresholdHigh` | integer (0-100) | positional: 30, 70; state: 20, 50 | Percent of the configured `min`-`max` range. `thresholdHigh` is clamped to at least `thresholdLow`; equality enters the next zone. In positional mode each segment is classified by its start position in fill order. |
+| `zoneLowColor`, `zoneMidColor`, `zoneHighColor` | #RRGGBB | positional: #3edb88, #f2b33d, #e8564a; state: #e8564a, #f2b33d, #3edb88 | Colors of the three lit zones; unlit segments always use `inactiveColor` / `inactiveOpacity`, lit segments use `activeOpacity`. |
 | `showValueLabel` | boolean | false | Create a centered numeric label in any of the four modes |
 | `valueLabelFormat` | enum | percent | `percent` shows rounded range percentage (e.g. `72%`); `value` shows the current integer |
 | `valueLabelColor` | #RRGGBB | #ffffff | Numeric label color |
@@ -1523,7 +1531,7 @@ The HML parser categorizes XML attributes into the following buckets:
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### Data Attributes
-`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `colorMode`, `thresholdLow`, `thresholdHigh`, `zoneLowColor`, `zoneMidColor`, `zoneHighColor`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`
 
 ### Meta Attributes
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`

@@ -17,6 +17,12 @@ export interface ProgressConfig {
   inactiveColor: string;
   activeOpacity: number;
   inactiveOpacity: number;
+  colorMode: 'single' | 'positional' | 'state';
+  thresholdLow: number;
+  thresholdHigh: number;
+  zoneLowColor: string;
+  zoneMidColor: string;
+  zoneHighColor: string;
   showValueLabel: boolean;
   valueLabelFormat: 'percent' | 'value';
   valueLabelColor: string;
@@ -42,6 +48,11 @@ export function progressConfig(
   const fillStart = vertical
     ? (data.fillStart === 'top' ? 'top' : 'bottom')
     : (data.fillStart === 'right' ? 'right' : 'left');
+  const colorMode = data.colorMode === 'positional' || data.colorMode === 'state'
+    ? data.colorMode : 'single';
+  const thresholdLow = Math.max(0, Math.min(100, Math.round(finite(
+    data.thresholdLow, colorMode === 'state' ? 20 : 30
+  ))));
   return {
     mode: ['segmented', 'arc', 'arc-segmented'].includes(data.progressMode) ? data.progressMode : 'linear',
     fillStart,
@@ -61,6 +72,14 @@ export function progressConfig(
     inactiveColor: color(data.inactiveColor, '#343b42'),
     activeOpacity: Math.max(0, Math.min(255, Math.round(finite(data.activeOpacity, 255)))),
     inactiveOpacity: Math.max(0, Math.min(255, Math.round(finite(data.inactiveOpacity, 255)))),
+    colorMode,
+    thresholdLow,
+    thresholdHigh: Math.max(thresholdLow, Math.min(100, Math.round(finite(
+      data.thresholdHigh, colorMode === 'state' ? 50 : 70
+    )))),
+    zoneLowColor: color(data.zoneLowColor, colorMode === 'state' ? '#e8564a' : '#3edb88'),
+    zoneMidColor: color(data.zoneMidColor, '#f2b33d'),
+    zoneHighColor: color(data.zoneHighColor, colorMode === 'state' ? '#3edb88' : '#e8564a'),
     showValueLabel: data.showValueLabel === true || data.showValueLabel === 'true',
     valueLabelFormat: data.valueLabelFormat === 'value' ? 'value' : 'percent',
     valueLabelColor: color(data.valueLabelColor, '#ffffff'),
@@ -68,6 +87,16 @@ export function progressConfig(
     valueLabelOffsetX: Math.round(finite(data.valueLabelOffsetX, 0)),
     valueLabelOffsetY: Math.round(finite(data.valueLabelOffsetY, 0)),
   };
+}
+
+export function segmentActiveColor(config: ProgressConfig, index: number): string {
+  if (config.colorMode === 'single') return config.activeColor;
+  const position = config.colorMode === 'positional'
+    ? index * 100 / config.count
+    : (config.value - config.min) * 100 / (config.max - config.min);
+  if (position < config.thresholdLow) return config.zoneLowColor;
+  if (position < config.thresholdHigh) return config.zoneMidColor;
+  return config.zoneHighColor;
 }
 
 export function progressLabelText(config: ProgressConfig): string {
