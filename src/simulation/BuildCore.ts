@@ -369,6 +369,35 @@ Return('objs')
         }
     }
 
+    public async findStaleFontAsset(): Promise<string | undefined> {
+        const configs = await this.getLabelFontConfigs();
+        if (configs.length === 0) {
+            return undefined;
+        }
+
+        const assetsDir = ProjectUtils.getAssetsDir(this.projectRoot);
+        const outputDir = path.join(this.buildDir, 'assets');
+        const romfsPath = path.join(this.buildDir, RomfsConfig.getFileName());
+        const romfsTime = fs.existsSync(romfsPath) ? fs.statSync(romfsPath).mtimeMs : 0;
+
+        for (const config of configs) {
+            const relativePath = config.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
+            const sourcePath = path.join(assetsDir, relativePath);
+            const fontName = path.basename(relativePath, path.extname(relativePath)).replace(/-/g, '_');
+            const outputName = config.fontType === 'vector'
+                ? `${fontName}_vector.bin`
+                : `${fontName}_size${config.fontSize}_bits${config.renderMode}_bitmap.bin`;
+            const outputPath = path.join(outputDir, path.dirname(relativePath), outputName);
+            const sourceTime = fs.existsSync(sourcePath) ? fs.statSync(sourcePath).mtimeMs : 0;
+            const outputTime = fs.existsSync(outputPath) ? fs.statSync(outputPath).mtimeMs : 0;
+
+            if (!sourceTime || !outputTime || romfsTime < Math.max(sourceTime, outputTime, config.sourceMtimeMs ?? 0)) {
+                return outputPath;
+            }
+        }
+        return undefined;
+    }
+
     /**
      * 检查文件名是否匹配清理规则
      */
@@ -1944,6 +1973,9 @@ Return('objs')
 
         // 按字体文件+配置分组，合并相同配置的字符集
         const fontGroups = this.groupLabelConfigsByFont(labelConfigs);
+        const progressFontPaths = new Set(labelConfigs
+            .filter(config => config.isProgressLabel)
+            .map(config => `${config.fontFile}|${config.fontType}`));
         const projectI18nCatalog = loadProjectI18nCatalog(this.projectRoot);
         const totalI18nKeyCount = fontGroups.reduce((count, group) => count + group.i18nKeys.length, 0);
         if (totalI18nKeyCount > 0) {
@@ -1953,10 +1985,15 @@ Return('objs')
         const fontConverter = new FontConverterService();
 
         for (const group of fontGroups) {
-            const fontPath = path.join(assetsDir, group.fontFile);
+            const fontRelativePath = group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
+            const fontPath = path.join(assetsDir, fontRelativePath);
+            const isProgressFont = progressFontPaths.has(`${group.fontFile}|${group.fontType}`);
             
             // 检查字体文件是否存在
             if (!fs.existsSync(fontPath)) {
+                if (isProgressFont) {
+                    throw new Error(vscode.l10n.t('Progress label font not found: {0}', fontPath));
+                }
                 this.logger.log(`字体文件不存在: ${group.fontFile}`, true);
                 results.push({
                     success: false,
@@ -1968,12 +2005,15 @@ Return('objs')
             }
 
             // 确定输出目录（保持原始目录结构）
-            const fontDir = path.dirname(group.fontFile);
-            const fontOutputDir = fontDir ? path.join(outputDir, fontDir) : outputDir;
+            const fontDir = path.dirname(fontRelativePath);
+            const fontOutputDir = fontDir === '.' ? outputDir : path.join(outputDir, fontDir);
 
             // 检查是否设置了"直接拷贝"
             const fontItemSettings = conversionConfig.items[group.fontFile.replace(/\\/g, '/')];
             if (fontItemSettings?.fontCopyOnly) {
+                if (isProgressFont) {
+                    throw new Error(vscode.l10n.t('Progress label font must be converted, not copied: {0}', group.fontFile));
+                }
                 if (!fs.existsSync(fontOutputDir)) {
                     fs.mkdirSync(fontOutputDir, { recursive: true });
                 }
@@ -2018,6 +2058,19 @@ Return('objs')
             try {
                 const result = await fontConverter.convert(fontPath, fontOutputDir, options);
                 results.push(result);
+                if (isProgressFont) {
+                    if (!result.success) {
+                        throw new Error(vscode.l10n.t('Progress label font conversion failed: {0}', result.error || group.fontFile));
+                    }
+                    const fontName = path.basename(fontRelativePath, path.extname(fontRelativePath)).replace(/-/g, '_');
+                    const outputName = group.fontType === 'vector'
+                        ? `${fontName}_vector.bin`
+                        : `${fontName}_size${group.fontSize}_bits${group.renderMode}_bitmap.bin`;
+                    const outputPath = path.join(fontOutputDir, outputName);
+                    if (!fs.existsSync(outputPath)) {
+                        throw new Error(vscode.l10n.t('Progress label font output missing: {0}', outputPath));
+                    }
+                }
                 
                 if (result.success) {
                     // 成功时不显示日志，只在最后统计
@@ -2044,6 +2097,9 @@ Return('objs')
                     this.logger.log(`  ✗ 失败: ${result.error}`, true);
                 }
             } catch (error: any) {
+                if (isProgressFont) {
+                    throw error;
+                }
                 // 异常时显示详细信息，方便调试
                 this.logger.log(`转换字体: ${group.fontFile} (${group.fontType}, size=${group.fontSize}, bits=${group.renderMode})`);
                 this.logger.log(`  文本字符: "${group.characters.substring(0, 50)}${group.characters.length > 50 ? '...' : ''}" (${group.characters.length} 字符)`);
@@ -2135,6 +2191,8 @@ Return('objs')
         text: string;
         characterSets: Array<{ type: string; value: string }>;
         i18nKey?: string;
+        isProgressLabel?: boolean;
+        sourceMtimeMs?: number;
     }>> {
         const configs: Array<any> = [];
         
@@ -2164,7 +2222,12 @@ Return('objs')
             } else if (entry.name.endsWith('.hml')) {
                 try {
                     const content = fs.readFileSync(fullPath, 'utf-8');
+                    const startIndex = configs.length;
                     this.extractLabelConfigsFromHml(content, configs);
+                    const sourceMtimeMs = fs.statSync(fullPath).mtimeMs;
+                    for (let i = startIndex; i < configs.length; i++) {
+                        configs[i].sourceMtimeMs = sourceMtimeMs;
+                    }
                 } catch (error) {
                     this.logger.log(`读取 HML 文件失败: ${fullPath} - ${error}`, true);
                 }
@@ -2176,13 +2239,16 @@ Return('objs')
      * 从 HML 内容中提取 Label 组件的字体配置
      */
     private extractLabelConfigsFromHml(hmlContent: string, configs: Array<any>): void {
-        // 匹配 hg_label、hg_time_label 和 hg_timer_label 标签
-        const labelTagRegex = /<hg_(label|time_label|timer_label)[^>]*>/g;
+        // Include enabled progress labels so their runtime digits use the same font conversion.
+        const labelTagRegex = /<hg_(label|time_label|timer_label|progress)[^>]*>/g;
         let match;
         
         while ((match = labelTagRegex.exec(hmlContent)) !== null) {
             const tagContent = match[0];
             const tagType = match[1]; // 'label'、'time_label' 或 'timer_label'
+            if (tagType === 'progress' && !/showValueLabel\s*=\s*["']true["']/.test(tagContent)) {
+                continue;
+            }
             
             // 提取 fontFile 属性
             const fontFileMatch = tagContent.match(/fontFile\s*=\s*["']([^"']+)["']/);
@@ -2192,10 +2258,11 @@ Return('objs')
             
             const config: any = {
                 fontFile: fontFileMatch[1],
+                isProgressLabel: tagType === 'progress',
                 fontSize: 16,
                 fontType: 'bitmap',
                 renderMode: 4,
-                text: '',
+                text: tagType === 'progress' ? '0123456789-%' : '',
                 characterSets: []
             };
             

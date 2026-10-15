@@ -123,7 +123,24 @@ export class SimulationRunner {
                 await this.buildManager!.convertAssets();
                 this.throwIfCancelled();
             } else {
-                this.log(vscode.l10n.t('Skipping resource conversion'));
+                if (flow.simulate) {
+                    const staleFont = await this.buildManager!.findStaleFontAsset();
+                    if (staleFont) {
+                        this.log(vscode.l10n.t('Font resources are missing or outdated. Converting resources: {0}', staleFont));
+                        await this.buildManager!.convertAssets();
+                        this.throwIfCancelled();
+                    } else {
+                        this.log(vscode.l10n.t('Skipping resource conversion'));
+                    }
+                } else {
+                    this.log(vscode.l10n.t('Skipping resource conversion'));
+                }
+            }
+            if (flow.simulate) {
+                const staleFont = await this.buildManager!.findStaleFontAsset();
+                if (staleFont) {
+                    throw new Error(vscode.l10n.t('Font resources could not be prepared: {0}', staleFont));
+                }
             }
 
             // 5. 编译并运行（仿真阶段）
