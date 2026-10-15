@@ -1,6 +1,6 @@
 import React from 'react';
 import type { WidgetProps } from './types';
-import { activeSegmentCount, arcGeometry, arcSegmentAngles, linearFillLength, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
+import { activeSegmentCount, arcDotPosition, arcGeometry, arcSegmentAngles, linearFillLength, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
 import { useFontLoader } from '../../hooks/useFontLoader';
 
 function arcPath(cx: number, cy: number, radius: number, start: number, end: number): string {
@@ -36,7 +36,7 @@ export const ProgressWidget: React.FC<WidgetProps> = ({ component, style, handle
     <div style={{ ...style, background: 'transparent', overflow: 'visible' }} {...handlers}>
       {config.mode.startsWith('arc') ? (
         <svg width={width} height={height} style={{ display: 'block', pointerEvents: 'none', overflow: 'visible' }}>
-          {config.mode === 'arc' ? (
+          {config.mode === 'arc' || config.mode === 'arc-gauge' ? (
             <>
               {drawArc(config.arcStartAngle, config.arcStartAngle + arcDirection * config.arcSweepAngle, config.inactiveColor, config.inactiveOpacity)}
               {config.value > config.min && drawArc(
@@ -45,7 +45,13 @@ export const ProgressWidget: React.FC<WidgetProps> = ({ component, style, handle
                 config.activeColor, config.activeOpacity
               )}
             </>
-          ) : Array.from({ length: config.count }, (_, index) => {
+          ) : config.mode === 'arc-dots' ? Array.from({ length: config.count }, (_, index) => {
+            const dot = arcDotPosition(config, width, height, index);
+            const isActive = index < active;
+            return <circle key={index} cx={dot.x} cy={dot.y} r={dot.radius}
+              fill={isActive ? segmentActiveColor(config, index) : config.inactiveColor}
+              opacity={(isActive ? config.activeOpacity : config.inactiveOpacity) / 255} />;
+          }) : Array.from({ length: config.count }, (_, index) => {
             const angles = arcSegmentAngles(config, width, height, index);
             const activeSegment = index < active;
             return drawArc(angles.start, angles.end,

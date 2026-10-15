@@ -169,8 +169,11 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     }
     if (componentTypes.includes('hg_progress')) {
       code += `#include "gui_rect.h"\n#include <stdint.h>\n`;
-      if (this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).mode.startsWith('arc'))) {
+      if (this.components.some(c => c.type === 'hg_progress' && ['arc', 'arc-gauge', 'arc-segmented'].includes(progressConfig(c.data, c.style).mode))) {
         code += `#include "gui_arc.h"\n`;
+      }
+      if (this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).mode === 'arc-dots')) {
+        code += `#include "gui_circle.h"\n`;
       }
       if (this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).showValueLabel)) {
         code += `#include "gui_text.h"\n`;
@@ -280,8 +283,10 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
         code += `extern gui_rounded_rect_t *${comp.id}_track, *${comp.id}_fill;\n`;
       } else if (config.mode === 'segmented') {
         code += `extern gui_rounded_rect_t *${comp.id}_segments[${config.count}];\n`;
-      } else if (config.mode === 'arc') {
+      } else if (config.mode === 'arc' || config.mode === 'arc-gauge') {
         code += `extern gui_arc_t *${comp.id}_track, *${comp.id}_fill;\n`;
+      } else if (config.mode === 'arc-dots') {
+        code += `extern gui_circle_t *${comp.id}_dots[${config.count}];\n`;
       } else {
         code += `extern gui_arc_t *${comp.id}_arcs[${config.count}];\n`;
       }

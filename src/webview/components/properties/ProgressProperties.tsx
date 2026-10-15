@@ -117,6 +117,8 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                     { value: 'segmented', label: t('Segmented') },
                     { value: 'arc', label: t('Arc Progress') },
                     { value: 'arc-segmented', label: t('Segmented Arc') },
+                    { value: 'arc-gauge', label: t('Counterclockwise Gauge') },
+                    { value: 'arc-dots', label: t('Dotted Ring') },
                   ]}
                   onChange={value => {
                     const wasArc = config.mode.startsWith('arc');
@@ -131,15 +133,21 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                         : config.vertical ? { width: 24, height: 220 } : { width: 220, height: 24 })
                       : (isArc ? { width: longestSide, height: longestSide }
                         : config.vertical ? { width: 24, height: longestSide } : { width: longestSide, height: 24 });
+                    const preset = value !== config.mode && value === 'arc-gauge'
+                      ? { arcStartAngle: -45, arcSweepAngle: 270, arcDirection: 'counterclockwise', showValueLabel: true }
+                      : value !== config.mode && value === 'arc-dots'
+                        ? { arcStartAngle: -90, arcSweepAngle: 360, arcDirection: 'clockwise',
+                            segmentCount: 24, arcStrokeWidth: 6, showValueLabel: true }
+                        : {};
                     onUpdate({
-                      data: { ...component.data, progressMode: value },
+                      data: { ...component.data, progressMode: value, ...preset },
                       ...(wasArc !== isArc ? {
                         position: { ...component.position, ...nextSize },
                       } : {}),
                     });
                   }} />
               </div>
-              {(config.mode === 'segmented' || config.mode === 'arc-segmented') && (
+              {(config.mode === 'segmented' || config.mode === 'arc-segmented' || config.mode === 'arc-dots') && (
                 <>
                   <div className="property-item">
                     <label>{t('Segment Count')}</label>
@@ -202,7 +210,7 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   {([
                     ['arcStartAngle', 'Arc Start Angle', config.arcStartAngle, -360, 360],
                     ['arcSweepAngle', 'Arc Sweep Angle', config.arcSweepAngle, 1, 360],
-                    ['arcStrokeWidth', 'Arc Stroke Width', config.arcStrokeWidth, 1, 10000],
+                    ['arcStrokeWidth', config.mode === 'arc-dots' ? 'Dot Diameter' : 'Arc Stroke Width', config.arcStrokeWidth, 1, 10000],
                     ...(config.mode === 'arc-segmented'
                       ? [['arcSegmentGap', 'Arc Segment Gap', config.arcSegmentGap, 0, 360]]
                       : []),
@@ -255,7 +263,7 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   onChange={value => update('fillStart', value)} />
               </div>
               </>}
-              {(config.mode === 'linear' || config.mode === 'arc' || config.colorMode === 'single') && <div className="property-item">
+              {(config.mode === 'linear' || config.mode === 'arc' || config.mode === 'arc-gauge' || config.colorMode === 'single') && <div className="property-item">
                 <label>{t('Active Color')}</label>
                 <PropertyEditor type="color" value={config.activeColor} onChange={value => update('activeColor', value)} />
               </div>}

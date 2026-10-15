@@ -302,7 +302,7 @@ const componentDefinitions: ComponentDefinition[] = [
     defaultSize: { width: 220, height: 24 },
     properties: [
       { name: 'progressMode', label: 'Progress Mode', type: 'select', defaultValue: 'linear',
-        options: ['linear', 'segmented', 'arc', 'arc-segmented'], group: 'data' },
+        options: ['linear', 'segmented', 'arc', 'arc-segmented', 'arc-gauge', 'arc-dots'], group: 'data' },
       { name: 'segmentCount', label: 'Segment Count', type: 'number', defaultValue: 12, min: 1, max: 64, group: 'data' },
       { name: 'segmentGap', label: 'Segment Gap', type: 'number', defaultValue: 3, min: 0, group: 'data' },
       { name: 'arcStartAngle', label: 'Arc Start Angle', type: 'number', defaultValue: -90, group: 'data' },

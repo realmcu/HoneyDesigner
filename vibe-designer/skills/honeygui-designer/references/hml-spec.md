@@ -1455,8 +1455,8 @@ src/
 
 Engine: HoneyGUI ready; LVGL unsupported. This is a leaf control, not a container.
 Internally it creates a window and either a track and fill (`linear`), up to 64
-rectangles (`segmented`), a track and fill arc (`arc`), or up to 64 arcs
-(`arc-segmented`). Do not add HML children. This is a display-only progress
+rectangles (`segmented`), a track and fill arc (`arc` / `arc-gauge`), up to 64 arcs
+(`arc-segmented`), or up to 64 circle dots (`arc-dots`). Do not add HML children. This is a display-only progress
 indicator, not a draggable slider. The initial value is rendered on creation;
 runtime updates require the generated C setter.
 
@@ -1487,17 +1487,28 @@ runtime updates require the generated C setter.
              arcStartAngle="-90" arcSweepAngle="360" arcDirection="counterclockwise" arcStrokeWidth="8"
              min="0" max="100" value="50"
              activeColor="#4945b5" inactiveColor="#dcd9ff" />
+<hg_progress id="dial_gauge" x="20" y="240" width="100" height="100"
+             progressMode="arc-gauge" arcStartAngle="-45" arcSweepAngle="270"
+             arcDirection="counterclockwise" arcStrokeWidth="8" value="58"
+             showValueLabel="true" activeColor="#3edb88" inactiveColor="#343b42" />
+<hg_progress id="dial_dots" x="140" y="240" width="100" height="100"
+             progressMode="arc-dots" segmentCount="24" arcStrokeWidth="6"
+             arcStartAngle="-90" arcSweepAngle="360" value="62"
+             showValueLabel="true" colorMode="positional"
+             thresholdLow="30" thresholdHigh="70"
+             zoneLowColor="#3edb88" zoneMidColor="#f2b33d" zoneHighColor="#e8564a"
+             inactiveColor="#343b42" />
 ```
 
 | Attribute | Type | Default | Meaning |
 |-----------|------|---------|---------|
-| `progressMode` | enum | linear | `linear`, `segmented`, `arc`, or `arc-segmented` |
-| `segmentCount` | integer (1-64) | 12 | Number of segments; both segmented modes only |
+| `progressMode` | enum | linear | `linear`, `segmented`, `arc`, `arc-segmented`, `arc-gauge` (270° counterclockwise preset), or `arc-dots` (circle dots) |
+| `segmentCount` | integer (1-64) | 12; `arc-dots`: 24 | Number of segments or dots; segmented and dotted modes only |
 | `segmentGap` | integer (>=0) | 3 | Gap in pixels; linear segmented mode only |
-| `arcStartAngle` | number (-360 to 360) | -90 | Arc start angle in degrees (0 at right, positive clockwise) |
-| `arcSweepAngle` | number (1-360) | 360 | Arc sweep in degrees |
-| `arcDirection` | enum | clockwise | `clockwise` or `counterclockwise`; progress starts at `arcStartAngle` |
-| `arcStrokeWidth` | integer (>=1) | 8 | Arc stroke width in pixels; limited by widget size |
+| `arcStartAngle` | number (-360 to 360) | -90; `arc-gauge`: -45 | Arc/dot start angle in degrees (0 at right, positive clockwise) |
+| `arcSweepAngle` | number (1-360) | 360; `arc-gauge`: 270 | Arc/dot sweep in degrees |
+| `arcDirection` | enum | clockwise; `arc-gauge`: counterclockwise | `clockwise` or `counterclockwise`; progress starts at `arcStartAngle` |
+| `arcStrokeWidth` | integer (>=1) | 8; `arc-dots`: 6 | Arc stroke width or dot diameter in pixels; limited by widget size |
 | `arcSegmentGap` | number (>=0) | 8 | Gap in degrees between arc segments; limited to leave at least one degree per segment |
 | `orientation` | enum | horizontal | Linear modes only: `horizontal` or `vertical` (fills bottom to top); changing direction in the designer swaps width and height |
 | `fillStart` | enum | left (horizontal), bottom (vertical) | Linear modes only: horizontal `left` / `right`, vertical `bottom` / `top` |
@@ -1505,7 +1516,7 @@ runtime updates require the generated C setter.
 | `min`, `max`, `value` | int32 | 0, 100, 50 | Range and initial value; value is clamped |
 | `activeColor`, `inactiveColor` | #RRGGBB | #3edb88, #343b42 | Filled and unfilled colors |
 | `activeOpacity`, `inactiveOpacity` | integer (0-255) | 255 | Filled and unfilled opacity (0 transparent, 255 opaque) |
-| `colorMode` | enum | single | Segmented modes only: `single` uses `activeColor`; `positional` colors lit segments by position; `state` colors all lit segments by the current value. Continuous modes ignore it. |
+| `colorMode` | enum | single | Segmented and dotted modes only: `single` uses `activeColor`; `positional` colors lit segments by position; `state` colors all lit segments by the current value. Continuous modes ignore it. |
 | `thresholdLow`, `thresholdHigh` | integer (0-100) | positional: 30, 70; state: 20, 50 | Percent of the configured `min`-`max` range. `thresholdHigh` is clamped to at least `thresholdLow`; equality enters the next zone. In positional mode each segment is classified by its start position in fill order. |
 | `zoneLowColor`, `zoneMidColor`, `zoneHighColor` | #RRGGBB | positional: #3edb88, #f2b33d, #e8564a; state: #e8564a, #f2b33d, #3edb88 | Colors of the three lit zones; unlit segments always use `inactiveColor` / `inactiveOpacity`, lit segments use `activeOpacity`. |
 | `showValueLabel` | boolean | false | Create a centered numeric label in any of the four modes |

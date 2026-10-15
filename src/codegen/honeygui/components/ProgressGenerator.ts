@@ -1,5 +1,5 @@
 import type { Component } from '../../../hml/types';
-import { activeSegmentCount, arcGeometry, arcSegmentAngles, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
+import { activeSegmentCount, arcDotPosition, arcGeometry, arcSegmentAngles, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
 import { convertColorWithOpacity } from '../utils';
 import type { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { LabelGenerator } from './LabelGenerator';
@@ -20,10 +20,18 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
       const centerX = Math.round(cx);
       const centerY = Math.round(cy);
       const parent = `(gui_obj_t *)${component.id}`;
-      if (config.mode === 'arc') {
+      if (config.mode === 'arc' || config.mode === 'arc-gauge') {
         const end = config.arcStartAngle + (config.arcDirection === 'clockwise' ? 1 : -1) * config.arcSweepAngle;
         code += `${pad}${component.id}_track = gui_arc_create(${parent}, "${component.id}_track", ${centerX}, ${centerY}, ${radius}, ${Math.min(config.arcStartAngle, end)}, ${Math.max(config.arcStartAngle, end)}, ${stroke}, ${convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity)});\n`;
         code += `${pad}${component.id}_fill = gui_arc_create(${parent}, "${component.id}_fill", ${centerX}, ${centerY}, ${radius}, ${config.arcDirection === 'clockwise' ? config.arcStartAngle : config.arcStartAngle - 1}, ${config.arcDirection === 'clockwise' ? config.arcStartAngle + 1 : config.arcStartAngle}, ${stroke}, ${convertColorWithOpacity(config.activeColor, config.activeOpacity)});\n`;
+      } else if (config.mode === 'arc-dots') {
+        for (let index = 0; index < config.count; index++) {
+          const dot = arcDotPosition(config, width, height, index);
+          const color = index < active
+            ? convertColorWithOpacity(segmentActiveColor(config, index), config.activeOpacity)
+            : convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
+          code += `${pad}${component.id}_dots[${index}] = gui_circle_create(${parent}, "${component.id}_dot_${index}", ${dot.x}, ${dot.y}, ${dot.radius}, ${color});\n`;
+        }
       } else {
         for (let index = 0; index < config.count; index++) {
           const { start, end } = arcSegmentAngles(config, width, height, index);
@@ -56,7 +64,7 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
       }
       code += `${pad}gui_text_mode_set(${label}, LEFT);\n`;
     }
-    if (config.mode === 'linear' || config.mode === 'arc' || config.showValueLabel) {
+    if (config.mode === 'linear' || config.mode === 'arc' || config.mode === 'arc-gauge' || config.showValueLabel) {
       code += `${pad}${component.id}_set_value(${config.value});\n`;
     }
     if (config.showValueLabel) {
@@ -127,7 +135,7 @@ static void ${id}_center_label(void *obj)
     }
 `
       : '';
-    if (config.mode === 'arc') {
+    if (config.mode === 'arc' || config.mode === 'arc-gauge') {
       return `
 gui_arc_t *${id}_track = NULL;
 gui_arc_t *${id}_fill = NULL;
@@ -148,9 +156,10 @@ ${labelUpdate}
 }
 `;
     }
-    if (config.mode === 'arc-segmented') {
+    if (config.mode === 'arc-segmented' || config.mode === 'arc-dots') {
+      const isDots = config.mode === 'arc-dots';
       return `
-gui_arc_t *${id}_arcs[${config.count}] = {0};
+${isDots ? 'gui_circle_t' : 'gui_arc_t'} *${id}_${isDots ? 'dots' : 'arcs'}[${config.count}] = {0};
 ${labelState}
 
 void ${id}_set_value(int32_t value)
@@ -161,8 +170,8 @@ ${labelUpdate}
     int32_t count = (int32_t)((((int64_t)value - (int64_t)${config.min}) * ${config.count} + ${config.max - config.min - 1}) / ${config.max - config.min});
 ${stateColor}
     for (int32_t i = 0; i < ${config.count}; ++i) {
-        if (${id}_arcs[i] != NULL) {
-            gui_arc_set_color(${id}_arcs[i], i < count ? ${zoneColor} : ${inactive});
+        if (${id}_${isDots ? 'dots' : 'arcs'}[i] != NULL) {
+            ${isDots ? 'gui_circle_set_color' : 'gui_arc_set_color'}(${id}_${isDots ? 'dots' : 'arcs'}[i], i < count ? ${zoneColor} : ${inactive});
         }
     }
 }

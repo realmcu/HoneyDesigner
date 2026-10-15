@@ -1,5 +1,5 @@
 export interface ProgressConfig {
-  mode: 'linear' | 'segmented' | 'arc' | 'arc-segmented';
+  mode: 'linear' | 'segmented' | 'arc' | 'arc-segmented' | 'arc-gauge' | 'arc-dots';
   fillStart: 'left' | 'right' | 'top' | 'bottom';
   count: number;
   min: number;
@@ -41,7 +41,7 @@ export function progressConfig(
   };
   const color = (value: unknown, fallback: string) =>
     typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
-  const count = Math.max(1, Math.min(64, Math.round(finite(data.segmentCount, 12))));
+  const count = Math.max(1, Math.min(64, Math.round(finite(data.segmentCount, data.progressMode === 'arc-dots' ? 24 : 12))));
   const min = Math.max(-2147483647, Math.min(2147483646, Math.trunc(finite(data.min, 0))));
   const max = Math.max(min + 1, Math.min(2147483647, Math.trunc(finite(data.max, 100))));
   const vertical = (style.orientation ?? data.orientation) === 'vertical';
@@ -54,16 +54,17 @@ export function progressConfig(
     data.thresholdLow, colorMode === 'state' ? 20 : 30
   ))));
   return {
-    mode: ['segmented', 'arc', 'arc-segmented'].includes(data.progressMode) ? data.progressMode : 'linear',
+    mode: ['segmented', 'arc', 'arc-segmented', 'arc-gauge', 'arc-dots'].includes(data.progressMode) ? data.progressMode : 'linear',
     fillStart,
     count,
     min,
     max,
     value: Math.max(min, Math.min(max, Math.trunc(finite(data.value, 50)))),
     gap: Math.max(0, Math.round(finite(data.segmentGap, 3))),
-    arcStartAngle: Math.max(-360, Math.min(360, finite(data.arcStartAngle, -90))),
-    arcSweepAngle: Math.max(1, Math.min(360, finite(data.arcSweepAngle, 360))),
-    arcDirection: data.arcDirection === 'counterclockwise' ? 'counterclockwise' : 'clockwise',
+    arcStartAngle: Math.max(-360, Math.min(360, finite(data.arcStartAngle, data.progressMode === 'arc-gauge' ? -45 : -90))),
+    arcSweepAngle: Math.max(1, Math.min(360, finite(data.arcSweepAngle, data.progressMode === 'arc-gauge' ? 270 : 360))),
+    arcDirection: data.arcDirection === 'counterclockwise' || (data.arcDirection === undefined && data.progressMode === 'arc-gauge')
+      ? 'counterclockwise' : 'clockwise',
     arcStrokeWidth: Math.max(1, Math.round(finite(data.arcStrokeWidth, 8))),
     arcSegmentGap: Math.max(0, finite(data.arcSegmentGap, 8)),
     cornerRadius: Math.max(0, Math.min(2147483647, Math.round(finite(style.borderRadius, 12)))),
@@ -124,6 +125,18 @@ export function arcSegmentAngles(config: ProgressConfig, width: number, height: 
   return {
     start: config.arcStartAngle + direction * (index * step + (index || closed ? gap / 2 : 0)),
     end: config.arcStartAngle + direction * ((index + 1) * step - (index === config.count - 1 && !closed ? 0 : gap / 2)),
+  };
+}
+
+export function arcDotPosition(config: ProgressConfig, width: number, height: number, index: number) {
+  const { cx, cy, radius, stroke } = arcGeometry(config, width, height);
+  const steps = config.arcSweepAngle === 360 ? config.count : Math.max(1, config.count - 1);
+  const direction = config.arcDirection === 'clockwise' ? 1 : -1;
+  const angle = (config.arcStartAngle + direction * index * config.arcSweepAngle / steps) * Math.PI / 180;
+  return {
+    x: Math.round(cx + radius * Math.cos(angle)),
+    y: Math.round(cy + radius * Math.sin(angle)),
+    radius: Math.max(1, Math.floor(stroke / 2)),
   };
 }
 
