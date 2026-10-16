@@ -1,6 +1,6 @@
 import React from 'react';
 import type { WidgetProps } from './types';
-import { activeSegmentCount, arcDotPosition, arcGeometry, arcSegmentAngles, linearFillLength, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
+import { activeSegmentCount, arcDotPosition, arcGeometry, arcSegmentAngles, isIndeterminateProgressMode, linearFillLength, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds, slideFillWidth, slideOffset } from '../../../shared/progressConfig';
 import { useFontLoader } from '../../hooks/useFontLoader';
 
 function arcPath(cx: number, cy: number, radius: number, start: number, end: number): string {
@@ -19,11 +19,25 @@ function arcPath(cx: number, cy: number, radius: number, start: number, end: num
 
 export const ProgressWidget: React.FC<WidgetProps> = ({ component, style, handlers, children }) => {
   const config = progressConfig(component.data, component.style);
-  const { fontFamily } = useFontLoader(config.showValueLabel ? component.data?.fontFile : undefined);
+  const [spinPhase, setSpinPhase] = React.useState(0);
+  React.useEffect(() => {
+    setSpinPhase(0);
+    if (!isIndeterminateProgressMode(config.mode) || !config.spinAutostart) return;
+    let frame: number;
+    const start = performance.now();
+    const animate = (now: number) => {
+      setSpinPhase(((now - start) % config.spinPeriod) * 360 / config.spinPeriod);
+      frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [config.mode, config.spinAutostart, config.spinPeriod]);
+  const { fontFamily } = useFontLoader(!isIndeterminateProgressMode(config.mode) && config.showValueLabel ? component.data?.fontFile : undefined);
   const active = activeSegmentCount(config);
   const { width, height } = component.position;
   const extent = config.vertical ? height : width;
   const fillLength = linearFillLength(config, extent);
+  const slideWidth = slideFillWidth(config, width);
   const radius = progressCornerRadius(config, width, height);
   const arc = arcGeometry(config, width, height);
   const arcDirection = config.arcDirection === 'clockwise' ? 1 : -1;
@@ -34,9 +48,31 @@ export const ProgressWidget: React.FC<WidgetProps> = ({ component, style, handle
   );
   return (
     <div style={{ ...style, background: 'transparent', overflow: 'visible' }} {...handlers}>
-      {config.mode.startsWith('arc') ? (
+      {config.mode === 'loading-slide' ? (
+        <>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: radius,
+            backgroundColor: config.inactiveColor, opacity: config.inactiveOpacity / 255, pointerEvents: 'none' }} />
+          <div style={{
+            position: 'absolute', left: slideOffset(spinPhase / 360, Math.max(0, width - slideWidth)), top: 0,
+            width: slideWidth, height, borderRadius: progressCornerRadius(config, slideWidth, height),
+            backgroundColor: config.activeColor, opacity: config.activeOpacity / 255, pointerEvents: 'none',
+          }} />
+        </>
+      ) : (config.mode.startsWith('arc') || config.mode === 'loading') ? (
         <svg width={width} height={height} style={{ display: 'block', pointerEvents: 'none', overflow: 'visible' }}>
-          {config.mode === 'arc' || config.mode === 'arc-gauge' ? (
+          {config.mode === 'loading' ? (
+            <>
+              {config.showTrack && drawArc(-90, 270, config.inactiveColor, config.inactiveOpacity)}
+              {(() => {
+                const start = config.arcStartAngle + arcDirection * spinPhase;
+                return drawArc(
+                  config.arcDirection === 'clockwise' ? start : start - config.spinArcLen,
+                  config.arcDirection === 'clockwise' ? start + config.spinArcLen : start,
+                  config.activeColor, config.activeOpacity
+                );
+              })()}
+            </>
+          ) : config.mode === 'arc' || config.mode === 'arc-gauge' ? (
             <>
               {drawArc(config.arcStartAngle, config.arcStartAngle + arcDirection * config.arcSweepAngle, config.inactiveColor, config.inactiveOpacity)}
               {config.value > config.min && drawArc(
@@ -91,7 +127,7 @@ export const ProgressWidget: React.FC<WidgetProps> = ({ component, style, handle
           }} />
         );
       })}
-      {config.showValueLabel && (
+      {!isIndeterminateProgressMode(config.mode) && config.showValueLabel && (
         <div style={{
           position: 'absolute', left: config.valueLabelOffsetX, top: config.valueLabelOffsetY,
           width, height, display: 'flex', alignItems: 'center', justifyContent: 'center',

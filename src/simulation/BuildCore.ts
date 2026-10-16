@@ -2246,7 +2246,10 @@ Return('objs')
         while ((match = labelTagRegex.exec(hmlContent)) !== null) {
             const tagContent = match[0];
             const tagType = match[1]; // 'label'、'time_label' 或 'timer_label'
-            if (tagType === 'progress' && !/showValueLabel\s*=\s*["']true["']/.test(tagContent)) {
+            if (tagType === 'progress' && (
+                !/showValueLabel\s*=\s*["']true["']/.test(tagContent)
+                || /progressMode\s*=\s*["'](?:loading|loading-slide)["']/.test(tagContent)
+            )) {
                 continue;
             }
             

@@ -1,5 +1,5 @@
 import type { Component } from '../../../hml/types';
-import { activeSegmentCount, arcDotPosition, arcGeometry, arcSegmentAngles, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds } from '../../../shared/progressConfig';
+import { activeSegmentCount, arcDotPosition, arcGeometry, arcSegmentAngles, isIndeterminateProgressMode, progressConfig, progressCornerRadius, progressLabelText, segmentActiveColor, segmentBounds, slideFillWidth } from '../../../shared/progressConfig';
 import { convertColorWithOpacity } from '../utils';
 import type { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { LabelGenerator } from './LabelGenerator';
@@ -15,7 +15,24 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
     const height = Math.max(1, Math.round(component.position.height));
     const pad = '    '.repeat(indent);
     let code = `${pad}${component.id} = gui_win_create(${context.getParentRef(component)}, "${component.id}", ${x}, ${y}, ${width}, ${height});\n`;
-    if (config.mode.startsWith('arc')) {
+    if (config.mode === 'loading') {
+      const { cx, cy, radius, stroke } = arcGeometry(config, width, height);
+      const parent = `(gui_obj_t *)${component.id}`;
+      if (config.showTrack) {
+        code += `${pad}${component.id}_track = gui_arc_create(${parent}, "${component.id}_track", ${Math.round(cx)}, ${Math.round(cy)}, ${radius}, -90, 270, ${stroke}, ${convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity)});\n`;
+      }
+      const start = config.arcStartAngle - (config.arcDirection === 'counterclockwise' ? config.spinArcLen : 0);
+      code += `${pad}${component.id}_spin = gui_arc_create(${parent}, "${component.id}_spin", ${Math.round(cx)}, ${Math.round(cy)}, ${radius}, ${start}, ${start + config.spinArcLen}, ${stroke}, ${convertColorWithOpacity(config.activeColor, config.activeOpacity)});\n`;
+      code += `${pad}gui_obj_create_timer((gui_obj_t *)${component.id}_spin, 33, true, ${component.id}_spin_cb);\n`;
+      if (config.spinAutostart) code += `${pad}${component.id}_start();\n`;
+    } else if (config.mode === 'loading-slide') {
+      const parent = `(gui_obj_t *)${component.id}`;
+      const fillWidth = slideFillWidth(config, width);
+      code += `${pad}${component.id}_track = gui_rect_create(${parent}, "${component.id}_track", 0, 0, ${width}, ${height}, ${progressCornerRadius(config, width, height)}, ${convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity)});\n`;
+      code += `${pad}${component.id}_slide = gui_rect_create(${parent}, "${component.id}_slide", 0, 0, ${fillWidth}, ${height}, ${progressCornerRadius(config, fillWidth, height)}, ${convertColorWithOpacity(config.activeColor, config.activeOpacity)});\n`;
+      code += `${pad}gui_obj_create_timer((gui_obj_t *)${component.id}_slide, 33, true, ${component.id}_slide_cb);\n`;
+      if (config.spinAutostart) code += `${pad}${component.id}_start();\n`;
+    } else if (config.mode.startsWith('arc')) {
       const { cx, cy, radius, stroke } = arcGeometry(config, width, height);
       const centerX = Math.round(cx);
       const centerY = Math.round(cy);
@@ -55,7 +72,7 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
         code += `${pad}${component.id}_segments[${index}] = gui_rect_create((gui_obj_t *)${component.id}, "${component.id}_seg_${index}", ${bounds.x}, ${bounds.y}, ${bounds.width}, ${bounds.height}, ${radius}, ${color});\n`;
       }
     }
-    if (config.showValueLabel) {
+    if (!isIndeterminateProgressMode(config.mode) && config.showValueLabel) {
       const label = `${component.id}_label`;
       code += `${pad}${label} = gui_text_create((gui_obj_t *)${component.id}, "${label}", ${config.valueLabelOffsetX}, ${config.valueLabelOffsetY}, ${width}, ${height});\n`;
       code += `${pad}gui_text_set(${label}, ${component.id}_label_text, ${this.getFontType(component)}, ${convertColorWithOpacity(config.valueLabelColor, 255)}, ${progressLabelText(config).length}, ${config.valueLabelFontSize});\n`;
@@ -64,10 +81,10 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
       }
       code += `${pad}gui_text_mode_set(${label}, LEFT);\n`;
     }
-    if (config.mode === 'linear' || config.mode === 'arc' || config.mode === 'arc-gauge' || config.showValueLabel) {
+    if (config.mode === 'linear' || config.mode === 'arc' || config.mode === 'arc-gauge' || (!isIndeterminateProgressMode(config.mode) && config.showValueLabel)) {
       code += `${pad}${component.id}_set_value(${config.value});\n`;
     }
-    if (config.showValueLabel) {
+    if (!isIndeterminateProgressMode(config.mode) && config.showValueLabel) {
       code += `${pad}gui_obj_create_timer((gui_obj_t *)${component.id}_label, 50, false, ${component.id}_center_label);\n`;
     }
     return code;
@@ -82,6 +99,80 @@ export class ProgressGenerator extends LabelGenerator implements ComponentCodeGe
   generateValueSetter(component: Component): string {
     const config = progressConfig(component.data, component.style);
     const { id } = component;
+    if (config.mode === 'loading') {
+      const start = config.arcDirection === 'clockwise'
+        ? `angle` : `angle - ${cFloat(config.spinArcLen)}`;
+      return `
+${config.showTrack ? `gui_arc_t *${id}_track = NULL;\n` : ''}gui_arc_t *${id}_spin = NULL;
+static uint32_t ${id}_spin_elapsed = 0;
+static uint32_t ${id}_spin_started = 0;
+static bool ${id}_spin_running = false;
+
+static void ${id}_spin_cb(void *obj)
+{
+    (void)obj;
+    if (!${id}_spin_running || ${id}_spin == NULL) return;
+    uint32_t elapsed = (${id}_spin_elapsed + (uint32_t)(gui_ms_get() - ${id}_spin_started) % ${config.spinPeriod}) % ${config.spinPeriod};
+    float phase = (float)elapsed * (360.0f / ${cFloat(config.spinPeriod)});
+    float angle = ${cFloat(config.arcStartAngle)} ${config.arcDirection === 'clockwise' ? '+' : '-'} phase;
+    gui_arc_set_start_angle(${id}_spin, ${start});
+    gui_arc_set_end_angle(${id}_spin, ${start} + ${cFloat(config.spinArcLen)});
+}
+
+void ${id}_start(void)
+{
+    if (${id}_spin == NULL || ${id}_spin_running) return;
+    ${id}_spin_started = gui_ms_get();
+    ${id}_spin_running = true;
+}
+
+void ${id}_stop(void)
+{
+    if (!${id}_spin_running) return;
+    ${id}_spin_cb(${id}_spin);
+    ${id}_spin_elapsed = (${id}_spin_elapsed + (uint32_t)(gui_ms_get() - ${id}_spin_started) % ${config.spinPeriod}) % ${config.spinPeriod};
+    ${id}_spin_running = false;
+}
+`;
+    }
+    if (config.mode === 'loading-slide') {
+      const width = Math.max(1, Math.round(component.position.width));
+      const fillWidth = slideFillWidth(config, width);
+      return `
+gui_rounded_rect_t *${id}_track = NULL;
+gui_rounded_rect_t *${id}_slide = NULL;
+static uint32_t ${id}_slide_elapsed = 0;
+static uint32_t ${id}_slide_started = 0;
+static bool ${id}_slide_running = false;
+
+static void ${id}_slide_cb(void *obj)
+{
+    (void)obj;
+    if (!${id}_slide_running || ${id}_slide == NULL) return;
+    uint32_t elapsed = (${id}_slide_elapsed + (uint32_t)(gui_ms_get() - ${id}_slide_started) % ${config.spinPeriod}) % ${config.spinPeriod};
+    float phase = (float)elapsed / ${cFloat(config.spinPeriod)};
+    float half = phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f;
+    float eased = half * half * (3.0f - 2.0f * half);
+    int32_t x = (int32_t)((${width - fillWidth}) * eased + 0.5f);
+    gui_rect_set_position(${id}_slide, x, 0);
+}
+
+void ${id}_start(void)
+{
+    if (${id}_slide == NULL || ${id}_slide_running) return;
+    ${id}_slide_started = gui_ms_get();
+    ${id}_slide_running = true;
+}
+
+void ${id}_stop(void)
+{
+    if (!${id}_slide_running) return;
+    ${id}_slide_cb(${id}_slide);
+    ${id}_slide_elapsed = (${id}_slide_elapsed + (uint32_t)(gui_ms_get() - ${id}_slide_started) % ${config.spinPeriod}) % ${config.spinPeriod};
+    ${id}_slide_running = false;
+}
+`;
+    }
     const active = convertColorWithOpacity(config.activeColor, config.activeOpacity);
     const inactive = convertColorWithOpacity(config.inactiveColor, config.inactiveOpacity);
     const lowColor = convertColorWithOpacity(config.zoneLowColor, config.activeOpacity);

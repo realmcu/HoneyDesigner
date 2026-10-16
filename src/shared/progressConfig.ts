@@ -1,5 +1,5 @@
 export interface ProgressConfig {
-  mode: 'linear' | 'segmented' | 'arc' | 'arc-segmented' | 'arc-gauge' | 'arc-dots';
+  mode: 'linear' | 'segmented' | 'arc' | 'arc-segmented' | 'arc-gauge' | 'arc-dots' | 'loading' | 'loading-slide';
   fillStart: 'left' | 'right' | 'top' | 'bottom';
   count: number;
   min: number;
@@ -11,6 +11,11 @@ export interface ProgressConfig {
   arcDirection: 'clockwise' | 'counterclockwise';
   arcStrokeWidth: number;
   arcSegmentGap: number;
+  spinArcLen: number;
+  spinPeriod: number;
+  slideLengthPercent: number;
+  spinAutostart: boolean;
+  showTrack: boolean;
   cornerRadius: number;
   vertical: boolean;
   activeColor: string;
@@ -54,7 +59,7 @@ export function progressConfig(
     data.thresholdLow, colorMode === 'state' ? 20 : 30
   ))));
   return {
-    mode: ['segmented', 'arc', 'arc-segmented', 'arc-gauge', 'arc-dots'].includes(data.progressMode) ? data.progressMode : 'linear',
+    mode: ['segmented', 'arc', 'arc-segmented', 'arc-gauge', 'arc-dots', 'loading', 'loading-slide'].includes(data.progressMode) ? data.progressMode : 'linear',
     fillStart,
     count,
     min,
@@ -67,6 +72,11 @@ export function progressConfig(
       ? 'counterclockwise' : 'clockwise',
     arcStrokeWidth: Math.max(1, Math.round(finite(data.arcStrokeWidth, 8))),
     arcSegmentGap: Math.max(0, finite(data.arcSegmentGap, 8)),
+    spinArcLen: Math.max(10, Math.min(180, Math.round(finite(data.spinArcLen, 90)))),
+    spinPeriod: Math.max(400, Math.min(10000, Math.round(finite(data.spinPeriod, 1600)))),
+    slideLengthPercent: Math.max(5, Math.min(90, Math.round(finite(data.slideLengthPercent, 25)))),
+    spinAutostart: data.spinAutostart !== false && data.spinAutostart !== 'false',
+    showTrack: data.showTrack !== false && data.showTrack !== 'false',
     cornerRadius: Math.max(0, Math.min(2147483647, Math.round(finite(style.borderRadius, 12)))),
     vertical,
     activeColor: color(data.activeColor, '#3edb88'),
@@ -88,6 +98,20 @@ export function progressConfig(
     valueLabelOffsetX: Math.round(finite(data.valueLabelOffsetX, 0)),
     valueLabelOffsetY: Math.round(finite(data.valueLabelOffsetY, 0)),
   };
+}
+
+export function isIndeterminateProgressMode(mode: ProgressConfig['mode']): boolean {
+  return mode === 'loading' || mode === 'loading-slide';
+}
+
+export function slideFillWidth(config: ProgressConfig, width: number): number {
+  const extent = Math.max(1, Math.round(width));
+  return Math.max(1, Math.min(extent, Math.round(extent * config.slideLengthPercent / 100)));
+}
+
+export function slideOffset(phase: number, travel: number): number {
+  const half = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+  return Math.round(travel * half * half * (3 - 2 * half));
 }
 
 export function segmentActiveColor(config: ProgressConfig, index: number): string {

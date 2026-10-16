@@ -1399,9 +1399,9 @@ src/
 ### `hg_progress` - 进度条（仅 HoneyGUI）
 
 引擎：HoneyGUI 就绪；LVGL 不支持。它是叶子控件，不是容器，也不能包含 HML 子控件。
-内部生成一个窗口；线性模式生成轨道与填充矩形，分段模式生成最多 64 个矩形段。
+内部生成一个窗口；线性模式生成轨道与填充矩形，直线分段模式生成最多 64 个矩形段，圆弧及逆时针仪表盘模式生成轨道与填充弧，圆弧分段模式生成最多 64 个弧段，圆点刻度环模式生成最多 64 个圆点；`loading` 模式生成旋转弧，`loading-slide` 模式生成横向往返滑动的短条。
 这是只显示数值的进度条，不是可拖动滑块。
-初始值在创建时显示，运行时更新必须调用生成的 C 接口。
+数值模式的初始值在创建时显示，运行时更新必须调用生成的 C 接口；两种加载模式都没有数值。
 
 ```xml
 <hg_progress id="volume_level" x="20" y="40" width="220" height="24"
@@ -1414,22 +1414,76 @@ src/
              borderRadius="4" min="0" max="100" value="50"
              activeColor="#3edb88" activeOpacity="255"
              inactiveColor="#343b42" inactiveOpacity="255" />
+<hg_progress id="battery" x="20" y="110" width="220" height="24"
+             progressMode="segmented" segmentCount="12" value="15"
+             colorMode="state" thresholdLow="20" thresholdHigh="50"
+             zoneLowColor="#e8564a" zoneMidColor="#f2b33d" zoneHighColor="#3edb88"
+             inactiveColor="#343b42" />
+<hg_progress id="dial_level" x="20" y="120" width="100" height="100"
+             progressMode="arc" arcStartAngle="-90" arcSweepAngle="360"
+             arcStrokeWidth="8" min="0" max="100" value="50"
+             showValueLabel="true" valueLabelFormat="percent" valueLabelColor="#ffffff"
+             fontSize="16" fontFile="/NotoSansSC-Medium.ttf" fontType="bitmap"
+             activeColor="#4945b5" inactiveColor="#dcd9ff" />
+<hg_progress id="dial_steps" x="140" y="120" width="100" height="100"
+             progressMode="arc-segmented" segmentCount="8" arcSegmentGap="8"
+             arcStartAngle="-90" arcSweepAngle="360" arcDirection="counterclockwise" arcStrokeWidth="8"
+             min="0" max="100" value="50"
+             activeColor="#4945b5" inactiveColor="#dcd9ff" />
+<hg_progress id="dial_gauge" x="20" y="240" width="100" height="100"
+             progressMode="arc-gauge" arcStartAngle="-45" arcSweepAngle="270"
+             arcDirection="counterclockwise" arcStrokeWidth="8" value="58"
+             showValueLabel="true" activeColor="#3edb88" inactiveColor="#343b42" />
+<hg_progress id="dial_dots" x="140" y="240" width="100" height="100"
+             progressMode="arc-dots" segmentCount="24" arcStrokeWidth="6"
+             arcStartAngle="-90" arcSweepAngle="360" value="62"
+             showValueLabel="true" colorMode="positional"
+             thresholdLow="30" thresholdHigh="70"
+             zoneLowColor="#3edb88" zoneMidColor="#f2b33d" zoneHighColor="#e8564a"
+             inactiveColor="#343b42" />
+<hg_progress id="busy" x="260" y="240" width="64" height="64"
+             progressMode="loading" spinArcLen="90" spinPeriod="1600"
+             spinAutostart="true" showTrack="true" arcStartAngle="-90"
+             arcDirection="clockwise" arcStrokeWidth="8"
+             activeColor="#3edb88" inactiveColor="#343b42" />
+<hg_progress id="busy_bar" x="20" y="350" width="220" height="24"
+             progressMode="loading-slide" spinPeriod="1600"
+             spinAutostart="true" slideLengthPercent="25" borderRadius="12"
+             activeColor="#3edb88" inactiveColor="#343b42" />
 ```
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `progressMode` | 枚举 | linear | `linear` 连续填充或 `segmented` 分段 |
-| `segmentCount` | 整数 (1-64) | 12 | 段数，仅分段模式 |
-| `segmentGap` | 非负整数 | 3 | 段间距（像素），仅分段模式 |
-| `orientation` | 枚举 | horizontal | `horizontal` 或 `vertical`（从下到上填充）；在设计器中切换方向会交换宽高 |
-| `fillStart` | 枚举 | 水平 left，垂直 bottom | 水平可选 `left` / `right`，垂直可选 `bottom` / `top`。设计器切换方向时左对应下、右对应上，反之亦然。 |
-| `borderRadius` | 非负整数 | 12 | 轨道/填充或每段的圆角半径，上限为较短边的一半 |
+| `progressMode` | 枚举 | linear | `linear`、`segmented`、`arc`、`arc-segmented`、`arc-gauge`（逆时针 270° 仪表盘）、`arc-dots`（圆点刻度环）、`loading`（旋转弧）或 `loading-slide`（横向滑动加载） |
+| `segmentCount` | 整数 (1-64) | 12；`arc-dots` 为 24 | 分段数或圆点数，仅分段和圆点模式适用 |
+| `segmentGap` | 非负整数 | 3 | 段间距（像素），仅直线分段模式 |
+| `arcStartAngle` | 数字 (-360 至 360) | -90；`arc-gauge` 为 -45 | 弧形/圆点起始角度（度；右侧为 0，顺时针为正） |
+| `arcSweepAngle` | 数字 (1-360) | 360；`arc-gauge` 为 270 | 弧形/圆点扫过角度（度） |
+| `arcDirection` | 枚举 | clockwise；`arc-gauge` 为 counterclockwise | `clockwise` 顺时针或 `counterclockwise` 逆时针，均从 `arcStartAngle` 开始 |
+| `arcStrokeWidth` | 正整数 | 8；`arc-dots` 为 6 | 弧线宽度或圆点直径（像素），受控件尺寸限制 |
+| `spinArcLen` | 整数 (10-180) | 90 | 仅 `loading`：旋转弧长（度） |
+| `spinPeriod` | 整数 (400-10000) | 1600 | `loading` 为转一圈所需毫秒数；`loading-slide` 为完整往返周期，均按真实经过时间计算 |
+| `slideLengthPercent` | 整数 (5-90) | 25 | 仅 `loading-slide`：短条宽度占轨道宽度的百分比，短条始终位于轨道内 |
+| `spinAutostart` | 布尔值 | true | 两种加载模式：创建后自动开始运动 |
+| `showTrack` | 布尔值 | true | 仅 `loading`：显示固定的完整 360° 底环，底环不会旋转 |
+| `arcSegmentGap` | 非负数字 | 8 | 弧段之间的角度间隙（度），每段至少保留 1 度 |
+| `orientation` | 枚举 | horizontal | 仅直线模式：`horizontal` 或 `vertical`（从下到上填充）；在设计器中切换方向会交换宽高 |
+| `fillStart` | 枚举 | 水平 left，垂直 bottom | 仅直线模式：水平 `left` / `right`，垂直 `bottom` / `top` |
+| `borderRadius` | 非负整数 | 12 | 直线与 `loading-slide` 模式：轨道/填充或每段的圆角半径，上限为较短边的一半 |
 | `min`、`max`、`value` | int32 | 0、100、50 | 范围及初始值，超出范围时截断 |
 | `activeColor`、`inactiveColor` | #RRGGBB | #3edb88、#343b42 | 已填充及未填充颜色 |
 | `activeOpacity`、`inactiveOpacity` | 整数 (0-255) | 255 | 已填充及未填充透明度（0 完全透明、255 不透明） |
+| `colorMode` | 枚举 | single | 仅分段与圆点模式：`single` 使用原有 `activeColor`；`positional` 按已点亮段的位置分区配色；`state` 按当前数值给所有已点亮段统一配色。连续模式忽略此项。 |
+| `thresholdLow`、`thresholdHigh` | 整数 (0-100) | 固定分区：30、70；状态阈值：20、50 | 按 `min`-`max` 区间的百分比计算，高阈值不能低于低阈值；等于阈值时进入下一档。固定分区按填充方向的每段起始位置判定。 |
+| `zoneLowColor`、`zoneMidColor`、`zoneHighColor` | #RRGGBB | 固定分区：#3edb88、#f2b33d、#e8564a；状态阈值：#e8564a、#f2b33d、#3edb88 | 三档已点亮颜色；未点亮段始终使用 `inactiveColor` / `inactiveOpacity`，已点亮段使用 `activeOpacity`。 |
+| `showValueLabel` | 布尔值 | false | 四种模式均可创建居中的数值标签 |
+| `valueLabelFormat` | 枚举 | percent | `percent` 显示四舍五入的区间百分比（如 `72%`）；`value` 显示当前整数值 |
+| `valueLabelColor` | #RRGGBB | #ffffff | 数值标签颜色 |
+| `fontSize`、`fontFile`、`fontType`、`renderMode` | 字体配置 | 16、空、bitmap、4 | 数值标签字体；固件显示需要指定 `assets/` 中的字体，如 `fontFile="/name.ttf"`；点阵字体按字号转换 |
+| `valueLabelOffsetX`、`valueLabelOffsetY` | 整数 | 0 | 相对于中心的标签位置偏移（像素） |
 
 生成的 `<design>_ui.h` 声明 `void volume_level_set_value(int32_t value);`。
-请在视图创建后（例如用户回调中）调用它更新填充或分段颜色；它不会修改 HML 文件。
+请在视图创建后（例如用户回调中）调用它更新直线填充、圆弧扫过角度、分段颜色及可选数值标签。`loading` 和 `loading-slide` 均没有数值、数值标签和 `set_value`，仅生成 `<id>_start(void)` 与 `<id>_stop(void)` 来继续或暂停运动。两种模式都使用 33ms 循环定时器，但相位由实际经过时间决定；旋转模式的 `arcStartAngle` 是初始相位，`arcDirection` 控制旋转方向；滑动模式在横向轨道内平滑往返，忽略 `orientation`、`fillStart` 和 `showTrack`。生成的接口不会修改 HML 文件。
 设计器中选中控件后，可拖动四角或四边的手柄缩放。
 
 ---
@@ -1442,7 +1496,7 @@ HML 解析器将 XML 属性归类到以下几组：
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### 数据属性
-`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `spinArcLen`, `spinPeriod`, `slideLengthPercent`, `spinAutostart`, `showTrack`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `colorMode`, `thresholdLow`, `thresholdHigh`, `zoneLowColor`, `zoneMidColor`, `zoneHighColor`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`
 
 ### 元属性
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`

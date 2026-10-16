@@ -21,7 +21,7 @@ import { ListGenerator } from './components/ListGenerator';
 import { LabelGenerator } from './components/LabelGenerator';
 import { ArcGenerator } from './components/ArcGenerator';
 import { ProgressGenerator } from './components/ProgressGenerator';
-import { progressConfig } from '../../shared/progressConfig';
+import { isIndeterminateProgressMode, progressConfig } from '../../shared/progressConfig';
 import { CallbackFileGenerator, UserFileGenerator, ProtectedAreaMerger } from './files';
 import { timerReloadArg } from './PresetTimerModel';
 
@@ -169,13 +169,16 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     }
     if (componentTypes.includes('hg_progress')) {
       code += `#include "gui_rect.h"\n#include <stdint.h>\n`;
-      if (this.components.some(c => c.type === 'hg_progress' && ['arc', 'arc-gauge', 'arc-segmented'].includes(progressConfig(c.data, c.style).mode))) {
+      if (this.components.some(c => c.type === 'hg_progress' && ['arc', 'arc-gauge', 'arc-segmented', 'loading'].includes(progressConfig(c.data, c.style).mode))) {
         code += `#include "gui_arc.h"\n`;
+      }
+      if (this.components.some(c => c.type === 'hg_progress' && isIndeterminateProgressMode(progressConfig(c.data, c.style).mode))) {
+        code += `#include "gui_api_os.h"\n`;
       }
       if (this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).mode === 'arc-dots')) {
         code += `#include "gui_circle.h"\n`;
       }
-      if (this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).showValueLabel)) {
+      if (this.components.some(c => c.type === 'hg_progress' && !isIndeterminateProgressMode(progressConfig(c.data, c.style).mode) && progressConfig(c.data, c.style).showValueLabel)) {
         code += `#include "gui_text.h"\n`;
       }
     }
@@ -279,7 +282,16 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
 
     for (const comp of this.components.filter(c => c.type === 'hg_progress')) {
       const config = progressConfig(comp.data, comp.style);
-      if (config.mode === 'linear') {
+      if (config.mode === 'loading') {
+        if (config.showTrack) code += `extern gui_arc_t *${comp.id}_track;\n`;
+        code += `extern gui_arc_t *${comp.id}_spin;\n`;
+        code += `void ${comp.id}_start(void);\nvoid ${comp.id}_stop(void);\n`;
+        continue;
+      } else if (config.mode === 'loading-slide') {
+        code += `extern gui_rounded_rect_t *${comp.id}_track, *${comp.id}_slide;\n`;
+        code += `void ${comp.id}_start(void);\nvoid ${comp.id}_stop(void);\n`;
+        continue;
+      } else if (config.mode === 'linear') {
         code += `extern gui_rounded_rect_t *${comp.id}_track, *${comp.id}_fill;\n`;
       } else if (config.mode === 'segmented') {
         code += `extern gui_rounded_rect_t *${comp.id}_segments[${config.count}];\n`;
@@ -349,7 +361,7 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     // Collect all time labels and timer labels
     const timeLabels = this.components.filter(c => c.type === 'hg_time_label');
     const timerLabels = this.components.filter(c => c.type === 'hg_timer_label');
-    const hasProgressLabels = this.components.some(c => c.type === 'hg_progress' && progressConfig(c.data, c.style).showValueLabel);
+    const hasProgressLabels = this.components.some(c => c.type === 'hg_progress' && !isIndeterminateProgressMode(progressConfig(c.data, c.style).mode) && progressConfig(c.data, c.style).showValueLabel);
     
     let code = `/**
  * ${baseName} UI Implementation (Auto-generated, do not modify manually)

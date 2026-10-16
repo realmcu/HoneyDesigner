@@ -454,5 +454,12 @@
   "Invalid OSM XML format": "Invalid OSM XML format",
 
   "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.": "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.",
-  "Opening folders in the system file manager is not available in the browser.": "Opening folders in the system file manager is not available in the browser."
+  "Opening folders in the system file manager is not available in the browser.": "Opening folders in the system file manager is not available in the browser.",
+  "Progress label font not found: {0}": "Progress label font not found: {0}",
+  "Progress label font must be converted, not copied: {0}": "Progress label font must be converted, not copied: {0}",
+  "Progress label font conversion failed: {0}": "Progress label font conversion failed: {0}",
+  "Progress label font output missing: {0}": "Progress label font output missing: {0}",
+  "Font resources are missing or outdated. Enable Convert Resource and try again: {0}": "Font resources are missing or outdated. Enable Convert Resource and try again: {0}",
+  "Font resources are missing or outdated. Converting resources: {0}": "Font resources are missing or outdated. Converting resources: {0}",
+  "Font resources could not be prepared: {0}": "Font resources could not be prepared: {0}"
 }

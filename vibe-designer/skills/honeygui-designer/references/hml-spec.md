@@ -1456,9 +1456,11 @@ src/
 Engine: HoneyGUI ready; LVGL unsupported. This is a leaf control, not a container.
 Internally it creates a window and either a track and fill (`linear`), up to 64
 rectangles (`segmented`), a track and fill arc (`arc` / `arc-gauge`), up to 64 arcs
-(`arc-segmented`), or up to 64 circle dots (`arc-dots`). Do not add HML children. This is a display-only progress
-indicator, not a draggable slider. The initial value is rendered on creation;
-runtime updates require the generated C setter.
+(`arc-segmented`), up to 64 circle dots (`arc-dots`), a rotating arc (`loading`),
+or a horizontal sliding block (`loading-slide`).
+Do not add HML children. Except for the loading modes, this is a display-only progress
+indicator, not a draggable slider. Numeric modes render their initial value on creation;
+runtime value updates require the generated C setter. Loading modes have no value.
 
 ```xml
 <hg_progress id="volume_level" x="20" y="40" width="220" height="24"
@@ -1498,21 +1500,35 @@ runtime updates require the generated C setter.
              thresholdLow="30" thresholdHigh="70"
              zoneLowColor="#3edb88" zoneMidColor="#f2b33d" zoneHighColor="#e8564a"
              inactiveColor="#343b42" />
+<hg_progress id="busy" x="260" y="240" width="64" height="64"
+             progressMode="loading" spinArcLen="90" spinPeriod="1600"
+             spinAutostart="true" showTrack="true" arcStartAngle="-90"
+             arcDirection="clockwise" arcStrokeWidth="8"
+             activeColor="#3edb88" inactiveColor="#343b42" />
+<hg_progress id="busy_bar" x="20" y="350" width="220" height="24"
+             progressMode="loading-slide" spinPeriod="1600"
+             spinAutostart="true" slideLengthPercent="25" borderRadius="12"
+             activeColor="#3edb88" inactiveColor="#343b42" />
 ```
 
 | Attribute | Type | Default | Meaning |
 |-----------|------|---------|---------|
-| `progressMode` | enum | linear | `linear`, `segmented`, `arc`, `arc-segmented`, `arc-gauge` (270° counterclockwise preset), or `arc-dots` (circle dots) |
+| `progressMode` | enum | linear | `linear`, `segmented`, `arc`, `arc-segmented`, `arc-gauge` (270° counterclockwise preset), `arc-dots` (circle dots), `loading` (rotating arc), or `loading-slide` (horizontal sliding block) |
 | `segmentCount` | integer (1-64) | 12; `arc-dots`: 24 | Number of segments or dots; segmented and dotted modes only |
 | `segmentGap` | integer (>=0) | 3 | Gap in pixels; linear segmented mode only |
 | `arcStartAngle` | number (-360 to 360) | -90; `arc-gauge`: -45 | Arc/dot start angle in degrees (0 at right, positive clockwise) |
 | `arcSweepAngle` | number (1-360) | 360; `arc-gauge`: 270 | Arc/dot sweep in degrees |
 | `arcDirection` | enum | clockwise; `arc-gauge`: counterclockwise | `clockwise` or `counterclockwise`; progress starts at `arcStartAngle` |
 | `arcStrokeWidth` | integer (>=1) | 8; `arc-dots`: 6 | Arc stroke width or dot diameter in pixels; limited by widget size |
+| `spinArcLen` | integer (10-180) | 90 | `loading` only: rotating arc length in degrees |
+| `spinPeriod` | integer (400-10000) | 1600 | `loading`: milliseconds per revolution; `loading-slide`: milliseconds per full round trip. Both use elapsed time. |
+| `slideLengthPercent` | integer (5-90) | 25 | `loading-slide` only: sliding block width as a percentage of track width |
+| `spinAutostart` | boolean | true | Both loading modes: start moving on creation |
+| `showTrack` | boolean | true | `loading` only: show a fixed full 360° track; the track never rotates |
 | `arcSegmentGap` | number (>=0) | 8 | Gap in degrees between arc segments; limited to leave at least one degree per segment |
 | `orientation` | enum | horizontal | Linear modes only: `horizontal` or `vertical` (fills bottom to top); changing direction in the designer swaps width and height |
 | `fillStart` | enum | left (horizontal), bottom (vertical) | Linear modes only: horizontal `left` / `right`, vertical `bottom` / `top` |
-| `borderRadius` | integer (>=0) | 12 | Linear modes only: track/fill or each segment; clamped to half the shorter side |
+| `borderRadius` | integer (>=0) | 12 | Linear and `loading-slide` modes: track/fill or each segment; clamped to half the shorter side |
 | `min`, `max`, `value` | int32 | 0, 100, 50 | Range and initial value; value is clamped |
 | `activeColor`, `inactiveColor` | #RRGGBB | #3edb88, #343b42 | Filled and unfilled colors |
 | `activeOpacity`, `inactiveOpacity` | integer (0-255) | 255 | Filled and unfilled opacity (0 transparent, 255 opaque) |
@@ -1528,8 +1544,13 @@ runtime updates require the generated C setter.
 The generated `<design>_ui.h` declares `void volume_level_set_value(int32_t value);`.
 Call it after the view has been created (for example from user callbacks); the
 implementation clamps the value and updates the linear fill, arc sweep, or segment colors and the
-optional numeric label. This setter
-does not mutate the HML file. In the designer, select the control and drag its
+optional numeric label. Both loading modes have no value, numeric label, or `set_value`;
+their generated `<id>_start(void)` and `<id>_stop(void)` functions resume and pause motion.
+Both use a repeating 33 ms timer but compute phase using elapsed milliseconds.
+For `loading`, `arcStartAngle` is the initial phase and `arcDirection` controls rotation.
+`loading-slide` eases out and back inside the horizontal track and ignores
+`orientation`, `fillStart`, and `showTrack`.
+The generated APIs do not mutate the HML file. In the designer, select the control and drag its
 corner or edge handles to resize it.
 
 ---
@@ -1542,7 +1563,7 @@ The HML parser categorizes XML attributes into the following buckets:
 `color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### Data Attributes
-`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `colorMode`, `thresholdLow`, `thresholdHigh`, `zoneLowColor`, `zoneMidColor`, `zoneHighColor`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`
+`text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `spinArcLen`, `spinPeriod`, `slideLengthPercent`, `spinAutostart`, `showTrack`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `colorMode`, `thresholdLow`, `thresholdHigh`, `zoneLowColor`, `zoneMidColor`, `zoneHighColor`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`
 
 ### Meta Attributes
 `id`, `name`, `x`, `y`, `width`, `height`, `visible`, `enabled`, `locked`, `zIndex`, `parent`

@@ -148,6 +148,11 @@ const COMPONENT_PROPERTY_TYPES: Record<string, Record<string, PropertyType>> = {
   hg_progress: {
     segmentCount: 'number',
     segmentGap: 'number',
+    spinArcLen: 'number',
+    spinPeriod: 'number',
+    slideLengthPercent: 'number',
+    spinAutostart: 'boolean',
+    showTrack: 'boolean',
     thresholdLow: 'number',
     thresholdHigh: 'number',
     activeOpacity: 'number',

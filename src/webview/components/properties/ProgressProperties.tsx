@@ -5,7 +5,7 @@ import { BaseProperties } from './BaseProperties';
 import { CollapsibleGroup } from './CollapsibleGroup';
 import { PropertyEditor } from './PropertyEditor';
 import { EventsPanel } from './EventsPanel';
-import { progressConfig } from '../../../shared/progressConfig';
+import { isIndeterminateProgressMode, progressConfig } from '../../../shared/progressConfig';
 import { t } from '../../i18n';
 
 export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
@@ -28,7 +28,7 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
         {tab === 'properties' ? (
           <>
             <BaseProperties component={component} onUpdate={onUpdate} components={components} />
-            <CollapsibleGroup title={t('Content')}>
+            {!isIndeterminateProgressMode(config.mode) && <CollapsibleGroup title={t('Content')}>
               {fields.map(field => (
                 <div className="property-item" key={field.key}>
                   <label>{field.label}</label>
@@ -107,7 +107,7 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   </div>
                 </>
               )}
-            </CollapsibleGroup>
+            </CollapsibleGroup>}
             <CollapsibleGroup title={t('Style')}>
               <div className="property-item">
                 <label>{t('Progress Mode')}</label>
@@ -119,21 +119,27 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                     { value: 'arc-segmented', label: t('Segmented Arc') },
                     { value: 'arc-gauge', label: t('Counterclockwise Gauge') },
                     { value: 'arc-dots', label: t('Dotted Ring') },
+                    { value: 'loading', label: t('Loading') },
+                    { value: 'loading-slide', label: t('Sliding Loading') },
                   ]}
                   onChange={value => {
                     const wasArc = config.mode.startsWith('arc');
-                    const isArc = String(value).startsWith('arc');
+                    const isArc = String(value).startsWith('arc') || value === 'loading';
+                    const wasCircular = wasArc || config.mode === 'loading';
+                    const nextVertical = value !== 'loading-slide' && config.vertical;
                     const { width, height } = component.position;
-                    const isDefaultSize = wasArc
+                    const isDefaultSize = wasCircular
                       ? width === 100 && height === 100
                       : config.vertical ? width === 24 && height === 220 : width === 220 && height === 24;
                     const longestSide = Math.max(width, height);
                     const nextSize = isDefaultSize
                       ? (isArc ? { width: 100, height: 100 }
-                        : config.vertical ? { width: 24, height: 220 } : { width: 220, height: 24 })
+                        : nextVertical ? { width: 24, height: 220 } : { width: 220, height: 24 })
                       : (isArc ? { width: longestSide, height: longestSide }
-                        : config.vertical ? { width: 24, height: longestSide } : { width: longestSide, height: 24 });
-                    const preset = value !== config.mode && value === 'arc-gauge'
+                        : nextVertical ? { width: 24, height: longestSide } : { width: longestSide, height: 24 });
+                    const preset = value !== config.mode && value === 'loading'
+                      ? { arcStartAngle: -90, arcDirection: 'clockwise' }
+                      : value !== config.mode && value === 'arc-gauge'
                       ? { arcStartAngle: -45, arcSweepAngle: 270, arcDirection: 'counterclockwise', showValueLabel: true }
                       : value !== config.mode && value === 'arc-dots'
                         ? { arcStartAngle: -90, arcSweepAngle: 360, arcDirection: 'clockwise',
@@ -141,7 +147,8 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                         : {};
                     onUpdate({
                       data: { ...component.data, progressMode: value, ...preset },
-                      ...(wasArc !== isArc ? {
+                      ...(value === 'loading-slide' ? { style: { ...component.style, orientation: 'horizontal' } } : {}),
+                      ...((wasCircular !== isArc || (value === 'loading-slide' && config.vertical)) ? {
                         position: { ...component.position, ...nextSize },
                       } : {}),
                     });
@@ -196,7 +203,7 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   )}
                 </>
               )}
-              {config.mode.startsWith('arc') && (
+              {(config.mode.startsWith('arc') || config.mode === 'loading') && (
                 <>
                   <div className="property-item">
                     <label>{t('Arc Direction')}</label>
@@ -209,7 +216,7 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   </div>
                   {([
                     ['arcStartAngle', 'Arc Start Angle', config.arcStartAngle, -360, 360],
-                    ['arcSweepAngle', 'Arc Sweep Angle', config.arcSweepAngle, 1, 360],
+                    ...(config.mode === 'loading' ? [] : [['arcSweepAngle', 'Arc Sweep Angle', config.arcSweepAngle, 1, 360]]),
                     ['arcStrokeWidth', config.mode === 'arc-dots' ? 'Dot Diameter' : 'Arc Stroke Width', config.arcStrokeWidth, 1, 10000],
                     ...(config.mode === 'arc-segmented'
                       ? [['arcSegmentGap', 'Arc Segment Gap', config.arcSegmentGap, 0, 360]]
@@ -223,13 +230,45 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                   ))}
                 </>
               )}
-              {!config.mode.startsWith('arc') && <>
+              {isIndeterminateProgressMode(config.mode) && (
+                <>
+                  {config.mode === 'loading' ? (
+                    <div className="property-item">
+                      <label>{t('Spin Arc Length')}</label>
+                      <PropertyEditor type="number" value={config.spinArcLen} min={10} max={180}
+                        onChange={value => update('spinArcLen', value)} />
+                    </div>
+                  ) : (
+                    <div className="property-item">
+                      <label>{t('Slide Length')}</label>
+                      <PropertyEditor type="number" value={config.slideLengthPercent} min={5} max={90}
+                        onChange={value => update('slideLengthPercent', value)} />
+                    </div>
+                  )}
+                  <div className="property-item">
+                    <label>{config.mode === 'loading' ? t('Spin Period') : t('Slide Period')}</label>
+                    <PropertyEditor type="number" value={config.spinPeriod} min={400} max={10000}
+                      onChange={value => update('spinPeriod', value)} />
+                  </div>
+                  <div className="property-item">
+                    <label>{t('Spin Autostart')}</label>
+                    <PropertyEditor type="boolean" value={config.spinAutostart}
+                      onChange={value => update('spinAutostart', value)} />
+                  </div>
+                  {config.mode === 'loading' && <div className="property-item">
+                    <label>{t('Show Track')}</label>
+                    <PropertyEditor type="boolean" value={config.showTrack}
+                      onChange={value => update('showTrack', value)} />
+                  </div>}
+                </>
+              )}
+              {!config.mode.startsWith('arc') && config.mode !== 'loading' && <>
               <div className="property-item">
                 <label>{t('Border Radius')}</label>
                 <PropertyEditor type="number" value={config.cornerRadius} min={0}
                   onChange={value => onUpdate({ style: { ...component.style, borderRadius: Math.round(value) } })} />
               </div>
-              <div className="property-item">
+              {config.mode !== 'loading-slide' && <div className="property-item">
                 <label>{t('Orientation')}</label>
                 <PropertyEditor type="select" value={config.vertical ? 'vertical' : 'horizontal'}
                   options={[
@@ -253,17 +292,17 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                       },
                     });
                   }} />
-              </div>
-              <div className="property-item">
+              </div>}
+              {config.mode !== 'loading-slide' && <div className="property-item">
                 <label>{t('Fill Start')}</label>
                 <PropertyEditor type="select" value={config.fillStart}
                   options={config.vertical
                     ? [{ value: 'bottom', label: t('Bottom') }, { value: 'top', label: t('Top') }]
                     : [{ value: 'left', label: t('Left') }, { value: 'right', label: t('Right') }]}
                   onChange={value => update('fillStart', value)} />
-              </div>
+              </div>}
               </>}
-              {(config.mode === 'linear' || config.mode === 'arc' || config.mode === 'arc-gauge' || config.colorMode === 'single') && <div className="property-item">
+              {(config.mode === 'linear' || config.mode === 'arc' || config.mode === 'arc-gauge' || isIndeterminateProgressMode(config.mode) || config.colorMode === 'single') && <div className="property-item">
                 <label>{t('Active Color')}</label>
                 <PropertyEditor type="color" value={config.activeColor} onChange={value => update('activeColor', value)} />
               </div>}
@@ -272,15 +311,15 @@ export const ProgressProperties: React.FC<PropertyPanelProps> = ({ component, on
                 <PropertyEditor type="number" value={config.activeOpacity} min={0} max={255}
                   onChange={value => update('activeOpacity', value)} />
               </div>
-              <div className="property-item">
+              {config.mode !== 'loading' || config.showTrack ? <div className="property-item">
                 <label>{t('Inactive Color')}</label>
                 <PropertyEditor type="color" value={config.inactiveColor} onChange={value => update('inactiveColor', value)} />
-              </div>
-              <div className="property-item">
+              </div> : null}
+              {config.mode !== 'loading' || config.showTrack ? <div className="property-item">
                 <label>{t('Inactive Opacity')}</label>
                 <PropertyEditor type="number" value={config.inactiveOpacity} min={0} max={255}
                   onChange={value => update('inactiveOpacity', value)} />
-              </div>
+              </div> : null}
             </CollapsibleGroup>
           </>
         ) : (

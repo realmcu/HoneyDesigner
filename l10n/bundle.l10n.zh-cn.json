@@ -454,5 +454,12 @@
   "Invalid OSM XML format": "无效的 OSM XML 格式",
 
   "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.": "此功能需要本机工具链。请将工程导出为 ZIP，并在安装了 HoneyGUI 插件的 VS Code 中打开。",
-  "Opening folders in the system file manager is not available in the browser.": "浏览器中无法在系统文件管理器里打开文件夹。"
+  "Opening folders in the system file manager is not available in the browser.": "浏览器中无法在系统文件管理器里打开文件夹。",
+  "Progress label font not found: {0}": "进度标签字体文件不存在：{0}",
+  "Progress label font must be converted, not copied: {0}": "进度标签字体必须转换，不能设置为直接拷贝：{0}",
+  "Progress label font conversion failed: {0}": "进度标签字体转换失败：{0}",
+  "Progress label font output missing: {0}": "进度标签转换产物不存在：{0}",
+  "Font resources are missing or outdated. Enable Convert Resource and try again: {0}": "字体资源缺失或已过期，请勾选“转换资源”后重试：{0}",
+  "Font resources are missing or outdated. Converting resources: {0}": "字体资源缺失或已过期，正在转换资源：{0}",
+  "Font resources could not be prepared: {0}": "字体资源准备失败：{0}"
 }
