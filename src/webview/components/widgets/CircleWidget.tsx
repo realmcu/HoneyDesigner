@@ -15,6 +15,7 @@ export const CircleWidget: React.FC<WidgetProps> = ({ component, style, handlers
   const d = component.data || {};
   
   const radius = s.radius ?? 40;
+  const strokeWidth = Math.max(0, Number(s.strokeWidth) || 0);
   const isDualState = d.buttonMode === 'dual-state';
   const fillColor = isDualState
     ? (isOn ? d.buttonStateOnColor || '#00FF00' : d.buttonStateOffColor || '#FF0000')
@@ -93,7 +94,7 @@ export const CircleWidget: React.FC<WidgetProps> = ({ component, style, handlers
 
   return (
     <div style={{ ...style, overflow: 'visible' }} {...handlers} {...previewHandlers}>
-      <svg width={width} height={height} style={{ display: 'block' }}>
+      <svg width={width} height={height} style={{ display: 'block', overflow: 'visible' }}>
         {renderGradient()}
         <circle
           cx={cx}
@@ -101,6 +102,9 @@ export const CircleWidget: React.FC<WidgetProps> = ({ component, style, handlers
           r={radius}
           fill={fill}
           fillOpacity={opacity}
+          stroke={s.strokeColor ?? '#FFFFFF'}
+          strokeWidth={strokeWidth}
+          strokeOpacity={opacity}
         />
       </svg>
       {children}

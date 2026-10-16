@@ -13,6 +13,7 @@ export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers, 
   const d = component.data || {};
   
   const borderRadius = s.borderRadius ?? 0;
+  const strokeWidth = Math.max(0, Number(s.strokeWidth) || 0);
   const isDualState = d.buttonMode === 'dual-state';
   const fillColor = isDualState
     ? (isOn ? d.buttonStateOnColor || '#00FF00' : d.buttonStateOffColor || '#FF0000')
@@ -59,6 +60,8 @@ export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers, 
     ...style,
     background: getGradientBackground(),
     borderRadius: borderRadius,
+    border: strokeWidth > 0 ? `${strokeWidth}px solid ${s.strokeColor ?? '#FFFFFF'}` : undefined,
+    boxSizing: 'border-box',
     opacity: opacity / 255,
   };
 

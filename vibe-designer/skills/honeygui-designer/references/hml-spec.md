@@ -900,6 +900,8 @@ Progress indicator bar. **HoneyGUI projects: do not use (unsupported).**
 |-----------|------|---------|-------------|
 | `radius` | number | 40 | Circle radius |
 | `fillColor` | color | #007acc | Fill color |
+| `strokeWidth` | number | 0 | HoneyGUI only: stroke width (>= 0); 0 disables stroke |
+| `strokeColor` | color | #FFFFFF | HoneyGUI only: stroke color |
 | `opacity` | number | 255 | Opacity (0–255) |
 | `useGradient` | boolean | false | Enable gradient |
 | `gradientType` | enum | radial | `radial` / `angular` |
@@ -917,6 +919,8 @@ Progress indicator bar. **HoneyGUI projects: do not use (unsupported).**
 |-----------|------|---------|-------------|
 | `borderRadius` | number | 0 | Corner radius |
 | `fillColor` | color | #007acc | Fill color |
+| `strokeWidth` | number | 0 | HoneyGUI only: stroke width (>= 0); 0 disables stroke |
+| `strokeColor` | color | #FFFFFF | HoneyGUI only: stroke color |
 | `opacity` | number | 255 | Opacity (0–255) |
 | `useGradient` | boolean | false | Enable gradient |
 | `gradientDirection` | enum | horizontal | `horizontal` / `vertical` / `diagonal_tl_br` / `diagonal_tr_bl` |
@@ -1560,7 +1564,7 @@ corner or edge handles to resize it.
 The HML parser categorizes XML attributes into the following buckets:
 
 ### Style Attributes
-`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
+`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `strokeColor`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
 
 ### Data Attributes
 `text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `spinArcLen`, `spinPeriod`, `slideLengthPercent`, `spinAutostart`, `showTrack`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `colorMode`, `thresholdLow`, `thresholdHigh`, `zoneLowColor`, `zoneMidColor`, `zoneHighColor`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`

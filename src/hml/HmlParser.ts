@@ -588,7 +588,7 @@ export class HmlParser {
       'border', 'borderRadius', 'padding', 'margin',
       'overflow', 'title', 'titleBarHeight', 'titleBarColor',
       // 圆弧属性
-      'radius', 'startAngle', 'endAngle', 'strokeWidth',
+      'radius', 'startAngle', 'endAngle', 'strokeWidth', 'strokeColor',
       // 矩形属性
       'fillColor',
       // 窗口属性

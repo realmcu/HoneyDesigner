@@ -92,6 +92,7 @@ export const propertyLabelKeys: Record<string, string> = {
   'startAngle': 'Start Angle',
   'endAngle': 'End Angle',
   'strokeWidth': 'Stroke Width',
+  'strokeColor': 'Stroke Color',
   'opacity': 'Opacity',
   'useGradient': 'Enable Gradient',
   'fillColor': 'Fill Color',

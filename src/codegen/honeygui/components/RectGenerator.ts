@@ -51,6 +51,12 @@ export class RectGenerator implements ComponentCodeGenerator {
     let code = '';
 
     // Note: opacity already set in gui_rgba, no separate opacity_value needed
+    const strokeWidth = Number(component.style?.strokeWidth ?? 0);
+    if (strokeWidth > 0) {
+      const strokeColor = component.style?.strokeColor || '#FFFFFF';
+      const opacity = component.style?.opacity ?? component.data?.opacity ?? 255;
+      code += `${indentStr}gui_rect_set_stroke(${component.id}, ${strokeWidth}, ${convertColorWithOpacity(strokeColor, opacity)});\n`;
+    }
 
     // Gradient settings
     if (component.data?.buttonMode !== 'dual-state' && component.style?.useGradient && component.data?.gradientStops) {

@@ -502,6 +502,8 @@ const componentDefinitions: ComponentDefinition[] = [
     properties: [
       { name: 'radius', label: 'Radius', type: 'number', defaultValue: 40, min: 0, group: 'style' },
       { name: 'fillColor', label: 'Fill Color', type: 'color', defaultValue: '#007acc', group: 'style' },
+      { name: 'strokeWidth', label: 'Stroke Width', type: 'number', defaultValue: 0, min: 0, group: 'style' },
+      { name: 'strokeColor', label: 'Stroke Color', type: 'color', defaultValue: '#FFFFFF', group: 'style' },
       { name: 'opacity', label: 'Opacity (0-255)', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientType', label: 'Gradient Type', type: 'select', defaultValue: 'radial', options: ['radial', 'angular'], group: 'style' },
@@ -524,6 +526,8 @@ const componentDefinitions: ComponentDefinition[] = [
     properties: [
       { name: 'borderRadius', label: 'Border Radius', type: 'number', defaultValue: 0, min: 0, group: 'style' },
       { name: 'fillColor', label: 'Fill Color', type: 'color', defaultValue: '#007acc', group: 'style' },
+      { name: 'strokeWidth', label: 'Stroke Width', type: 'number', defaultValue: 0, min: 0, group: 'style' },
+      { name: 'strokeColor', label: 'Stroke Color', type: 'color', defaultValue: '#FFFFFF', group: 'style' },
       { name: 'opacity', label: 'Opacity', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },

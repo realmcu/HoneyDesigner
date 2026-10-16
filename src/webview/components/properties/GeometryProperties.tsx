@@ -7,11 +7,17 @@ import { CollapsibleGroup } from './CollapsibleGroup';
 import { HelpIcon } from './HelpIcon';
 import { GradientStopsEditor, GradientStop } from './GradientStopsEditor';
 import { componentDefinitions } from '../ComponentLibrary';
+import { useDesignerStore } from '../../store';
 import { t } from '../../i18n';
 
 export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
   const definition = componentDefinitions.find((d) => d.type === component.type);
+  const targetEngine = useDesignerStore(state => state.projectConfig?.targetEngine || 'honeygui');
+  const styleProperties = definition?.properties.filter(p =>
+    p.group === 'style' &&
+    (targetEngine === 'honeygui' || (p.name !== 'strokeWidth' && p.name !== 'strokeColor') || component.type === 'hg_arc')
+  ) || [];
 
   // 渐变色标数据（存储在 data.gradientStops 中）
   const gradientStops: GradientStop[] = component.data?.gradientStops || [];
@@ -86,16 +92,15 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
             />
 
             {/* Style Properties */}
-            {definition && definition.properties.filter(p => p.group === 'style').length > 0 && (
+            {styleProperties.length > 0 && (
               <CollapsibleGroup title={t('Style')}>
-                {definition.properties
-                  .filter(p => p.group === 'style')
-                  .map((property) => (
+                {styleProperties.map((property) => (
                     <div key={property.name} className="property-item">
                       <label>{t(property.label as any)}</label>
                       <PropertyEditor
                         type={property.type as any}
-                        value={(component.style as any)?.[property.name]}
+                        value={(component.style as any)?.[property.name] ??
+                          ((property.name === 'strokeWidth' || property.name === 'strokeColor') ? property.defaultValue : undefined)}
                         onChange={(value) => handleStyleChange(property.name, value)}
                         options={property.options as string[]}
                         min={(property as any).min}
