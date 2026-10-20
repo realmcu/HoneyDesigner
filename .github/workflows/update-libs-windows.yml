@@ -1,6 +1,6 @@
 name: Update Simulation Libraries (Windows)
 
-# 在 Linux 仿真库更新成功后运行：Linux 侧负责同步 win32_sim 源码与头文件，
+# 在 Linux 仿真库更新成功后运行：Linux 侧负责同步上游 simulator/win32 -> lib/sim/win32_sim 的源码与头文件，
 # 本 workflow 只补 Win32 的 libgui.a / liblvgl.a，串行执行避免两边同时 push 冲突。
 on:
   workflow_run:

@@ -11,9 +11,12 @@ cat << 'EOF'
 --------------------------------------------------------------------------------
 第一步：拷贝仿真端源码
 --------------------------------------------------------------------------------
-从 SDK 拷贝 win32_sim 目录（包含 .config 配置文件）：
+从 SDK 的 simulator/win32 目录拷贝（包含 .config 配置文件），目标目录名固定为 win32_sim：
 
-  cp -r /path/to/HoneyGUI-SDK/win32_sim ./lib/sim/
+  mkdir -p ./lib/sim/win32_sim && cp -r /path/to/HoneyGUI-SDK/simulator/win32/. ./lib/sim/win32_sim/
+
+注意：不要写成 "cp -r .../simulator/win32 ./lib/sim/"，那样得到的是 lib/sim/win32/
+（与预编译库目录同名），而不是 lib/sim/win32_sim/；源路径末尾的 "/." 用于连同 .config 等隐藏文件一起拷贝。
 
 --------------------------------------------------------------------------------
 第二步：拷贝头文件
@@ -41,7 +44,7 @@ cat << 'EOF'
 --------------------------------------------------------------------------------
 在 Linux 环境下编译 libgui.a：
 
-  cd /path/to/HoneyGUI-SDK/win32_sim
+  cd /path/to/HoneyGUI-SDK/simulator/win32
   scons --buildlib=gui
   cp build/libgui.a /path/to/plugin/lib/sim/linux/
 
@@ -50,7 +53,7 @@ cat << 'EOF'
 --------------------------------------------------------------------------------
 在 Windows + MinGW 环境下编译 libgui.a：
 
-  cd C:\path\to\HoneyGUI-SDK\win32_sim
+  cd C:\path\to\HoneyGUI-SDK\simulator\win32
   scons --buildlib=gui
   copy build\libgui.a C:\path\to\plugin\lib\sim\win32\
 
