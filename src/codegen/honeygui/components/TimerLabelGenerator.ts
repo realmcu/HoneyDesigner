@@ -80,7 +80,8 @@ export class TimerLabelGenerator extends LabelGenerator {
     if (enableScroll) {
       let scrollModeStr: string;
       const vAlign = component.style?.vAlign || 'TOP';
-      
+
+      // SCROLL_* 只有顶部和中部两种纵向对齐，BOTTOM 在这里退化为顶部
       if (scrollDirection === 'horizontal') {
         if (vAlign === 'MID') {
           scrollModeStr = scrollReverse ? 'SCROLL_X_MID_REVERSE' : 'SCROLL_X_MID';

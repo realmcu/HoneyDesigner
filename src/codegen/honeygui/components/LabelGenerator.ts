@@ -89,7 +89,8 @@ export class LabelGenerator implements ComponentCodeGenerator {
       // Convert scroll direction and alignment mode
       let scrollModeStr: string;
       const vAlign = component.style?.vAlign || 'TOP';
-      
+
+      // SCROLL_* 只有顶部和中部两种纵向对齐，BOTTOM 在这里退化为顶部
       if (scrollDirection === 'horizontal') {
         if (vAlign === 'MID') {
           scrollModeStr = scrollReverse ? 'SCROLL_X_MID_REVERSE' : 'SCROLL_X_MID';
@@ -206,39 +207,19 @@ export class LabelGenerator implements ComponentCodeGenerator {
     const hAlign = component.style?.hAlign || 'LEFT';
     const vAlign = component.style?.vAlign || 'TOP';
     const wordWrap = component.style?.wordWrap || false;
-    
-    if (vAlign === 'MID') {
-      if (wordWrap) {
-        switch (hAlign) {
-          case 'LEFT': return 'MULTI_MID_LEFT';
-          case 'CENTER': return 'MULTI_MID_CENTER';
-          case 'RIGHT': return 'MULTI_MID_RIGHT';
-          default: return 'MULTI_MID_LEFT';
-        }
-      } else {
-        switch (hAlign) {
-          case 'LEFT': return 'MID_LEFT';
-          case 'CENTER': return 'MID_CENTER';
-          case 'RIGHT': return 'MID_RIGHT';
-          default: return 'MID_LEFT';
-        }
+    const h = hAlign === 'CENTER' || hAlign === 'RIGHT' ? hAlign : 'LEFT';
+
+    if (wordWrap) {
+      switch (vAlign) {
+        case 'MID': return `MULTI_MID_${h}`;
+        case 'BOTTOM': return `MULTI_BOT_${h}`;
+        default: return `MULTI_${h}`;
       }
-    } else {
-      if (wordWrap) {
-        switch (hAlign) {
-          case 'LEFT': return 'MULTI_LEFT';
-          case 'CENTER': return 'MULTI_CENTER';
-          case 'RIGHT': return 'MULTI_RIGHT';
-          default: return 'MULTI_LEFT';
-        }
-      } else {
-        switch (hAlign) {
-          case 'LEFT': return 'LEFT';
-          case 'CENTER': return 'CENTER';
-          case 'RIGHT': return 'RIGHT';
-          default: return 'LEFT';
-        }
-      }
+    }
+    switch (vAlign) {
+      case 'MID': return `MID_${h}`;
+      case 'BOTTOM': return `BOT_${h}`;
+      default: return `${h}`;
     }
   }
 

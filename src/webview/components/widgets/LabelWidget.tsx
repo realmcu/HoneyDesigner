@@ -60,6 +60,10 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   // ========== 排版计算（共用逻辑） ==========
   const layoutParams = getTextLayoutParams(component, fontFamily);
   layoutParams.wordWrap = wordWrap; // 滚动模式可能覆盖 wordWrap
+  if (enableScroll && layoutParams.vAlign === 'BOTTOM') {
+    // SCROLL_* 只有顶部和中部两种纵向对齐，设备上退化为顶部，预览需保持一致
+    layoutParams.vAlign = 'TOP';
+  }
   const { lineHeight, cssLineHeight, containerStyle, textBlockStyle } = useTextLayout(layoutParams, style);
 
   const actualFontSize = layoutParams.fontSize;
@@ -171,7 +175,8 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
     diagnosticMessages.push('可能溢出');
   }
   if (likelyWrapHeightOverflow) {
-    diagnosticMessages.push('换行高度不足');
+    // BOTTOM 溢出是设计预期：裁掉顶部、保留结尾，措辞需区分以免被当成缺陷
+    diagnosticMessages.push(layoutParams.vAlign === 'BOTTOM' ? '换行超高，顶部被裁' : '换行高度不足');
   }
   if (resolvedText.source === 'componentName' && !isSplitTime) {
     diagnosticMessages.push('文本为空，设备上将显示空白');

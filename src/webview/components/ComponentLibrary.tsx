@@ -11,6 +11,9 @@ interface ComponentLibraryProps {
   onCreateComponent?: (type: ComponentType) => void;
 }
 
+/** 文本控件的纵向对齐可选值，BOTTOM 对应 HoneyGUI TEXT_MODE 的 BOT_* / MULTI_BOT_* */
+export const V_ALIGN_OPTIONS = ['TOP', 'MID', 'BOTTOM'];
+
 /**
  * 高级应用控件配置
  * 定义哪些基础控件有对应的高级应用变体
@@ -141,7 +144,7 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT', 
         options: ['LEFT', 'CENTER', 'RIGHT'], group: 'style' },
       { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP', 
-        options: ['TOP', 'MID'], group: 'style' },
+        options: V_ALIGN_OPTIONS, group: 'style' },
       { name: 'color', label: 'Color', type: 'color', defaultValue: '#ffffff', group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },
@@ -178,7 +181,7 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT', 
         options: ['LEFT', 'CENTER', 'RIGHT'], group: 'style' },
       { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP', 
-        options: ['TOP', 'MID'], group: 'style' },
+        options: V_ALIGN_OPTIONS, group: 'style' },
       { name: 'color', label: 'Color', type: 'color', defaultValue: '#ffffff', group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },
@@ -211,7 +214,7 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT', 
         options: ['LEFT', 'CENTER', 'RIGHT'], group: 'style' },
       { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP', 
-        options: ['TOP', 'MID'], group: 'style' },
+        options: V_ALIGN_OPTIONS, group: 'style' },
       { name: 'color', label: 'Color', type: 'color', defaultValue: '#ffffff', group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },

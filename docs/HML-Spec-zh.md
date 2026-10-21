@@ -470,7 +470,7 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 | `text` | string | "Label" | 显示文本 |
 | `i18nKey` | string | — | 可选的项目字符串 key，从 `i18n/strings.json` 解析，同时用于 Designer 多语言预览和代码生成（取 `catalog.activeLocale`，缺失时回退 `defaultLocale`）。key/翻译都缺失时最终回退 `text`。 |
 | `hAlign` | enum | LEFT | 水平对齐：`LEFT` / `CENTER` / `RIGHT` |
-| `vAlign` | enum | TOP | 垂直对齐：`TOP` / `MID` |
+| `vAlign` | enum | TOP | 垂直对齐：`TOP` / `MID` / `BOTTOM`。`BOTTOM` 把最后一行贴到控件底边，文本高于控件时裁掉顶部；映射为 HoneyGUI 的 `BOT_*` / `MULTI_BOT_*`，LVGL 工程不提供该选项（回退为 `TOP`）。 |
 | `color` | color | #ffffff | 文本颜色 |
 | `letterSpacing` | number | 0 | 字间距 |
 | `lineSpacing` | number | 0 | 行间距 |

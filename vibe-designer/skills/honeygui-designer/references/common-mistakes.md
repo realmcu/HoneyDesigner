@@ -30,7 +30,7 @@ AI 最常凭其他 UI 框架的习惯写 HML，导致方言不对。务必照下
 ```xml
 <!-- ❌ 错误 -->
 <hg_label id="lbl1" text="Hi" textAlign="center" fontFile="/font.ttf" />
-<!-- ✅ 正确：hAlign 取 LEFT / CENTER / RIGHT（大写）；垂直用 vAlign（TOP / MID） -->
+<!-- ✅ 正确：hAlign 取 LEFT / CENTER / RIGHT（大写）；垂直用 vAlign（TOP / MID / BOTTOM） -->
 <hg_label id="lbl1" text="Hi" hAlign="CENTER" fontFile="/font.ttf" />
 ```
 

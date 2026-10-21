@@ -4,7 +4,7 @@ import { PropertyEditor } from './PropertyEditor';
 import { BaseProperties } from './BaseProperties';
 import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
-import { componentDefinitions } from '../ComponentLibrary';
+import { componentDefinitions, V_ALIGN_OPTIONS } from '../ComponentLibrary';
 import { useDesignerStore } from '../../store';
 import { t, getLocale } from '../../i18n';
 import { useFontGlyphStats } from '../../hooks/useFontGlyphStats';
@@ -139,6 +139,11 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const projectConfig = useDesignerStore((state) => state.projectConfig);
   const targetEngine = projectConfig?.targetEngine || 'honeygui';
   const isLvglProject = targetEngine === 'lvgl';
+  // BOTTOM 只在 HoneyGUI 引擎有对应 TEXT_MODE；LVGL 工程不提供该选项，
+  // 若工程从 HoneyGUI 切换过来仍存着 BOTTOM，面板回退显示 TOP 以免出现空选项。
+  const vAlignOptions = isLvglProject ? ['TOP', 'MID'] : V_ALIGN_OPTIONS;
+  const storedVAlign = String((component.style as any)?.vAlign || 'TOP');
+  const vAlignValue = vAlignOptions.includes(storedVAlign) ? storedVAlign : 'TOP';
   const isLocalizableLabel = component.type === 'hg_label';
   const i18nKey = String((component.data as any)?.i18nKey || '').trim();
   const i18nAutoCharset = React.useMemo(
@@ -1194,9 +1199,9 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                           <label style={{ fontSize: '12px' }}>{t('Vertical')}</label>
                           <PropertyEditor
                             type="select"
-                            value={(component.style as any)?.vAlign || 'TOP'}
+                            value={vAlignValue}
                             onChange={(value) => handleStyleChange('vAlign', value)}
-                            options={['TOP', 'MID']}
+                            options={vAlignOptions}
                             disabled={(component.data as any)?.enableScroll && (component.data as any)?.scrollDirection === 'vertical'}
                           />
                           {(component.data as any)?.enableScroll && (component.data as any)?.scrollDirection === 'vertical' && (

@@ -487,7 +487,7 @@ font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified C
 | `text` | string | "Label" | Display text |
 | `i18nKey` | string | — | Optional project string key resolved from `i18n/strings.json` for both Designer multilingual preview and code generation (via `catalog.activeLocale`, falling back to `defaultLocale`). `text` remains the final fallback when the key/translation is missing. |
 | `hAlign` | enum | LEFT | Horizontal alignment: `LEFT` / `CENTER` / `RIGHT` |
-| `vAlign` | enum | TOP | Vertical alignment: `TOP` / `MID` |
+| `vAlign` | enum | TOP | Vertical alignment: `TOP` / `MID` / `BOTTOM`. `BOTTOM` anchors the last line to the widget's bottom edge and clips the top when the text is taller than the widget; it maps to HoneyGUI `BOT_*` / `MULTI_BOT_*` and is not available for LVGL projects (LVGL falls back to `TOP`). |
 | `color` | color | #ffffff | Text color |
 | `letterSpacing` | number | 0 | Letter spacing |
 | `lineSpacing` | number | 0 | Line spacing |

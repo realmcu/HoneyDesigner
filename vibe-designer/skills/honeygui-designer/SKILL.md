@@ -64,7 +64,7 @@ HML 是**一套语言、两个 codegen 后端**：`honeygui` 与 `lvgl`，每个
 | 维度 | ✅ 正确 | ❌ 错误 |
 |------|--------|--------|
 | 尺寸 | `width="120"` `height="48"` | `w="120"` `h="48"` |
-| 文本对齐 | `hAlign="CENTER"`（`LEFT`/`CENTER`/`RIGHT`）、`vAlign="MID"` | `textAlign="center"` |
+| 文本对齐 | `hAlign="CENTER"`（`LEFT`/`CENTER`/`RIGHT`）、`vAlign="MID"`（`TOP`/`MID`/`BOTTOM`） | `textAlign="center"` |
 | meta | `<project name="App" resolution="454x454" pixelMode="RGB565" />` + `<author .../>` | `<title>` + 嵌套 `<resolution>` |
 | 事件 | `<events><event type="onClick"><action type="callFunction" functionName="fn"/></event></events>` | 内联 `onClick="fn"` |
 | 按钮 | `hg_button` 用 `imageOn`/`imageOff` + `clickCallback`（普通）或 `onCallback`/`offCallback`（toggle），**非容器、无子组件** | `hg_button src=`、内嵌子组件、`text=` |
