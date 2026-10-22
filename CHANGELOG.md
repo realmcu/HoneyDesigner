@@ -4,6 +4,61 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [2.2.0] - 2026-10-21
+
+### Added
+
+- 新增浏览器版设计器，可在无 VS Code 的环境中使用完整设计器能力
+  - 新建工程、ZIP 导入导出、通过 File System Access API 打开本地文件夹
+  - 数据持久化到 IndexedDB 或本地文件夹，批量回写
+  - Service Worker 预缓存应用与工程文件，支持离线使用
+  - 由 GitHub Actions 自动部署到 GitHub Pages
+- 新增 `hg_progress` 进度组件（HoneyGUI）
+  - 支持 `linear`、`segmented`、`arc`、`arc-segmented`、`arc-gauge`、`arc-dots`、`loading`、`loading-slide` 八种模式
+  - 支持分段阈值配色（`positional` / `state` 两种取色方式）
+  - 圆弧模式支持数值标签、起止角度、扫过角度、方向与线宽配置
+  - 动画加载模式支持旋转周期、弧长、滑块长度与自动启动配置
+- 文本框新增渐变填充
+- 文本框新增底部垂直对齐（`vAlign="BOTTOM"`），映射为 HoneyGUI `BOT_*` / `MULTI_BOT_*` 文本模式
+- 圆形和矩形新增白色描边属性
+- 圆形按钮和矩形按钮新增双态颜色支持
+- 画布支持通过控制点直接缩放矩形、圆形和圆弧组件
+- 组件库与组件树改用单色矢量图标，跟随 VS Code 主题，支持 hover / 选中 / 禁用状态
+- 新增 Chat Bot 和 Dashboard 示例工程
+- 浏览器版设计器新增工程资源管理器与 HML 文件管理
+- 设计器工具栏左侧新增工程菜单，集中工程配置切换、引擎/分辨率/像素信息、语言列表、I18n 管理器入口和打开 `project.json` 操作
+- 新增工程文件树折叠开关
+
+### Changed
+
+- 预览语言选择器移至画布视图工具旁
+- 组件库、组件树和工具栏视觉效果统一，消除布局抖动
+
+### Fixed
+
+- 修复多个面板打开同一工程时，保存 i18n 文案后其他面板预览语言不刷新的问题
+- 修复画布缩放异常
+- 修复仿真中标签未居中的问题
+- 修复服务端返回的示例工程缩略图兜底逻辑不可达的问题
+
+### Performance
+
+- 浏览器版设计器使用内容哈希静态资源，由 Service Worker 优先从缓存读取
+- 移除 `projectStore` key 中的 NUL 分隔符，使 git 将相关文件按文本处理
+
+### Breaking Changes
+
+- 生成代码不再声明和定义已废弃的 `<组件ID>_timer_cnt` 兼容符号；依赖写入 `0` 重播预设动画的代码需改用 `<组件ID>_preset_animation_reset()`
+
+### Internal
+
+- 拆分 `update-libs` 工作流为 Linux 和 Windows 两个独立工作流
+- 从 HoneyGUI `simulator/win32` 同步仿真器源码
+- 新增刷新内置示例工程的脚本
+- 更新 HoneyGUI Linux / Win32 仿真库
+
+---
+
 ## [2.1.0] - 2026-08-26
 
 ### Added
