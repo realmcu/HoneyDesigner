@@ -120,21 +120,21 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
   const [showFontPicker, setShowFontPicker] = useState<string | null>(null);
   const [fontFiles, setFontFiles] = useState<string[]>([]);
   const [userFunctions, setUserFunctions] = useState<Array<{ name: string; type: 'event' | 'message' }>>([]);
-  
+
   // 保存当前正在编辑的组件 ID（用于异步操作时确保操作应用到正确的组件）
   const componentIdRef = React.useRef(component.id);
-  
+
   // 组件切换时更新 ref
   React.useEffect(() => {
     componentIdRef.current = component.id;
   }, [component.id]);
-  
+
   const definition = componentDefinitions.find((d) => d.type === component.type);
   const syncListItems = useDesignerStore((state) => state.syncListItems);
   const projectI18nCatalog = useDesignerStore((state) => state.projectI18nCatalog);
   const previewLocale = useDesignerStore((state) => state.previewLocale);
   const updateProjectI18nCatalog = useDesignerStore((state) => state.updateProjectI18nCatalog);
-  
+
   // 获取项目目标引擎，判断是否是 LVGL 项目
   const projectConfig = useDesignerStore((state) => state.projectConfig);
   const targetEngine = projectConfig?.targetEngine || 'honeygui';
@@ -342,7 +342,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
         [property]: clampedValue,
       },
     });
-    
+
     // 如果是 list 控件的 noteNum 属性被修改，触发 syncListItems
     if (component.type === 'hg_list' && property === 'noteNum') {
       // 使用 setTimeout 确保状态更新后再同步
@@ -690,7 +690,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
 
   const renderCharacterSets = () => {
     const charsets = manualCharacterSets;
-    
+
     // 处理文件浏览
     const handleBrowseCharsetFile = (index: number, type: 'file' | 'codepage') => {
       window.vscodeAPI?.postMessage({
@@ -698,7 +698,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
         componentId: componentIdRef.current,
         charsetIndex: index,
         fileType: type,
-        filters: type === 'file' 
+        filters: type === 'file'
           ? { 'Charset文件': ['cst', 'txt'] }
           : {} // CodePage 文件没有后缀，显示所有文件
       });
@@ -713,7 +713,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
       }
       return cs.value || '';
     };
-    
+
     return (
       <div>
         {i18nAutoCharset.charCount > 0 && (
@@ -1087,9 +1087,9 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
       <div className="properties-content">
         {activeTab === 'properties' && (
           <>
-            <BaseProperties 
-              component={component} 
-              onUpdate={onUpdate} 
+            <BaseProperties
+              component={component}
+              onUpdate={onUpdate}
               components={components}
               disableSize={component.type === 'hg_list'}
               sizeTooltip={component.type === 'hg_list' ? t('List size is auto-calculated') : undefined}
@@ -1099,12 +1099,12 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             {component.type === 'hg_canvas' && (
               <CollapsibleGroup title={t('Content')}>
                 <div className="property-item">
-                  <div style={{ 
-                    fontSize: '12px', 
+                  <div style={{
+                    fontSize: '12px',
                     color: 'var(--vscode-descriptionForeground)',
                     marginBottom: '8px'
                   }}>
-                    {(component.data as any)?.svgContent 
+                    {(component.data as any)?.svgContent
                       ? '✓ ' + t('canvasEditor.preview')
                       : '未配置 SVG 内容'
                     }
@@ -1224,9 +1224,12 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                           </label>
                           <PropertyEditor
                             type={property.type as any}
-                            value={(component.style as any)?.[property.name]}
+                            value={(component.style as any)?.[property.name]
+                              ?? (property.name === 'opacity' ? 255 : undefined)}
                             onChange={(value) => handleStyleChange(property.name, value)}
                             options={property.options as string[]}
+                            min={property.name === 'opacity' ? 0 : (property as any).min}
+                            max={property.name === 'opacity' ? 255 : (property as any).max}
                             hint={property.name === 'color' && supportsTextGradient && useTextGradientFill
                               ? t('Used where the device cannot draw the gradient')
                               : (property as any).hint ? t((property as any).hint) : undefined}
@@ -1262,7 +1265,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: (component.data as any)?.enableScroll ? 0.5 : 1 }}>
                           <PropertyEditor
                             type="boolean"
-                            value={(component.data as any)?.enableScroll 
+                            value={(component.data as any)?.enableScroll
                               ? (component.data as any)?.scrollDirection === 'vertical'
                               : ((component.style as any)?.wordWrap ?? false)}
                             onChange={(value) => handleStyleChange('wordWrap', value)}
@@ -1626,7 +1629,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             {/* Interaction Properties - 按键效果 */}
             {definition && definition.properties.filter(p => p.group === 'interaction').length > 0 && (
               <CollapsibleGroup title={t('Interaction')}>
-                
+
                 {/* 按键模式选择 */}
                 <div className="property-item">
                   <label>{t('Button Mode')}</label>
@@ -1635,7 +1638,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                     value={(component.data as any)?.buttonMode || 'none'}
                     onChange={(value) => {
                       handleDataChange('buttonMode', value);
-                      
+
                       // 如果启用按键效果，自动在 name 中添加 _button_ 标识（如果还没有）
                       if (value !== 'none' && !component.name.includes('_button_')) {
                         const newName = component.name.replace(component.type, `${component.type}_button`);

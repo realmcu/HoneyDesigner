@@ -27,10 +27,10 @@ export class LabelGenerator implements ComponentCodeGenerator {
     const indentStr = '    '.repeat(indent);
     const parentRef = context.getParentRef(component);
     const { x, y, width, height } = component.position;
-    
+
     // Check if scrolling is enabled (note: may be string 'true' or boolean true)
     const enableScroll = component.data?.enableScroll === true || component.data?.enableScroll === 'true';
-    
+
     // Select API based on scrolling
     const createFunction = enableScroll ? 'gui_scroll_text_create' : 'gui_text_create';
 
@@ -48,9 +48,8 @@ export class LabelGenerator implements ComponentCodeGenerator {
 
     // Get property values
     const fontSize = component.data?.fontSize || 16;
-    const color = component.style?.color || '#ffffff';
-    const rgb = this.colorToRgb(color);
-    
+    const colorExpr = this.getTextColorExpr(component);
+
     // Plain label: use the project's active-locale catalog text when i18nKey is bound.
     const staticText = this.resolveCodegenText(component, _context);
     const escapedText = this.escapeCString(staticText);
@@ -64,9 +63,9 @@ export class LabelGenerator implements ComponentCodeGenerator {
     // Select API based on scrolling
     const widgetCast = enableScroll ? 'gui_scroll_text_t' : 'gui_text_t';
     const setFunction = enableScroll ? 'gui_scroll_text_set' : 'gui_text_set';
-    
+
     // Set text content and basic properties
-    code += `${indentStr}${setFunction}((${widgetCast} *)${component.id}, ${text}, ${fontType}, gui_rgb(${rgb.r}, ${rgb.g}, ${rgb.b}), ${textLengthExpr}, ${fontSize});\n`;
+    code += `${indentStr}${setFunction}((${widgetCast} *)${component.id}, ${text}, ${fontType}, ${colorExpr}, ${textLengthExpr}, ${fontSize});\n`;
 
     // Set font file path (if specified)
     if (fontFile) {
@@ -100,12 +99,12 @@ export class LabelGenerator implements ComponentCodeGenerator {
       } else {
         scrollModeStr = scrollReverse ? 'SCROLL_Y_REVERSE' : 'SCROLL_Y';
       }
-      
+
       const startOffset = component.data?.scrollStartOffset ?? 0;
       const endOffset = component.data?.scrollEndOffset ?? 0;
       const interval = component.data?.scrollInterval ?? 3000;
       const duration = component.data?.scrollDuration ?? 0;
-      
+
       code += `${indentStr}gui_scroll_text_scroll_set((gui_scroll_text_t *)${component.id}, ${scrollModeStr}, ${startOffset}, ${endOffset}, ${interval}, ${duration});\n`;
     }
 
@@ -265,12 +264,36 @@ export class LabelGenerator implements ComponentCodeGenerator {
   }
 
   /**
+   * Color expression for gui_text_set(). HoneyGUI has no text opacity setter,
+   * so opacity rides on the color alpha, which every text render path applies.
+   */
+  protected getTextColorExpr(component: Component): string {
+    const { r, g, b, a } = this.resolveTextColor(component);
+    return a >= 255 ? `gui_rgb(${r}, ${g}, ${b})` : `gui_rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
+  /** Text RGB plus the effective alpha (color alpha multiplied by opacity). */
+  resolveTextColor(component: Component): { r: number; g: number; b: number; a: number } {
+    const color = String(component.style?.color || '#ffffff');
+    return { ...this.colorToRgb(color), a: this.getTextAlpha(color, component) };
+  }
+
+  private getTextAlpha(color: string, component: Component): number {
+    const hex = color.startsWith('#') ? color.slice(1) : '';
+    const colorAlpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) : 255;
+    const opacity = Number(component.style?.opacity ?? component.data?.opacity ?? 255);
+    const clampedOpacity = Number.isFinite(opacity) ? Math.max(0, Math.min(255, opacity)) : 255;
+    const clampedColorAlpha = Number.isFinite(colorAlpha) ? colorAlpha : 255;
+    return Math.max(0, Math.min(255, Math.round((clampedColorAlpha * clampedOpacity) / 255)));
+  }
+
+  /**
    * Convert color string to RGB object
    */
   protected colorToRgb(color: string): { r: number; g: number; b: number } {
     if (color.startsWith('#')) {
       const hex = color.slice(1);
-      if (hex.length === 6) {
+      if (hex.length === 6 || hex.length === 8) {
         return {
           r: parseInt(hex.slice(0, 2), 16),
           g: parseInt(hex.slice(2, 4), 16),
@@ -299,14 +322,14 @@ export class LabelGenerator implements ComponentCodeGenerator {
     const fontFileName = path.basename(fontFile);
     // Remove extension and replace - with _ (consistent with font converter)
     const fontName = fontFileName.replace(/\.(ttf|otf|woff|woff2)$/i, '').replace(/-/g, '_');
-    
+
     const fontType = component.data?.fontType || 'bitmap';
     const fontSize = component.data?.fontSize || 16;
     const renderMode = parseInt(component.data?.renderMode || '4', 10);
 
     // HML font paths start with "/" (VFS root), not a host filesystem root.
     const fontDir = path.posix.dirname(String(fontFile).replace(/\\/g, '/').replace(/^\/+/, ''));
-    
+
     let convertedFileName: string;
     if (fontType === 'vector') {
       convertedFileName = `${fontName}_vector.bin`;

@@ -31,6 +31,7 @@ export class LvglTimerLabelGenerator extends LvglBaseGenerator {
     code += `    lv_obj_set_pos(${component.id}, ${x}, ${y});\n`;
     code += `    lv_label_set_text(${component.id}, "${this.getPlaceholder(timerFormat)}");\n`;
     code += `    lv_obj_set_style_text_color(${component.id}, lv_color_hex(0x${color}), LV_PART_MAIN);\n`;
+    code += this.generateTextOpa(component);
 
     // Font
     const bpp = Number((component.data as any)?.renderMode || 4);

@@ -472,6 +472,7 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 | `hAlign` | enum | LEFT | 水平对齐：`LEFT` / `CENTER` / `RIGHT` |
 | `vAlign` | enum | TOP | 垂直对齐：`TOP` / `MID` / `BOTTOM`。`BOTTOM` 把最后一行贴到控件底边，文本高于控件时裁掉顶部；映射为 HoneyGUI 的 `BOT_*` / `MULTI_BOT_*`，LVGL 工程不提供该选项（回退为 `TOP`）。 |
 | `color` | color | #ffffff | 文本颜色 |
+| `opacity` | number | 255 | 文本透明度 0–255。与颜色 alpha 相乘，因此对点阵字体、矢量字体和渐变填充都生效；为 `255` 时仍生成 `gui_rgb()`。 |
 | `letterSpacing` | number | 0 | 字间距 |
 | `lineSpacing` | number | 0 | 行间距 |
 | `wordWrap` | boolean | false | 自动换行 |
@@ -547,7 +548,7 @@ V202S 配对界面示例：
 
 - 仅 HoneyGUI 引擎、`fontType="vector"` 时生效；点阵字体、LVGL 工程保持 `color` 纯色。
 - 设备上缩放或旋转的文本、emoji 也回退为 `color`，因此 `color` 仍需设置。
-- 渐变只替换文字 RGB，控件透明度仍然叠加。
+- 渐变只替换文字 RGB，`opacity` 仍通过颜色 alpha 叠加。
 - 滚动文本：`layout` / `ink` 渐变随文字移动，`widget` 渐变固定在控件上。
 - `hg_time_label` 与 `hg_timer_label` 同样支持；推荐保持 `layout`，避免 `ink` 随数字字形宽度跳动。
 
@@ -587,7 +588,7 @@ V202S 配对界面示例：
 引擎: ✓HoneyGUI ✓LVGL
 <!-- engine: honeygui=ready lvgl=ready -->
 
-显示当前系统时间。继承所有 `hg_label` 的字体和对齐属性。
+显示当前系统时间。继承所有 `hg_label` 的字体、对齐和透明度属性。
 
 fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件夹中的字体文件复制到 assets 文件夹，并使用这些 fallback 字体文件。
 

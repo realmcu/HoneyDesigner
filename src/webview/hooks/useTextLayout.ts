@@ -19,6 +19,8 @@ export interface TextLayoutParams {
   letterSpacing: number;
   /** 字体颜色 */
   color: string;
+  /** 文本透明度（0-255，默认 255） */
+  opacity: number;
   /** 横向对齐 */
   hAlign: string;
   /** 纵向对齐 */
@@ -54,6 +56,7 @@ export function getTextLayoutParams(component: Component, fontFamily: string | u
     lineSpacing: Number(component.style?.lineSpacing) || 0,
     letterSpacing: Number(component.style?.letterSpacing) || 0,
     color: component.style?.color || '#ffffff',
+    opacity: Number(component.style?.opacity ?? 255),
     hAlign: component.style?.hAlign || 'LEFT',
     vAlign: component.style?.vAlign || 'TOP',
     wordWrap: component.style?.wordWrap || false,
@@ -77,7 +80,7 @@ export function useTextLayout(
   params: TextLayoutParams,
   baseStyle: React.CSSProperties | undefined
 ): TextLayoutResult {
-  const { fontPath, fontFamily, fontSize, lineSpacing, letterSpacing, color, hAlign, vAlign, wordWrap, wordBreak } = params;
+  const { fontPath, fontFamily, fontSize, lineSpacing, letterSpacing, color, opacity, hAlign, vAlign, wordWrap, wordBreak } = params;
 
   // 从字体文件 typo metrics 计算行高（对齐 Figma / V3）
   const typoLineHeight = useTypoLineHeight(fontPath, fontFamily, fontSize);
@@ -123,6 +126,8 @@ export function useTextLayout(
     textAlign: hAlign.toLowerCase() as any,
     wordBreak: wordBreak ? 'keep-all' : 'break-all',
     whiteSpace: wordWrap ? 'pre-wrap' : 'nowrap',
+    // 透明度只作用于文字块，避免选中框和诊断徽标一起变淡
+    opacity: opacity < 255 ? Math.max(0, opacity) / 255 : undefined,
     width: '100%',
     // 负值用于 BOTTOM 溢出：把文本块整体上移，容器 overflow 裁掉顶部
     marginTop: singleLineOffset !== 0 ? `${singleLineOffset}px` : undefined,

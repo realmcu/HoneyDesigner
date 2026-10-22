@@ -489,6 +489,7 @@ font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified C
 | `hAlign` | enum | LEFT | Horizontal alignment: `LEFT` / `CENTER` / `RIGHT` |
 | `vAlign` | enum | TOP | Vertical alignment: `TOP` / `MID` / `BOTTOM`. `BOTTOM` anchors the last line to the widget's bottom edge and clips the top when the text is taller than the widget; it maps to HoneyGUI `BOT_*` / `MULTI_BOT_*` and is not available for LVGL projects (LVGL falls back to `TOP`). |
 | `color` | color | #ffffff | Text color |
+| `opacity` | number | 255 | Text opacity 0–255. Multiplies the color alpha, so it applies to bitmaps, TTF and gradient fill alike; `255` emits the unchanged `gui_rgb()`. |
 | `letterSpacing` | number | 0 | Letter spacing |
 | `lineSpacing` | number | 0 | Line spacing |
 | `wordWrap` | boolean | false | Word wrap |
@@ -564,7 +565,7 @@ V202S pairing example:
 
 - Takes effect only on the HoneyGUI engine with `fontType="vector"`; bitmap fonts and LVGL projects keep the flat `color`.
 - Scaled or rotated text and emoji also fall back to `color` on device, so keep `color` set.
-- The gradient replaces only the text RGB; widget opacity still applies.
+- The gradient replaces only the text RGB; `opacity` still applies through the color alpha.
 - Scrolling text: `layout` / `ink` gradients move with the text, `widget` gradients stay fixed on the widget.
 - `hg_time_label` and `hg_timer_label` support it too; keep `layout` so the gradient does not jump with digit ink widths.
 
@@ -604,7 +605,7 @@ V202S pairing example:
 引擎: ✓HoneyGUI ✓LVGL
 <!-- engine: honeygui=ready lvgl=ready -->
 
-Displays the current system time. Inherits all `hg_label` font and alignment attributes.
+Displays the current system time. Inherits all `hg_label` font, alignment and opacity attributes.
 
 font: the extension auto-adds a default font NotoSansSC-Medium.ttf (Simplified Chinese, covers CJK + Latin + digits) into assets/ only when assets has no font at all, so normally assets already has a font — just reference it (e.g. `/NotoSansSC-Medium.ttf`). `fontFile` points to the ttf source; `.bin` is a build-time conversion product, not a font source. Operate only inside the project — never read the plugin install dir or the OS fonts.
 

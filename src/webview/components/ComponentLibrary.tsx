@@ -28,9 +28,9 @@ interface AdvancedVariant {
 const advancedVariants: Record<string, AdvancedVariant[]> = {
   'hg_label': [
     { type: 'hg_time_label', label: 'Time Label', icon: 'time-label' },
-    { 
-      type: 'hg_timer_label', 
-      label: '计时标签', 
+    {
+      type: 'hg_timer_label',
+      label: '计时标签',
       icon: 'timer-label',
       preset: {
         text: '00:00:00',
@@ -39,9 +39,9 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
     },
   ],
   'hg_rect': [
-    { 
-      type: 'hg_rect', 
-      label: 'Dual-State Button', 
+    {
+      type: 'hg_rect',
+      label: 'Dual-State Button',
       icon: 'dual-state',
       preset: {
         buttonMode: 'dual-state',
@@ -49,9 +49,9 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
         buttonStateOffColor: '#FF0000'
       }
     },
-    { 
-      type: 'hg_rect', 
-      label: 'Opacity Button', 
+    {
+      type: 'hg_rect',
+      label: 'Opacity Button',
       icon: 'opacity',
       preset: {
         buttonMode: 'opacity',
@@ -61,9 +61,9 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
     },
   ],
   'hg_circle': [
-    { 
-      type: 'hg_circle', 
-      label: 'Dual-State Button', 
+    {
+      type: 'hg_circle',
+      label: 'Dual-State Button',
       icon: 'dual-state',
       preset: {
         buttonMode: 'dual-state',
@@ -71,9 +71,9 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
         buttonStateOffColor: '#FF0000'
       }
     },
-    { 
-      type: 'hg_circle', 
-      label: 'Opacity Button', 
+    {
+      type: 'hg_circle',
+      label: 'Opacity Button',
       icon: 'opacity',
       preset: {
         buttonMode: 'opacity',
@@ -126,7 +126,7 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'imageOn', label: 'On Image', type: 'string', group: 'data' },
       { name: 'imageOff', label: 'Off Image', type: 'string', group: 'data' },
       { name: 'clickCallback', label: 'Click Callback', type: 'string', defaultValue: '', group: 'data' },
-      { name: 'initialState', label: 'Initial State', type: 'select', defaultValue: 'off', 
+      { name: 'initialState', label: 'Initial State', type: 'select', defaultValue: 'off',
         options: ['on', 'off'], group: 'data' },
       { name: 'onCallback', label: 'On State Callback', type: 'string', defaultValue: '', group: 'data' },
       { name: 'offCallback', label: 'Off State Callback', type: 'string', defaultValue: '', group: 'data' },
@@ -141,11 +141,12 @@ const componentDefinitions: ComponentDefinition[] = [
     properties: [
       { name: 'text', label: 'Display Text', type: 'string', defaultValue: 'Label', group: 'data' },
       { name: 'i18nKey', label: 'Localized Key', type: 'string', defaultValue: '', group: 'data' },
-      { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT', 
+      { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT',
         options: ['LEFT', 'CENTER', 'RIGHT'], group: 'style' },
-      { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP', 
+      { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP',
         options: V_ALIGN_OPTIONS, group: 'style' },
       { name: 'color', label: 'Color', type: 'color', defaultValue: '#ffffff', group: 'style' },
+      { name: 'opacity', label: 'Opacity (0-255)', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },
       { name: 'gradientBox', label: 'Gradient Box', type: 'select', defaultValue: 'layout', options: ['layout', 'ink', 'widget'], group: 'style' },
@@ -153,7 +154,7 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'lineSpacing', label: 'Line Spacing', type: 'number', defaultValue: 0, group: 'style' },
       { name: 'wordWrap', label: 'Word Wrap', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'wordBreak', label: 'Word Break', type: 'boolean', defaultValue: false, group: 'style' },
-      { name: 'scrollDirection', label: 'Scroll Direction', type: 'select', defaultValue: 'horizontal', 
+      { name: 'scrollDirection', label: 'Scroll Direction', type: 'select', defaultValue: 'horizontal',
         options: ['horizontal', 'vertical'], group: 'scroll' },
       { name: 'scrollReverse', label: 'Reverse Direction', type: 'boolean', defaultValue: false, group: 'scroll' },
       { name: 'scrollStartOffset', label: 'Start Offset (px)', type: 'number', defaultValue: 0, group: 'scroll' },
@@ -162,9 +163,9 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'scrollDuration', label: 'Total Duration (ms)', type: 'number', defaultValue: 0, group: 'scroll' },
       { name: 'fontFile', label: 'Font File', type: 'string', defaultValue: '', group: 'font' },
       { name: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 16, group: 'font' },
-      { name: 'fontType', label: 'Font Type', type: 'select', defaultValue: 'bitmap', 
+      { name: 'fontType', label: 'Font Type', type: 'select', defaultValue: 'bitmap',
         options: ['bitmap', 'vector'], group: 'font' },
-      { name: 'renderMode', label: 'Render Mode', type: 'select', defaultValue: '4', 
+      { name: 'renderMode', label: 'Render Mode', type: 'select', defaultValue: '4',
         options: ['1', '2', '4', '8'], group: 'font' },
     ],
   },
@@ -176,13 +177,14 @@ const componentDefinitions: ComponentDefinition[] = [
     defaultSize: { width: 120, height: 24 },
     properties: [
       { name: 'text', label: 'Display Text', type: 'string', defaultValue: '', group: 'data' },
-      { name: 'timeFormat', label: 'Time Format', type: 'select', defaultValue: 'HH:mm:ss', 
+      { name: 'timeFormat', label: 'Time Format', type: 'select', defaultValue: 'HH:mm:ss',
         options: ['HH:mm:ss', 'HH:mm', 'HH', 'mm', 'HH:mm-split', 'YYYY-MM-DD', 'YYYY-MM-DD HH:mm:ss', 'MM-DD HH:mm'], group: 'time' },
-      { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT', 
+      { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT',
         options: ['LEFT', 'CENTER', 'RIGHT'], group: 'style' },
-      { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP', 
+      { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP',
         options: V_ALIGN_OPTIONS, group: 'style' },
       { name: 'color', label: 'Color', type: 'color', defaultValue: '#ffffff', group: 'style' },
+      { name: 'opacity', label: 'Opacity (0-255)', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },
       { name: 'gradientBox', label: 'Gradient Box', type: 'select', defaultValue: 'layout', options: ['layout', 'ink', 'widget'], group: 'style' },
@@ -191,9 +193,9 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'wordWrap', label: 'Word Wrap', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'fontFile', label: 'Font File', type: 'string', defaultValue: '', group: 'font' },
       { name: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 16, group: 'font' },
-      { name: 'fontType', label: 'Font Type', type: 'select', defaultValue: 'bitmap', 
+      { name: 'fontType', label: 'Font Type', type: 'select', defaultValue: 'bitmap',
         options: ['bitmap', 'vector'], group: 'font' },
-      { name: 'renderMode', label: 'Render Mode', type: 'select', defaultValue: '4', 
+      { name: 'renderMode', label: 'Render Mode', type: 'select', defaultValue: '4',
         options: ['1', '2', '4', '8'], group: 'font' },
     ],
   },
@@ -205,17 +207,18 @@ const componentDefinitions: ComponentDefinition[] = [
     defaultSize: { width: 120, height: 24 },
     properties: [
       { name: 'text', label: 'Display Text', type: 'string', defaultValue: '00:00:00', group: 'data' },
-      { name: 'timerType', label: 'Timer Type', type: 'select', defaultValue: 'stopwatch', 
+      { name: 'timerType', label: 'Timer Type', type: 'select', defaultValue: 'stopwatch',
         options: ['stopwatch', 'countdown'], group: 'timer' },
       { name: 'timerInitialValue', label: 'Initial Value (ms)', type: 'number', defaultValue: 0, group: 'timer' },
-      { name: 'timerFormat', label: 'Display Format', type: 'select', defaultValue: 'HH:MM:SS', 
+      { name: 'timerFormat', label: 'Display Format', type: 'select', defaultValue: 'HH:MM:SS',
         options: ['HH:MM:SS', 'MM:SS', 'MM:SS:MS', 'SS'], group: 'timer' },
       { name: 'timerAutoStart', label: 'Auto Start', type: 'boolean', defaultValue: false, group: 'timer' },
-      { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT', 
+      { name: 'hAlign', label: 'Horizontal Align', type: 'select', defaultValue: 'LEFT',
         options: ['LEFT', 'CENTER', 'RIGHT'], group: 'style' },
-      { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP', 
+      { name: 'vAlign', label: 'Vertical Align', type: 'select', defaultValue: 'TOP',
         options: V_ALIGN_OPTIONS, group: 'style' },
       { name: 'color', label: 'Color', type: 'color', defaultValue: '#ffffff', group: 'style' },
+      { name: 'opacity', label: 'Opacity (0-255)', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },
       { name: 'gradientBox', label: 'Gradient Box', type: 'select', defaultValue: 'layout', options: ['layout', 'ink', 'widget'], group: 'style' },
@@ -224,9 +227,9 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'wordWrap', label: 'Word Wrap', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'fontFile', label: 'Font File', type: 'string', defaultValue: '', group: 'font' },
       { name: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 16, group: 'font' },
-      { name: 'fontType', label: 'Font Type', type: 'select', defaultValue: 'bitmap', 
+      { name: 'fontType', label: 'Font Type', type: 'select', defaultValue: 'bitmap',
         options: ['bitmap', 'vector'], group: 'font' },
-      { name: 'renderMode', label: 'Render Mode', type: 'select', defaultValue: '4', 
+      { name: 'renderMode', label: 'Render Mode', type: 'select', defaultValue: '4',
         options: ['1', '2', '4', '8'], group: 'font' },
     ],
   },
@@ -511,11 +514,11 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientType', label: 'Gradient Type', type: 'select', defaultValue: 'radial', options: ['radial', 'angular'], group: 'style' },
       // 按键效果属性
-      { name: 'buttonMode', label: 'Button Mode', type: 'select', defaultValue: 'none', 
+      { name: 'buttonMode', label: 'Button Mode', type: 'select', defaultValue: 'none',
         options: ['none', 'dual-state', 'opacity'], group: 'interaction' },
       { name: 'buttonStateOnColor', label: 'On State Color', type: 'color', defaultValue: '#00FF00', group: 'interaction' },
       { name: 'buttonStateOffColor', label: 'Off State Color', type: 'color', defaultValue: '#FF0000', group: 'interaction' },
-      { name: 'buttonInitialState', label: 'Initial State', type: 'select', defaultValue: 'off', 
+      { name: 'buttonInitialState', label: 'Initial State', type: 'select', defaultValue: 'off',
         options: ['on', 'off'], group: 'interaction' },
       { name: 'buttonPressedOpacity', label: 'Pressed Opacity', type: 'number', defaultValue: 128, min: 0, max: 255, group: 'interaction' },
       { name: 'buttonReleasedOpacity', label: 'Released Opacity', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'interaction' },
@@ -535,11 +538,11 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },
       // 按键效果属性
-      { name: 'buttonMode', label: 'Button Mode', type: 'select', defaultValue: 'none', 
+      { name: 'buttonMode', label: 'Button Mode', type: 'select', defaultValue: 'none',
         options: ['none', 'dual-state', 'opacity'], group: 'interaction' },
       { name: 'buttonStateOnColor', label: 'On State Color', type: 'color', defaultValue: '#00FF00', group: 'interaction' },
       { name: 'buttonStateOffColor', label: 'Off State Color', type: 'color', defaultValue: '#FF0000', group: 'interaction' },
-      { name: 'buttonInitialState', label: 'Initial State', type: 'select', defaultValue: 'off', 
+      { name: 'buttonInitialState', label: 'Initial State', type: 'select', defaultValue: 'off',
         options: ['on', 'off'], group: 'interaction' },
       { name: 'buttonPressedOpacity', label: 'Pressed Opacity', type: 'number', defaultValue: 128, min: 0, max: 255, group: 'interaction' },
       { name: 'buttonReleasedOpacity', label: 'Released Opacity', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'interaction' },
@@ -743,8 +746,8 @@ const ComponentLibrary: React.FC<ComponentLibraryProps> = ({ onComponentDragStar
 
           return (
             <div key={category.name} className="component-category">
-              <div 
-                className="category-header" 
+              <div
+                className="category-header"
                 onClick={() => toggleCategory(category.name)}
               >
                 <span className={`expand-icon ${isExpanded ? 'expanded' : ''}`}>▶</span>

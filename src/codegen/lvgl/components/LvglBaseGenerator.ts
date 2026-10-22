@@ -30,6 +30,23 @@ export abstract class LvglBaseGenerator implements LvglComponentCodeGenerator {
   }
 
   /**
+   * Text opacity (0-255). LVGL text_opa affects glyphs only, which mirrors
+   * HoneyGUI applying opacity through the text color alpha.
+   */
+  protected resolveTextOpacity(component: Component): number {
+    const raw = Number(component.style?.opacity ?? component.data?.opacity ?? 255);
+    return Number.isFinite(raw) ? Math.max(0, Math.min(255, Math.round(raw))) : 255;
+  }
+
+  /** Emit text_opa only when the label is actually translucent. */
+  protected generateTextOpa(component: Component): string {
+    const opacity = this.resolveTextOpacity(component);
+    return opacity < 255
+      ? `    lv_obj_set_style_text_opa(${component.id}, ${opacity}, LV_PART_MAIN);\n`
+      : '';
+  }
+
+  /**
    * Generate lv_obj_set_pos + lv_obj_set_size two lines of code
    */
   protected generatePositionAndSize(component: Component): string {

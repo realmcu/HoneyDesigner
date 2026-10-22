@@ -854,9 +854,11 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
    * Generate split time label callback functions
    */
   private generateSplitTimeCallbacks(component: Component): string {
-    const color = component.style?.color || '#ffffff';
-    const rgb = this.colorToRgb(color);
-    
+    const { r, g, b, a } = new LabelGenerator().resolveTextColor(component);
+    const alphaExpr = a >= 255
+      ? `(uint8_t)${component.id}_current_alpha`
+      : `(uint8_t)((${component.id}_current_alpha * ${a}) / 255)`;
+
     let code = `
 // ${component.id} split time callback functions
 static int8_t ${component.id}_breath_dir = -1;
@@ -876,35 +878,12 @@ static void ${component.id}_breath_anim_cb(void *p)
         ${component.id}_breath_dir = 1;
     }
     
-    gui_color_t new_color = gui_rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, (uint8_t)${component.id}_current_alpha);
+    gui_color_t new_color = gui_rgba(${r}, ${g}, ${b}, ${alphaExpr});
     gui_text_color_set(t_colon, new_color);
 }
 
 `;
     return code;
-  }
-
-  /**
-   * Convert color string to RGB object
-   */
-  private colorToRgb(color: string): { r: number; g: number; b: number } {
-    if (color.startsWith('#')) {
-      const hex = color.slice(1);
-      if (hex.length === 6) {
-        return {
-          r: parseInt(hex.slice(0, 2), 16),
-          g: parseInt(hex.slice(2, 4), 16),
-          b: parseInt(hex.slice(4, 6), 16),
-        };
-      } else if (hex.length === 3) {
-        return {
-          r: parseInt(hex[0] + hex[0], 16),
-          g: parseInt(hex[1] + hex[1], 16),
-          b: parseInt(hex[2] + hex[2], 16),
-        };
-      }
-    }
-    return { r: 255, g: 255, b: 255 };  // Default white
   }
 
   /**

@@ -1,7 +1,7 @@
 /**
  * Timer label component code generator
  * Extends LabelGenerator, handles timer functionality
- * 
+ *
  * Reference: HoneyGUI/example/application/watch_turnkey_410_502/app_stopwatch.c
  * Core mechanism:
  * 1. Global variables store timer state (time_count, timer_running)
@@ -20,10 +20,10 @@ export class TimerLabelGenerator extends LabelGenerator {
     const indentStr = '    '.repeat(indent);
     const parentRef = context.getParentRef(component);
     const { x, y, width, height } = component.position;
-    
+
     // Check if scrolling is enabled
     const enableScroll = component.data?.enableScroll === true || component.data?.enableScroll === 'true';
-    
+
     // Select API based on scrolling
     const createFunction = enableScroll ? 'gui_scroll_text_create' : 'gui_text_create';
 
@@ -41,9 +41,8 @@ export class TimerLabelGenerator extends LabelGenerator {
 
     // Get property values
     const fontSize = component.data?.fontSize || 16;
-    const color = component.style?.color || '#ffffff';
-    const rgb = this.colorToRgb(color);
-    
+    const colorExpr = this.getTextColorExpr(component);
+
     // Timer mode: use global variables
     const varName = `${component.id}_time_str`;
     const text = varName;
@@ -56,9 +55,9 @@ export class TimerLabelGenerator extends LabelGenerator {
     // Select API based on scrolling
     const widgetCast = enableScroll ? 'gui_scroll_text_t' : 'gui_text_t';
     const setFunction = enableScroll ? 'gui_scroll_text_set' : 'gui_text_set';
-    
+
     // Set text content and basic properties
-    code += `${indentStr}${setFunction}((${widgetCast} *)${component.id}, ${text}, ${fontType}, gui_rgb(${rgb.r}, ${rgb.g}, ${rgb.b}), ${textLengthExpr}, ${fontSize});\n`;
+    code += `${indentStr}${setFunction}((${widgetCast} *)${component.id}, ${text}, ${fontType}, ${colorExpr}, ${textLengthExpr}, ${fontSize});\n`;
 
     // Set font file path (if specified)
     if (fontFile) {
@@ -91,12 +90,12 @@ export class TimerLabelGenerator extends LabelGenerator {
       } else {
         scrollModeStr = scrollReverse ? 'SCROLL_Y_REVERSE' : 'SCROLL_Y';
       }
-      
+
       const startOffset = component.data?.scrollStartOffset ?? 0;
       const endOffset = component.data?.scrollEndOffset ?? 0;
       const interval = component.data?.scrollInterval ?? 3000;
       const duration = component.data?.scrollDuration ?? 0;
-      
+
       code += `${indentStr}gui_scroll_text_scroll_set((gui_scroll_text_t *)${component.id}, ${scrollModeStr}, ${startOffset}, ${endOffset}, ${interval}, ${duration});\n`;
     }
 
@@ -126,7 +125,7 @@ export class TimerLabelGenerator extends LabelGenerator {
     // Timer mode: create timer (10ms interval, infinite loop)
     code += `${indentStr}// Create timer (interval 10ms, infinite loop)\n`;
     code += `${indentStr}gui_obj_create_timer((gui_obj_t *)${component.id}, 10, -1, ${component.id}_timer_cb);\n`;
-    
+
     // Determine whether to auto-start
     const autoStart = component.data?.timerAutoStart !== false; // Auto-start by default
     if (autoStart) {
@@ -143,26 +142,26 @@ export class TimerLabelGenerator extends LabelGenerator {
   generateTimerGlobals(component: Component): string {
     let code = '';
     const varName = `${component.id}_time_str`;
-    
+
     // Get timer configuration (compatible with timerFormat and timerDisplayFormat)
     const timerType = component.data?.timerType || 'stopwatch'; // stopwatch or countdown
     const displayFormat = component.data?.timerFormat || component.data?.timerDisplayFormat || 'HH:MM:SS';
     const initialValue = component.data?.timerInitialValue || 0; // milliseconds
-    
+
     // Calculate initial display string
     const initialDisplay = this.formatTime(initialValue, displayFormat);
-    
+
     // Global variables: timer state
     code += `// ${component.id} timer global variables\n`;
     code += `static uint32_t ${component.id}_time_count = ${initialValue}; // milliseconds\n`;
     code += `static bool ${component.id}_timer_running = false;\n`;
     code += `static char ${varName}[16] = "${initialDisplay}";\n\n`;
-    
+
     // Format function: generate time string based on display format
     code += `// ${component.id} format time string\n`;
     code += `static void ${component.id}_format_time(void)\n`;
     code += `{\n`;
-    
+
     switch (displayFormat) {
       case 'HH:MM:SS':
         code += `    uint32_t hours = ${component.id}_time_count / 3600000;\n`;
@@ -188,9 +187,9 @@ export class TimerLabelGenerator extends LabelGenerator {
       default:
         code += `    snprintf(${varName}, sizeof(${varName}), "%u", ${component.id}_time_count);\n`;
     }
-    
+
     code += `}\n\n`;
-    
+
     // Timer callback function: updates every 10ms
     code += `// ${component.id} timer callback (called every 10ms)\n`;
     code += `static void ${component.id}_timer_cb(void *obj)\n`;
@@ -198,7 +197,7 @@ export class TimerLabelGenerator extends LabelGenerator {
     code += `    if (!${component.id}_timer_running) {\n`;
     code += `        return;\n`;
     code += `    }\n\n`;
-    
+
     if (timerType === 'countdown') {
       // Countdown mode
       code += `    // Countdown mode\n`;
@@ -214,12 +213,12 @@ export class TimerLabelGenerator extends LabelGenerator {
       code += `    // Count-up mode\n`;
       code += `    ${component.id}_time_count += 10;\n`;
     }
-    
+
     code += `\n`;
     code += `    ${component.id}_format_time();\n`;
     code += `    gui_text_content_set((gui_text_t *)obj, ${varName}, strlen(${varName}));\n`;
     code += `}\n\n`;
-    
+
     // Control function: start timer
     code += `// ${component.id} start timer\n`;
     code += `void ${component.id}_start(void)\n`;
@@ -227,7 +226,7 @@ export class TimerLabelGenerator extends LabelGenerator {
     code += `    ${component.id}_timer_running = true;\n`;
     code += `    gui_obj_start_timer((gui_obj_t *)${component.id});\n`;
     code += `}\n\n`;
-    
+
     // Control function: stop timer
     code += `// ${component.id} stop timer\n`;
     code += `void ${component.id}_stop(void)\n`;
@@ -235,7 +234,7 @@ export class TimerLabelGenerator extends LabelGenerator {
     code += `    ${component.id}_timer_running = false;\n`;
     code += `    gui_obj_stop_timer((gui_obj_t *)${component.id});\n`;
     code += `}\n\n`;
-    
+
     // Control function: reset timer
     code += `// ${component.id} reset timer\n`;
     code += `void ${component.id}_reset(void)\n`;
@@ -245,7 +244,7 @@ export class TimerLabelGenerator extends LabelGenerator {
     code += `    ${component.id}_format_time();\n`;
     code += `    gui_text_content_set((gui_text_t *)${component.id}, ${varName}, strlen(${varName}));\n`;
     code += `}\n\n`;
-    
+
     return code;
   }
 
@@ -269,7 +268,7 @@ export class TimerLabelGenerator extends LabelGenerator {
     const minutes = Math.floor((ms % 3600000) / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     const centiseconds = Math.floor((ms % 1000) / 10);
-    
+
     switch (format) {
       case 'HH:MM:SS':
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
