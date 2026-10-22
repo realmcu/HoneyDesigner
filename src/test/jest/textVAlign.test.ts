@@ -4,7 +4,7 @@
  * MULTI_BOT_* modes for vAlign="BOTTOM".
  */
 import { Component } from '../../hml/types';
-import { computeVerticalAlignment } from '../../webview/hooks/useTextLayout';
+import { computeVerticalAlignment } from '../../webview/utils/textVerticalAlign';
 import { LabelGenerator } from '../../codegen/honeygui/components/LabelGenerator';
 
 function makeLabel(style: Record<string, any>, data: Record<string, any> = {}): Component {
