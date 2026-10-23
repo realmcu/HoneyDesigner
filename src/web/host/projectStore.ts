@@ -337,6 +337,10 @@ export class ProjectSync {
         if (!relative || relative.startsWith('..')) {
             return;
         }
+        // 编译产物（build/ 等）随时可重新生成，打开工程时也不读取，不回写
+        if (SKIPPED_DIRECTORIES.has(relative.split('/')[0])) {
+            return;
+        }
         this.dirtyPaths.add(relative);
         if (this.timer) {
             clearTimeout(this.timer);

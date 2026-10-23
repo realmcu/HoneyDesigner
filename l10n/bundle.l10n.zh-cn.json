@@ -461,5 +461,7 @@
   "Progress label font output missing: {0}": "进度标签转换产物不存在：{0}",
   "Font resources are missing or outdated. Enable Convert Resource and try again: {0}": "字体资源缺失或已过期，请勾选“转换资源”后重试：{0}",
   "Font resources are missing or outdated. Converting resources: {0}": "字体资源缺失或已过期，正在转换资源：{0}",
-  "Font resources could not be prepared: {0}": "字体资源准备失败：{0}"
+  "Font resources could not be prepared: {0}": "字体资源准备失败：{0}",
+  "Browser simulation currently supports the HoneyGUI engine only. Use VS Code to simulate LVGL projects.": "浏览器仿真目前只支持 HoneyGUI 引擎。LVGL 工程请在 VS Code 中仿真。",
+  "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.": "本站点未部署编译器，无法完整仿真。请使用快速预览，或在 VS Code 中仿真。"
 }

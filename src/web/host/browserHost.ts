@@ -10,17 +10,49 @@ import * as fs from '../shims/fs';
 import { DesignerPanel } from '../../designer/DesignerPanel';
 import { BrowserWebviewPanel } from './browserWebviewPanel';
 import { setWorkspaceFolder } from './webEnvironment';
+import { SimulationController, SimulationFlow } from '../sim/simulationController';
+import type { SimulationMode } from '../sim/simulationService';
 
 /** 需要本机工具链（SCons / Python / 串口）的命令，浏览器版给出说明而不是静默失败 */
 const DESKTOP_ONLY_COMMANDS = [
-    'honeygui.simulation',
     'honeygui.simulation.clean',
-    'honeygui.simulation.stop',
     'honeygui.simulation.debug',
     'honeygui.uartDownload',
     'honeygui.uartDownload.quick',
     'honeygui.convertResource',
 ];
+
+/**
+ * 仿真由页面级控制器驱动（构建 Worker + 引擎 + 浮动窗口），在 src/web/index.tsx 创建后注入。
+ * 命令只在这里注册一次，当前活动面板用来回发工具栏状态。
+ */
+let simulation: SimulationController | undefined;
+/** 工具栏最近一次勾选的仿真阶段；在仿真窗口切换方式时沿用 */
+let lastFlow: SimulationFlow = { convert: true, codegen: true, simulate: true };
+
+/** 仿真方式（快速预览 / 完整仿真）在浏览器中记住，下次打开页面沿用 */
+const SIMULATION_MODE_STORAGE_KEY = 'honeygui.web.simulationMode';
+
+function savedSimulationMode(): SimulationMode {
+    return globalThis.localStorage?.getItem(SIMULATION_MODE_STORAGE_KEY) === 'full' ? 'full' : 'preview';
+}
+
+export function setSimulationController(controller: SimulationController): void {
+    simulation = controller;
+    controller.setMode(savedSimulationMode());
+}
+
+/** 仿真窗口切换仿真方式：记住选择，并按新方式重新开始仿真 */
+export function restartSimulation(mode: SimulationMode): void {
+    globalThis.localStorage?.setItem(SIMULATION_MODE_STORAGE_KEY, mode);
+    simulation?.setMode(mode);
+    void vscode.commands.executeCommand('honeygui.simulation', { flow: lastFlow });
+}
+
+/** 仿真窗口的关闭按钮：与工具栏「停止」走同一条命令，工具栏才会复位 */
+export function stopSimulation(): void {
+    void vscode.commands.executeCommand('honeygui.simulation.stop');
+}
 
 let commandsRegistered = false;
 /** 当前打开的面板；桌面专属命令结束后需向它回发 operationComplete 以复位工具栏忙碌态 */
@@ -44,6 +76,35 @@ function registerBrowserCommands(): void {
             }
         });
     }
+    // 编译仿真：命令参数里带着工具栏勾选的阶段（见 Toolbar.handleSimulation）
+    vscode.commands.registerCommand('honeygui.simulation', async (args?: { flow?: { convert?: boolean; codegen?: boolean; simulate?: boolean } }) => {
+        const notify = (running: boolean) => {
+            void activePanel?.webview.postMessage({ command: 'simulationStatus', isRunning: running });
+        };
+        try {
+            if (!simulation) {
+                throw new Error('Simulation is not available');
+            }
+            lastFlow = {
+                convert: args?.flow?.convert ?? true,
+                codegen: args?.flow?.codegen ?? true,
+                simulate: args?.flow?.simulate ?? true,
+            };
+            await simulation.start(lastFlow, notify);
+        } catch (error) {
+            // 错误已显示在仿真窗口里，这里只复位工具栏忙碌态
+            console.error('[simulation]', error);
+        } finally {
+            void activePanel?.webview.postMessage({ command: 'operationComplete', operation: 'honeygui.simulation' });
+        }
+    });
+    vscode.commands.registerCommand('honeygui.simulation.stop', async () => {
+        simulation?.stop();
+        // 准备阶段被中止时也要复位工具栏：此时引擎还没启动，stop() 不会回调
+        void activePanel?.webview.postMessage({ command: 'simulationStatus', isRunning: false });
+        void activePanel?.webview.postMessage({ command: 'operationComplete', operation: 'honeygui.simulation.stop' });
+    });
+
     // 资源面板「在系统文件管理器中打开」
     vscode.commands.registerCommand('revealFileInOS', async () => {
         await vscode.window.showInformationMessage(

@@ -10,6 +10,7 @@
  * - HmlValidationService.validateViewIds（hg_view 缺 id 警告，规则 9）
  * - NavEditService._detectRoundTripLoss（round-trip 预检的 unknownTags /
  *   nameAttributes 检测，写盘确认拦截）
+ * - HmlPreviewPrep（浏览器快速预览：改写 i18nKey 文本、检查运行时不支持的内容）
  *
  * 注意：调用方需自行剔除 XML 注释（两处调用场景的注释语义不同：一个只
  * 防误报，一个要单独上报 comments 丢失类），本工具不处理 <!-- -->。
@@ -26,6 +27,8 @@ export interface ScannedOpenTag {
     attrsText: string;
     /** 完整开标签原文（含 '<名字' 与结尾 '>'；未闭合标签截到内容末尾） */
     raw: string;
+    /** raw 在 content 中的起始偏移（'<' 的位置） */
+    start: number;
 }
 
 /**
@@ -63,10 +66,40 @@ export function scanOpenTags(content: string, tagName?: string): ScannedOpenTag[
                 name,
                 attrsText: content.slice(startRe.lastIndex, i),
                 raw: content.slice(match.index, Math.min(i + 1, content.length)),
+                start: match.index,
             });
         }
         // 从标签结束处继续找下一个，避免重复扫描引号内容
         startRe.lastIndex = Math.min(i + 1, content.length);
     }
     return tags;
+}
+
+const XML_ENTITIES: Record<string, string> = { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&' };
+
+/** 还原属性值里的 XML 实体（&lt; &#39; &#x27; 等） */
+export function decodeXmlEntities(value: string): string {
+    return value.replace(/&(#x[0-9a-fA-F]+|#\d+|lt|gt|quot|apos|amp);/g, (whole, name: string) => {
+        if (name[0] === '#') {
+            const code = name[1] === 'x' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+            return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
+        }
+        return XML_ENTITIES[name];
+    });
+}
+
+/**
+ * 把 scanOpenTags 得到的 attrsText 解析为「属性名 → 值」（值已还原 XML 实体）。
+ * 同名属性以第一次出现为准，与 XML 解析器拒绝重复属性时的保守做法一致。
+ */
+export function parseTagAttributes(attrsText: string): Map<string, string> {
+    const attrs = new Map<string, string>();
+    const attrRe = /([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*("([^"]*)"|'([^']*)')/g;
+    let match: RegExpExecArray | null;
+    while ((match = attrRe.exec(attrsText)) !== null) {
+        if (!attrs.has(match[1])) {
+            attrs.set(match[1], decodeXmlEntities(match[3] ?? match[4] ?? ''));
+        }
+    }
+    return attrs;
 }

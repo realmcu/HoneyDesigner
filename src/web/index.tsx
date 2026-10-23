@@ -14,6 +14,15 @@ import { StoredProject } from './host/projectStore';
 import { ProjectLauncher } from './ui/ProjectLauncher';
 import { Workbench } from './ui/Workbench';
 import { HostOverlay } from './ui/HostOverlay';
+import { SimulationWindow } from './ui/SimulationWindow';
+import { SimulationController } from './sim/simulationController';
+import { setSimulationController, restartSimulation, stopSimulation } from './host/browserHost';
+
+// 构建 Worker：webpack 只有在这种字面写法下才会把 buildWorker.ts 作为独立 chunk 打包
+const simulation = new SimulationController(
+    () => new Worker(new URL('./sim/buildWorker.ts', import.meta.url))
+);
+setSimulationController(simulation);
 
 function WebApp() {
     const [project, setProject] = useState<StoredProject | undefined>();
@@ -23,6 +32,11 @@ function WebApp() {
                 ? <Workbench key={project.id} project={project} onClose={() => setProject(undefined)} />
                 : <ProjectLauncher onOpen={setProject} />}
             <HostOverlay />
+            <SimulationWindow
+                onCanvas={canvas => simulation.setCanvas(canvas)}
+                onStop={stopSimulation}
+                onRestart={restartSimulation}
+            />
         </>
     );
 }

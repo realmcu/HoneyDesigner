@@ -682,3 +682,67 @@
   .web-launcher-header { flex-direction: column; }
   .web-field-row { flex-direction: column; }
 }
+
+/* ---------- 仿真窗口 ---------- */
+
+.web-sim-window {
+  position: fixed;
+  z-index: 9000;
+  min-width: 280px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  border: 1px solid var(--vscode-editorWidget-border);
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+}
+
+.web-sim-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.web-sim-title { font-weight: 600; }
+.web-sim-mode {
+  margin-left: 8px;
+  padding: 1px 4px;
+  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+  border-radius: 2px;
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  font: inherit;
+}
+.web-sim-gaps { max-width: 480px; }
+.web-sim-gaps summary { cursor: pointer; color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
+.web-sim-gaps[open] { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.web-sim-gap-row { color: var(--vscode-descriptionForeground); word-break: break-word; }
+.web-sim-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.web-sim-progress { display: flex; flex-direction: column; gap: 6px; min-width: 260px; }
+.web-sim-bar { height: 4px; background: var(--vscode-input-background); border-radius: 2px; overflow: hidden; }
+.web-sim-bar-fill { height: 100%; background: var(--vscode-progressBar-background); transition: width 0.2s; }
+.web-sim-canvas { image-rendering: pixelated; background: #000; display: block; outline: none; }
+.web-sim-error { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 480px; white-space: pre-wrap; word-break: break-word; }
+.web-sim-log {
+  margin: 0;
+  max-height: 240px;
+  max-width: 560px;
+  overflow: auto;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-sim-bar-fill { transition: none; }
+}

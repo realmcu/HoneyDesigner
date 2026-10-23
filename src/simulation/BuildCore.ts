@@ -12,6 +12,8 @@ import { ConversionConfigService, VideoFormat, ConversionConfig, YuvBlur, VideoS
 import { SamplingFactor } from '../../tools/image-to-jpeg-converter/src/index';
 import { ProjectConfig, DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig';
 import { RomfsConfig } from '../common/RomfsConfig';
+import { generateRomfsC, romfsRootName } from './RomfsC';
+import { ConversionCache } from './ConversionCache';
 import { buildSConstruct } from './SConstructTemplate';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
@@ -39,6 +41,16 @@ export interface Logger {
     log(message: string, isError?: boolean, isWarning?: boolean): void;
 }
 
+export interface ConvertAssetsOptions {
+    /** 是否打包 romfs（默认是）。浏览器版直接读取 build/assets，不需要 app_romfs.c */
+    packRomfs?: boolean;
+    /**
+     * 设置后逐个转换图片，每张之后调用一次（浏览器版在这里报告进度并让出页面线程，
+     * 否则整批转换会让页面卡住数十秒）。未设置时整批并行转换。
+     */
+    onImageConverted?(done: number, total: number): Promise<void>;
+}
+
 /**
  * 编译核心逻辑（不依赖 VSCode）
  * sdkPath 现在指向插件内置的 lib/sim 目录
@@ -50,6 +62,7 @@ export class BuildCore {
     protected logger: Logger;
     protected projectConfig: ProjectConfig;
     private compileProcess: ChildProcess | null = null;
+    private conversionCache: ConversionCache | undefined;
 
     constructor(projectRoot: string, libSimPath: string, projectConfig: ProjectConfig, logger: Logger) {
         this.projectRoot = projectRoot;
@@ -63,8 +76,20 @@ export class BuildCore {
         return this.buildDir;
     }
 
+    /** 浏览器版在多次仿真之间复用图片与字体的转换结果；桌面版不设置 */
+    setConversionCache(cache: ConversionCache | undefined): void {
+        this.conversionCache = cache;
+    }
+
     async setupBuildDir(): Promise<void> {
         this.logger.log(vscode.l10n.t('Preparing build directory...'));
+
+        // 浏览器版不用 SCons / win32_sim 脚手架：只需要一个存放资源和 app_romfs.c 的目录
+        if (BuildCore.isBrowser()) {
+            fs.mkdirSync(this.buildDir, { recursive: true });
+            this.logger.log(vscode.l10n.t('Build directory ready'));
+            return;
+        }
 
         const parentDir = path.dirname(this.buildDir);
         if (!fs.existsSync(parentDir)) {
@@ -165,7 +190,7 @@ Return('objs')
         this.logger.log('代码检查完成');
     }
 
-    async convertAssets(): Promise<void> {
+    async convertAssets(options: ConvertAssetsOptions = {}): Promise<void> {
         const assetsDir = path.join(this.projectRoot, 'assets');
         const outputDir = path.join(this.buildDir, 'assets');
 
@@ -216,7 +241,7 @@ Return('objs')
             this.logger.log(`使用压缩算法: ${imageOptions.compression}`);
         }
         
-        const imageResults = await this.convertUsedImages(assetsDir, outputDir, usedAssets.images, imageOptions);
+        const imageResults = await this.convertUsedImages(assetsDir, outputDir, usedAssets.images, imageOptions, options.onImageConverted);
 
         const imageFailed = imageResults.filter(r => !r.success);
         if (imageFailed.length > 0) {
@@ -251,9 +276,11 @@ Return('objs')
         });
         
         // 检查 FFmpeg 是否可用
-        const ffmpegAvailable = await videoConverter.checkFFmpegAvailable();
+        const ffmpegAvailable = BuildCore.isBrowser() ? false : await videoConverter.checkFFmpegAvailable();
         if (!ffmpegAvailable) {
-            this.logger.log('FFmpeg 未找到，跳过视频转换。请安装 FFmpeg 并添加到系统 PATH。', true);
+            this.logger.log(BuildCore.isBrowser()
+                ? '浏览器版不支持视频转换，已跳过（视频需要在 VS Code 插件中转换）。'
+                : 'FFmpeg 未找到，跳过视频转换。请安装 FFmpeg 并添加到系统 PATH。', true);
             this.logger.log('视频转换跳过: 0 个');
         } else {
             // 获取视频组件配置并进行智能转换（只转换使用的）
@@ -343,7 +370,9 @@ Return('objs')
         this.cleanupNonRuntimeFiles(outputDir);
 
         // 打包 romfs
-        await this.packRomfs();
+        if (options.packRomfs !== false) {
+            await this.packRomfs();
+        }
     }
 
     /**
@@ -414,6 +443,29 @@ Return('objs')
         return false;
     }
 
+    /** 浏览器构建（src/web）里 process.platform 被替换为 'browser'，没有 Python / SCons / ffmpeg */
+    protected static isBrowser(): boolean {
+        return process.platform === ('browser' as NodeJS.Platform);
+    }
+
+    /** 读取目录下全部文件，生成 romfs 的 C 源码（与 tools/mkromfs_for_honeygui.py 一致） */
+    private generateRomfsCSource(assetsDir: string, outputFileName: string): string {
+        const files = new Map<string, Uint8Array>();
+        const walk = (dir: string, rel: string): void => {
+            for (const name of fs.readdirSync(dir)) {
+                const full = path.join(dir, name);
+                const relPath = rel ? `${rel}/${name}` : name;
+                if (fs.statSync(full).isDirectory()) {
+                    walk(full, relPath);
+                } else {
+                    files.set(relPath, new Uint8Array(fs.readFileSync(full)));
+                }
+            }
+        };
+        walk(assetsDir, '');
+        return generateRomfsC(files, romfsRootName(outputFileName));
+    }
+
     private async packRomfs(): Promise<void> {
         this.logger.log('打包 romfs...');
 
@@ -426,13 +478,25 @@ Return('objs')
         // 二进制文件名带上基地址后缀，例如 app_romfs_0x70536400.bin
         const romfsBinOutput = path.join(this.buildDir, RomfsConfig.getBinFileName(baseAddr));
 
+        // 浏览器版没有 Python，用 TypeScript 移植（与脚本输出逐字节一致）直接生成 C 文件，
+        // 也不生成仅用于 UART 下载的二进制文件。
+        if (BuildCore.isBrowser()) {
+            try {
+                fs.writeFileSync(romfsOutput, this.generateRomfsCSource(assetsDir, RomfsConfig.getFileName()));
+                this.logger.log('romfs C 文件生成完成');
+            } catch (error) {
+                throw new Error(`生成 romfs C 文件失败: ${error}`);
+            }
+            return;
+        }
+
         // 使用 Python 版本的 mkromfs_for_honeygui.py
         const mkromfsScript = path.join(__dirname, '..', '..', '..', 'tools', 'mkromfs_for_honeygui.py');
         const { execSync } = require('child_process');
-        
+
         // Windows 使用 python，Linux/Mac 使用 python3
         const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-        
+
         // 生成 C 文件
         try {
             execSync(`${pythonCmd} "${mkromfsScript}" -i "${assetsDir}" -o "${romfsOutput}" -a ${baseAddr}`, {
@@ -1042,7 +1106,8 @@ Return('objs')
         assetsDir: string,
         outputDir: string,
         usedImages: Set<string>,
-        fallbackOptions?: ImageConvertOptions
+        fallbackOptions?: ImageConvertOptions,
+        onImageConverted?: ConvertAssetsOptions['onImageConverted']
     ): Promise<ConvertResult[]> {
         if (usedImages.size === 0) {
             return [];
@@ -1092,7 +1157,42 @@ Return('objs')
             }
         }
 
-        return imageConverter.convertBatch(items);
+        // 输入与参数都没变、输出还在的图片直接沿用上次结果
+        const cache = this.conversionCache;
+        const keyOf = (item: typeof items[number]) => {
+            const fileKey = ConversionCache.fileKey(item.input);
+            return fileKey && `${fileKey}|${JSON.stringify(item.options ?? null)}`;
+        };
+        const pending = cache
+            ? items.filter(item => {
+                const key = keyOf(item);
+                return !key || !cache.isFresh(item.output, key);
+            })
+            : items;
+
+        let results: ConvertResult[];
+        if (onImageConverted) {
+            results = [];
+            for (const item of pending) {
+                results.push(await imageConverter.convert(item.input, item.output, item.options || 'auto'));
+                await onImageConverted(results.length, pending.length);
+            }
+        } else {
+            results = await imageConverter.convertBatch(pending);
+        }
+
+        if (!cache) {
+            return results;
+        }
+        results.forEach((result, index) => {
+            const key = keyOf(pending[index]);
+            if (result.success && key) {
+                cache.remember(pending[index].output, key);
+            }
+        });
+        const reused = items.filter(item => !pending.includes(item))
+            .map(item => ({ success: true, inputPath: item.input, outputPath: item.output }));
+        return [...results, ...reused];
     }
 
     /**
@@ -2055,18 +2155,32 @@ Return('objs')
                 characterSets: mergedCharacterSets
             };
 
+            const fontName = path.basename(fontRelativePath, path.extname(fontRelativePath)).replace(/-/g, '_');
+            const outputName = group.fontType === 'vector'
+                ? `${fontName}_vector.bin`
+                : `${fontName}_size${group.fontSize}_bits${group.renderMode}_bitmap.bin`;
+            const outputPath = path.join(fontOutputDir, outputName);
+            // 字符集文件（file / codepage）的内容不在指纹里，带这类字符集的字体每次都转换
+            const fontFileKey = ConversionCache.fileKey(fontPath);
+            const cacheKey = this.conversionCache && fontFileKey
+                && !mergedCharacterSets.some(cs => cs.type === 'file' || cs.type === 'codepage')
+                ? `${fontFileKey}|${JSON.stringify(options)}`
+                : undefined;
+            if (cacheKey && this.conversionCache!.isFresh(outputPath, cacheKey)) {
+                results.push({ success: true, inputPath: fontPath, outputPath: fontOutputDir });
+                continue;
+            }
+
             try {
                 const result = await fontConverter.convert(fontPath, fontOutputDir, options);
                 results.push(result);
+                if (result.success && cacheKey) {
+                    this.conversionCache!.remember(outputPath, cacheKey);
+                }
                 if (isProgressFont) {
                     if (!result.success) {
                         throw new Error(vscode.l10n.t('Progress label font conversion failed: {0}', result.error || group.fontFile));
                     }
-                    const fontName = path.basename(fontRelativePath, path.extname(fontRelativePath)).replace(/-/g, '_');
-                    const outputName = group.fontType === 'vector'
-                        ? `${fontName}_vector.bin`
-                        : `${fontName}_size${group.fontSize}_bits${group.renderMode}_bitmap.bin`;
-                    const outputPath = path.join(fontOutputDir, outputName);
                     if (!fs.existsSync(outputPath)) {
                         throw new Error(vscode.l10n.t('Progress label font output missing: {0}', outputPath));
                     }

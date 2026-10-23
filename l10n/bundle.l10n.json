@@ -461,5 +461,7 @@
   "Progress label font output missing: {0}": "Progress label font output missing: {0}",
   "Font resources are missing or outdated. Enable Convert Resource and try again: {0}": "Font resources are missing or outdated. Enable Convert Resource and try again: {0}",
   "Font resources are missing or outdated. Converting resources: {0}": "Font resources are missing or outdated. Converting resources: {0}",
-  "Font resources could not be prepared: {0}": "Font resources could not be prepared: {0}"
+  "Font resources could not be prepared: {0}": "Font resources could not be prepared: {0}",
+  "Browser simulation currently supports the HoneyGUI engine only. Use VS Code to simulate LVGL projects.": "Browser simulation currently supports the HoneyGUI engine only. Use VS Code to simulate LVGL projects.",
+  "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.": "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code."
 }
