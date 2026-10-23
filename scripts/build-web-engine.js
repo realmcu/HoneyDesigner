@@ -86,14 +86,25 @@ function main() {
     const buildDir = path.join(sdk, 'simulator', 'web', 'build-engine');
     const installDir = path.join(buildDir, 'install');
 
+    // main.c 用 __DATE__/__TIME__ 打印构建时间。固定成 SDK 提交的时间，同一份源码才
+    // 构建出相同的引擎（lib/web-sim 才比较得出「有没有变化」）
+    let sdkCommit = 'unknown';
+    const buildEnv = { ...process.env };
+    try {
+        sdkCommit = capture('git', ['-C', sdk, 'rev-parse', 'HEAD']);
+        buildEnv.SOURCE_DATE_EPOCH = capture('git', ['-C', sdk, 'log', '-1', '--format=%ct']);
+    } catch {
+        // 不是 git 仓库：保留环境里的值（CI 会自己设置）
+    }
+
     fs.rmSync(buildDir, { recursive: true, force: true });
     run(emcmake, [
         'cmake', '-S', webSim, '-B', buildDir, '-G', 'Ninja',
         `-DWEB_SIM_CONFIG=${path.join(webSim, '.config_engine')}`, '-DWEB_SIM_MAIN_MODULE=ON',
         // 去掉产物里的 SDK 检出路径：同一份源码在不同目录构建出相同引擎，lib/web-sim 才比较得出「有没有变化」
         `-DWEB_SIM_SOURCE_PREFIX_MAP=${sdk}`,
-    ]);
-    run('cmake', ['--build', buildDir]);
+    ], { env: buildEnv });
+    run('cmake', ['--build', buildDir], { env: buildEnv });
     run('cmake', ['--install', buildDir, '--prefix', installDir]);
 
     // 安装规则与 HML 接口（web_sim_load_hml，快速预览需要）一起加入 SDK，更早的 SDK 装不出可用的引擎。
@@ -119,12 +130,6 @@ function main() {
         return !SKIPPED_SYSROOT_DIRS.has(top) && !/^compat\/(arm_neon|\w*intrin)\.h$/.test(rel);
     });
 
-    let sdkCommit = 'unknown';
-    try {
-        sdkCommit = capture('git', ['-C', sdk, 'rev-parse', 'HEAD']);
-    } catch {
-        // 不是 git 仓库
-    }
     const emVersion = capture(tool('emcc'), ['--version']).split(/\r?\n/)[0];
     fs.writeFileSync(path.join(out, 'VERSION'), `HoneyGUI ${sdkCommit}\n${emVersion}\n`);
     fs.rmSync(buildDir, { recursive: true, force: true });

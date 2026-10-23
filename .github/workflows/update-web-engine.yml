@@ -43,6 +43,11 @@ jobs:
           git clone --depth 1 https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
           echo "SDK_SHA=$(git -C /tmp/HoneyGUI rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "SDK_MESSAGE=$(git -C /tmp/HoneyGUI log -1 --format=%s)" >> "$GITHUB_ENV"
+          # main.c 用 __DATE__/__TIME__ 打印构建时间。固定成 SDK 提交的时间，同一份源码
+          # 才构建出逐字节相同的引擎（提交 SHA 与提交时间一一对应）
+          SDK_EPOCH=$(git -C /tmp/HoneyGUI log -1 --format=%ct)
+          echo "SOURCE_DATE_EPOCH=$SDK_EPOCH" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$SDK_EPOCH （$(date -u -d "@$SDK_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')）"
           # 引擎的构建规则（install 规则、HML 接口、.config_engine）要和 SDK 一起才能装出可用引擎。
           # 上游还没有这些改动时，后面的步骤全部跳过，不必先下载 emsdk（build-web-engine.js 也会再检查一次）
           if ! grep -q 'install(FILES' /tmp/HoneyGUI/simulator/web/CMakeLists.txt; then
