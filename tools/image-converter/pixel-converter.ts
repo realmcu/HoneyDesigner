@@ -146,8 +146,6 @@ function premultiplyAlphaBlack(pixels: RGBA[]): RGBA[] {
 }
 
 export function convertPixels(pixels: RGBA[], width: number, format: PixelFormat, options?: ConvertOptions): Buffer {
-    const buffers: Buffer[] = [];
-    
     // 对不带 Alpha 的格式（RGB565, RGB888），先做透明度预混合（与黑色背景混合）
     const isOpaqueFormat = (format === PixelFormat.RGB565 || format === PixelFormat.RGB888);
     let processedPixels = isOpaqueFormat ? premultiplyAlphaBlack(pixels) : pixels;
@@ -157,67 +155,77 @@ export function convertPixels(pixels: RGBA[], width: number, format: PixelFormat
         processedPixels = floydSteinbergDither(processedPixels, width);
     }
 
+    // 逐像素写入一块预分配的缓冲区（每像素单独分配 Buffer 再拼接，大图要慢一个数量级）
+    const count = processedPixels.length;
     switch (format) {
-        case PixelFormat.RGB565:
-            for (const { r, g, b } of processedPixels) {
-                const val = rgbToRgb565(r, g, b);
-                const buf = Buffer.alloc(2);
-                buf.writeUInt16LE(val, 0);
-                buffers.push(buf);
+        case PixelFormat.RGB565: {
+            const out = Buffer.alloc(count * 2);
+            for (let i = 0; i < count; i++) {
+                const { r, g, b } = processedPixels[i];
+                out.writeUInt16LE(rgbToRgb565(r, g, b), i * 2);
             }
-            break;
-        
-        case PixelFormat.RGB888:
-            for (const { r, g, b } of processedPixels) {
-                buffers.push(Buffer.from([b, g, r]));  // BGR order
+            return out;
+        }
+
+        case PixelFormat.RGB888: {
+            const out = Buffer.alloc(count * 3);
+            for (let i = 0, o = 0; i < count; i++) {
+                const { r, g, b } = processedPixels[i];
+                out[o++] = b;  // BGR order
+                out[o++] = g;
+                out[o++] = r;
             }
-            break;
-        
-        case PixelFormat.ARGB8888:
-            for (const { r, g, b, a } of processedPixels) {
-                buffers.push(Buffer.from([b, g, r, a]));  // BGRA order
+            return out;
+        }
+
+        case PixelFormat.ARGB8888: {
+            const out = Buffer.alloc(count * 4);
+            for (let i = 0, o = 0; i < count; i++) {
+                const { r, g, b, a } = processedPixels[i];
+                out[o++] = b;  // BGRA order
+                out[o++] = g;
+                out[o++] = r;
+                out[o++] = a;
             }
-            break;
-        
-        case PixelFormat.ARGB8565:
-            for (const { r, g, b, a } of processedPixels) {
-                const val = rgbToRgb565(r, g, b);
-                const buf = Buffer.alloc(3);
-                buf.writeUInt16LE(val, 0);  // RGB565 first
-                buf.writeUInt8(a, 2);  // Alpha last
-                buffers.push(buf);
+            return out;
+        }
+
+        case PixelFormat.ARGB8565: {
+            const out = Buffer.alloc(count * 3);
+            for (let i = 0; i < count; i++) {
+                const { r, g, b, a } = processedPixels[i];
+                out.writeUInt16LE(rgbToRgb565(r, g, b), i * 3);  // RGB565 first
+                out[i * 3 + 2] = a;  // Alpha last
             }
-            break;
-        
-        case PixelFormat.A8:
-            for (const { a } of processedPixels) {
-                buffers.push(Buffer.from([a]));
+            return out;
+        }
+
+        case PixelFormat.A8: {
+            const out = Buffer.alloc(count);
+            for (let i = 0; i < count; i++) {
+                out[i] = processedPixels[i].a;
             }
-            break;
-        
+            return out;
+        }
+
         case PixelFormat.A4:
             // A4: 4 bits per pixel, 2 pixels per byte
             // 每行需要补齐到整字节（2像素的倍数）
-            buffers.push(convertToSubByteAlpha(processedPixels, width, 4));
-            break;
-        
+            return convertToSubByteAlpha(processedPixels, width, 4);
+
         case PixelFormat.A2:
             // A2: 2 bits per pixel, 4 pixels per byte
             // 每行需要补齐到整字节（4像素的倍数）
-            buffers.push(convertToSubByteAlpha(processedPixels, width, 2));
-            break;
-        
+            return convertToSubByteAlpha(processedPixels, width, 2);
+
         case PixelFormat.A1:
             // A1: 1 bit per pixel, 8 pixels per byte
             // 每行需要补齐到整字节（8像素的倍数）
-            buffers.push(convertToSubByteAlpha(processedPixels, width, 1));
-            break;
-        
+            return convertToSubByteAlpha(processedPixels, width, 1);
+
         default:
             throw new Error(`Unsupported format: ${format}`);
     }
-    
-    return Buffer.concat(buffers);
 }
 
 /**

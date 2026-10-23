@@ -33,26 +33,26 @@ export class RLECompression implements CompressionAlgorithm {
     pixelBytes: number,
     bytesPerLine?: number
   ): CompressionResult {
-    const compressedData: number[] = [];
     const lineOffsets: number[] = [];
     // 使用提供的 bytesPerLine，否则按传统方式计算
     const actualBytesPerLine = bytesPerLine ?? (width * pixelBytes);
+    // 最坏情况每个像素一个节点（1 字节长度 + 像素），结果不会超过这个大小
+    const output = Buffer.alloc(height * Math.ceil(actualBytesPerLine / pixelBytes) * (pixelBytes + 1));
+    let length = 0;
 
     for (let line = 0; line < height; line++) {
       const lineStart = line * actualBytesPerLine;
-      const lineEnd = lineStart + actualBytesPerLine;
-      const lineData = pixelData.subarray(lineStart, lineEnd);
+      const lineEnd = Math.min(lineStart + actualBytesPerLine, pixelData.length);
 
       // Record offset for this line
-      lineOffsets.push(compressedData.length);
+      lineOffsets.push(length);
 
       // Compress line
-      const compressedLine = this.compressLine(lineData, pixelBytes);
-      compressedData.push(...compressedLine);
+      length = this.compressLine(pixelData, lineStart, Math.max(lineStart, lineEnd), pixelBytes, output, length);
     }
 
     return {
-      compressedData: Buffer.from(compressedData),
+      compressedData: output.subarray(0, length),
       lineOffsets,
       params: {
         feature_1: this.runLength1,
@@ -61,38 +61,47 @@ export class RLECompression implements CompressionAlgorithm {
     };
   }
 
-  private compressLine(data: Buffer, pixelBytes: number): number[] {
-    const result: number[] = [];
-    let i = 0;
+  /**
+   * 压缩 data[start, end) 一行，写入 output[offset...]，返回写入后的偏移。
+   * 行尾不足一个像素的字节按一个（较短的）像素处理，与逐像素截取子数组的结果一致。
+   */
+  private compressLine(data: Buffer, start: number, end: number, pixelBytes: number, output: Buffer, offset: number): number {
+    let i = start;
 
-    while (i < data.length) {
-      // Get current pixel
-      const pixel = data.subarray(i, i + pixelBytes);
+    while (i < end) {
+      const pixelEnd = Math.min(i + pixelBytes, end);
+      const size = pixelEnd - i;
 
       // Find consecutive repeated pixels
       let runLength = 1;
       let j = i + pixelBytes;
-      while (j < data.length && runLength < 255) {
-        const nextPixel = data.subarray(j, j + pixelBytes);
-        if (pixel.equals(nextPixel)) {
-          runLength++;
-          j += pixelBytes;
-        } else {
-          break;
-        }
+      while (j < end && runLength < 255 && Math.min(j + pixelBytes, end) - j === size && samePixel(data, i, j, size)) {
+        runLength++;
+        j += pixelBytes;
       }
 
       // Write RLE node: [len] [pixel_data]
-      result.push(runLength);
-      result.push(...pixel);
+      output[offset++] = runLength;
+      for (let k = i; k < pixelEnd; k++) {
+        output[offset++] = data[k];
+      }
 
       i = j;
     }
 
-    return result;
+    return offset;
   }
 
   getAlgorithmType(): number {
     return COMPRESS_RLE;
   }
+}
+
+function samePixel(data: Buffer, a: number, b: number, size: number): boolean {
+  for (let k = 0; k < size; k++) {
+    if (data[a + k] !== data[b + k]) {
+      return false;
+    }
+  }
+  return true;
 }
