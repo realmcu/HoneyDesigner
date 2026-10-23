@@ -65,7 +65,11 @@ class CopyExampleFilesPlugin {
   }
 }
 
-/** 输出 precache-manifest.json：Service Worker 安装时据此缓存全部静态资源，实现离线可用 */
+/**
+ * 输出 precache-manifest.json：Service Worker 安装时据此缓存全部静态资源，实现离线可用。
+ * 仿真引擎在构建之后由 scripts/prepare-web-sim.js 放入 sim/，由它按引擎内容的哈希更新版本号；
+ * 编译器等大文件不进清单，Service Worker 响应对它们的请求时直接走网络
+ */
 class PrecacheManifestPlugin {
   apply(compiler) {
     compiler.hooks.thisCompilation.tap('PrecacheManifestPlugin', (compilation) => {
@@ -106,6 +110,8 @@ module.exports = (env, argv) => {
 
   const resolve = {
     extensions: ['.tsx', '.ts', '.js', '.css', '.json'],
+    // tools/ 下的包按 ESM 习惯写 './x.js' 引用 .ts 源文件（tsc 认得，webpack 需要这条别名）
+    extensionAlias: { '.js': ['.ts', '.tsx', '.js'] },
     alias: {
       vscode: shim('vscode.ts'),
       fs: shim('fs.ts'),
@@ -154,7 +160,8 @@ module.exports = (env, argv) => {
       filename: isProduction ? '[name].[contenthash].js' : '[name].js',
       chunkFilename: isProduction ? '[name].[contenthash].chunk.js' : '[name].chunk.js',
       publicPath: 'auto',
-      clean: { keep: /^sw\.js(\.map)?$/ },
+      // sw.js 由另一份配置输出；sim/ 由 scripts/prepare-web-sim.js 在构建后生成，二者都不能被清掉
+      clean: { keep: /^(sw\.js(\.map)?|sim\/.*)$/ },
     },
     module: {
       rules: [

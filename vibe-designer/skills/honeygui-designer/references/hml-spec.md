@@ -1336,6 +1336,26 @@ src/
 /* USER CODE END callback_name */
 ```
 
+### Browser Quick Preview
+
+The browser designer's default simulation ("Quick Preview") does not compile the project: the
+HoneyGUI engine parses the HML at run time and refreshes on every save. "Full Simulation" compiles
+the generated C like the VS Code simulator. Quick Preview shows the same layout, preset timer
+animations, `switchView` / `sendMessage` / `controlTimer` actions and `i18nKey` text as the
+generated code, with these gaps (the simulator window lists the ones a project hits):
+
+- Project C code does not run: `callFunction` actions, `custom` timer callbacks, `onMessage`
+  handlers, `hg_button` `clickCallback` / `onCallback` / `offCallback`, `hg_view`
+  `switchInFunctionName` / `switchOutFunctionName`, `hg_list` user note design functions.
+  `hg_streaming` needs its C transporter, so it is not created.
+- Not created: `hg_timer_label`, `hg_progress`, `hg_svg`, `hg_qbcode`, `hg_gif`, `hg_glass`,
+  `hg_particle`, `hg_menu_cellular`, `hg_3d`, `hg_lottie`.
+- Ignored: label `opacity` and gradient, `vAlign="BOTTOM"` (shown as `TOP`), `timeFormat="HH:mm-split"`
+  (shown as `HH:mm`), `hg_rect` / `hg_circle` stroke and `buttonMode`, `hg_image` `buttonMode`,
+  `hg_arc` `arcGroup`.
+
+These are limits of the preview only; generate HML for the full feature set described in this spec.
+
 ---
 
 ## 15. Examples

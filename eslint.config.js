@@ -6,7 +6,8 @@ const globals = require('globals');
 module.exports = [
   // Global ignore patterns (equivalent to ignorePatterns)
   {
-    ignores: ['node_modules', 'out', 'dist', '.vscode-test', '**/*.d.ts'],
+    // lib/web-sim: Emscripten-generated simulator engine (scripts/build-web-engine.js)
+    ignores: ['node_modules', 'out', 'dist', '.vscode-test', '**/*.d.ts', 'lib/web-sim'],
   },
 
   // Equivalent of "extends: eslint:recommended"

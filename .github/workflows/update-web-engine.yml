@@ -1,0 +1,119 @@
+name: Update Web Simulation Engine
+
+# 浏览器版仿真引擎（HoneyGUI simulator/web，WebAssembly）构建到 lib/web-sim/，
+# 由 deploy-web.yml 部署。与 update-libs-linux.yml 同样的触发方式，单独一个 job：
+# emsdk 只在这里安装，失败也不影响原生仿真库的更新。
+on:
+  schedule:
+    - cron: '19 20 * * *'    # UTC 20:19，错开 update-libs-linux（19:49）
+  workflow_dispatch:
+  repository_dispatch:
+    types: [honeygui-sdk-updated]
+
+# 定时触发与 SDK 推送触发可能重叠，同一时间只跑一个；推送前先 pull --rebase，
+# 与其他更新 lib 的 workflow 错开时间
+concurrency:
+  group: update-web-engine
+  cancel-in-progress: false
+
+jobs:
+  update-web-engine:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      # 引擎依赖的 Emscripten 版本：升级时同时验证 Asyncify 协作线程（见 HoneyGUI simulator/web）
+      EMSDK_VERSION: 6.0.12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.x
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Clone HoneyGUI SDK
+        run: |
+          git clone --depth 1 https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
+          echo "SDK_SHA=$(git -C /tmp/HoneyGUI rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SDK_MESSAGE=$(git -C /tmp/HoneyGUI log -1 --format=%s)" >> "$GITHUB_ENV"
+          # 引擎的构建规则（install 规则、HML 接口、.config_engine）要和 SDK 一起才能装出可用引擎。
+          # 上游还没有这些改动时，后面的步骤全部跳过，不必先下载 emsdk（build-web-engine.js 也会再检查一次）
+          if ! grep -q 'install(FILES' /tmp/HoneyGUI/simulator/web/CMakeLists.txt; then
+            echo "::notice::$SDK_MESSAGE 尚未包含浏览器仿真引擎的构建规则；跳过，等待上游合入"
+            echo "SDK_UNSUPPORTED=1" >> "$GITHUB_ENV"
+          fi
+
+      # 引擎已由当前 SDK 提交构建过（lib/web-sim/VERSION 记录构建时的提交），不必重建：
+      # 同一份源码重建的产物并不完全一致（main.c 的 __DATE__/__TIME__），每天提交
+      # 一个内容不同的 4 MB 引擎没有意义
+      - name: Check built engine
+        id: engine
+        run: |
+          if grep -qx "HoneyGUI $SDK_SHA" lib/web-sim/VERSION 2>/dev/null; then
+            echo "up-to-date=true" >> "$GITHUB_OUTPUT"
+            echo "lib/web-sim 已由 $SDK_SHA 构建"
+          else
+            echo "up-to-date=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore emsdk
+        id: cache-emsdk
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+
+      - name: Install emsdk
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true' && steps.cache-emsdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git /tmp/emsdk
+          /tmp/emsdk/emsdk install "$EMSDK_VERSION"
+          /tmp/emsdk/emsdk activate "$EMSDK_VERSION"
+
+      # 装好就保存（actions/cache 只在 job 成功时保存）：后面的构建失败也不必重新下载
+      - name: Save emsdk
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true' && steps.cache-emsdk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+
+      - name: Build engine
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true'
+        run: |
+          source /tmp/emsdk/emsdk_env.sh
+          node scripts/build-web-engine.js /tmp/HoneyGUI
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if [ -z "$(git status --porcelain -- lib/web-sim/)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git status --porcelain -- lib/web-sim/
+          fi
+
+      - name: Commit and push if changed
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "honeygui-bot"
+          git config user.email "bot@honeygui.dev"
+          git add -A lib/web-sim/
+          {
+            printf '%s\n\n' 'chore: update web simulation engine'
+            printf 'SDK commit: %s\n' "$SDK_SHA"
+            printf 'SDK message: %s\n' "$SDK_MESSAGE"
+          } > "$RUNNER_TEMP/update-web-engine-commit.txt"
+          git commit -F "$RUNNER_TEMP/update-web-engine-commit.txt"
+          git pull --rebase origin master
+          git push origin HEAD:master

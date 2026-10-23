@@ -23,6 +23,8 @@ eslint.config.js
 dist/**
 webpack.web.config.js
 tsconfig.web.json
+# 浏览器版仿真引擎（scripts/prepare-web-sim.js 部署到站点），插件不使用
+lib/web-sim/**
 
 # 源码（编译后的在 out/ 目录）
 src/**

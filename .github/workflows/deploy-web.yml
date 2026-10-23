@@ -16,9 +16,17 @@ on:
       - 'src/common/**'
       - 'src/shared/**'
       - 'src/project-i18n/**'
+      - 'src/simulation/**'
+      - 'src/template/**'
       - 'tools/image-converter/**'
       - 'tools/font-converter/src/**'
       - 'tools/font-converter/package.json'
+      - 'tools/glass-generator/**'
+      - 'tools/model-converter/**'
+      - 'tools/video-converter-ts/**'
+      - 'tools/image-to-jpeg-converter/**'
+      - 'lib/web-sim/**'
+      - 'scripts/prepare-web-sim.js'
       - 'l10n/**'
       - 'webpack.web.config.js'
       - 'tsconfig.web.json'
@@ -27,6 +35,12 @@ on:
       - 'package-lock.json'
       - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
+  # 引擎更新由 honeygui-bot 用 GITHUB_TOKEN 推送，GitHub 不会为该推送触发 push 事件，
+  # 因此这里监听那个 workflow：它提交了新引擎，站点要重新部署（失败则跳过，留在旧站点）
+  workflow_run:
+    workflows: ["Update Web Simulation Engine"]
+    types: [completed]
+    branches: [master]
 
 permissions:
   contents: read
@@ -41,6 +55,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v4
 
@@ -58,6 +75,10 @@ jobs:
 
       - name: Build web designer
         run: npm run build:web
+
+      # 浏览器仿真：引擎（lib/web-sim，由 update-web-engine.yml 更新）、编译器与头文件
+      - name: Prepare web simulation
+        run: node scripts/prepare-web-sim.js
 
       # Source map 只用于本地调试，不发布
       - name: Remove source maps
