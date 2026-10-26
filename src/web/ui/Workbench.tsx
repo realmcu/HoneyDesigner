@@ -3,12 +3,12 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import * as path from 'path';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import App from '../../webview/App';
 import { useDesignerStore } from '../../webview/store';
 import { clearUriCache } from '../../webview/hooks/useWebviewUri';
 import { clearFontCache } from '../../webview/hooks/useFontLoader';
 import { t } from '../../webview/i18n';
+import { HmlTemplateManager } from '../../hml/HmlTemplateManager';
 import {
     StoredProject,
     ProjectSync,
@@ -21,8 +21,6 @@ import { openDesigner, findMainHml, OpenedDesigner } from '../host/browserHost';
 import { exportProjectZip, downloadBlob } from '../host/projectZip';
 import { hostUi } from '../host/hostUi';
 import * as fs from '../shims/fs';
-import * as vscode from '../shims/vscode';
-import { ProjectExplorer } from './ProjectExplorer';
 
 interface WorkbenchProps {
     project: StoredProject;
@@ -35,6 +33,9 @@ type Phase =
     | { kind: 'ready'; opened: OpenedDesigner; sync: ProjectSync }
     | { kind: 'error'; message: string };
 
+/** 新建 HML 文件的文件名规则：与组件 id 命名一致，避免生成非法控件名 */
+const HML_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 /** 关闭或切换工程前清空内存文件系统中的工程目录，避免多个工程的文件残留 */
 function unloadProjectFiles(root: string): void {
     fs.rmSync(root, { recursive: true, force: true });
@@ -44,7 +45,6 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
     const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
     const [syncState, setSyncState] = useState<SyncState>('idle');
     const [attempt, setAttempt] = useState(0);
-    const [explorerVisible, setExplorerVisible] = useState(true);
     const currentFilePath = useDesignerStore(state => state.currentFilePath);
     const openedRef = useRef<{ opened?: OpenedDesigner; sync?: ProjectSync; root?: string }>({});
 
@@ -128,60 +128,60 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
         }
     };
 
-    const openFile = (filePath: string) => {
-        if (phase.kind !== 'ready' || filePath === currentFilePath) return;
+    /** 在 ui/ 下新建 HML 文件并切换过去（工程文件树的替代入口） */
+    const createHmlFile = async () => {
+        if (phase.kind !== 'ready') {
+            return;
+        }
+        const root = phase.opened.projectRoot;
+        const uiDir = path.posix.join(root, 'ui');
+        const existing = new Set(fs.vfs.listFiles(uiDir)
+            .map(file => path.posix.basename(file).toLowerCase()));
+
+        const name = await hostUi.showInput({
+            prompt: t('New HML File'),
+            placeHolder: t('HML file name'),
+            validateInput: value => {
+                const base = value.trim().replace(/\.hml$/i, '');
+                // 尚未输入时不报错，交由确认按钮的空值检查拦截
+                if (!base) {
+                    return undefined;
+                }
+                if (!HML_NAME_PATTERN.test(base)) {
+                    return t('Use letters, numbers and underscores; start with a letter or underscore.');
+                }
+                return existing.has(`${base.toLowerCase()}.hml`) ? t('An HML file with this name already exists in ui/.') : undefined;
+            },
+        });
+        const fileName = name?.trim().replace(/\.hml$/i, '');
+        if (!fileName) {
+            return;
+        }
         if (useDesignerStore.getState().isDirty
             && !globalThis.confirm(t('The design has unsaved changes. Switch files and discard them?'))) {
             return;
         }
+
+        const target = path.posix.join(uiDir, `${fileName}.hml`);
+        try {
+            const config = useDesignerStore.getState().projectConfig;
+            fs.mkdirSync(uiDir, { recursive: true });
+            fs.writeFileSync(target, HmlTemplateManager.generateMainHml(
+                fileName,
+                config?.resolution || '480X272',
+                config?.appId,
+                config?.minSdk,
+                config?.pixelMode,
+                false
+            ), 'utf8');
+        } catch (cause) {
+            void hostUi.showMessage('error', t('Failed to create HML file: {0}', cause instanceof Error ? cause.message : String(cause)), [], false);
+            return;
+        }
+
         useDesignerStore.getState().clearSelection();
         useDesignerStore.getState().setSelectedAsset(null);
-        window.vscodeAPI?.postMessage({ command: 'switchFile', filePath });
-    };
-
-    const deleteFile = async (filePath: string): Promise<boolean> => {
-        if (phase.kind !== 'ready') return false;
-        const root = phase.opened.projectRoot;
-        const uiDir = path.posix.join(root, 'ui');
-        if (!filePath.startsWith(`${uiDir}/`) || !filePath.toLowerCase().endsWith('.hml')
-            || !fs.existsSync(filePath)) return false;
-
-        const mainHmlPath = findMainHml(root);
-        if (filePath === mainHmlPath) {
-            void hostUi.showMessage('warning', t('The main HML file cannot be deleted.'), [], false);
-            return false;
-        }
-        const current = phase.opened.designer.currentFilePath === filePath;
-        const message = current && useDesignerStore.getState().isDirty
-            ? t('Delete "{0}"? Unsaved changes in this file will be lost.', path.posix.basename(filePath))
-            : t('Delete HML file "{0}"? This cannot be undone.', path.posix.basename(filePath));
-        if (!globalThis.confirm(message)) return false;
-
-        let switchedToMain = false;
-        try {
-            if (current) {
-                if (!mainHmlPath) throw new Error(t('No HML file found in the ui/ folder'));
-                const document = await vscode.workspace.openTextDocument(vscode.Uri.file(mainHmlPath));
-                await phase.opened.designer.loadFromDocument(document as unknown as import('vscode').TextDocument);
-                if (phase.opened.designer.currentFilePath !== mainHmlPath) {
-                    throw new Error(t('Failed to switch to the main HML file.'));
-                }
-                switchedToMain = true;
-                useDesignerStore.getState().clearSelection();
-                useDesignerStore.getState().setSelectedAsset(null);
-            }
-            fs.unlinkSync(filePath);
-            if (current || !useDesignerStore.getState().isDirty) {
-                phase.opened.designer.reloadCurrentDocument();
-            } else {
-                useDesignerStore.getState().refreshNavGraph();
-            }
-            return true;
-        } catch (cause) {
-            if (switchedToMain) phase.opened.designer.reloadCurrentDocument();
-            void hostUi.showMessage('error', t('Failed to delete HML file: {0}', cause instanceof Error ? cause.message : String(cause)), [], false);
-            return false;
-        }
+        window.vscodeAPI?.postMessage({ command: 'switchFile', filePath: target });
     };
 
     const close = async () => {
@@ -202,13 +202,6 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
         <div className="web-workbench">
             <div className="web-topbar">
                 <button className="web-button" onClick={close}>← {t('Back to Projects')}</button>
-                {phase.kind === 'ready' && (
-                    <button className="web-icon-button" onClick={() => setExplorerVisible(value => !value)}
-                        title={explorerVisible ? t('Hide Project Files') : t('Show Project Files')}
-                        aria-label={explorerVisible ? t('Hide Project Files') : t('Show Project Files')}>
-                        {explorerVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-                    </button>
-                )}
                 <span className="web-topbar-title">{project.name}</span>
                 {phase.kind === 'ready' && currentFilePath && (
                     <span className="web-topbar-file" title={path.posix.relative(phase.opened.projectRoot, currentFilePath)}>
@@ -217,33 +210,13 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                 )}
                 <span className={`web-sync web-sync-${syncState}`}>{syncLabel}</span>
                 <span className="web-topbar-spacer" />
+                <button className="web-button" onClick={() => void createHmlFile()} disabled={phase.kind !== 'ready'}>{t('New HML File')}</button>
                 <button className="web-button" onClick={showCode} disabled={phase.kind !== 'ready'}>{t('Generated Code')}</button>
                 <button className="web-button primary" onClick={exportZip} disabled={phase.kind !== 'ready'}>{t('Export ZIP')}</button>
             </div>
             <div className="web-designer-host">
                 {phase.kind === 'ready' && (
                     <div className="web-workspace">
-                        {explorerVisible && (
-                            <ProjectExplorer root={phase.opened.projectRoot} projectName={project.name}
-                                mainHmlPath={findMainHml(phase.opened.projectRoot) || phase.opened.hmlPath}
-                                onOpenFile={openFile} onDeleteFile={deleteFile} />
-                        )}
-                        {/* 贴边收起/展开按钮，交互与设计器左侧面板一致 */}
-                        <div className={`web-explorer-edge ${explorerVisible ? '' : 'collapsed'}`}>
-                            {/* 与设计器左侧面板一致，在 mousedown 时切换，避免点击被设计器的全局鼠标处理吞掉；键盘触发仍走 click */}
-                            <button className="web-explorer-edge-button"
-                                onMouseDown={event => {
-                                    if (event.button !== 0) return;
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setExplorerVisible(value => !value);
-                                }}
-                                onClick={event => { if (event.detail === 0) setExplorerVisible(value => !value); }}
-                                title={explorerVisible ? t('Hide Project Files') : t('Show Project Files')}
-                                aria-label={explorerVisible ? t('Hide Project Files') : t('Show Project Files')}>
-                                {explorerVisible ? '◀' : '▶'}
-                            </button>
-                        </div>
                         <div className="web-workspace-designer"><App key={project.id} /></div>
                     </div>
                 )}
