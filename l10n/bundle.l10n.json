@@ -341,6 +341,10 @@
   "failed": "failed",
   "Generating preview...": "Generating preview...",
   "Preview failed": "Preview failed",
+  "Includes {0} characters, estimated about {1} KB": "Includes {0} characters, estimated about {1} KB",
+  "{0} characters are missing from the font: {1}": "{0} characters are missing from the font: {1}",
+  "... and {0} more": "... and {0} more",
+  "Reduce the character set range or change the font": "Reduce the character set range or change the font",
 
   "Collaboration service stopped": "Collaboration service stopped",
   "Disconnected from collaboration": "Disconnected from collaboration",

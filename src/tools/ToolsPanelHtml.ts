@@ -102,6 +102,11 @@ export interface ToolsPanelTranslations {
     cropThenScale: string;
     scaleThenCrop: string;
     originalSize: string;
+    charsetStats: string;
+    charsetMissing: string;
+    charsetMissingMore: string;
+    charsetMissingAdvice: string;
+    rootDirectory: string;
 }
 
 /** 获取资源转换工具翻译 */
@@ -206,12 +211,17 @@ export function getToolsPanelTranslations(): ToolsPanelTranslations {
         cropThenScale: vscode.l10n.t('Crop → Scale'),
         scaleThenCrop: vscode.l10n.t('Scale → Crop'),
         originalSize: vscode.l10n.t('Original'),
+        charsetStats: vscode.l10n.t('Includes {0} characters, estimated about {1} KB'),
+        charsetMissing: vscode.l10n.t('{0} characters are missing from the font: {1}'),
+        charsetMissingMore: vscode.l10n.t('... and {0} more'),
+        charsetMissingAdvice: vscode.l10n.t('Reduce the character set range or change the font'),
+        rootDirectory: vscode.l10n.t('Root'),
     };
 }
 
 export function getToolsPanelHtml(t: ToolsPanelTranslations): string {
     return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${vscode.env.language || 'en'}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -373,6 +383,11 @@ function getScript(t: ToolsPanelTranslations): string {
 const T = ${JSON.stringify(t)};
 const PRESET_CST = ${JSON.stringify(presetCst)};
 const PRESET_CP = ${JSON.stringify(presetCp)};
+// 句子级文案统一在翻译里用 {0}/{1} 占位，避免各语言自己拼语序
+function fmt(s){
+    for (let i = 1; i < arguments.length; i++) s = s.split('{' + (i - 1) + '}').join(String(arguments[i]));
+    return s;
+}
 // 预置标识符不含路径分隔符；含 "/" 或 "\\" 视为用户自定义文件路径
 function isPresetVal(v){ return !!v && !/[\\\\/]/.test(v); }
 const vscode = acquireVsCodeApi();
@@ -454,12 +469,12 @@ function resolveEffectiveConfig(assetPath) {
             // 继承图片格式
             if (!inheritedFormat && settings.format && settings.format !== 'inherit') {
                 inheritedFormat = settings.format;
-                if (!inheritedVideoFormat) inheritedFrom = parentPath || '根目录';
+                if (!inheritedVideoFormat) inheritedFrom = parentPath || T.rootDirectory;
             }
             // 继承视频格式
             if (!inheritedVideoFormat && settings.videoFormat && settings.videoFormat !== 'inherit') {
                 inheritedVideoFormat = settings.videoFormat;
-                inheritedFrom = parentPath || '根目录';
+                inheritedFrom = parentPath || T.rootDirectory;
             }
             // 合并其他设置
             parentSettings = { ...settings, ...parentSettings };
@@ -1696,7 +1711,7 @@ function renderCharsetStats(charCount, estimatedSizeKB, missingChars) {
     if (!statsEl || !warnEl) return;
 
     statsEl.textContent = charCount > 0
-        ? '将包含 ' + charCount.toLocaleString() + ' 个字符，预计约 ' + estimatedSizeKB + ' KB'
+        ? fmt(T.charsetStats, charCount.toLocaleString(), estimatedSizeKB)
         : '';
 
     if (!missingChars || missingChars.length === 0) {
@@ -1705,11 +1720,11 @@ function renderCharsetStats(charCount, estimatedSizeKB, missingChars) {
     }
 
     const MAX_SHOW = 5;
-    const shown = missingChars.slice(0, MAX_SHOW).map(c => '「' + c + '」').join('');
+    const shown = missingChars.slice(0, MAX_SHOW).map(c => '"' + c + '"').join(' ');
     const rest = missingChars.length - MAX_SHOW;
-    const charList = rest > 0 ? shown + '...等 ' + rest + ' 个' : shown;
-    const advice = missingChars.length > MAX_SHOW ? '\\n建议缩小字符集范围或更换字体' : '';
-    warnEl.textContent = '⚠️ ' + missingChars.length + ' 个字符在字体中不存在：' + charList + advice;
+    const charList = rest > 0 ? shown + fmt(T.charsetMissingMore, rest) : shown;
+    const advice = missingChars.length > MAX_SHOW ? '\\n' + T.charsetMissingAdvice : '';
+    warnEl.textContent = '⚠️ ' + fmt(T.charsetMissing, missingChars.length, charList) + advice;
 }
 
 function updateCharsetType(idx, type, isFolder) {

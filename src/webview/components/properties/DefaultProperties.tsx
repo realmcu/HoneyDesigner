@@ -519,7 +519,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
           type="text"
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="图片路径"
+          placeholder={t('Image Path')}
           style={{
             flex: 1,
             padding: '4px 6px',
@@ -540,7 +540,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             cursor: 'pointer',
             fontSize: '12px'
           }}
-          title="选择图片文件"
+          title={t('Select Image File')}
         >
           📁
         </button>
@@ -555,7 +555,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
           type="text"
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="形状路径 (.glass)"
+          placeholder={`${t('Shape Path')} (.glass)`}
           style={{
             flex: 1,
             padding: '4px 6px',
@@ -576,7 +576,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             cursor: 'pointer',
             fontSize: '12px'
           }}
-          title="选择玻璃形状文件"
+          title={t('Select Shape File')}
         >
           📁
         </button>
@@ -592,7 +592,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="字体文件路径"
+            placeholder={t('Font File Path')}
             style={{
               flex: 1,
               padding: '4px 6px',
@@ -613,7 +613,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
               cursor: 'pointer',
               fontSize: '12px'
             }}
-            title="选择字体文件"
+            title={t('Select Font File')}
           >
             🔤
           </button>
@@ -699,7 +699,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
         charsetIndex: index,
         fileType: type,
         filters: type === 'file'
-          ? { 'Charset文件': ['cst', 'txt'] }
+          ? { [t('Charset File')]: ['cst', 'txt'] }
           : {} // CodePage 文件没有后缀，显示所有文件
       });
     };
@@ -924,7 +924,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
             color: 'var(--vscode-descriptionForeground)',
             marginTop: '6px'
           }}>
-            将包含 {fontStats.charCount.toLocaleString()} 个字符，预计约 {fontStats.estimatedSizeKB} KB
+            {t('Includes {0} characters, estimated about {1} KB', fontStats.charCount.toLocaleString(), fontStats.estimatedSizeKB)}
           </div>
         )}
         {fontStats.missingChars.length > 0 && (
@@ -939,15 +939,15 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
               const MAX_SHOW = 5;
               const shown = fontStats.missingChars
                 .slice(0, MAX_SHOW)
-                .map((c) => '「' + c + '」')
-                .join('');
+                .map((c) => '"' + c + '"')
+                .join(' ');
               const rest = fontStats.missingChars.length - MAX_SHOW;
-              const charList = rest > 0 ? shown + '...等 ' + rest + ' 个' : shown;
+              const charList = rest > 0 ? shown + t('... and {0} more', rest) : shown;
               const advice =
-                fontStats.missingChars.length > MAX_SHOW ? '\n建议缩小字符集范围或更换字体' : '';
-              return (
-                '⚠️ ' + fontStats.missingChars.length + ' 个字符在字体中不存在：' + charList + advice
-              );
+                fontStats.missingChars.length > MAX_SHOW
+                  ? '\n' + t('Reduce the character set range or change the font')
+                  : '';
+              return '⚠️ ' + t('{0} characters are missing from the font: {1}', fontStats.missingChars.length, charList) + advice;
             })()}
           </div>
         )}
@@ -1106,7 +1106,7 @@ export const DefaultProperties: React.FC<PropertyPanelProps> = ({ component, onU
                   }}>
                     {(component.data as any)?.svgContent
                       ? '✓ ' + t('canvasEditor.preview')
-                      : '未配置 SVG 内容'
+                      : t('No SVG content configured')
                     }
                   </div>
                   <button

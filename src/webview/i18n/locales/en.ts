@@ -939,6 +939,15 @@ const en = {
   'Example: CP936': 'Example: CP936',
   'Add Character Set': 'Add Character Set',
   'Additional character sets will be merged with text characters during font conversion': 'Additional character sets will be merged with text characters during font conversion',
+  'Charset File': 'Charset File',
+  'Includes {0} characters, estimated about {1} KB': 'Includes {0} characters, estimated about {1} KB',
+  '{0} characters are missing from the font: {1}': '{0} characters are missing from the font: {1}',
+  '... and {0} more': '... and {0} more',
+  'Reduce the character set range or change the font': 'Reduce the character set range or change the font',
+  'Font File Path': 'Font File Path',
+  'Select Font File': 'Select Font File',
+  'Select Shape File': 'Select Shape File',
+  'No SVG content configured': 'No SVG content configured',
 
   // Button effect variants
   'Dual-State Button': 'Dual-State Button',

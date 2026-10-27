@@ -939,6 +939,15 @@ const zhCN = {
   'Example: CP936': '示例：CP936',
   'Add Character Set': '添加字符集',
   'Additional character sets will be merged with text characters during font conversion': '附加字符集将在字体转换时与文本字符合并',
+  'Charset File': 'Charset文件',
+  'Includes {0} characters, estimated about {1} KB': '将包含 {0} 个字符，预计约 {1} KB',
+  '{0} characters are missing from the font: {1}': '{0} 个字符在字体中不存在：{1}',
+  '... and {0} more': '...等 {0} 个',
+  'Reduce the character set range or change the font': '建议缩小字符集范围或更换字体',
+  'Font File Path': '字体文件路径',
+  'Select Font File': '选择字体文件',
+  'Select Shape File': '选择玻璃形状文件',
+  'No SVG content configured': '未配置 SVG 内容',
 
   // 按键效果变体
   'Dual-State Button': '双态按键',
