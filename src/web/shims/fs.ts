@@ -445,16 +445,17 @@ export function utimesSync(): void {
     // 内存文件系统不追踪访问时间
 }
 
-// 文件描述符：只支持读写整文件内容的简单场景（readSync 按偏移读取文件头）
-const fds = new Map<number, string>();
+// 文件描述符：只支持读写整文件内容的简单场景（按偏移读写文件头/文件尾）
+// 未指定 position 时用每个 fd 自己的游标，和 Node 的 readSync/writeSync 语义一致
+const fds = new Map<number, { path: string; pos: number }>();
 let nextFd = 3;
 
 function fdPath(fd: number, syscall: string): string {
-    const p = fds.get(fd);
-    if (!p) {
+    const entry = fds.get(fd);
+    if (!entry) {
         throw fsError('EBADF', syscall, String(fd));
     }
-    return p;
+    return entry.path;
 }
 
 export function openSync(p: string, flags: string = 'r'): number {
@@ -466,19 +467,48 @@ export function openSync(p: string, flags: string = 'r'): number {
         writeInternal(n, new Uint8Array(0), 'open');
     }
     const fd = nextFd++;
-    fds.set(fd, n);
+    fds.set(fd, { path: n, pos: flags.startsWith('a') ? (files.get(n)?.data.byteLength ?? 0) : 0 });
     return fd;
 }
 
 export function readSync(fd: number, buffer: Uint8Array, offset: number, length: number, position: number | null): number {
-    const file = files.get(fdPath(fd, 'read'));
+    const entry = fds.get(fd);
+    if (!entry) {
+        throw fsError('EBADF', 'read', String(fd));
+    }
+    const file = files.get(entry.path);
     if (!file) {
         return 0;
     }
-    const start = position ?? 0;
+    const start = position ?? entry.pos;
     const chunk = file.data.subarray(start, Math.min(start + length, file.data.byteLength));
     buffer.set(chunk, offset);
+    if (position === null) {
+        entry.pos = start + chunk.byteLength;
+    }
     return chunk.byteLength;
+}
+
+/** 按偏移写文件：position 为 null 时从 fd 游标处写，允许越界写（缺口补零） */
+export function writeSync(fd: number, buffer: Uint8Array, offset = 0, length = buffer.byteLength - offset, position: number | null = null): number {
+    const entry = fds.get(fd);
+    if (!entry) {
+        throw fsError('EBADF', 'write', String(fd));
+    }
+    const source = buffer.subarray(offset, offset + length);
+    const start = position ?? entry.pos;
+    const current = files.get(entry.path)?.data ?? new Uint8Array(0);
+    const end = start + source.byteLength;
+    // 写放大到超出当前长度时补零；否则整文件复制一次后原位覆盖，
+    // 保持已写区间之外的内容不变（AVI 回填文件头依赖这一点）
+    const next = new Uint8Array(Math.max(end, current.byteLength));
+    next.set(current, 0);
+    next.set(source, start);
+    writeInternal(entry.path, next, 'write');
+    if (position === null) {
+        entry.pos = end;
+    }
+    return source.byteLength;
 }
 
 export function fstatSync(fd: number): Stats | undefined {
@@ -629,7 +659,7 @@ export const vfs = {
 export default {
     constants, existsSync, accessSync, statSync, lstatSync, realpathSync, readFileSync, writeFileSync,
     appendFileSync, mkdirSync, mkdtempSync, readdirSync, unlinkSync, rmdirSync, rmSync, renameSync,
-    copyFileSync, cpSync, utimesSync, openSync, readSync, fstatSync, closeSync, watch, watchFile,
+    copyFileSync, cpSync, utimesSync, openSync, readSync, writeSync, fstatSync, closeSync, watch, watchFile,
     unwatchFile, promises, access, readFile, writeFile, appendFile, mkdir, readdir, stat, lstat, unlink,
     rmdir, rm, rename, copyFile, exists, Stats, Dirent,
 };
