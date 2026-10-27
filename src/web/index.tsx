@@ -16,7 +16,7 @@ import { Workbench } from './ui/Workbench';
 import { HostOverlay } from './ui/HostOverlay';
 import { SimulationWindow } from './ui/SimulationWindow';
 import { SimulationController } from './sim/simulationController';
-import { setSimulationController, restartSimulation, stopSimulation } from './host/browserHost';
+import { setSimulationController, stopSimulation } from './host/browserHost';
 
 // 构建 Worker：webpack 只有在这种字面写法下才会把 buildWorker.ts 作为独立 chunk 打包
 const simulation = new SimulationController(
@@ -35,7 +35,6 @@ function WebApp() {
             <SimulationWindow
                 onCanvas={canvas => simulation.setCanvas(canvas)}
                 onStop={stopSimulation}
-                onRestart={restartSimulation}
                 onKey={key => simulation.pressKey(key)}
             />
         </>

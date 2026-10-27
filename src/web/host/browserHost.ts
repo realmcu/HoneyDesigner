@@ -11,7 +11,6 @@ import { DesignerPanel } from '../../designer/DesignerPanel';
 import { BrowserWebviewPanel } from './browserWebviewPanel';
 import { setWorkspaceFolder } from './webEnvironment';
 import { SimulationController, SimulationFlow } from '../sim/simulationController';
-import type { SimulationMode } from '../sim/simulationService';
 
 /** 需要本机工具链（SCons / Python / 串口）的命令，浏览器版给出说明而不是静默失败 */
 const DESKTOP_ONLY_COMMANDS = [
@@ -30,23 +29,14 @@ let simulation: SimulationController | undefined;
 /** 工具栏最近一次勾选的仿真阶段；在仿真窗口切换方式时沿用 */
 let lastFlow: SimulationFlow = { convert: true, codegen: true, simulate: true };
 
-/** 仿真方式（快速预览 / 完整仿真）在浏览器中记住，下次打开页面沿用 */
-const SIMULATION_MODE_STORAGE_KEY = 'honeygui.web.simulationMode';
-
-function savedSimulationMode(): SimulationMode {
-    return globalThis.localStorage?.getItem(SIMULATION_MODE_STORAGE_KEY) === 'full' ? 'full' : 'preview';
-}
-
+/**
+ * 网页版固定运行快速预览（HML 运行时），不再提供编译 C 工程的完整仿真：
+ * 编译要下载约 105 MB 编译器、耗时数十秒，而浏览器版主要是看界面。
+ * 需要跑工程 C 代码时请在 VS Code 扩展中仿真。
+ */
 export function setSimulationController(controller: SimulationController): void {
     simulation = controller;
-    controller.setMode(savedSimulationMode());
-}
-
-/** 仿真窗口切换仿真方式：记住选择，并按新方式重新开始仿真 */
-export function restartSimulation(mode: SimulationMode): void {
-    globalThis.localStorage?.setItem(SIMULATION_MODE_STORAGE_KEY, mode);
-    simulation?.setMode(mode);
-    void vscode.commands.executeCommand('honeygui.simulation', { flow: lastFlow });
+    controller.setMode('preview');
 }
 
 /** 仿真窗口的关闭按钮：与工具栏「停止」走同一条命令，工具栏才会复位 */

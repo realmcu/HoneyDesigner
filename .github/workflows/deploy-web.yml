@@ -76,9 +76,11 @@ jobs:
       - name: Build web designer
         run: npm run build:web
 
-      # 浏览器仿真：引擎（lib/web-sim，由 update-sim-assets.yml 更新）、编译器与头文件
+      # 浏览器仿真只跑 HML 运行时（不编译工程 C 代码），因此只部署引擎：
+      # --preview-only 省掉约 120 MB 的 WASM clang、binaryen 和头文件包。
+      # 引擎在 lib/web-sim，由 update-sim-assets.yml 更新
       - name: Prepare web simulation
-        run: node scripts/prepare-web-sim.js
+        run: node scripts/prepare-web-sim.js --preview-only
 
       # Source map 只用于本地调试，不发布
       - name: Remove source maps

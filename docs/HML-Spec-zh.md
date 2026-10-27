@@ -1279,7 +1279,7 @@ src/
 
 ### 浏览器快速预览
 
-浏览器版设计器默认的仿真方式「快速预览」不编译工程：HoneyGUI 引擎在运行时解析 HML，每次保存后自动刷新。「完整仿真」与 VS Code 仿真一样编译生成的 C 代码。快速预览与生成代码一致的部分：布局、preset 定时动画、`switchView` / `sendMessage` / `controlTimer` 动作、`i18nKey` 文本。缺失的部分如下（仿真窗口会列出工程实际用到的项）：
+浏览器版设计器只提供「快速预览」，不编译工程：HoneyGUI 引擎在运行时解析 HML，每次保存后自动刷新。需要执行工程 C 代码时请在 VS Code 扩展中仿真。快速预览与生成代码一致的部分：布局、preset 定时动画、`switchView` / `sendMessage` / `controlTimer` 动作、`i18nKey` 文本。缺失的部分如下（仿真窗口会列出工程实际用到的项）：
 
 - 不执行工程 C 代码：`callFunction` 动作、`custom` 定时器回调、`onMessage` 处理函数、`hg_button` 的 `clickCallback` / `onCallback` / `offCallback`、`hg_view` 的 `switchInFunctionName` / `switchOutFunctionName`、`hg_list` 的自定义 note design 函数。`hg_streaming` 依赖 C 代码提供的 transporter，不会创建。
 - 不创建：`hg_timer_label`、`hg_progress`、`hg_svg`、`hg_qbcode`、`hg_gif`、`hg_glass`、`hg_particle`、`hg_menu_cellular`、`hg_3d`、`hg_lottie`。

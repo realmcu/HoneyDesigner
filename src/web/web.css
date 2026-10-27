@@ -592,14 +592,14 @@
 }
 
 .web-sim-title { font-weight: 600; }
-.web-sim-mode {
+.web-sim-mode-label {
   margin-left: 8px;
-  padding: 1px 4px;
-  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+  padding: 1px 6px;
+  border: 1px solid var(--vscode-panel-border);
   border-radius: 2px;
-  background: var(--vscode-dropdown-background);
-  color: var(--vscode-dropdown-foreground);
-  font: inherit;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  cursor: default;
 }
 .web-sim-gaps { max-width: 480px; }
 .web-sim-gaps summary { cursor: pointer; color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
