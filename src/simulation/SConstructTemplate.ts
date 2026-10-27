@@ -21,11 +21,11 @@ export function buildSConstruct(opts: SConstructOptions): string {
     
     // Linux 使用系统 SDL2，Windows 使用内置静态库
     const sdl2Setup = platform === 'linux' 
-        ? `# Linux: 使用系统 SDL2
+        ? `# Linux: use system SDL2
 import subprocess
 sdl2_cflags = subprocess.check_output(['sdl2-config', '--cflags']).decode().strip()
 sdl2_libs = subprocess.check_output(['sdl2-config', '--libs']).decode().strip()`
-        : `# Windows: 使用内置 SDL2 静态库
+        : `# Windows: use bundled SDL2 static libraries
 sdl2_inc1 = '${libSim}/SDL2-2.26.0-STATIC/include'
 sdl2_inc2 = '${libSim}/SDL2-2.26.0-STATIC/include/SDL2'
 sdl2_libdir = '${libSim}/SDL2-2.26.0-STATIC/lib'`;
@@ -53,7 +53,7 @@ import sys
 import menu_config
 from SCons.Script import *
 
-# 固定到插件内置的 lib/sim
+# Pin to the bundled lib/sim inside the extension
 PROJECT_ROOT = '${libSim}'
 TOOL_ROOT = os.path.join(PROJECT_ROOT, 'tool/scons-tool')
 
@@ -64,7 +64,7 @@ TARGET = 'gui.exe' if sys.platform == 'win32' else 'gui'
 
 ${sdl2Setup}
 
-# 构建环境参数
+# Build environment parameters
 env_params = {
     'CC': menu_config.CC,
     'CFLAGS': ${cflags},
@@ -81,20 +81,20 @@ else:
     env = Environment(tools=['default'], PROGSUFFIX='', **env_params)
     env['LINK'] = 'g++'
 
-# PC 仿真宏
+# PC simulator macros
 env.Append(CPPDEFINES=['_HONEYGUI_SIMULATOR_'])
 
-# 头文件与库路径
+# Include and library paths
 ${cpppath}
 ${libpath}
 
-# 系统库
+# System libraries
 ${libs}
 
-# 准备环境（会自动编译当前目录的 SConscript）
+# Prepare the environment (builds the SConscript in this directory)
 objs = PrepareBuilding(env, TOOL_ROOT, has_libcpu=False)
 
-# 编译项目代码
+# Build project sources
 PROJECT_SRC = '${projectSrc}'
 if os.path.exists(os.path.join(PROJECT_SRC, 'SConscript')):
     objs.extend(SConscript(os.path.join(PROJECT_SRC, 'SConscript')))

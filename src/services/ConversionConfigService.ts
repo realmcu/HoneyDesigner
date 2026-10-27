@@ -345,9 +345,9 @@ export class ConversionConfigService {
         // 自动保存迁移后的配置
         try {
           this.saveConfig(projectRoot, config);
-          console.log('[ConversionConfigService] alwaysConvert 已从 project.json 迁移到 conversion.json');
+          console.log('[ConversionConfigService] alwaysConvert migrated from project.json to conversion.json');
         } catch (e) {
-          console.error('[ConversionConfigService] 保存迁移配置失败:', e);
+          console.error('[ConversionConfigService] failed to save migrated config:', e);
         }
       }
     }
@@ -357,9 +357,9 @@ export class ConversionConfigService {
     if (this.migrateLegacyAssetsPrefix(config.items)) {
       try {
         this.saveConfig(projectRoot, config);
-        console.log('[ConversionConfigService] 已将带 assets/ 前缀的历史 key 迁移为不带前缀');
+        console.log('[ConversionConfigService] migrated legacy keys with an assets/ prefix to prefix-free keys');
       } catch (e) {
-        console.error('[ConversionConfigService] 保存迁移配置失败:', e);
+        console.error('[ConversionConfigService] failed to save migrated config:', e);
       }
     }
 

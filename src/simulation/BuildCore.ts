@@ -159,7 +159,7 @@ from building import *
 cwd = GetCurrentDir()
 inc = [cwd]
 
-# 编译 main.c 和 app_romfs.c
+# Build main.c and app_romfs.c
 src = ['main.c', 'app_romfs.c']
 
 objs = DefineGroup('build', src, depend = [''], CPPPATH = inc)
@@ -175,19 +175,19 @@ Return('objs')
     }
 
     async copyGeneratedCode(): Promise<void> {
-        this.logger.log('检查生成的代码...');
+        this.logger.log(vscode.l10n.t('Checking generated code...'));
 
         const srcDir = path.join(this.projectRoot, 'src');
         if (!fs.existsSync(srcDir)) {
-            throw new Error(`生成的代码目录不存在: ${srcDir}`);
+            throw new Error(vscode.l10n.t('Generated code directory does not exist: {0}', srcDir));
         }
 
         const sconscript = path.join(srcDir, 'SConscript');
         if (!fs.existsSync(sconscript)) {
-            throw new Error(`SConscript 文件不存在: ${sconscript}，请先生成代码`);
+            throw new Error(vscode.l10n.t('SConscript file does not exist: {0}. Generate code first.', sconscript));
         }
 
-        this.logger.log('代码检查完成');
+        this.logger.log(vscode.l10n.t('Code check completed'));
     }
 
     async convertAssets(options: ConvertAssetsOptions = {}): Promise<void> {
@@ -216,12 +216,12 @@ Return('objs')
             // 灵活打包：只转换 HML 引用的资源 + alwaysConvert 列表
             this.logger.log(vscode.l10n.t('Scanning asset references in HML files...'));
             usedAssets = await this.scanUsedAssets();
-            this.logger.log(`找到 ${usedAssets.images.size} 个图片, ${usedAssets.videos.size} 个视频, ${usedAssets.models.size} 个3D模型`);
+            this.logger.log(vscode.l10n.t('Found {0} images, {1} videos, {2} 3D models', usedAssets.images.size, usedAssets.videos.size, usedAssets.models.size));
         } else {
             // 全量打包（默认）：转换 assets 目录下所有资源
             this.logger.log(vscode.l10n.t('Scanning all assets for full packaging...'));
             usedAssets = await this.scanAllAssets();
-            this.logger.log(`找到 ${usedAssets.images.size} 个图片, ${usedAssets.videos.size} 个视频, ${usedAssets.models.size} 个3D模型`);
+            this.logger.log(vscode.l10n.t('Found {0} images, {1} videos, {2} 3D models', usedAssets.images.size, usedAssets.videos.size, usedAssets.models.size));
         }
 
         // 转换图片资源（只转换使用的）
@@ -238,7 +238,7 @@ Return('objs')
         } : undefined;
         
         if (imageOptions?.compression && imageOptions.compression !== 'none') {
-            this.logger.log(`使用压缩算法: ${imageOptions.compression}`);
+            this.logger.log(vscode.l10n.t('Using compression algorithm: {0}', imageOptions.compression));
         }
         
         const imageResults = await this.convertUsedImages(assetsDir, outputDir, usedAssets.images, imageOptions, options.onImageConverted);
@@ -246,27 +246,27 @@ Return('objs')
         const imageFailed = imageResults.filter(r => !r.success);
         if (imageFailed.length > 0) {
             for (const f of imageFailed) {
-                this.logger.log(`图片转换失败: ${f.inputPath} - ${f.error}`, true);
+                this.logger.log(vscode.l10n.t('Image conversion failed: {0} - {1}', f.inputPath, String(f.error)), true);
             }
-            throw new Error(`${imageFailed.length} 个图片转换失败`);
+            throw new Error(vscode.l10n.t('{0} image(s) failed to convert', imageFailed.length));
         }
 
-        this.logger.log(`图片转换完成: ${imageResults.length} 个`);
+        this.logger.log(vscode.l10n.t('Images converted: {0}', imageResults.length));
 
         // 拷贝 SVG 资源（不需要转换）
         this.logger.log(vscode.l10n.t('Copying SVG assets...'));
         const svgCount = this.copySvgAssets(assetsDir, outputDir);
-        this.logger.log(`SVG 拷贝完成: ${svgCount} 个`);
+        this.logger.log(vscode.l10n.t('SVG assets copied: {0}', svgCount));
 
         // 拷贝 TRMAP 资源（不需要转换）
-        this.logger.log('拷贝 TRMAP 资源...');
+        this.logger.log(vscode.l10n.t('Copying TRMAP assets...'));
         const trmapCount = this.copyTrmapAssets(assetsDir, outputDir);
-        this.logger.log(`TRMAP 拷贝完成: ${trmapCount} 个`);
+        this.logger.log(vscode.l10n.t('TRMAP assets copied: {0}', trmapCount));
 
         // 拷贝 user 目录（不转换，原样复制）
         const userCount = this.copyUserAssets(assetsDir, outputDir);
         if (userCount > 0) {
-            this.logger.log(`user 目录拷贝完成: ${userCount} 个`);
+            this.logger.log(vscode.l10n.t('user directory copied: {0}', userCount));
         }
 
         // 转换视频资源（只转换使用的）
@@ -279,9 +279,9 @@ Return('objs')
         const ffmpegAvailable = BuildCore.isBrowser() ? false : await videoConverter.checkFFmpegAvailable();
         if (!ffmpegAvailable) {
             this.logger.log(BuildCore.isBrowser()
-                ? '浏览器版不支持视频转换，已跳过（视频需要在 VS Code 插件中转换）。'
-                : 'FFmpeg 未找到，跳过视频转换。请安装 FFmpeg 并添加到系统 PATH。', true);
-            this.logger.log('视频转换跳过: 0 个');
+                ? vscode.l10n.t('Video conversion is not supported in the browser build; skipped (convert videos in the VS Code extension).')
+                : vscode.l10n.t('FFmpeg not found, skipping video conversion. Install FFmpeg and add it to PATH.'), true);
+            this.logger.log(vscode.l10n.t('Videos skipped: 0'));
         } else {
             // 获取视频组件配置并进行智能转换（只转换使用的）
             const videoResults = await this.convertUsedVideos(
@@ -294,68 +294,68 @@ Return('objs')
             const videoFailed = videoResults.filter(r => !r.success);
             if (videoFailed.length > 0) {
                 for (const f of videoFailed) {
-                    this.logger.log(`视频转换失败: ${f.inputPath} - ${f.error}`, true);
+                    this.logger.log(vscode.l10n.t('Video conversion failed: {0} - {1}', f.inputPath, f.error), true);
                 }
-                throw new Error(`${videoFailed.length} 个视频转换失败`);
+                throw new Error(vscode.l10n.t('{0} video(s) failed to convert', videoFailed.length));
             }
 
             // 记录警告信息
             const videoWarnings = videoResults.filter(r => r.success && r.warning);
             if (videoWarnings.length > 0) {
                 for (const w of videoWarnings) {
-                    this.logger.log(`视频转换警告: ${w.inputPath} - ${w.warning}`, false);
+                    this.logger.log(vscode.l10n.t('Video conversion warning: {0} - {1}', w.inputPath, w.warning), false);
                 }
             }
 
-            this.logger.log(`视频转换完成: ${videoResults.length} 个`);
+            this.logger.log(vscode.l10n.t('Videos converted: {0}', videoResults.length));
         }
 
 
 
         // 转换 3D 模型资源（只转换使用的）
-        this.logger.log('转换 3D 模型资源...');
+        this.logger.log(vscode.l10n.t('Converting 3D model assets...'));
         const model3DResults = await this.convertUsedModels(assetsDir, outputDir, usedAssets.models);
 
         const model3DFailed = model3DResults.filter(r => !r.success);
         if (model3DFailed.length > 0) {
             for (const f of model3DFailed) {
-                this.logger.log(`3D模型转换失败: ${f.inputPath} - ${f.error}`, true);
+                this.logger.log(vscode.l10n.t('3D model conversion failed: {0} - {1}', f.inputPath, f.error), true);
             }
-            throw new Error(`${model3DFailed.length} 个3D模型转换失败`);
+            throw new Error(vscode.l10n.t('{0} 3D model(s) failed to convert', model3DFailed.length));
         }
 
-        this.logger.log(`3D模型转换完成: ${model3DResults.length} 个`);
+        this.logger.log(vscode.l10n.t('3D models converted: {0}', model3DResults.length));
 
         // 转换字体资源
-        this.logger.log('转换字体资源...');
+        this.logger.log(vscode.l10n.t('Converting font assets...'));
         const fontResults = await this.convertFontsWithLabelConfig(assetsDir, outputDir, usedAssets.fonts);
         const fontFailed = fontResults.filter(r => !r.success);
         if (fontFailed.length > 0) {
             for (const f of fontFailed) {
-                this.logger.log(`字体转换失败: ${f.inputPath} - ${f.error}`, true);
+                this.logger.log(vscode.l10n.t('Font conversion failed: {0} - {1}', f.inputPath, f.error), true);
             }
             // 字体转换失败不阻止编译，只是警告
-            this.logger.log(`警告: ${fontFailed.length} 个字体转换失败`, true);
+            this.logger.log(vscode.l10n.t('Warning: {0} font(s) failed to convert', fontFailed.length), true);
         }
-        this.logger.log(`字体转换完成: ${fontResults.filter(r => r.success).length} 个`);
+        this.logger.log(vscode.l10n.t('Fonts converted: {0}', fontResults.filter(r => r.success).length));
 
         // 转换玻璃效果资源
-        this.logger.log('转换玻璃效果资源...');
+        this.logger.log(vscode.l10n.t('Converting glass effect assets...'));
         const glassResults = await this.convertGlassWithComponentConfig(assetsDir, outputDir);
         const glassFailed = glassResults.filter(r => !r.success);
         if (glassFailed.length > 0) {
             for (const f of glassFailed) {
-                this.logger.log(`玻璃效果转换失败: ${f.inputPath} - ${f.error}`, true);
+                this.logger.log(vscode.l10n.t('Glass effect conversion failed: {0} - {1}', f.inputPath, String(f.error)), true);
             }
         }
-        this.logger.log(`玻璃效果转换完成: ${glassResults.filter(r => r.success).length} 个`);
+        this.logger.log(vscode.l10n.t('Glass effects converted: {0}', glassResults.filter(r => r.success).length));
 
         // 拷贝 ui 目录到 build/assets
         const uiSrcDir = path.join(this.projectRoot, 'ui');
         const uiDestDir = path.join(outputDir, 'ui');
         if (fs.existsSync(uiSrcDir)) {
             this.copyDirectory(uiSrcDir, uiDestDir);
-            this.logger.log('UI 目录已拷贝到 assets');
+            this.logger.log(vscode.l10n.t('UI directory copied to assets'));
         }
 
         // 拷贝 project.json 到 build/assets
@@ -363,7 +363,7 @@ Return('objs')
         const projectJsonDest = path.join(outputDir, 'project.json');
         if (fs.existsSync(projectJsonSrc)) {
             fs.copyFileSync(projectJsonSrc, projectJsonDest);
-            this.logger.log('project.json 已拷贝到 assets');
+            this.logger.log(vscode.l10n.t('project.json copied to assets'));
         }
 
         // 清理非运行时文件（规则见 ROMFS_CLEANUP_PATTERNS）
@@ -394,7 +394,7 @@ Return('objs')
         };
         walk(dir);
         if (count > 0) {
-            this.logger.log(`已清理 ${count} 个非运行时文件`);
+            this.logger.log(vscode.l10n.t('Removed {0} non-runtime file(s)', count));
         }
     }
 
@@ -467,7 +467,7 @@ Return('objs')
     }
 
     private async packRomfs(): Promise<void> {
-        this.logger.log('打包 romfs...');
+        this.logger.log(vscode.l10n.t('Packing romfs...'));
 
         const assetsDir = path.join(this.buildDir, 'assets');
         const romfsOutput = path.join(this.buildDir, RomfsConfig.getFileName());
@@ -483,9 +483,9 @@ Return('objs')
         if (BuildCore.isBrowser()) {
             try {
                 fs.writeFileSync(romfsOutput, this.generateRomfsCSource(assetsDir, RomfsConfig.getFileName()));
-                this.logger.log('romfs C 文件生成完成');
+                this.logger.log(vscode.l10n.t('romfs C file generated'));
             } catch (error) {
-                throw new Error(`生成 romfs C 文件失败: ${error}`);
+                throw new Error(vscode.l10n.t('Failed to generate romfs C file: {0}', String(error)));
             }
             return;
         }
@@ -503,9 +503,9 @@ Return('objs')
                 stdio: 'pipe',  // 改为 pipe 避免继承父进程的 stdio
                 windowsHide: true  // Windows 上隐藏命令行窗口
             });
-            this.logger.log('romfs C 文件生成完成');
+            this.logger.log(vscode.l10n.t('romfs C file generated'));
         } catch (error) {
-            throw new Error(`生成 romfs C 文件失败: ${error}`);
+            throw new Error(vscode.l10n.t('Failed to generate romfs C file: {0}', String(error)));
         }
 
         // 生成二进制文件（用于 UART 下载）
@@ -514,9 +514,9 @@ Return('objs')
                 stdio: 'pipe',  // 改为 pipe 避免继承父进程的 stdio
                 windowsHide: true  // Windows 上隐藏命令行窗口
             });
-            this.logger.log(`romfs 二进制文件生成完成 (基地址: ${baseAddr})`);
+            this.logger.log(vscode.l10n.t('romfs binary file generated (base address: {0})', baseAddr));
         } catch (error) {
-            throw new Error(`生成 romfs 二进制文件失败: ${error}`);
+            throw new Error(vscode.l10n.t('Failed to generate romfs binary file: {0}', String(error)));
         }
     }
 
@@ -525,7 +525,7 @@ Return('objs')
      */
     abort(): void {
         if (this.compileProcess && this.compileProcess.pid) {
-            this.logger.log('正在中止编译...');
+            this.logger.log(vscode.l10n.t('Aborting compilation...'));
             try {
                 if (process.platform === 'win32') {
                     spawn('taskkill', ['/F', '/T', '/PID', String(this.compileProcess.pid)], { windowsHide: true });
@@ -540,7 +540,7 @@ Return('objs')
     }
 
     async compile(): Promise<void> {
-        this.logger.log('开始编译...');
+        this.logger.log(vscode.l10n.t('Starting compilation...'));
 
         return new Promise((resolve, reject) => {
             const compileProcess = spawn('scons', ['-j4'], {
@@ -568,7 +568,7 @@ Return('objs')
                         compiledCount++;
                         this.logger.log(trimmed);  // 显示每个文件的编译信息
                     } else if (trimmed.startsWith('LINK ') || trimmed.includes('Linking')) {
-                        this.logger.log(`链接中... (已编译 ${compiledCount} 个文件)`);
+                        this.logger.log(vscode.l10n.t('Linking... (compiled files: {0})', compiledCount));
                     } else if (trimmed.includes('error:') || trimmed.includes('Error:') ||
                                trimmed.includes('undefined reference') ||
                                trimmed.includes('multiple definition') ||
@@ -631,10 +631,10 @@ Return('objs')
             compileProcess.on('exit', (code) => {
                 this.compileProcess = null;
                 if (code === 0) {
-                    this.logger.log(`编译成功！共编译 ${compiledCount} 个文件`);
+                    this.logger.log(vscode.l10n.t('Compilation succeeded (compiled files: {0})', compiledCount));
                     resolve();
                 } else {
-                    reject(new Error(`编译失败，退出码: ${code}`));
+                    reject(new Error(vscode.l10n.t('Compilation failed, exit code: {0}', String(code))));
                 }
             });
 
@@ -665,7 +665,7 @@ Return('objs')
         
         const configPath = path.join(this.buildDir, '.config');
         fs.writeFileSync(configPath, configLines.join('\n') + '\n');
-        this.logger.log(`.config 文件已生成，包含 ${configLines.length} 个配置项`);
+        this.logger.log(vscode.l10n.t('.config file generated with {0} entries', configLines.length));
     }
 
     private modifySConstruct(): void {
@@ -686,7 +686,7 @@ Return('objs')
         });
 
         fs.writeFileSync(sconstructPath, content, 'utf-8');
-        this.logger.log('SConstruct 文件已生成');
+        this.logger.log(vscode.l10n.t('SConstruct file generated'));
     }
 
     /**
@@ -754,7 +754,7 @@ Return('objs')
                             const content = fs.readFileSync(fullPath, 'utf-8');
                             this.extractAssetReferences(content, images, videos, models, mapFonts);
                         } catch (error) {
-                            this.logger.log(`读取 HML 文件失败: ${fullPath} - ${error}`, true);
+                            this.logger.log(vscode.l10n.t('Failed to read HML file: {0} - {1}', fullPath, String(error)), true);
                         }
                     }
                 }
@@ -860,7 +860,7 @@ Return('objs')
                             const content = fs.readFileSync(fullPath, 'utf-8');
                             this.extractAssetReferences(content, dummyImages, dummyVideos, dummyModels, mapFonts);
                         } catch (error) {
-                            this.logger.log(`读取 HML 文件失败: ${fullPath} - ${error}`, true);
+                            this.logger.log(vscode.l10n.t('Failed to read HML file: {0} - {1}', fullPath, String(error)), true);
                         }
                     }
                 }
@@ -1094,7 +1094,7 @@ Return('objs')
                     }
                 }
             } catch (error) {
-                this.logger.log(`扫描模型纹理失败: ${modelPath} - ${error}`, true);
+                this.logger.log(vscode.l10n.t('Failed to scan model textures: {0} - {1}', modelPath, String(error)), true);
             }
         }
     }
@@ -1128,7 +1128,7 @@ Return('objs')
             
             // 检查文件是否存在
             if (!fs.existsSync(fullPath)) {
-                this.logger.log(`图片文件不存在: ${relativePath}`, true);
+                this.logger.log(vscode.l10n.t('Image file does not exist: {0}', relativePath), true);
                 continue;
             }
 
@@ -1222,7 +1222,7 @@ Return('objs')
             
             // 检查文件是否存在
             if (!fs.existsSync(fullPath)) {
-                this.logger.log(`视频文件不存在: ${relativePath}`, true);
+                this.logger.log(vscode.l10n.t('Video file does not exist: {0}', relativePath), true);
                 continue;
             }
 
@@ -1286,7 +1286,7 @@ Return('objs')
                                 baseWidth = videoInfo.width;
                                 baseHeight = videoInfo.height;
                             } else {
-                                this.logger.log(`无法获取视频信息以计算缩放比例: ${normalizedPath}，跳过缩放`, true);
+                                this.logger.log(vscode.l10n.t('Cannot read video info to compute scale, skipping scaling: {0}', normalizedPath), true);
                             }
                         }
                         if (baseWidth && baseHeight) {
@@ -1304,7 +1304,7 @@ Return('objs')
                             }
                         }
                     } catch (e) {
-                        this.logger.log(`获取视频信息失败: ${normalizedPath} - ${e}，跳过缩放`, true);
+                        this.logger.log(vscode.l10n.t('Failed to read video info, skipping scaling: {0} - {1}', normalizedPath, String(e)), true);
                     }
                 } else if (resolvedVideoScale.mode === 'pixels' && (resolvedVideoScale.width || resolvedVideoScale.height)) {
                     computedScale = {
@@ -1335,7 +1335,7 @@ Return('objs')
                 videoConverter.convert(fullPath, outputPath, options)
             );
             
-            this.logger.log(`计划转换: ${normalizedPath} -> ${options.format} (${outputExt})`);
+            this.logger.log(vscode.l10n.t('Planned conversion: {0} -> {1} ({2})', normalizedPath, options.format, outputExt));
         }
 
         // 并行执行所有转换任务
@@ -1362,7 +1362,7 @@ Return('objs')
             
             // 检查文件是否存在
             if (!fs.existsSync(fullPath)) {
-                this.logger.log(`3D模型文件不存在: ${relativePath}`, true);
+                this.logger.log(vscode.l10n.t('3D model file does not exist: {0}', relativePath), true);
                 continue;
             }
 
@@ -1593,7 +1593,7 @@ Return('objs')
                         videoConverter.convert(fullPath, outputPath, options)
                     );
                     
-                    this.logger.log(`计划转换: ${normalizedPath} -> ${options.format} (${outputExt})`);
+                    this.logger.log(vscode.l10n.t('Planned conversion: {0} -> {1} ({2})', normalizedPath, options.format, outputExt));
                 }
             }
         };
@@ -1819,7 +1819,7 @@ Return('objs')
                 await this.scanHmlFilesForVideoConfigs(uiDir, configs);
             }
         } catch (error) {
-            this.logger.log(`读取视频组件配置时出错: ${error}`, true);
+            this.logger.log(vscode.l10n.t('Failed to read video component config: {0}', String(error)), true);
         }
         
         return configs;
@@ -1841,7 +1841,7 @@ Return('objs')
                     const content = fs.readFileSync(fullPath, 'utf-8');
                     this.extractVideoConfigsFromHml(content, configs);
                 } catch (error) {
-                    this.logger.log(`读取 HML 文件失败: ${fullPath} - ${error}`, true);
+                    this.logger.log(vscode.l10n.t('Failed to read HML file: {0} - {1}', fullPath, String(error)), true);
                 }
             }
         }
@@ -2063,7 +2063,7 @@ Return('objs')
         const results: any[] = [];
 
         if (labelConfigs.length === 0 && alwaysConvertFonts.size === 0) {
-            this.logger.log('未找到需要转换的字体配置');
+            this.logger.log(vscode.l10n.t('No font configs to convert'));
             return results;
         }
 
@@ -2079,7 +2079,7 @@ Return('objs')
         const projectI18nCatalog = loadProjectI18nCatalog(this.projectRoot);
         const totalI18nKeyCount = fontGroups.reduce((count, group) => count + group.i18nKeys.length, 0);
         if (totalI18nKeyCount > 0) {
-            this.logger.log(`自动多语言字符集: ${totalI18nKeyCount} 个字体组 key 引用参与字体转换`);
+            this.logger.log(vscode.l10n.t('Auto i18n charset: {0} font group key references participate in font conversion', totalI18nKeyCount));
         }
         
         const fontConverter = new FontConverterService();
@@ -2094,12 +2094,12 @@ Return('objs')
                 if (isProgressFont) {
                     throw new Error(vscode.l10n.t('Progress label font not found: {0}', fontPath));
                 }
-                this.logger.log(`字体文件不存在: ${group.fontFile}`, true);
+                this.logger.log(vscode.l10n.t('Font file does not exist: {0}', group.fontFile), true);
                 results.push({
                     success: false,
                     inputPath: fontPath,
                     outputPath: outputDir,
-                    error: '字体文件不存在'
+                    error: vscode.l10n.t('Font file does not exist')
                 });
                 continue;
             }
@@ -2119,7 +2119,7 @@ Return('objs')
                 }
                 const destPath = path.join(fontOutputDir, path.basename(fontPath));
                 fs.copyFileSync(fontPath, destPath);
-                results.push({ success: true, outputPath: destPath, message: '字体文件已直接拷贝' });
+                results.push({ success: true, outputPath: destPath, message: vscode.l10n.t('Font file copied directly') });
                 continue;
             }
 
@@ -2190,13 +2190,13 @@ Return('objs')
                     // 成功时不显示日志，只在最后统计
                 } else {
                     // 失败时显示详细信息，方便调试
-                    this.logger.log(`转换字体: ${group.fontFile} (${group.fontType}, size=${group.fontSize}, bits=${group.renderMode})`);
-                    this.logger.log(`  文本字符: "${group.characters.substring(0, 50)}${group.characters.length > 50 ? '...' : ''}" (${group.characters.length} 字符)`);
+                    this.logger.log(vscode.l10n.t('Converting font: {0} ({1}, size={2}, bits={3})', group.fontFile, group.fontType, group.fontSize, group.renderMode));
+                    this.logger.log('  ' + vscode.l10n.t('Text characters: "{0}" ({1} chars)', group.characters.substring(0, 50) + (group.characters.length > 50 ? '...' : ''), group.characters.length));
                     if (groupI18nAutoCharset.charCount > 0) {
-                        this.logger.log(`  自动多语言字符集: ${groupI18nAutoCharset.charCount} 个字符，来自 ${group.i18nKeys.length} 个 key`);
+                        this.logger.log('  ' + vscode.l10n.t('Auto i18n charset: {0} chars from {1} keys', groupI18nAutoCharset.charCount, group.i18nKeys.length));
                     }
                     if (group.additionalCharSets.length > 0) {
-                        this.logger.log(`  附加字符集: ${group.additionalCharSets.length} 个`);
+                        this.logger.log('  ' + vscode.l10n.t('Additional charsets: {0}', group.additionalCharSets.length));
                         group.additionalCharSets.forEach((cs, idx) => {
                             // 显示原始路径
                             this.logger.log(`    [${idx + 1}] ${cs.type}: ${cs.value}`);
@@ -2208,20 +2208,20 @@ Return('objs')
                                 this.logger.log(`    [${idx + 1}] file: ${cs.value}`);
                             });
                     }
-                    this.logger.log(`  ✗ 失败: ${result.error}`, true);
+                    this.logger.log('  ' + vscode.l10n.t('✗ Failed: {0}', String(result.error)), true);
                 }
             } catch (error: any) {
                 if (isProgressFont) {
                     throw error;
                 }
                 // 异常时显示详细信息，方便调试
-                this.logger.log(`转换字体: ${group.fontFile} (${group.fontType}, size=${group.fontSize}, bits=${group.renderMode})`);
-                this.logger.log(`  文本字符: "${group.characters.substring(0, 50)}${group.characters.length > 50 ? '...' : ''}" (${group.characters.length} 字符)`);
+                this.logger.log(vscode.l10n.t('Converting font: {0} ({1}, size={2}, bits={3})', group.fontFile, group.fontType, group.fontSize, group.renderMode));
+                this.logger.log('  ' + vscode.l10n.t('Text characters: "{0}" ({1} chars)', group.characters.substring(0, 50) + (group.characters.length > 50 ? '...' : ''), group.characters.length));
                 if (groupI18nAutoCharset.charCount > 0) {
-                    this.logger.log(`  自动多语言字符集: ${groupI18nAutoCharset.charCount} 个字符，来自 ${group.i18nKeys.length} 个 key`);
+                    this.logger.log('  ' + vscode.l10n.t('Auto i18n charset: {0} chars from {1} keys', groupI18nAutoCharset.charCount, group.i18nKeys.length));
                 }
                 if (group.additionalCharSets.length > 0) {
-                    this.logger.log(`  附加字符集: ${group.additionalCharSets.length} 个`);
+                    this.logger.log('  ' + vscode.l10n.t('Additional charsets: {0}', group.additionalCharSets.length));
                     group.additionalCharSets.forEach((cs, idx) => {
                         // 显示原始路径
                         this.logger.log(`    [${idx + 1}] ${cs.type}: ${cs.value}`);
@@ -2239,7 +2239,7 @@ Return('objs')
                     outputPath: fontOutputDir,
                     error: error.message
                 });
-                this.logger.log(`  ✗ 异常: ${error.message}`, true);
+                this.logger.log('  ' + vscode.l10n.t('✗ Unexpected error: {0}', error.message), true);
             }
         }
 
@@ -2252,7 +2252,7 @@ Return('objs')
 
             const fontPath = path.join(assetsDir, fontRelPath);
             if (!fs.existsSync(fontPath)) {
-                this.logger.log(`强制转换字体文件不存在: ${fontRelPath}`, true);
+                this.logger.log(vscode.l10n.t('Forced-conversion font file does not exist: {0}', fontRelPath), true);
                 continue;
             }
 
@@ -2267,7 +2267,7 @@ Return('objs')
                 }
                 const destPath = path.join(fontOutputDir, path.basename(fontPath));
                 fs.copyFileSync(fontPath, destPath);
-                results.push({ success: true, outputPath: destPath, message: '字体文件已直接拷贝' });
+                results.push({ success: true, outputPath: destPath, message: vscode.l10n.t('Font file copied directly') });
                 continue;
             }
 
@@ -2283,11 +2283,11 @@ Return('objs')
                 const result = await fontConverter.convert(fontPath, fontOutputDir, options);
                 results.push(result);
                 if (!result.success) {
-                    this.logger.log(`强制转换字体失败: ${fontRelPath} - ${result.error}`, true);
+                    this.logger.log(vscode.l10n.t('Forced font conversion failed: {0} - {1}', fontRelPath, String(result.error)), true);
                 }
             } catch (error: any) {
                 results.push({ success: false, inputPath: fontPath, outputPath: fontOutputDir, error: error.message });
-                this.logger.log(`强制转换字体异常: ${fontRelPath} - ${error.message}`, true);
+                this.logger.log(vscode.l10n.t('Forced font conversion error: {0} - {1}', fontRelPath, error.message), true);
             }
         }
 
@@ -2316,7 +2316,7 @@ Return('objs')
                 await this.scanHmlFilesForLabelConfigs(uiDir, configs);
             }
         } catch (error) {
-            this.logger.log(`读取 Label 组件配置时出错: ${error}`, true);
+            this.logger.log(vscode.l10n.t('Failed to read Label component config: {0}', String(error)), true);
         }
         
         return configs;
@@ -2343,7 +2343,7 @@ Return('objs')
                         configs[i].sourceMtimeMs = sourceMtimeMs;
                     }
                 } catch (error) {
-                    this.logger.log(`读取 HML 文件失败: ${fullPath} - ${error}`, true);
+                    this.logger.log(vscode.l10n.t('Failed to read HML file: {0} - {1}', fullPath, String(error)), true);
                 }
             }
         }
@@ -2426,7 +2426,7 @@ Return('objs')
                         config.characterSets = charSets;
                     }
                 } catch (e) {
-                    this.logger.log(`解析 characterSets 失败: ${e}`, true);
+                    this.logger.log(vscode.l10n.t('Failed to parse characterSets: {0}', String(e)), true);
                 }
             }
             
@@ -2557,7 +2557,7 @@ Return('objs')
         const glassConfigs = await this.getGlassComponentConfigs();
         
         if (glassConfigs.length === 0) {
-            this.logger.log('未找到需要转换的玻璃效果配置');
+            this.logger.log(vscode.l10n.t('No glass effect configs to convert'));
             return [];
         }
 
@@ -2578,12 +2578,12 @@ Return('objs')
             
             // 检查源文件是否存在
             if (!fs.existsSync(inputPath)) {
-                this.logger.log(`玻璃效果源文件不存在: ${srcPath}`, true);
+                this.logger.log(vscode.l10n.t('Glass effect source file does not exist: {0}', srcPath), true);
                 results.push({
                     success: false,
                     inputPath,
                     outputPath: outputDir,
-                    error: '源文件不存在'
+                    error: vscode.l10n.t('Source file does not exist')
                 });
                 continue;
             }
@@ -2621,16 +2621,16 @@ Return('objs')
                 region
             };
 
-            this.logger.log(`转换玻璃效果: ${srcPath} -> ${outputFileName} (distortion=${config.distortion}%, region=${config.region}%)`);
+            this.logger.log(vscode.l10n.t('Converting glass effect: {0} -> {1} (distortion={2}%, region={3}%)', srcPath, outputFileName, config.distortion, config.region));
 
             try {
                 const result = await glassConverter.convert(inputPath, outputPath, options);
                 results.push(result);
                 
                 if (result.success) {
-                    this.logger.log(`  ✓ 成功: ${outputPath}`);
+                    this.logger.log('  ' + vscode.l10n.t('✓ Success: {0}', outputPath));
                 } else {
-                    this.logger.log(`  ✗ 失败: ${result.error}`, true);
+                    this.logger.log('  ' + vscode.l10n.t('✗ Failed: {0}', String(result.error)), true);
                 }
             } catch (error: any) {
                 results.push({
@@ -2639,7 +2639,7 @@ Return('objs')
                     outputPath,
                     error: error.message
                 });
-                this.logger.log(`  ✗ 异常: ${error.message}`, true);
+                this.logger.log('  ' + vscode.l10n.t('✗ Unexpected error: {0}', error.message), true);
             }
         }
 
@@ -2676,12 +2676,12 @@ Return('objs')
                         const content = fs.readFileSync(fullPath, 'utf-8');
                         this.extractGlassConfigsFromHml(content, configs);
                     } catch (err) {
-                        this.logger.log(`读取 HML 文件失败: ${fullPath} - ${err}`, true);
+                        this.logger.log(vscode.l10n.t('Failed to read HML file: {0} - {1}', fullPath, String(err)), true);
                     }
                 }
             }
         } catch (error) {
-            this.logger.log(`读取 Glass 组件配置时出错: ${error}`, true);
+            this.logger.log(vscode.l10n.t('Failed to read Glass component config: {0}', String(error)), true);
         }
         
         return configs;
@@ -2707,7 +2707,7 @@ Return('objs')
                     const content = fs.readFileSync(fullPath, 'utf-8');
                     this.extractGlassConfigsFromHml(content, configs);
                 } catch (error) {
-                    this.logger.log(`读取 HML 文件失败: ${fullPath} - ${error}`, true);
+                    this.logger.log(vscode.l10n.t('Failed to read HML file: {0} - {1}', fullPath, String(error)), true);
                 }
             }
         }

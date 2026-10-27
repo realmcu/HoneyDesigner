@@ -14,7 +14,18 @@ const KEY_LINE = /^\s*("(?:[^"\\]|\\.)*")\s*:/gm;
 const CJK = /[一-鿿　-〿＀-￯]/;
 
 /** 已迁移、不允许再出现中文字面量的文件（仓库相对路径）。 */
-export const CJK_FREE_FILES: string[] = [];
+export const CJK_FREE_FILES: string[] = [
+    'src/simulation/BuildManager.ts',
+    'src/simulation/SConstructTemplate.ts',
+    'src/simulation/DependencyInstaller.ts',
+    'src/simulation/EnvironmentChecker.ts',
+    'src/simulation/BuildCore.ts',
+    'src/simulation/SimulationRunner.ts',
+    'src/services/CodeGenerator.ts',
+    'src/services/GlassConverterService.ts',
+    'src/services/Model3DConverterService.ts',
+    'src/services/ConversionConfigService.ts',
+];
 
 function readJson(rel: string): Record<string, string> {
   return JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));

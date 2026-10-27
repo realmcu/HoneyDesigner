@@ -78,8 +78,8 @@ export class VideoParser {
   private async ensureFfprobeAvailable(): Promise<void> {
     if (!(await this.checkFfprobeAvailable())) {
       throw new FFmpegNotFoundError(
-        'ffprobe 未安装或不在系统 PATH 中。' +
-        '请安装 ffmpeg（包含 ffprobe）并确保其在系统 PATH 中可访问。'
+        'ffprobe is not installed or not on the system PATH.' +
+        'Install ffmpeg (including ffprobe) and make sure it is reachable on the system PATH.'
       );
     }
   }
@@ -110,7 +110,7 @@ export class VideoParser {
         const data = JSON.parse(stdout) as FfprobeOutput;
         return data;
       } catch (e) {
-        throw new VideoFormatError(`无法解析 ffprobe 输出: ${e}`);
+        throw new VideoFormatError(`Failed to parse ffprobe output: ${e}`);
       }
     } catch (error: unknown) {
       // Handle specific error types
@@ -122,17 +122,17 @@ export class VideoParser {
       
       if (err.code === 'ENOENT') {
         throw new FFmpegNotFoundError(
-          'ffprobe 未安装或不在系统 PATH 中。' +
-          '请安装 ffmpeg（包含 ffprobe）并确保其在系统 PATH 中可访问。'
+          'ffprobe is not installed or not on the system PATH.' +
+          'Install ffmpeg (including ffprobe) and make sure it is reachable on the system PATH.'
         );
       }
       
       if (err.killed) {
-        throw new FFmpegError(`ffprobe 执行超时: ${inputPath}`);
+        throw new FFmpegError(`ffprobe timed out: ${inputPath}`);
       }
       
       // For other errors (including non-zero exit code), treat as format error
-      throw new VideoFormatError(`不支持的视频格式或无法解析: ${inputPath}`);
+      throw new VideoFormatError(`Unsupported video format or unable to parse: ${inputPath}`);
     }
   }
 
@@ -152,7 +152,7 @@ export class VideoParser {
       }
     }
     
-    throw new VideoFormatError('文件中未找到视频流');
+    throw new VideoFormatError('No video stream found in file');
   }
 
   /**
@@ -246,7 +246,7 @@ export class VideoParser {
   async parse(inputPath: string): Promise<VideoInfo> {
     // Check if file exists
     if (!fs.existsSync(inputPath)) {
-      const error = new Error(`文件不存在: ${inputPath}`) as NodeJS.ErrnoException;
+      const error = new Error(`File does not exist: ${inputPath}`) as NodeJS.ErrnoException;
       error.code = 'ENOENT';
       throw error;
     }
@@ -259,7 +259,7 @@ export class VideoParser {
     
     // Check if we have valid data
     if (!data || (!data.streams && !data.format)) {
-      throw new VideoFormatError(`不支持的视频格式或无法解析: ${inputPath}`);
+      throw new VideoFormatError(`Unsupported video format or unable to parse: ${inputPath}`);
     }
     
     // Find video stream
@@ -306,15 +306,15 @@ export class VideoParser {
     
     // Validate data
     if (width <= 0 || height <= 0) {
-      throw new VideoFormatError(`无效的视频尺寸: ${width}x${height}`);
+      throw new VideoFormatError(`Invalid video dimensions: ${width}x${height}`);
     }
     
     if (frameRate <= 0) {
-      throw new VideoFormatError(`无效的帧率: ${frameRate}`);
+      throw new VideoFormatError(`Invalid frame rate: ${frameRate}`);
     }
     
     if (frameCount <= 0) {
-      throw new VideoFormatError(`无效的帧数: ${frameCount}`);
+      throw new VideoFormatError(`Invalid frame count: ${frameCount}`);
     }
     
     return {

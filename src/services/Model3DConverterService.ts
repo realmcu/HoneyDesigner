@@ -38,7 +38,7 @@ export class Model3DConverterService {
             if (ext === '.gltf') {
                 const binPath = inputPath.replace(/\.gltf$/i, '.bin');
                 if (!fs.existsSync(binPath)) {
-                    console.warn(`[3D转换] GLTF buffer 文件缺失，跳过: ${path.basename(binPath)}`);
+                    console.warn('[3D conversion] GLTF buffer file missing, skipping: ' + path.basename(binPath));
                     return { 
                         success: false, 
                         inputPath, 

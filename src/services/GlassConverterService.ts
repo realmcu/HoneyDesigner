@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GlassGenerator } from '../../tools/glass-generator/generator';
@@ -92,7 +93,7 @@ export class GlassConverterService {
             
             // 检查背景图片是否存在
             if (!fs.existsSync(this.bgImagePath)) {
-                throw new Error(`背景图片不存在: ${this.bgImagePath}`);
+                throw new Error(vscode.l10n.t('Background image does not exist: {0}', this.bgImagePath));
             }
 
             // 生成预览

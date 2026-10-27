@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import { getInstallCommands, needsRestart } from './dependencyCommands';
 
-const TERMINAL_NAME = 'HoneyGUI 环境安装';
+function terminalName(): string {
+    return vscode.l10n.t('HoneyGUI Environment Setup');
+}
 
 /**
  * 依赖安装器：把平台安装命令发送到 VS Code 集成终端执行。
@@ -10,8 +12,9 @@ const TERMINAL_NAME = 'HoneyGUI 环境安装';
  */
 export class DependencyInstaller {
     private static findOrCreateTerminal(): vscode.Terminal {
-        const existing = vscode.window.terminals.find((t) => t.name === TERMINAL_NAME);
-        return existing ?? vscode.window.createTerminal(TERMINAL_NAME);
+        const name = terminalName();
+        const existing = vscode.window.terminals.find((t) => t.name === name);
+        return existing ?? vscode.window.createTerminal(name);
     }
 
     /**

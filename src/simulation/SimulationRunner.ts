@@ -76,7 +76,7 @@ export class SimulationRunner {
             this.listener?.onStart?.();
 
             const targetEngine = this.resolveTargetEngine();
-            this.log(`目标引擎: ${targetEngine}`);
+            this.log(vscode.l10n.t('Target engine: {0}', targetEngine));
 
             if (targetEngine === 'lvgl') {
                 if (flow.codegen) {
@@ -156,7 +156,7 @@ export class SimulationRunner {
                 this.isRunning = true;
                 this.listener?.onSuccess?.();
             } else {
-                this.log('编译环境准备完成');
+                this.log(vscode.l10n.t('Build environment ready'));
             }
         } catch (error) {
             this.listener?.onError?.(error instanceof Error ? error : new Error(String(error)));
@@ -187,7 +187,7 @@ export class SimulationRunner {
         
         // 终止任务
         if (this.currentTask) {
-            this.log('正在停止仿真器任务...');
+            this.log(vscode.l10n.t('Stopping simulator task...'));
             this.currentTask.terminate();
             this.currentTask = null;
         }
@@ -200,13 +200,13 @@ export class SimulationRunner {
         
         // 兼容：如果有进程，也终止
         if (this.currentProcess && this.currentProcess.pid) {
-            this.log('正在停止仿真器进程...');
+            this.log(vscode.l10n.t('Stopping simulator process...'));
             
             try {
                 if (process.platform === 'win32') {
                     exec(`taskkill /F /T /PID ${this.currentProcess.pid}`, { windowsHide: true }, (error) => {
                         if (error) {
-                            this.log(`taskkill 错误: ${error.message}`);
+                            this.log(vscode.l10n.t('taskkill error: {0}', error.message));
                         }
                     });
                 } else {
@@ -243,13 +243,13 @@ export class SimulationRunner {
                     });
                 });
             } catch (err) {
-                this.log(`停止进程时出错: ${err}`);
+                this.log(vscode.l10n.t('Failed to stop process: {0}', String(err)));
             }
             
             this.currentProcess = null;
         }
         
-        this.log('仿真器已停止');
+        this.log(vscode.l10n.t('Simulator stopped'));
         this.isRunning = false;
         this.isManuallyStopped = false;
     }
@@ -308,7 +308,7 @@ export class SimulationRunner {
      */
     private async compile(): Promise<void> {
         if (!this.buildManager) {
-            throw new Error('编译管理器未初始化');
+            throw new Error(vscode.l10n.t('Build manager is not initialized'));
         }
 
         await this.buildManager.compile();
@@ -319,14 +319,14 @@ export class SimulationRunner {
      */
     private async run(): Promise<void> {
         if (!this.buildManager) {
-            throw new Error('编译管理器未初始化');
+            throw new Error(vscode.l10n.t('Build manager is not initialized'));
         }
 
         const exePath = this.buildManager.getExecutablePath();
         const buildDir = this.buildManager.getBuildDir();
         
-        this.log(`启动仿真器: ${exePath}`);
-        this.log(`工作目录: ${buildDir}`);
+        this.log(vscode.l10n.t('Starting simulator: {0}', exePath));
+        this.log(vscode.l10n.t('Working directory: {0}', buildDir));
 
         // 停止已有的仿真器
         if (this.currentTask || this.currentProcess) {
@@ -374,18 +374,18 @@ export class SimulationRunner {
                     // 获取任务的进程 ID
                     const processId = (this.currentTask as any).processId;
                     if (processId) {
-                        this.log(`仿真器进程 PID: ${processId}`);
+                        this.log(vscode.l10n.t('Simulator process PID: {0}', processId));
                         this.startProcessMonitor(processId);
                     }
                 } catch (err) {
                     // 如果无法获取进程 ID，依赖 onDidEndTask 事件
-                    this.log('无法获取进程 ID，使用任务结束事件监听');
+                    this.log(vscode.l10n.t('Cannot get process ID, falling back to task end events'));
                 }
             }
         }, 500);
 
-        this.log('仿真器已启动');
-        this.log('提示: 仿真器输出将显示在终端中');
+        this.log(vscode.l10n.t('Simulator started'));
+        this.log(vscode.l10n.t('Hint: simulator output is shown in the terminal'));
     }
 
     /**
@@ -393,34 +393,34 @@ export class SimulationRunner {
      */
     private async startLvglSimulation(): Promise<void> {
         const lvglPcRoot = this.getLvglPcRoot();
-        this.log(`使用 LVGL PC 工程: ${lvglPcRoot}`);
+        this.log(vscode.l10n.t('Using LVGL PC project: {0}', lvglPcRoot));
 
         if (!fs.existsSync(lvglPcRoot)) {
-            throw new Error(`LVGL PC 工程不存在: ${lvglPcRoot}`);
+            throw new Error(vscode.l10n.t('LVGL PC project does not exist: {0}', lvglPcRoot));
         }
 
         const cmakeLists = path.join(lvglPcRoot, 'CMakeLists.txt');
         if (!fs.existsSync(cmakeLists)) {
-            throw new Error(`LVGL PC 工程不完整，缺少 CMakeLists.txt: ${cmakeLists}`);
+            throw new Error(vscode.l10n.t('LVGL PC project is incomplete, CMakeLists.txt is missing: {0}', cmakeLists));
         }
 
         this.syncLvglGeneratedCode(lvglPcRoot);
 
         const lvglHeader = path.join(lvglPcRoot, 'lvgl-lib', 'include', 'lvgl', 'lvgl.h');
         if (!fs.existsSync(lvglHeader)) {
-            throw new Error('未检测到预编译 LVGL 库，请先在 lvgl-pc 目录执行 scripts\\build-lvgl-lib.cmd');
+            throw new Error(vscode.l10n.t('Prebuilt LVGL library not found. Run scripts\\build-lvgl-lib.cmd in the lvgl-pc directory first.'));
         }
 
         if (this.shouldRebuildLvglLib(lvglPcRoot)) {
-            throw new Error('检测到 lv_conf.h 与预编译库不一致，请先在 lvgl-pc 目录执行 scripts\\build-lvgl-lib.cmd 重新构建');
+            throw new Error(vscode.l10n.t('lv_conf.h does not match the prebuilt library. Run scripts\\build-lvgl-lib.cmd in the lvgl-pc directory to rebuild first.'));
         }
 
         // 获取项目分辨率
         const config = ProjectUtils.loadProjectConfig(this.projectRoot);
         const { width, height } = ProjectUtils.parseResolution(config.resolution);
-        this.log(`使用分辨率: ${width}x${height}`);
+        this.log(vscode.l10n.t('Using resolution: {0}x{1}', width, height));
 
-        this.log('配置 LVGL PC CMake 工程...');
+        this.log(vscode.l10n.t('Configuring LVGL PC CMake project...'));
         const cmakeArgs = [`-DLCD_WIDTH=${width}`, `-DLCD_HEIGHT=${height}`, '-S', '.', '-B', 'build'];
         if (process.platform === 'win32') {
             // 显式固定为 MinGW 的 gcc/g++，避免 cmake 默认探测到 PATH 上其它工具链的
@@ -431,19 +431,19 @@ export class SimulationRunner {
         const ffmpegRoot = process.env.FFMPEG_ROOT;
         if (ffmpegRoot) {
             cmakeArgs.push(`-DFFMPEG_ROOT=${ffmpegRoot}`);
-            this.log(`FFmpeg 路径: ${ffmpegRoot}`);
+            this.log(vscode.l10n.t('FFmpeg path: {0}', ffmpegRoot));
         }
-        await this.runCommand('cmake', cmakeArgs, lvglPcRoot, 'CMake 配置失败');
+        await this.runCommand('cmake', cmakeArgs, lvglPcRoot, vscode.l10n.t('CMake configuration failed'));
 
-        this.log('编译 LVGL PC 工程...');
-        await this.runCommand('cmake', ['--build', 'build', '-j4'], lvglPcRoot, 'LVGL PC 编译失败');
+        this.log(vscode.l10n.t('Building LVGL PC project...'));
+        await this.runCommand('cmake', ['--build', 'build', '-j4'], lvglPcRoot, vscode.l10n.t('LVGL PC build failed'));
 
         this.syncLvglAssetsToBuild(lvglPcRoot);
 
         const exeName = process.platform === 'win32' ? 'lvgl_pc.exe' : 'lvgl_pc';
         const exePath = path.join(lvglPcRoot, 'build', exeName);
         if (!fs.existsSync(exePath)) {
-            throw new Error(`未找到 LVGL 可执行文件: ${exePath}`);
+            throw new Error(vscode.l10n.t('LVGL executable not found: {0}', exePath));
         }
 
         await this.runTaskExecutable(exePath, path.join(lvglPcRoot, 'build'), 'LVGL PC Simulator', 'LVGL');
@@ -486,7 +486,7 @@ export class SimulationRunner {
         const targetDir = path.join(lvglPcRoot, 'src', 'generated');
 
         if (!fs.existsSync(sourceDir)) {
-            throw new Error(`未找到 LVGL 生成代码目录: ${sourceDir}。请先执行 create ccode files 或 Simulate。`);
+            throw new Error(vscode.l10n.t('LVGL generated code directory not found: {0}. Run create ccode files or Simulate first.', sourceDir));
         }
 
         fs.mkdirSync(targetDir, { recursive: true });
@@ -498,10 +498,10 @@ export class SimulationRunner {
         this.copyGeneratedFilesRecursive(sourceDir, targetDir, copiedFiles);
 
         if (!copiedFiles.includes('lvgl_generated_ui.c') || !copiedFiles.includes('lvgl_generated_ui.h')) {
-            throw new Error('LVGL 入口文件缺失（lvgl_generated_ui.c/h），请检查代码生成结果。');
+            throw new Error(vscode.l10n.t('LVGL entry files are missing (lvgl_generated_ui.c/h). Check the code generation result.'));
         }
 
-        this.log(`已同步 LVGL 生成代码: ${copiedFiles.length} 个文件`);
+        this.log(vscode.l10n.t('Synced LVGL generated code: {0} files', copiedFiles.length));
     }
 
     /**
@@ -563,9 +563,9 @@ export class SimulationRunner {
                 fs.rmSync(buildAssetsDir, { recursive: true, force: true });
             }
             this.copyDirectoryRecursive(sourceAssetsDir, buildAssetsDir);
-            this.log(`已同步资源到 LVGL 构建目录: ${buildAssetsDir}`);
+            this.log(vscode.l10n.t('Synced assets to LVGL build directory: {0}', buildAssetsDir));
         } else {
-            this.log(`未找到项目资源目录，跳过资源同步: ${sourceAssetsDir}`);
+            this.log(vscode.l10n.t('Project assets directory not found, skipping asset sync: {0}', sourceAssetsDir));
         }
 
         // Sync romfs.bin for external-bin deployment mode
@@ -575,7 +575,7 @@ export class SimulationRunner {
         if (fs.existsSync(sourceRomfsBin)) {
             fs.mkdirSync(path.dirname(targetRomfsBin), { recursive: true });
             fs.copyFileSync(sourceRomfsBin, targetRomfsBin);
-            this.log(`已同步 romfs.bin 到 LVGL 构建目录: ${targetRomfsBin}`);
+            this.log(vscode.l10n.t('Synced romfs.bin to LVGL build directory: {0}', targetRomfsBin));
         }
     }
 
@@ -704,7 +704,7 @@ export class SimulationRunner {
                 if (code === 0) {
                     resolve();
                 } else {
-                    reject(new Error(`${errorPrefix}，退出码: ${code}`));
+                    reject(new Error(vscode.l10n.t('{0}, exit code: {1}', errorPrefix, String(code))));
                 }
             });
         });
@@ -714,8 +714,8 @@ export class SimulationRunner {
      * 使用 Task API 启动可执行程序并监听退出
      */
     private async runTaskExecutable(exePath: string, cwd: string, taskName: string, taskSource: string): Promise<void> {
-        this.log(`启动仿真器: ${exePath}`);
-        this.log(`工作目录: ${cwd}`);
+        this.log(vscode.l10n.t('Starting simulator: {0}', exePath));
+        this.log(vscode.l10n.t('Working directory: {0}', cwd));
 
         if (this.currentTask || this.currentProcess) {
             await this.stop();
@@ -756,17 +756,17 @@ export class SimulationRunner {
                 try {
                     const processId = (this.currentTask as any).processId;
                     if (processId) {
-                        this.log(`仿真器进程 PID: ${processId}`);
+                        this.log(vscode.l10n.t('Simulator process PID: {0}', processId));
                         this.startProcessMonitor(processId);
                     }
                 } catch {
-                    this.log('无法获取进程 ID，使用任务结束事件监听');
+                    this.log(vscode.l10n.t('Cannot get process ID, falling back to task end events'));
                 }
             }
         }, 500);
 
-        this.log('仿真器已启动');
-        this.log('提示: 仿真器输出将显示在终端中');
+        this.log(vscode.l10n.t('Simulator started'));
+        this.log(vscode.l10n.t('Hint: simulator output is shown in the terminal'));
     }
 
     /**
@@ -779,7 +779,7 @@ export class SimulationRunner {
         this.hasExited = true;
 
         const wasManuallyStopped = this.isManuallyStopped;
-        this.log(`仿真器任务已结束`);
+        this.log(vscode.l10n.t('Simulator task ended'));
         this.currentTask = null;
         this.isRunning = false;
         
@@ -827,12 +827,12 @@ export class SimulationRunner {
      * @param deep 是否深度清理
      */
     async clean(deep: boolean = false): Promise<void> {
-        this.log(deep ? '开始深度清理...' : '开始清理编译产物...');
+        this.log(deep ? vscode.l10n.t('Starting deep clean...') : vscode.l10n.t('Starting build artifact clean...'));
 
         // 清理 build 目录（包含所有编译产物和转换后的资源）
         const buildDir = path.join(this.projectRoot, 'build');
         if (fs.existsSync(buildDir)) {
-            this.log(`清理 build 目录: ${buildDir}`);
+            this.log(vscode.l10n.t('Cleaning build directory: {0}', buildDir));
             await this.removeDirectoryWithRetry(buildDir, 5, 500);
         }
 
@@ -847,15 +847,15 @@ export class SimulationRunner {
                 const entries = fs.readdirSync(srcDir, { withFileTypes: true });
                 for (const entry of entries) {
                     if (preserveDirs.includes(entry.name)) {
-                        this.log(`保留目录: src/${entry.name}`);
+                        this.log(vscode.l10n.t('Preserving directory: src/{0}', entry.name));
                         continue;
                     }
                     if (preserveFiles.includes(entry.name)) {
-                        this.log(`保留入口文件: src/${entry.name}`);
+                        this.log(vscode.l10n.t('Preserving entry file: src/{0}', entry.name));
                         continue;
                     }
                     const fullPath = path.join(srcDir, entry.name);
-                    this.log(`清理: src/${entry.name}`);
+                    this.log(vscode.l10n.t('Cleaning: src/{0}', entry.name));
                     if (entry.isDirectory()) {
                         await this.removeDirectoryWithRetry(fullPath, 5, 500);
                     } else {
@@ -867,12 +867,12 @@ export class SimulationRunner {
             // 普通清理：只清理 src/ui 目录
             const uiDir = path.join(this.projectRoot, 'src', 'ui');
             if (fs.existsSync(uiDir)) {
-                this.log(`清理 src/ui 目录: ${uiDir}`);
+                this.log(vscode.l10n.t('Cleaning src/ui directory: {0}', uiDir));
                 await this.removeDirectoryWithRetry(uiDir, 5, 500);
             }
         }
 
-        this.log('清理完成');
+        this.log(vscode.l10n.t('Clean completed'));
     }
 
     /**
@@ -900,7 +900,7 @@ export class SimulationRunner {
                 
                 // 成功，记录日志并返回
                 if (attempt > 1) {
-                    this.log(`目录删除成功（第 ${attempt} 次尝试）`);
+                    this.log(vscode.l10n.t('Directory removed (attempt {0})', attempt));
                 }
                 return;
                 
@@ -915,12 +915,12 @@ export class SimulationRunner {
                 
                 // 如果是最后一次尝试，尝试备用方案
                 if (attempt === maxRetries) {
-                    this.log(`目录删除失败，已重试 ${maxRetries} 次，尝试备用方案...`);
+                    this.log(vscode.l10n.t('Directory removal failed after {0} retries, trying fallbacks...', maxRetries));
                     break;
                 }
                 
                 // 等待后重试
-                this.log(`目录删除失败（第 ${attempt} 次尝试），${delayMs}ms 后重试... 错误: ${errorCode}`);
+                this.log(vscode.l10n.t('Directory removal failed (attempt {0}), retrying in {1}ms... error: {2}', attempt, delayMs, String(errorCode)));
                 await new Promise(resolve => setTimeout(resolve, delayMs));
                 
                 // 指数退避：每次重试延迟翻倍
@@ -930,38 +930,30 @@ export class SimulationRunner {
         
         // 所有重试都失败，尝试逐个删除文件
         try {
-            this.log('尝试逐个删除文件...');
+            this.log(vscode.l10n.t('Trying to delete files one by one...'));
             await this.removeDirectoryRecursively(dirPath);
-            this.log('逐个删除成功');
+            this.log(vscode.l10n.t('File-by-file deletion succeeded'));
             return;
         } catch (recursiveError) {
-            this.log(`逐个删除也失败: ${(recursiveError as Error).message}`);
+            this.log(vscode.l10n.t('File-by-file deletion also failed: {0}', (recursiveError as Error).message));
         }
         
         // 最后尝试：使用 rimraf 风格的强制删除
         try {
-            this.log('尝试强制删除（忽略错误）...');
+            this.log(vscode.l10n.t('Trying forced removal (ignoring errors)...'));
             await this.forceRemoveDirectory(dirPath);
-            this.log('强制删除成功');
+            this.log(vscode.l10n.t('Forced removal succeeded'));
             return;
         } catch (forceError) {
-            this.log(`强制删除失败: ${(forceError as Error).message}`);
+            this.log(vscode.l10n.t('Forced removal failed: {0}', (forceError as Error).message));
         }
         
         // 抛出详细的错误信息
-        throw new Error(
-            `无法删除目录 ${dirPath}\n\n` +
-            `错误: ${lastError?.message || '未知错误'}\n\n` +
-            `可能原因：\n` +
-            `1. 文件被其他进程占用（如编译进程、文件浏览器、杀毒软件）\n` +
-            `2. 文件权限不足\n` +
-            `3. 磁盘错误\n\n` +
-            `建议：\n` +
-            `1. 关闭所有可能占用文件的程序（如文件浏览器）\n` +
-            `2. 暂时关闭杀毒软件的实时保护\n` +
-            `3. 手动删除 build 目录后重试\n` +
-            `4. 重启 VSCode`
-        );
+        throw new Error(vscode.l10n.t(
+            'Cannot delete directory {0}\n\nError: {1}\n\nPossible causes:\n1. Files are locked by another process (build process, file browser, antivirus)\n2. Insufficient file permissions\n3. Disk error\n\nSuggestions:\n1. Close programs that may hold the files (such as a file browser)\n2. Temporarily disable antivirus real-time protection\n3. Delete the build directory manually and retry\n4. Restart VS Code',
+            dirPath,
+            lastError?.message || vscode.l10n.t('Unknown error')
+        ));
     }
 
     /**
@@ -990,7 +982,7 @@ export class SimulationRunner {
                             await fs.promises.unlink(fullPath);
                         } catch (error) {
                             // 忽略单个文件删除失败
-                            this.log(`跳过文件: ${entry.name} (${(error as Error).message})`);
+                            this.log(vscode.l10n.t('Skipping file: {0} ({1})', entry.name, (error as Error).message));
                         }
                     }
                 })
@@ -1012,7 +1004,7 @@ export class SimulationRunner {
             }
         } catch (error) {
             // 记录错误但不抛出
-            this.log(`删除目录时出错: ${(error as Error).message}`);
+            this.log(vscode.l10n.t('Error while removing directory: {0}', (error as Error).message));
         }
     }
 

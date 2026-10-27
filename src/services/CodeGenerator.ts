@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ProjectUtils } from '../utils/ProjectUtils';
@@ -32,7 +33,7 @@ export class CodeGenerator {
         const uiDir = ProjectUtils.getUiDir(projectRoot);
 
         if (!fs.existsSync(uiDir)) {
-            throw new Error(`UI目录不存在: ${uiDir}`);
+            throw new Error(vscode.l10n.t('UI directory does not exist: {0}', uiDir));
         }
 
         // 递归扫描 ui/ 下所有 .hml 文件
@@ -81,9 +82,9 @@ export class CodeGenerator {
                 // 从 HML 文件中查找 entry view 的 ID
                 const entryViewId = await this.findEntryViewId(hmlFiles);
                 const entryFile = EntryFileGenerator.generate(srcDir, config.name || 'HoneyGUI', entryViewId, config.romfsBaseAddr);
-                logger.info(`入口文件: ${path.basename(entryFile)}`);
+                logger.info(vscode.l10n.t('Entry file: {0}', path.basename(entryFile)));
             } catch (error) {
-                logger.error(`生成入口文件失败: ${error}`);
+                logger.error(vscode.l10n.t('Failed to generate entry file: {0}', String(error)));
             }
         }
 
@@ -123,7 +124,7 @@ export class CodeGenerator {
             // 确定入口 view：从所有 design 中查找唯一的 entry="true" view
             lvglEntryViewId = this.findLvglEntryViewId(componentsByDesign);
 
-            logger.info(`LVGL 多设计资源统一转换完成 (${allDesignNames.length} 个设计, ${allComponents.length} 个组件, entry: ${lvglEntryViewId || 'auto'})`);
+            logger.info(vscode.l10n.t('LVGL multi-design resource conversion completed ({0} designs, {1} components, entry: {2})', allDesignNames.length, allComponents.length, lvglEntryViewId || 'auto'));
         }
 
         let successCount = 0;
@@ -146,12 +147,12 @@ export class CodeGenerator {
                 successCount++;
                 totalFiles += result.fileCount;
             } catch (error) {
-                const errorMsg = error instanceof Error ? error.message : '未知错误';
+                const errorMsg = error instanceof Error ? error.message : vscode.l10n.t('Unknown error');
                 errors.push({
                     designName,
                     error: errorMsg
                 });
-                logger.error(`生成 ${designName} 失败: ${errorMsg}`);
+                logger.error(vscode.l10n.t('Failed to generate {0}: {1}', designName, errorMsg));
             }
         }
 
@@ -227,11 +228,11 @@ export class CodeGenerator {
                     if (fs.existsSync(filePath)) {
                         fs.unlinkSync(filePath);
                         deleted.push(filePath);
-                        logger.info(`已删除孤立文件: ${filePath}`);
+                        logger.info(vscode.l10n.t('Deleted orphaned file: {0}', filePath));
                     }
                 } catch (error) {
                     failed.push(filePath);
-                    logger.error(`删除失败: ${filePath}, ${error}`);
+                    logger.error(vscode.l10n.t('Delete failed: {0}, {1}', filePath, String(error)));
                 }
             }
         }
@@ -317,7 +318,7 @@ export class CodeGenerator {
         const result = await generator.generate();
 
         if (!result.success) {
-            throw new Error(result.errors?.[0] || '生成失败');
+            throw new Error(result.errors?.[0] || vscode.l10n.t('Generation failed'));
         }
 
         return { fileCount: result.files?.length || 0 };

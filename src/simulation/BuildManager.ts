@@ -15,11 +15,11 @@ class VSCodeLogger implements Logger {
     }
 
     log(message: string, isError: boolean = false, isWarning: boolean = false): void {
-        let prefix = '[信息]';
+        let prefix = '[Info]';
         if (isWarning) {
-            prefix = '[警告]';
+            prefix = '[Warning]';
         } else if (isError) {
-            prefix = '[错误]';
+            prefix = '[Error]';
         }
         this.outputChannel.appendLine(`${prefix} ${message}`);
     }
@@ -56,7 +56,7 @@ export class BuildManager extends BuildCore {
         }
 
         if (!content.includes(entry)) {
-            content += `\n# HoneyGUI 编译仿真目录\n${entry}\n`;
+            content += `\n# HoneyGUI build & simulation directory\n${entry}\n`;
             fs.writeFileSync(gitignorePath, content, 'utf-8');
         }
     }

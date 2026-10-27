@@ -50,7 +50,7 @@ export class EnvironmentChecker {
         result.pythonInstalled = pythonCheck.installed;
         result.pythonVersion = pythonCheck.version;
         if (!result.pythonInstalled) {
-            result.errors.push('Python 未安装。请从 https://www.python.org/ 下载安装');
+            result.errors.push(vscode.l10n.t('Python is not installed. Please download from https://www.python.org/'));
             result.success = false;
         }
 
@@ -59,7 +59,7 @@ export class EnvironmentChecker {
         result.sconsInstalled = sconsCheck.installed;
         result.sconsVersion = sconsCheck.version;
         if (!result.sconsInstalled) {
-            result.errors.push('SCons 未安装。请运行: pip install scons');
+            result.errors.push(vscode.l10n.t('SCons is not installed. Please run: pip install scons'));
             result.success = false;
         }
 
@@ -69,7 +69,7 @@ export class EnvironmentChecker {
         result.compilerVersion = compilerCheck.version;
         if (!result.compilerInstalled) {
             const compilerName = process.platform === 'win32' ? 'MinGW' : 'GCC';
-            result.errors.push(`${compilerName} 未安装。请安装 C 编译器。`);
+            result.errors.push(vscode.l10n.t('{0} is not installed. Please install C compiler.', compilerName));
             result.success = false;
         }
 
@@ -79,7 +79,7 @@ export class EnvironmentChecker {
             result.sdlInstalled = sdlCheck.installed;
             result.sdlVersion = sdlCheck.version;
             if (!result.sdlInstalled) {
-                result.errors.push('SDL2 未安装。请运行: sudo apt-get install libsdl2-dev');
+                result.errors.push(vscode.l10n.t('SDL2 is not installed. Please run: sudo apt-get install libsdl2-dev'));
                 result.success = false;
             }
         }
@@ -89,13 +89,13 @@ export class EnvironmentChecker {
         result.ffmpegInstalled = ffmpegCheck.installed;
         result.ffmpegVersion = ffmpegCheck.version;
         if (!result.ffmpegInstalled) {
-            result.errors.push('FFmpeg 未安装。视频转换功能将不可用');
+            result.errors.push(vscode.l10n.t('FFmpeg is not installed. Video conversion will not be available.'));
         }
 
         // 检查内置库路径
         result.libSimValid = this.checkLibSimPath(libSimPath);
         if (!result.libSimValid) {
-            result.errors.push(`内置库路径无效: ${libSimPath}`);
+            result.errors.push(vscode.l10n.t('Invalid built-in library path: {0}', libSimPath));
             result.success = false;
         }
 
