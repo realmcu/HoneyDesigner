@@ -36,6 +36,7 @@ function WebApp() {
                 onCanvas={canvas => simulation.setCanvas(canvas)}
                 onStop={stopSimulation}
                 onRestart={restartSimulation}
+                onKey={key => simulation.pressKey(key)}
             />
         </>
     );

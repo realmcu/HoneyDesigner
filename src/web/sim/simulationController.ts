@@ -8,7 +8,7 @@
 import * as path from 'path';
 import * as fs from '../shims/fs';
 import { SimulationService, SimulationOptions, SimulationMode, SimulationInputs } from './simulationService';
-import { startEngine, EngineSession } from './engineHost';
+import { startEngine, EngineSession, SimKey } from './engineHost';
 import { simulationUi } from './simulationUi';
 import { getWorkspaceFolder } from '../host/webEnvironment';
 import { FontRequirements, fontRequirementsCovered } from '../../simulation/HmlPreviewPrep';
@@ -79,6 +79,11 @@ export class SimulationController {
 
     setMode(mode: SimulationMode): void {
         this.mode = mode;
+    }
+
+    /** 仿真窗口底部的硬件按键；引擎未运行时忽略 */
+    pressKey(key: SimKey): void {
+        this.session?.pressKey(key);
     }
 
     async start(flow: SimulationFlow, notifyState: (running: boolean) => void): Promise<void> {

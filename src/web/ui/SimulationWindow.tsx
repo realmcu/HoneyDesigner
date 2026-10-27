@@ -3,8 +3,10 @@
  * 窗口可拖动、可收起；收起后不影响仿真继续运行。
  */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Home, CornerUpLeft, AlignJustify, Power } from 'lucide-react';
 import { simulationUi } from '../sim/simulationUi';
 import type { SimulationMode } from '../sim/simulationService';
+import type { SimKey } from '../sim/engineHost';
 import type { PreviewGap } from '../../simulation/HmlPreviewPrep';
 import { t } from '../../webview/i18n';
 
@@ -27,7 +29,17 @@ export interface SimulationWindowProps {
     onStop(): void;
     /** 以指定方式重新开始仿真 */
     onRestart(mode: SimulationMode): void;
+    /** 硬件按键，与桌面模拟器底部的 Home / Back / Menu / Power 一致 */
+    onKey(key: SimKey): void;
 }
+
+/** 底部硬件按键：图标与桌面模拟器一致，顺序也一致（Home / Back / Menu / Power） */
+const HARDWARE_KEYS: Array<{ key: SimKey; icon: React.ComponentType<{ size?: number }>; label: 'Home' | 'Back' | 'Menu' | 'Power'; shortcut: string }> = [
+    { key: 'home', icon: Home, label: 'Home', shortcut: 'Home' },
+    { key: 'back', icon: CornerUpLeft, label: 'Back', shortcut: 'Esc / Backspace' },
+    { key: 'menu', icon: AlignJustify, label: 'Menu', shortcut: 'M' },
+    { key: 'power', icon: Power, label: 'Power', shortcut: 'P' },
+];
 
 function useDrag(initial: { x: number; y: number }) {
     const [position, setPosition] = useState(initial);
@@ -91,7 +103,7 @@ function PreviewGaps({ gaps, onFull }: { gaps: PreviewGap[]; onFull(): void }) {
     );
 }
 
-export function SimulationWindow({ onCanvas, onStop, onRestart }: SimulationWindowProps) {
+export function SimulationWindow({ onCanvas, onStop, onRestart, onKey }: SimulationWindowProps) {
     const state = useSyncExternalStore(simulationUi.subscribe, simulationUi.getSnapshot);
     // 初始位置在工具栏下方的右侧，避免盖住工具栏按钮
     const { position, handlers } = useDrag({ x: Math.max(12, window.innerWidth - 560), y: 110 });
@@ -188,6 +200,17 @@ export function SimulationWindow({ onCanvas, onStop, onRestart }: SimulationWind
                     className="web-sim-canvas"
                     style={canvasSize ?? { display: 'none' }}
                 />
+
+                {phase.kind === 'running' && (
+                    <div className="web-sim-keys" role="group" aria-label={t('Hardware keys')}>
+                        {HARDWARE_KEYS.map(({ key, icon: Icon, label, shortcut }) => (
+                            <button key={key} className="web-sim-key" title={`${t(label)} (${shortcut})`}
+                                aria-label={t(label)} onClick={() => onKey(key)}>
+                                <Icon size={18} />
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {phase.kind === 'running' && mode === 'preview' && (
                     <>

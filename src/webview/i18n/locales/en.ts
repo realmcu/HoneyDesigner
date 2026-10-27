@@ -1287,6 +1287,11 @@ const en = {
   'An HML file with this name already exists in ui/.': 'An HML file with this name already exists in ui/.',
   'The design has unsaved changes. Switch files and discard them?': 'The design has unsaved changes. Switch files and discard them?',
   'Failed to create HML file: {0}': 'Failed to create HML file: {0}',
+  'Hardware keys': 'Hardware keys',
+  'Home': 'Home',
+  'Back': 'Back',
+  'Menu': 'Menu',
+  'Power': 'Power',
 };
 
 export default en;

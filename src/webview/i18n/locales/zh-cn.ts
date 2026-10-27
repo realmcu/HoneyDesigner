@@ -1287,6 +1287,11 @@ const zhCN = {
   'An HML file with this name already exists in ui/.': 'ui/ 中已存在同名 HML 文件。',
   'The design has unsaved changes. Switch files and discard them?': '当前设计有未保存的修改。切换文件并放弃这些修改吗？',
   'Failed to create HML file: {0}': '新建 HML 文件失败：{0}',
+  'Hardware keys': '硬件按键',
+  'Home': '主页',
+  'Back': '返回',
+  'Menu': '菜单',
+  'Power': '电源',
 };
 
 export default zhCN;

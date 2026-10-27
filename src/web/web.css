@@ -604,6 +604,36 @@
 .web-sim-bar { height: 4px; background: var(--vscode-input-background); border-radius: 2px; overflow: hidden; }
 .web-sim-bar-fill { height: 100%; background: var(--vscode-progressBar-background); transition: width 0.2s; }
 .web-sim-canvas { image-rendering: pixelated; background: #000; display: block; outline: none; }
+
+/* 硬件按键：与桌面模拟器底部的圆形按键一致，四枚均分一行 */
+.web-sim-keys {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+.web-sim-key {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 50%;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+.web-sim-key:hover {
+  opacity: 1;
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+.web-sim-key:active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+.web-sim-key:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .web-sim-error { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 480px; white-space: pre-wrap; word-break: break-word; }
 .web-sim-log {
   margin: 0;
