@@ -10,10 +10,9 @@ on:
   repository_dispatch:
     types: [honeygui-sdk-updated]
 
-# 定时触发与 SDK 推送触发可能重叠，同一时间只跑一个；推送前先 pull --rebase，
-# 与其他更新 lib 的 workflow 错开时间
+# 所有仿真资产更新共用这个 group，确保 Linux、Windows 和 Web 自动提交串行执行。
 concurrency:
-  group: update-web-engine
+  group: update-simulation-assets
   cancel-in-progress: false
 
 jobs:

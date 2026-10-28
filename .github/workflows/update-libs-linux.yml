@@ -8,6 +8,11 @@ on:
   repository_dispatch:         # 联动触发（HoneyGUI 仓库 push 时可发送此事件）
     types: [honeygui-sdk-updated]
 
+# 所有仿真资产更新都在 master 上自动提交，必须串行执行避免 push 竞争。
+concurrency:
+  group: update-simulation-assets
+  cancel-in-progress: false
+
 jobs:
   # ── Linux: libgui.a + liblvgl.a ─────────────────────────────────────
   update-libs-linux:
@@ -177,4 +182,5 @@ jobs:
           } > "$RUNNER_TEMP/update-libs-commit.txt"
           git commit -F "$RUNNER_TEMP/update-libs-commit.txt"
 
+          git pull --rebase origin master
           git push origin HEAD:master
