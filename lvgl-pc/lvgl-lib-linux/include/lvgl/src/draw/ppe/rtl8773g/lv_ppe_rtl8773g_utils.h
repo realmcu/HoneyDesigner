@@ -40,6 +40,11 @@ extern "C" {
 
 #define LV_PPE_DRAW_ASYNC               0
 
+#define LV_PPE_SYNC_SEM_WAIT            1
+
+#define LV_PPE_WAIT_TIMEOUT_MS          1000
+#define LV_PPE_IRQ_PRIORITY             3
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -81,6 +86,8 @@ void subtract_intersection(const lv_area_t *area, const lv_area_t *intersection,
 bool lv_ppe_use_entire(lv_draw_task_t *t, lv_display_t *disp);
 
 void lv_ppe_finish(void);
+
+void lv_ppe_sem_init(void);
 
 #if LV_PPE_DRAW_ASYNC
 void lv_ppe_register_decoded_dsc(lv_image_decoder_dsc_t *dsc);
