@@ -1,0 +1,529 @@
+name: Update Simulation Assets
+
+# Linux / Win32 仿真库与浏览器仿真引擎并行构建，最后由 commit job 合成一个提交推送到 master。
+# 三个构建 job 都使用 resolve job 记录的 SDK / LVGL 提交，保证同一个提交里的产物来自同一份源码。
+on:
+  schedule:
+    # 错开整点高峰以减少 GitHub 计划任务排队延迟。
+    - cron: '49 19 * * *'    # UTC 19:49（北京时间次日 03:49）
+  workflow_dispatch:           # 手动触发
+  repository_dispatch:         # 联动触发（HoneyGUI 仓库 push 时可发送此事件）
+    types: [honeygui-sdk-updated]
+
+# 自动提交直接推送 master，必须串行执行避免 push 竞争。
+concurrency:
+  group: update-simulation-assets
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      sdk_sha: ${{ steps.sdk.outputs.sha }}
+      sdk_message: ${{ steps.sdk.outputs.message }}
+      lvgl_sha: ${{ steps.lvgl.outputs.sha }}
+    steps:
+      - name: Resolve HoneyGUI SDK commit
+        id: sdk
+        run: |
+          git clone --depth 1 --filter=blob:none --no-checkout https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
+          echo "sha=$(git -C /tmp/HoneyGUI rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "message=$(git -C /tmp/HoneyGUI log -1 --format=%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve LVGL commit
+        id: lvgl
+        run: |
+          for i in 1 2 3; do
+            sha=$(git ls-remote https://gitee.com/realmcu/lvgl.git refs/heads/lvgl_v9 | cut -f1)
+            [ -n "$sha" ] && break
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          if [ -z "$sha" ]; then
+            echo "⚠️ Failed to get LVGL sha after 3 attempts, skipping LVGL update"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  # ── Linux: libgui.a + 头文件 + win32_sim 源码 + liblvgl.a ──────────────
+  linux:
+    runs-on: ubuntu-latest
+    needs: resolve
+    env:
+      SDK_SHA: ${{ needs.resolve.outputs.sdk_sha }}
+      LVGL_SHA: ${{ needs.resolve.outputs.lvgl_sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      # describe 需要回溯到最近的 tag，因此取完整提交历史；blob:none 只下载提交和目录树
+      - name: Clone HoneyGUI SDK
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
+          git -C /tmp/HoneyGUI checkout --detach "$SDK_SHA"
+
+      - name: Cache Linux libgui.a
+        id: cache-linux
+        uses: actions/cache@v4
+        with:
+          path: /tmp/HoneyGUI/lib/gcc/install
+          key: libgui-linux-${{ needs.resolve.outputs.sdk_sha }}
+
+      - name: Build libgui.a for Linux
+        if: steps.cache-linux.outputs.cache-hit != 'true'
+        run: |
+          cd /tmp/HoneyGUI/lib/gcc
+          mkdir -p build && cd build
+          cmake ..
+          make -j$(nproc)
+          make install
+
+      - name: Update lib/sim with freshly built library
+        run: |
+          if [ -f /tmp/HoneyGUI/lib/gcc/install/lib/libgui.a ]; then
+            cp /tmp/HoneyGUI/lib/gcc/install/lib/libgui.a lib/sim/linux/libgui.a
+            echo "✅ Linux libgui.a updated"
+          fi
+          if [ -d /tmp/HoneyGUI/lib/gcc/install/include ]; then
+            rm -rf lib/sim/include/*
+            cp -r /tmp/HoneyGUI/lib/gcc/install/include/* lib/sim/include/
+            echo "✅ Headers updated"
+          fi
+
+      # 上游 simulator/win32/（旧布局为 win32_sim/）是唯一真相源 —— 任何本地差异都将被覆盖。
+      # 过渡期同时兼容两种布局：优先 simulator/win32/，不存在时回退 win32_sim/。
+      # 目标目录 lib/sim/win32_sim/ 是插件内部路径（BuildCore.ts 等依赖），名称保持不变。
+      # 想保留的修改一律先 PR 给 realmcu/HoneyGUI。
+      - name: Sync simulator/win32 (or legacy win32_sim) sources from upstream (port + build scripts)
+        run: |
+          if [ -d /tmp/HoneyGUI/simulator/win32 ]; then
+            SIM_SRC=/tmp/HoneyGUI/simulator/win32
+          elif [ -d /tmp/HoneyGUI/win32_sim ]; then
+            SIM_SRC=/tmp/HoneyGUI/win32_sim
+          else
+            echo "::error::upstream /tmp/HoneyGUI/simulator/win32 or /tmp/HoneyGUI/win32_sim not found"
+            exit 1
+          fi
+          echo "Using upstream simulator source: $SIM_SRC"
+          # 用 rsync --delete 保证 design 仓内容 = 上游内容
+          # 排除 build 产物与 design 仓特有的预编译 libgui.a 目录
+          rsync -av --delete \
+            --exclude='build/' \
+            --exclude='*.o' \
+            --exclude='*.exe' \
+            "$SIM_SRC/" \
+            lib/sim/win32_sim/
+          echo "✅ simulator sources synced from upstream ($SIM_SRC -> lib/sim/win32_sim)"
+
+      - name: Cache Linux liblvgl.a
+        id: cache-lvgl-linux
+        if: env.LVGL_SHA != ''
+        uses: actions/cache@v4
+        with:
+          path: lvgl-pc/lvgl-lib-linux
+          key: liblvgl-linux-${{ needs.resolve.outputs.lvgl_sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
+
+      - name: Clone LVGL source
+        if: env.LVGL_SHA != '' && steps.cache-lvgl-linux.outputs.cache-hit != 'true'
+        run: |
+          for i in 1 2 3; do
+            git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git /tmp/lvgl-src && break
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+            rm -rf /tmp/lvgl-src
+          done
+          [ -d /tmp/lvgl-src/.git ] || exit 1
+          # 分支在 resolve 之后又有新提交时，回到 resolve 记录的提交，保证缓存键与提交信息一致
+          if [ "$(git -C /tmp/lvgl-src rev-parse HEAD)" != "$LVGL_SHA" ]; then
+            git -C /tmp/lvgl-src fetch --depth 1 origin "$LVGL_SHA"
+            git -C /tmp/lvgl-src checkout --detach FETCH_HEAD
+          fi
+
+      - name: Build liblvgl.a for Linux
+        if: env.LVGL_SHA != '' && steps.cache-lvgl-linux.outputs.cache-hit != 'true'
+        run: |
+          LVGL_PC_ROOT=$(pwd)/lvgl-pc
+          LVGL_SRC=/tmp/lvgl-src
+          BUILD_DIR=/tmp/lvgl-build
+          INSTALL_DIR=$(pwd)/lvgl-pc/lvgl-lib-linux
+
+          cmake -S "$LVGL_SRC" -B "$BUILD_DIR" \
+            -DCMAKE_C_FLAGS="-I$LVGL_PC_ROOT" \
+            -DCMAKE_CXX_FLAGS="-I$LVGL_PC_ROOT -D__STDC_FORMAT_MACROS" \
+            -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLV_CONF_BUILD_DISABLE_DEMOS=ON \
+            -DLV_CONF_BUILD_DISABLE_EXAMPLES=ON
+
+          cp "$LVGL_PC_ROOT/lv_conf.h" "$LVGL_SRC/lv_conf.h"
+          cmake --build "$BUILD_DIR" --target install --parallel $(nproc)
+          rm -f "$LVGL_SRC/lv_conf.h"
+
+          cp "$LVGL_SRC/lvgl_private.h" "$INSTALL_DIR/include/lvgl/" 2>/dev/null || true
+
+      # 导出暂存后的内容而不是工作区文件：删除的文件不会出现在产物里，commit job 可整目录替换
+      - name: Export Linux assets
+        run: |
+          paths=(lib/sim/linux lib/sim/include lib/sim/win32_sim lvgl-pc/lvgl-lib-linux)
+          git add -A -- "${paths[@]}"
+          git ls-files -z -- "${paths[@]}" | git checkout-index -z --stdin --prefix=sim-export/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sim-native-linux
+          path: sim-export/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Win32: libgui.a + liblvgl.a ─────────────────────────────────────
+  windows:
+    runs-on: windows-latest
+    needs: resolve
+    env:
+      SDK_SHA: ${{ needs.resolve.outputs.sdk_sha }}
+      LVGL_SHA: ${{ needs.resolve.outputs.lvgl_sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── GCC 8.1.0 posix/sjlj — matches SDL2 static lib ABI ───────────
+
+      - name: Restore cached MinGW 8.1.0
+        id: cache-mingw
+        uses: actions/cache@v4
+        with:
+          path: C:\mingw810
+          key: mingw-8.1.0-posix-sjlj-win
+
+      - name: Download and extract MinGW 8.1.0 (posix, sjlj)
+        if: steps.cache-mingw.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force C:\mingw810 | Out-Null
+          $url = "https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-posix/sjlj/x86_64-8.1.0-release-posix-sjlj-rt_v6-rev0.7z/download"
+          curl.exe -L --retry 3 -o C:\mingw810.7z $url
+          7z x C:\mingw810.7z -oC:\mingw810 -y | Out-Null
+          Write-Output "MinGW 8.1.0 extracted to C:\mingw810"
+
+      - name: Add MinGW 8.1.0 to PATH
+        shell: pwsh
+        run: echo "C:\mingw810\mingw64\bin" >> $env:GITHUB_PATH
+
+      - name: Verify MinGW version
+        shell: pwsh
+        run: |
+          & "C:\mingw810\mingw64\bin\gcc.exe" -v 2>&1
+
+      # describe 需要回溯到最近的 tag，因此取完整提交历史；blob:none 只下载提交和目录树
+      - name: Clone HoneyGUI SDK
+        shell: pwsh
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/realmcu/HoneyGUI.git C:/tmp/HoneyGUI
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C C:/tmp/HoneyGUI checkout --detach $env:SDK_SHA
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Cache Win32 libgui.a
+        id: cache-win32
+        uses: actions/cache@v4
+        with:
+          path: C:/tmp/HoneyGUI/lib/gcc/install
+          key: libgui-win32-gcc810-${{ needs.resolve.outputs.sdk_sha }}
+
+      - name: Build libgui.a for Win32
+        if: steps.cache-win32.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          Set-Location C:/tmp/HoneyGUI/lib/gcc
+          New-Item -ItemType Directory -Force build | Out-Null
+          Set-Location build
+          cmake .. -G "MinGW Makefiles" `
+            -DCMAKE_C_COMPILER="C:/mingw810/mingw64/bin/gcc.exe" `
+            -DCMAKE_CXX_COMPILER="C:/mingw810/mingw64/bin/g++.exe" `
+            -DCMAKE_MAKE_PROGRAM="C:/mingw810/mingw64/bin/mingw32-make.exe"
+          cmake --build . -j4
+          cmake --build . --target install
+
+      - name: Update lib/sim/win32 with built library
+        shell: pwsh
+        run: |
+          $src = "C:/tmp/HoneyGUI/lib/gcc/install/lib/libgui.a"
+          if (Test-Path $src) {
+            Copy-Item $src "lib/sim/win32/libgui.a" -Force
+            Write-Output "✅ Win32 libgui.a updated"
+          } else {
+            Write-Error "libgui.a not found at $src"
+            exit 1
+          }
+
+      - name: Cache Win32 liblvgl.a
+        id: cache-lvgl-win32
+        if: env.LVGL_SHA != ''
+        uses: actions/cache@v4
+        with:
+          path: lvgl-pc/lvgl-lib
+          key: liblvgl-win32-gcc810-${{ needs.resolve.outputs.lvgl_sha }}-${{ hashFiles('lvgl-pc/lv_conf.h') }}
+
+      - name: Clone LVGL source
+        if: env.LVGL_SHA != '' && steps.cache-lvgl-win32.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 3; $i++) {
+            git clone --depth 1 --branch lvgl_v9 https://gitee.com/realmcu/lvgl.git C:/tmp/lvgl-src
+            if ($LASTEXITCODE -eq 0) { break }
+            Write-Output "Attempt $i failed, retrying in 5s..."
+            Start-Sleep -Seconds 5
+            Remove-Item -Recurse -Force C:/tmp/lvgl-src -ErrorAction SilentlyContinue
+          }
+          if (-not (Test-Path "C:/tmp/lvgl-src/.git")) { exit 1 }
+          # 分支在 resolve 之后又有新提交时，回到 resolve 记录的提交，保证缓存键与提交信息一致
+          if ((git -C C:/tmp/lvgl-src rev-parse HEAD) -ne $env:LVGL_SHA) {
+            git -C C:/tmp/lvgl-src fetch --depth 1 origin $env:LVGL_SHA
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git -C C:/tmp/lvgl-src checkout --detach FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Build liblvgl.a for Win32
+        if: env.LVGL_SHA != '' && steps.cache-lvgl-win32.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $lvglPcRoot = (Resolve-Path "lvgl-pc").Path
+          $installDir = (Resolve-Path ".").Path + "\lvgl-pc\lvgl-lib"
+          $lvglSrc = "C:/tmp/lvgl-src"
+          $buildDir = "C:/tmp/lvgl-build"
+
+          cmake -S "$lvglSrc" -B "$buildDir" `
+            -G "MinGW Makefiles" `
+            -DCMAKE_C_COMPILER="C:/mingw810/mingw64/bin/gcc.exe" `
+            -DCMAKE_CXX_COMPILER="C:/mingw810/mingw64/bin/g++.exe" `
+            -DCMAKE_MAKE_PROGRAM="C:/mingw810/mingw64/bin/mingw32-make.exe" `
+            -DCMAKE_C_FLAGS="-I$lvglPcRoot" `
+            -DCMAKE_CXX_FLAGS="-I$lvglPcRoot -D__STDC_FORMAT_MACROS" `
+            -DCMAKE_INSTALL_PREFIX="$installDir" `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DLV_CONF_BUILD_DISABLE_DEMOS=ON `
+            -DLV_CONF_BUILD_DISABLE_EXAMPLES=ON
+
+          Copy-Item "$lvglPcRoot/lv_conf.h" "$lvglSrc/lv_conf.h"
+          cmake --build "$buildDir" --target install --parallel
+          Remove-Item "$lvglSrc/lv_conf.h" -ErrorAction SilentlyContinue
+
+          $privHdr = "$lvglSrc/lvgl_private.h"
+          $destDir = "$installDir/include/lvgl"
+          if (Test-Path $privHdr) {
+            New-Item -ItemType Directory -Force $destDir | Out-Null
+            Copy-Item $privHdr $destDir
+          }
+
+      # 在 Windows 上暂存（autocrlf=true 把 CRLF 头文件还原成 LF），再以 autocrlf=false 原样导出暂存内容，
+      # 使 Linux 上的 commit job 提交出与本机暂存相同的内容。
+      - name: Export Win32 assets
+        shell: bash
+        run: |
+          paths=(lib/sim/win32 lvgl-pc/lvgl-lib)
+          git add -A -- "${paths[@]}"
+          git ls-files -z -- "${paths[@]}" | git -c core.autocrlf=false checkout-index -z --stdin --prefix=sim-export/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sim-native-win32
+          path: sim-export/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Web: 浏览器仿真引擎（HoneyGUI simulator/web，WebAssembly）→ lib/web-sim/ ──
+  # 由 deploy-web.yml 部署。emsdk 只在这里安装，失败也不影响原生仿真库的更新。
+  web:
+    runs-on: ubuntu-latest
+    needs: resolve
+    env:
+      SDK_SHA: ${{ needs.resolve.outputs.sdk_sha }}
+      SDK_MESSAGE: ${{ needs.resolve.outputs.sdk_message }}
+      # 引擎依赖的 Emscripten 版本：升级时同时验证 Asyncify 协作线程（见 HoneyGUI simulator/web）
+      EMSDK_VERSION: 6.0.12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.x
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Clone HoneyGUI SDK
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
+          git -C /tmp/HoneyGUI checkout --detach "$SDK_SHA"
+          # main.c 用 __DATE__/__TIME__ 打印构建时间。固定成 SDK 提交的时间，同一份源码
+          # 才构建出逐字节相同的引擎（提交 SHA 与提交时间一一对应）
+          SDK_EPOCH=$(git -C /tmp/HoneyGUI log -1 --format=%ct)
+          echo "SOURCE_DATE_EPOCH=$SDK_EPOCH" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$SDK_EPOCH （$(date -u -d "@$SDK_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')）"
+          # 引擎的构建规则（install 规则、HML 接口、.config_engine）要和 SDK 一起才能装出可用引擎。
+          # 上游还没有这些改动时，后面的步骤全部跳过，不必先下载 emsdk（build-web-engine.js 也会再检查一次）
+          if ! grep -q 'install(FILES' /tmp/HoneyGUI/simulator/web/CMakeLists.txt; then
+            echo "::notice::$SDK_MESSAGE 尚未包含浏览器仿真引擎的构建规则；跳过，等待上游合入"
+            echo "SDK_UNSUPPORTED=1" >> "$GITHUB_ENV"
+          fi
+
+      # 引擎已由当前 SDK 提交构建过（lib/web-sim/VERSION 记录构建时的提交），不必重建：
+      # 同一份源码重建的产物并不完全一致（main.c 的 __DATE__/__TIME__），每天提交
+      # 一个内容不同的 4 MB 引擎没有意义
+      - name: Check built engine
+        id: engine
+        run: |
+          if grep -qx "HoneyGUI $SDK_SHA" lib/web-sim/VERSION 2>/dev/null; then
+            echo "up-to-date=true" >> "$GITHUB_OUTPUT"
+            echo "lib/web-sim 已由 $SDK_SHA 构建"
+          else
+            echo "up-to-date=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore emsdk
+        id: cache-emsdk
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+
+      - name: Install emsdk
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true' && steps.cache-emsdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git /tmp/emsdk
+          /tmp/emsdk/emsdk install "$EMSDK_VERSION"
+          /tmp/emsdk/emsdk activate "$EMSDK_VERSION"
+
+      # 装好就保存（actions/cache 只在 job 成功时保存）：后面的构建失败也不必重新下载
+      - name: Save emsdk
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true' && steps.cache-emsdk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+
+      - name: Build engine
+        if: env.SDK_UNSUPPORTED != '1' && steps.engine.outputs.up-to-date != 'true'
+        run: |
+          source /tmp/emsdk/emsdk_env.sh
+          node scripts/build-web-engine.js /tmp/HoneyGUI
+
+      - name: Export web engine
+        run: |
+          git add -A -- lib/web-sim
+          git ls-files -z -- lib/web-sim | git checkout-index -z --stdin --prefix=sim-export/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sim-web
+          path: sim-export/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── 合并提交：Linux 与 Win32 必须同时成功才更新原生库，Web 引擎独立 ──────
+  commit:
+    runs-on: ubuntu-latest
+    needs: [resolve, linux, windows, web]
+    if: >-
+      always() && needs.resolve.result == 'success' &&
+      ((needs.linux.result == 'success' && needs.windows.result == 'success') ||
+       needs.web.result == 'success')
+    permissions:
+      contents: write
+    env:
+      NATIVE_OK: ${{ needs.linux.result == 'success' && needs.windows.result == 'success' }}
+      WEB_OK: ${{ needs.web.result == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download native libraries
+        if: env.NATIVE_OK == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sim-native-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/native
+
+      - name: Download web engine
+        if: env.WEB_OK == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: sim-web
+          path: ${{ runner.temp }}/web
+
+      - name: Stage updated assets
+        id: stage
+        run: |
+          set -euo pipefail
+          # 用产物整目录替换，上游删除的文件也随之删除
+          replace() {
+            local src=$1; shift
+            for p in "$@"; do
+              if [ ! -d "$src/$p" ]; then
+                echo "::error::$p missing from artifact"
+                exit 1
+              fi
+              rm -rf "$p"
+              mkdir -p "$(dirname "$p")"
+              cp -a "$src/$p" "$p"
+            done
+            git add -A -- "$@"
+          }
+          linux_paths=(lib/sim/linux lib/sim/include lib/sim/win32_sim lvgl-pc/lvgl-lib-linux)
+          win32_paths=(lib/sim/win32 lvgl-pc/lvgl-lib)
+          updated=()
+          if [ "$NATIVE_OK" = true ]; then
+            replace "$RUNNER_TEMP/native" "${linux_paths[@]}" "${win32_paths[@]}"
+            git diff --cached --quiet -- "${linux_paths[@]}" || updated+=(Linux)
+            git diff --cached --quiet -- "${win32_paths[@]}" || updated+=(Win32)
+          fi
+          if [ "$WEB_OK" = true ]; then
+            replace "$RUNNER_TEMP/web" lib/web-sim
+            git diff --cached --quiet -- lib/web-sim || updated+=(Web)
+          fi
+          if [ ${#updated[@]} -eq 0 ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  No changes in simulation assets"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "updated=${updated[*]}" >> "$GITHUB_OUTPUT"
+            echo "🔔 Changes detected: ${updated[*]}"
+            git diff --cached --stat
+          fi
+
+      - name: Commit and push if changed
+        if: steps.stage.outputs.changed == 'true'
+        env:
+          UPDATED: ${{ steps.stage.outputs.updated }}
+          SDK_SHA: ${{ needs.resolve.outputs.sdk_sha }}
+          SDK_MESSAGE: ${{ needs.resolve.outputs.sdk_message }}
+          LVGL_SHA: ${{ needs.resolve.outputs.lvgl_sha }}
+        run: |
+          git config user.name "honeygui-bot"
+          git config user.email "bot@honeygui.dev"
+
+          {
+            printf '%s\n\n' 'chore: update simulation assets'
+            printf 'Updated: %s\n' "$UPDATED"
+            printf 'SDK commit: %s\n' "$SDK_SHA"
+            printf 'SDK message: %s\n' "$SDK_MESSAGE"
+            printf 'LVGL commit: %s\n' "$LVGL_SHA"
+          } > "$RUNNER_TEMP/update-sim-assets-commit.txt"
+          git commit -F "$RUNNER_TEMP/update-sim-assets-commit.txt"
+
+          git pull --rebase origin master
+          git push origin HEAD:master

@@ -38,7 +38,7 @@ on:
   # 引擎更新由 honeygui-bot 用 GITHUB_TOKEN 推送，GitHub 不会为该推送触发 push 事件，
   # 因此这里监听那个 workflow：它提交了新引擎，站点要重新部署（失败则跳过，留在旧站点）
   workflow_run:
-    workflows: ["Update Web Simulation Engine"]
+    workflows: ["Update Simulation Assets"]
     types: [completed]
     branches: [master]
 
@@ -76,7 +76,7 @@ jobs:
       - name: Build web designer
         run: npm run build:web
 
-      # 浏览器仿真：引擎（lib/web-sim，由 update-web-engine.yml 更新）、编译器与头文件
+      # 浏览器仿真：引擎（lib/web-sim，由 update-sim-assets.yml 更新）、编译器与头文件
       - name: Prepare web simulation
         run: node scripts/prepare-web-sim.js
 
