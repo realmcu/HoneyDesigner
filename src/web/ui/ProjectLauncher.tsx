@@ -246,7 +246,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
     return (
         <div className="web-launcher">
             <header className="web-launcher-header">
-                <div>
+                <div className="web-launcher-intro">
                     <h1>HoneyGUI Designer <span className="web-badge">Web</span></h1>
                     <p className="web-muted">{t('Design HoneyGUI / LVGL interfaces in the browser and generate C code. Simulation and flashing require the VS Code extension.')}</p>
                 </div>
