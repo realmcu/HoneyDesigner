@@ -2,6 +2,8 @@ name: Update Simulation Assets
 
 # Linux / Win32 仿真库与浏览器仿真引擎并行构建，最后由 commit job 合成一个提交推送到 master。
 # 三个构建 job 都使用 resolve job 记录的 SDK / LVGL 提交，保证同一个提交里的产物来自同一份源码。
+# 各 job 检出最新的 master 而不是触发时的提交：排队的运行要和前一次运行推送的产物比较，否则会重复构建和提交。
+# SDK 检出到本地 master 分支：gui_version.h 的 VERSION_BRANCH 取自当前分支名，detached HEAD 会写成 "HEAD"。
 on:
   schedule:
     # 错开整点高峰以减少 GitHub 计划任务排队延迟。
@@ -54,6 +56,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master
 
       - name: Install build dependencies
         run: |
@@ -64,7 +68,7 @@ jobs:
       - name: Clone HoneyGUI SDK
         run: |
           git clone --filter=blob:none --no-checkout https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
-          git -C /tmp/HoneyGUI checkout --detach "$SDK_SHA"
+          git -C /tmp/HoneyGUI checkout -B master "$SDK_SHA"
 
       - name: Cache Linux libgui.a
         id: cache-linux
@@ -190,6 +194,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master
 
       # ── GCC 8.1.0 posix/sjlj — matches SDL2 static lib ABI ───────────
 
@@ -225,7 +231,7 @@ jobs:
         run: |
           git clone --filter=blob:none --no-checkout https://github.com/realmcu/HoneyGUI.git C:/tmp/HoneyGUI
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git -C C:/tmp/HoneyGUI checkout --detach $env:SDK_SHA
+          git -C C:/tmp/HoneyGUI checkout -B master $env:SDK_SHA
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Cache Win32 libgui.a
@@ -351,6 +357,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master
 
       - name: Setup Node.js 20.19
         uses: actions/setup-node@v4
@@ -365,7 +373,7 @@ jobs:
       - name: Clone HoneyGUI SDK
         run: |
           git clone --filter=blob:none --no-checkout https://github.com/realmcu/HoneyGUI.git /tmp/HoneyGUI
-          git -C /tmp/HoneyGUI checkout --detach "$SDK_SHA"
+          git -C /tmp/HoneyGUI checkout -B master "$SDK_SHA"
           # main.c 用 __DATE__/__TIME__ 打印构建时间。固定成 SDK 提交的时间，同一份源码
           # 才构建出逐字节相同的引擎（提交 SHA 与提交时间一一对应）
           SDK_EPOCH=$(git -C /tmp/HoneyGUI log -1 --format=%ct)
@@ -449,6 +457,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master
 
       - name: Download native libraries
         if: env.NATIVE_OK == 'true'
