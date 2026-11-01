@@ -9,8 +9,8 @@
 
 #define VERSION_TAG "v2.1.1.0"
 #define VERSION_BRANCH "master"
-#define VERSION_COMMIT "0dce3c13"
-#define VERSION_BUILD_DATE "2026-10-30 11:27:13"
+#define VERSION_COMMIT "028a88fb"
+#define VERSION_BUILD_DATE "2026-11-01 12:58:32"
 #define VERSION_REPO_STATUS "clean"
 
 #endif // GUI_VERSION_H
