@@ -2,7 +2,7 @@
   "name": "honeygui-visual-designer",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "license": "MIT",
   "l10n": "./l10n",
   "repository": {
@@ -188,7 +188,12 @@
         "command": "honeygui.simulation.debug",
         "title": "%command.simulationDebug%",
         "category": "HoneyGUI",
-        "icon": "$(bug)"
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "honeygui.simulation.runOnly",
+        "title": "%command.simulationRunOnly%",
+        "category": "HoneyGUI"
       },
       {
         "command": "honeygui.convertResource",

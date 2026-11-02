@@ -635,5 +635,21 @@
   "Font resources are missing or outdated. Converting resources: {0}": "Font resources are missing or outdated. Converting resources: {0}",
   "Font resources could not be prepared: {0}": "Font resources could not be prepared: {0}",
   "Browser simulation currently supports the HoneyGUI engine only. Use VS Code to simulate LVGL projects.": "Browser simulation currently supports the HoneyGUI engine only. Use VS Code to simulate LVGL projects.",
-  "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.": "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code."
+  "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.": "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.",
+  "Simulator executable not found: {0}": "Simulator executable not found: {0}",
+  "Starting simulator in debug mode: {0}": "Starting simulator in debug mode: {0}",
+  "Using gdb: {0}": "Using gdb: {0}",
+  "Stopping debug session...": "Stopping debug session...",
+  "Failed to stop debug session: {0}": "Failed to stop debug session: {0}",
+  "Failed to start debug session. Check the C/C++ extension output for details.": "Failed to start debug session. Check the C/C++ extension output for details.",
+  "Debug session started": "Debug session started",
+  "Debug session ended": "Debug session ended",
+  "Debugging the simulator requires the C/C++ extension (ms-vscode.cpptools).": "Debugging the simulator requires the C/C++ extension (ms-vscode.cpptools).",
+  "Install": "Install",
+  "Debugging cancelled: the C/C++ extension is required.": "Debugging cancelled: the C/C++ extension is required.",
+  "Failed to install the C/C++ extension: {0}": "Failed to install the C/C++ extension: {0}",
+  "C/C++ extension installed. It takes effect after VS Code reloads; run again afterwards.": "C/C++ extension installed. It takes effect after VS Code reloads; run again afterwards.",
+  "Cannot find gdb. Make sure the MinGW toolchain is on PATH.": "Cannot find gdb. Make sure the MinGW toolchain is on PATH.",
+  "HoneyGUI Simulator": "HoneyGUI Simulator",
+  "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping"
 }

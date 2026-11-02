@@ -3,6 +3,7 @@ import { useDesignerStore } from '../store';
 import {
   AlignLeft,
   BrushCleaning,
+  Bug,
   Check,
   ChevronDown,
   Code,
@@ -103,6 +104,8 @@ const Toolbar: React.FC = () => {
     setOperationInProgress,
     simulationFlow,
     setSimulationFlow,
+    simulationDebug,
+    setSimulationDebug,
   } = useDesignerStore();
 
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -249,11 +252,15 @@ const Toolbar: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 从 webview 持久化状态中恢复仿真流程配置（缺省全部启用）。
+  // 从 webview 持久化状态中恢复仿真流程配置与调试开关（缺省全部启用、调试关闭）。
   useEffect(() => {
-    const saved = window.vscodeAPI?.getState?.()?.simulationFlow;
-    if (saved && typeof saved === 'object') {
-      setSimulationFlow(saved);
+    const savedFlow = window.vscodeAPI?.getState?.()?.simulationFlow;
+    if (savedFlow && typeof savedFlow === 'object') {
+      setSimulationFlow(savedFlow);
+    }
+    const savedDebug = window.vscodeAPI?.getState?.()?.simulationDebug;
+    if (typeof savedDebug === 'boolean') {
+      setSimulationDebug(savedDebug);
     }
   }, []);
 
@@ -315,7 +322,8 @@ const Toolbar: React.FC = () => {
     window.vscodeAPI?.postMessage({
       command: 'executeCommand',
       commandId: 'honeygui.simulation',
-      args: { flow: simulationFlow },
+      // 调试开关打开时，以调试会话方式运行（阶段配置沿用下拉里的勾选）
+      args: { flow: { ...simulationFlow, runMode: simulationDebug ? 'debug' : 'task' } },
     });
   };
 
@@ -324,6 +332,21 @@ const Toolbar: React.FC = () => {
     setSimulationFlow({ [step]: !simulationFlow[step] });
     const saved = window.vscodeAPI?.getState() || {};
     window.vscodeAPI?.setState({ ...saved, simulationFlow: next });
+  };
+
+  // 调试开关：开启时自动勾选 simulate（没有仿真阶段就无从调试）
+  const toggleDebug = () => {
+    const next = !simulationDebug;
+    setSimulationDebug(next);
+    if (next && !simulationFlow.simulate) {
+      setSimulationFlow({ simulate: true });
+    }
+    const saved = window.vscodeAPI?.getState() || {};
+    window.vscodeAPI?.setState({
+      ...saved,
+      simulationDebug: next,
+      simulationFlow: next ? { ...simulationFlow, simulate: true } : simulationFlow,
+    });
   };
 
   const flowSteps: Array<{ key: 'convert' | 'codegen' | 'simulate'; label: string; Icon: typeof Code }> = [
@@ -570,17 +593,27 @@ const Toolbar: React.FC = () => {
         <button
           className={`toolbar-button primary split-main ${isSimulationRunning ? 'running' : ''}`}
           onClick={handleSimulation}
-          title={isSimulationRunning ? t('Stop Simulation') : t('Compile & Simulate')}
+          title={
+            isSimulationRunning
+              ? t('Stop Simulation')
+              : simulationDebug
+                ? t('Debug Run Tooltip')
+                : t('Compile & Simulate')
+          }
           disabled={isBusy && !isSimulationRunning}
         >
           {isSimulationRunning
             ? <Square {...ICON} />
             : operationInProgress === 'simulate'
               ? <BusySpinner />
-              : <Rocket {...ICON} />}
+              : simulationDebug
+                ? <Bug {...ICON} />
+                : <Rocket {...ICON} />}
           <StableLabel
-            current={isSimulationRunning ? t('Stop') : t('Simulate')}
-            variants={[t('Simulate'), t('Stop')]}
+            current={isSimulationRunning ? t('Stop') : simulationDebug ? t('Debug') : t('Simulate')}
+            variants={simulationDebug
+              ? [t('Debug'), t('Stop')]
+              : [t('Simulate'), t('Stop')]}
           />
         </button>
         {/* 运行中保留箭头并禁用，卸载它会让按钮宽度突变 24px。 */}
@@ -600,13 +633,30 @@ const Toolbar: React.FC = () => {
           <div className="sim-dropdown-menu">
             <div className="sim-menu-title">{t('Simulation Flow')}</div>
             {flowSteps.map(({ key, label, Icon }) => (
-              <button key={key} className="sim-menu-item" onClick={() => toggleFlowStep(key)}>
-                <span className={`flow-checkbox ${simulationFlow[key] ? 'checked' : ''}`}>
-                  {simulationFlow[key] && <Check {...ICON_CHECK} />}
-                </span>
-                <Icon {...ICON_MENU} />
-                <span>{label}</span>
-              </button>
+              <React.Fragment key={key}>
+                <button className="sim-menu-item" onClick={() => toggleFlowStep(key)}>
+                  <span className={`flow-checkbox ${simulationFlow[key] ? 'checked' : ''}`}>
+                    {simulationFlow[key] && <Check {...ICON_CHECK} />}
+                  </span>
+                  <Icon {...ICON_MENU} />
+                  <span>{label}</span>
+                </button>
+                {/* 调试开关与「仿真」同行，开启时自动勾选仿真 */}
+                {key === 'simulate' && (
+                  <button
+                    className={`sim-menu-item sim-menu-debug ${simulationDebug ? 'active' : ''}`}
+                    onClick={toggleDebug}
+                    disabled={isSimulationRunning}
+                    title={t('Debug Run Tooltip')}
+                  >
+                    <Bug {...ICON_MENU} />
+                    <span>{t('Debug Run')}</span>
+                    <span className={`sim-switch ${simulationDebug ? 'on' : ''}`} aria-hidden="true">
+                      <span className="sim-switch-knob" />
+                    </span>
+                  </button>
+                )}
+              </React.Fragment>
             ))}
             <div className="sim-menu-hint">{t('Simulation Flow Hint')}</div>
           </div>

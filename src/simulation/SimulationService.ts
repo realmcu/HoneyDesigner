@@ -43,9 +43,18 @@ export class SimulationService {
             })
         );
 
-        // 调试仿真（跳过代码生成，仅转换资源并运行）
+        // 调试运行（生成/转换后编译，并以调试会话运行仿真器）
         this.context.subscriptions.push(
-            vscode.commands.registerCommand('honeygui.simulation.debug', async () => {
+            vscode.commands.registerCommand('honeygui.simulation.debug', async (options?: { flow?: SimulationFlow }) => {
+                await this.startSimulation({
+                    flow: { convert: true, codegen: true, simulate: true, runMode: 'debug', ...options?.flow }
+                });
+            })
+        );
+
+        // 仅运行（跳过代码生成，仅转换资源并运行仿真器）——原 .debug 语义，改名以让出调试命令
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand('honeygui.simulation.runOnly', async () => {
                 await this.startSimulation({ flow: { convert: true, codegen: false, simulate: true } });
             })
         );
@@ -92,6 +101,7 @@ export class SimulationService {
             convert: options?.flow?.convert ?? true,
             codegen: options?.flow?.codegen ?? true,
             simulate: options?.flow?.simulate ?? true,
+            runMode: options?.flow?.runMode ?? 'task' as 'task' | 'debug',
         };
         // 不含仿真阶段时，流程结束即完成，不进入"运行中"状态
         const willSimulate = flow.simulate;

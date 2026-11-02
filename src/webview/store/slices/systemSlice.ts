@@ -15,6 +15,7 @@ export const createSystemSlice: StateCreator<DesignerStore, [], [], Partial<Desi
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),
   setOperationInProgress: (op) => set({ operationInProgress: op }),
   setSimulationFlow: (flow) => set((state) => ({ simulationFlow: { ...state.simulationFlow, ...flow } })),
+  setSimulationDebug: (debug) => set({ simulationDebug: debug }),
 
   // Undo/Redo (由后端管理)
   undo: () => {

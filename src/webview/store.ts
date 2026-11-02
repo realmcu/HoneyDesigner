@@ -70,6 +70,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => ({
   isSimulationRunning: false, // 仿真运行状态
   operationInProgress: null, // 当前正在执行的操作
   simulationFlow: { convert: true, codegen: true, simulate: true }, // 仿真流程配置，默认全部启用
+  simulationDebug: false, // 调试开关，默认关闭（以任务方式运行仿真器）
   guiVersion: null, // GUI 库版本信息
   selectedAsset: null, // 选中的资源（文件夹或图片）
   conversionConfig: null, // 转换配置

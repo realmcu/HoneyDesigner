@@ -506,6 +506,83 @@
   white-space: normal;
 }
 
+.sim-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--vscode-menu-separatorBackground, #454545);
+}
+
+/* 调试开关：紧贴「仿真」行，左侧内缩表示从属关系 */
+.sim-menu-debug {
+  padding-left: 26px;
+}
+
+/* 开启态不再改文字颜色：蓝色文字在蓝色开关旁对比度低，
+   且 hover 时菜单底色也是蓝色，会造成蓝底蓝字看不清。
+   改用「加粗 + 开关本身着色」表达状态，文字保持前景色。 */
+.sim-menu-debug.active {
+  font-weight: 600;
+}
+
+/* hover/键盘聚焦时按菜单选中色反白，需覆盖上面的加粗与图标着色保持可读 */
+.sim-menu-debug:hover,
+.sim-menu-debug:focus-visible {
+  color: var(--vscode-menu-selectionForeground, #ffffff);
+}
+
+.sim-menu-debug:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+.sim-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 14px;
+  margin-left: auto;
+  border-radius: 7px;
+  background: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #555555);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sim-switch.on {
+  background: var(--vscode-textLink-foreground, #3794ff);
+  border-color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.sim-switch-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--vscode-editor-background, #1e1e1e);
+  transition: transform 0.15s ease;
+}
+
+/* 菜单项 hover 时底色变蓝，蓝色开关会和背景融为一体。
+   此时给开关加浅色描边、滑块改白，保证开启状态仍然可辨。 */
+.sim-menu-debug:hover .sim-switch.on {
+  border-color: var(--vscode-menu-selectionForeground, #ffffff);
+  box-shadow: 0 0 0 1px var(--vscode-menu-selectionForeground, #ffffff);
+}
+
+.sim-menu-debug:hover .sim-switch.on .sim-switch-knob {
+  background: var(--vscode-menu-selectionForeground, #ffffff);
+}
+
+.sim-menu-debug:hover .sim-switch:not(.on) {
+  border-color: var(--vscode-menu-selectionForeground, #ffffff);
+}
+
+.sim-switch.on .sim-switch-knob {
+  transform: translateX(12px);
+}
+
 .flow-checkbox {
   width: 16px;
   height: 16px;

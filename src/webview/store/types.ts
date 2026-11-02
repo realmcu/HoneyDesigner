@@ -84,6 +84,9 @@ export interface DesignerStore extends DesignerState {
   // 仿真流程配置（可独立勾选 convert / codegen / simulate，默认全部启用）
   simulationFlow: { convert: boolean; codegen: boolean; simulate: boolean };
   setSimulationFlow: (flow: Partial<{ convert: boolean; codegen: boolean; simulate: boolean }>) => void;
+  // 调试开关：开启后用调试会话运行仿真器（依赖 simulate 阶段，开启时自动勾选 simulate）
+  simulationDebug: boolean;
+  setSimulationDebug: (debug: boolean) => void;
 
   // Assets
   setAssetCategory: (category: 'all' | 'images' | 'svgs' | 'videos' | 'models' | 'fonts' | 'glass' | 'lottie' | 'trmap') => void;

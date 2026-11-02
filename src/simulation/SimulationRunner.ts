@@ -19,6 +19,13 @@ export interface SimulationFlow {
     codegen?: boolean;
     /** 编译并运行仿真器 */
     simulate?: boolean;
+    /**
+     * 运行方式（仅在 simulate 阶段生效）
+     * - task：以 VS Code 任务方式运行，输出进任务终端（默认）
+     * - debug：以调试会话方式运行，支持断点、单步和变量查看
+     *   只能调试引擎以外的代码（项目生成代码 / port 层），引擎预编译库不含调试信息
+     */
+    runMode?: 'task' | 'debug';
 }
 
 /**
@@ -39,6 +46,8 @@ export class SimulationRunner {
     private processMonitorInterval: NodeJS.Timeout | null = null; // 进程监听定时器
     private hasExited: boolean = false; // 标记是否已经处理过退出事件
     private isCancelled: boolean = false; // 标记是否已取消（用于中止启动流程）
+    private debugSession: vscode.DebugSession | null = null; // 当前调试会话
+    private debugSessionListener: vscode.Disposable | null = null; // 调试会话结束监听器
 
     constructor(projectRoot: string, sdkPath: string, outputChannel: vscode.OutputChannel) {
         this.projectRoot = projectRoot;
@@ -68,6 +77,7 @@ export class SimulationRunner {
             convert: options?.flow?.convert ?? true,
             codegen: options?.flow?.codegen ?? true,
             simulate: options?.flow?.simulate ?? true,
+            runMode: options?.flow?.runMode ?? 'task' as 'task' | 'debug',
         };
         // 需要准备 build 目录的场景：资源转换（产物输出）或仿真（编译）
         const needBuildDir = flow.convert || flow.simulate;
@@ -87,7 +97,7 @@ export class SimulationRunner {
                 }
                 // LVGL 的资源转换在仿真流程内部统一完成
                 if (flow.simulate) {
-                    await this.startLvglSimulation();
+                    await this.startLvglSimulation(flow.runMode === 'debug');
                     this.isRunning = true;
                     this.listener?.onSuccess?.();
                 } else if (flow.convert) {
@@ -151,7 +161,12 @@ export class SimulationRunner {
                 await this.compile();
                 this.throwIfCancelled();
 
-                await this.run();
+                // 运行方式：debug 走调试会话，其余走任务终端
+                if (flow.runMode === 'debug') {
+                    await this.runDebug();
+                } else {
+                    await this.run();
+                }
 
                 this.isRunning = true;
                 this.listener?.onSuccess?.();
@@ -184,7 +199,25 @@ export class SimulationRunner {
         if (this.buildManager) {
             this.buildManager.abort();
         }
-        
+
+        // 终止调试会话（调试运行方式）
+        if (this.debugSession) {
+            this.log(vscode.l10n.t('Stopping debug session...'));
+            const session = this.debugSession;
+            this.debugSession = null;
+            // 先摘掉监听器，避免 stopDebugging 触发 onExit 造成重复提示
+            if (this.debugSessionListener) {
+                this.debugSessionListener.dispose();
+                this.debugSessionListener = null;
+            }
+            this.hasExited = true;
+            try {
+                await vscode.debug.stopDebugging(session);
+            } catch (err) {
+                this.log(vscode.l10n.t('Failed to stop debug session: {0}', String(err)));
+            }
+        }
+
         // 终止任务
         if (this.currentTask) {
             this.log(vscode.l10n.t('Stopping simulator task...'));
@@ -389,9 +422,194 @@ export class SimulationRunner {
     }
 
     /**
+     * 以调试会话方式运行仿真器
+     *
+     * 依赖 ms-vscode.cpptools 提供的 cppdbg 调试器，未安装时给出提示而不是静默失败。
+     * 调试能力边界：项目生成的 C 代码与 port 层由 -gdwarf-2 编译，可断点、单步、查看变量；
+     * 引擎预编译库（libgui.a）不含调试信息，只能按其符号下断点并查看调用栈函数名。
+     */
+    private async runDebug(): Promise<void> {
+        if (!this.buildManager) {
+            throw new Error(vscode.l10n.t('Build manager is not initialized'));
+        }
+
+        await this.startDebugSession(
+            this.buildManager.getExecutablePath(),
+            this.buildManager.getBuildDir()
+        );
+    }
+
+    /**
+     * 启动调试会话（HoneyGUI 与 LVGL 共用）
+     */
+    private async startDebugSession(exePath: string, buildDir: string): Promise<void> {
+        if (!fs.existsSync(exePath)) {
+            throw new Error(vscode.l10n.t('Simulator executable not found: {0}', exePath));
+        }
+
+        // 调试器依赖检查
+        await this.ensureDebuggerAvailable();
+
+        const miDebuggerPath = await this.resolveGdbPath();
+        if (!miDebuggerPath) {
+            throw new Error(vscode.l10n.t('Cannot find gdb. Make sure the MinGW toolchain is on PATH.'));
+        }
+
+        this.log(vscode.l10n.t('Starting simulator in debug mode: {0}', exePath));
+        this.log(vscode.l10n.t('Working directory: {0}', buildDir));
+        this.log(vscode.l10n.t('Using gdb: {0}', miDebuggerPath));
+
+        // 停止已有实例，避免两个仿真器抢同一个 SDL 窗口
+        if (this.currentTask || this.currentProcess || this.debugSession) {
+            await this.stop();
+        }
+
+        const config: vscode.DebugConfiguration = {
+            type: 'cppdbg',
+            request: 'launch',
+            name: vscode.l10n.t('HoneyGUI Simulator'),
+            program: exePath,
+            cwd: buildDir,
+            MIMode: 'gdb',
+            miDebuggerPath,
+            externalConsole: false,
+            environment: [{ name: 'SDL_STDIO_REDIRECT', value: '0' }],
+            setupCommands: [
+                { description: 'Enable pretty-printing', text: '-enable-pretty-printing', ignoreFailures: true }
+            ]
+        };
+
+        this.hasExited = false;
+
+        // 先监听会话启动，避免 startDebugging 返回后到赋值之间会话就结束的竞态
+        const sessionPromise = new Promise<vscode.DebugSession | null>((resolve) => {
+            const startListener = vscode.debug.onDidStartDebugSession((session) => {
+                if (session.type === config.type && session.name === config.name) {
+                    startListener.dispose();
+                    resolve(session);
+                }
+            });
+            // 兜底：适配器迟迟不建立会话时不无限等待
+            setTimeout(() => {
+                startListener.dispose();
+                resolve(vscode.debug.activeDebugSession ?? null);
+            }, 15000);
+        });
+
+        const started = await vscode.debug.startDebugging(undefined, config);
+        if (!started) {
+            throw new Error(vscode.l10n.t('Failed to start debug session. Check the C/C++ extension output for details.'));
+        }
+
+        this.debugSession = await sessionPromise;
+        if (!this.debugSession) {
+            throw new Error(vscode.l10n.t('Failed to start debug session. Check the C/C++ extension output for details.'));
+        }
+
+        this.debugSessionListener = vscode.debug.onDidTerminateDebugSession((session) => {
+            if (session === this.debugSession) {
+                this.handleDebugSessionEnd();
+            }
+        });
+
+        this.log(vscode.l10n.t('Debug session started'));
+        this.log(vscode.l10n.t('Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping'));
+    }
+
+    /**
+     * 检查 cppdbg 调试器是否可用，不可用时引导安装
+     */
+    private async ensureDebuggerAvailable(): Promise<void> {
+        const debuggerAvailable = vscode.extensions.getExtension('ms-vscode.cpptools');
+        if (debuggerAvailable) {
+            return;
+        }
+
+        const install = vscode.l10n.t('Install');
+        const choice = await vscode.window.showWarningMessage(
+            vscode.l10n.t('Debugging the simulator requires the C/C++ extension (ms-vscode.cpptools).'),
+            install
+        );
+
+        if (choice !== install) {
+            throw new Error(vscode.l10n.t('Debugging cancelled: the C/C++ extension is required.'));
+        }
+
+        try {
+            await vscode.commands.executeCommand('workbench.extensions.installExtension', 'ms-vscode.cpptools');
+        } catch (error) {
+            throw new Error(
+                vscode.l10n.t('Failed to install the C/C++ extension: {0}', error instanceof Error ? error.message : String(error))
+            );
+        }
+
+        throw new Error(vscode.l10n.t('C/C++ extension installed. It takes effect after VS Code reloads; run again afterwards.'));
+    }
+
+    /**
+     * 解析 gdb 路径：优先 PATH，其次与 gcc 同目录（menu_config.py 也要求 gcc 在 PATH）
+     */
+    private async resolveGdbPath(): Promise<string | null> {
+        const candidates = ['gdb'];
+        const gccPath = await this.whichCommand('gcc');
+        if (gccPath) {
+            const dir = path.dirname(gccPath);
+            candidates.push(path.join(dir, process.platform === 'win32' ? 'gdb.exe' : 'gdb'));
+        }
+
+        for (const candidate of candidates) {
+            const resolved = await this.whichCommand(candidate);
+            if (resolved) {
+                return resolved;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 在 PATH 中查找可执行文件，返回绝对路径；找不到返回 null
+     */
+    private async whichCommand(command: string): Promise<string | null> {
+        return new Promise((resolve) => {
+            const probe = process.platform === 'win32' ? `where ${command}` : `command -v ${command}`;
+            exec(probe, { windowsHide: true }, (error, stdout) => {
+                if (error || !stdout) {
+                    resolve(null);
+                    return;
+                }
+                const first = stdout.split(/\r?\n/).map(line => line.trim()).find(line => line.length > 0);
+                resolve(first ?? null);
+            });
+        });
+    }
+
+    /**
+     * 处理调试会话结束
+     */
+    private handleDebugSessionEnd(): void {
+        if (this.hasExited) {
+            return;
+        }
+        this.hasExited = true;
+
+        const wasManuallyStopped = this.isManuallyStopped;
+        this.log(vscode.l10n.t('Debug session ended'));
+        this.debugSession = null;
+        this.isRunning = false;
+
+        if (this.debugSessionListener) {
+            this.debugSessionListener.dispose();
+            this.debugSessionListener = null;
+        }
+
+        this.listener?.onExit?.(wasManuallyStopped ? null : 0);
+    }
+
+    /**
      * 启动 LVGL 仿真（基于 honeygui-design/lvgl-pc）
      */
-    private async startLvglSimulation(): Promise<void> {
+    private async startLvglSimulation(debug: boolean = false): Promise<void> {
         const lvglPcRoot = this.getLvglPcRoot();
         this.log(vscode.l10n.t('Using LVGL PC project: {0}', lvglPcRoot));
 
@@ -427,6 +645,10 @@ export class SimulationRunner {
             // cc.exe（如 runner 预装的不同版本 GCC），导致 C/C++ 编译器版本不一致而链接失败
             cmakeArgs.unshift('-G', 'MinGW Makefiles', '-DCMAKE_C_COMPILER=gcc', '-DCMAKE_CXX_COMPILER=g++');
         }
+        // 调试运行需要可执行文件本身带调试信息；预编译的 liblvgl.a 不含调试信息
+        if (debug) {
+            cmakeArgs.push('-DCMAKE_BUILD_TYPE=Debug');
+        }
         // 传递 FFmpeg 路径（从环境变量 FFMPEG_ROOT 获取）
         const ffmpegRoot = process.env.FFMPEG_ROOT;
         if (ffmpegRoot) {
@@ -444,6 +666,11 @@ export class SimulationRunner {
         const exePath = path.join(lvglPcRoot, 'build', exeName);
         if (!fs.existsSync(exePath)) {
             throw new Error(vscode.l10n.t('LVGL executable not found: {0}', exePath));
+        }
+
+        if (debug) {
+            await this.startDebugSession(exePath, path.join(lvglPcRoot, 'build'));
+            return;
         }
 
         await this.runTaskExecutable(exePath, path.join(lvglPcRoot, 'build'), 'LVGL PC Simulator', 'LVGL');
@@ -1059,6 +1286,10 @@ export class SimulationRunner {
         if (this.taskEndListener) {
             this.taskEndListener.dispose();
             this.taskEndListener = null;
+        }
+        if (this.debugSessionListener) {
+            this.debugSessionListener.dispose();
+            this.debugSessionListener = null;
         }
         this.buildManager?.dispose();
     }

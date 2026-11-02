@@ -635,5 +635,21 @@
   "Font resources are missing or outdated. Converting resources: {0}": "字体资源缺失或已过期，正在转换资源：{0}",
   "Font resources could not be prepared: {0}": "字体资源准备失败：{0}",
   "Browser simulation currently supports the HoneyGUI engine only. Use VS Code to simulate LVGL projects.": "浏览器仿真目前只支持 HoneyGUI 引擎。LVGL 工程请在 VS Code 中仿真。",
-  "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.": "本站点未部署编译器，无法完整仿真。请使用快速预览，或在 VS Code 中仿真。"
+  "Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.": "本站点未部署编译器，无法完整仿真。请使用快速预览，或在 VS Code 中仿真。",
+  "Simulator executable not found: {0}": "找不到仿真器可执行文件：{0}",
+  "Starting simulator in debug mode: {0}": "以调试方式启动仿真器：{0}",
+  "Using gdb: {0}": "使用的 gdb：{0}",
+  "Stopping debug session...": "正在停止调试会话...",
+  "Failed to stop debug session: {0}": "停止调试会话失败：{0}",
+  "Failed to start debug session. Check the C/C++ extension output for details.": "调试会话启动失败，请查看 C/C++ 扩展的输出了解详情。",
+  "Debug session started": "调试会话已启动",
+  "Debug session ended": "调试会话已结束",
+  "Debugging the simulator requires the C/C++ extension (ms-vscode.cpptools).": "调试仿真器需要 C/C++ 扩展（ms-vscode.cpptools）。",
+  "Install": "安装",
+  "Debugging cancelled: the C/C++ extension is required.": "已取消调试：需要安装 C/C++ 扩展。",
+  "Failed to install the C/C++ extension: {0}": "安装 C/C++ 扩展失败：{0}",
+  "C/C++ extension installed. It takes effect after VS Code reloads; run again afterwards.": "C/C++ 扩展已安装，需要重载 VS Code 后生效，请稍后重试。",
+  "Cannot find gdb. Make sure the MinGW toolchain is on PATH.": "找不到 gdb，请确认 MinGW 工具链已加入 PATH。",
+  "HoneyGUI Simulator": "HoneyGUI 仿真器",
+  "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "提示：仿真器输出和程序日志显示在「调试控制台」，停止后仍可查看"
 }

@@ -48,6 +48,13 @@ out/src/test/**
 scripts/**
 docs/**
 
+# 已移除功能的编译残留：源文件在 c645d99b "remove collaboration feature" 中删除，
+# 但 tsc 不会清理 out/ 下的旧 .js，导致打包时仍会被 check-dependencies 扫到（ws 依赖）
+out/src/core/CollaborationService.js
+out/src/core/CollaborationService.js.map
+out/src/designer/CollaborationController.js
+out/src/designer/CollaborationController.js.map
+
 # Tools - 只保留运行时需要的工具
 tools/**
 !tools/mpcli_meta_tool_py_v4.0.0.4/**

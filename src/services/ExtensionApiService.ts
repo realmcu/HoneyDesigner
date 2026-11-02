@@ -116,7 +116,7 @@ export class ExtensionApiService implements vscode.Disposable {
             method: 'POST',
             command: 'honeygui.simulation.debug',
             title: 'Debug Simulation',
-            description: 'Build and debug simulation',
+            description: 'Build then launch the simulator in a debug session',
             needsUI: false
         },
         {
@@ -688,7 +688,7 @@ export class ExtensionApiService implements vscode.Disposable {
 
     /**
      * POST /api/simulation/debug - 调试仿真
-     * 复用命令: honeygui.simulation.debug
+     * 复用命令: honeygui.simulation.debug（编译后以调试会话运行）
      */
     private async handleSimulationDebug(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         await this.executeCommand('honeygui.simulation.debug', res);
