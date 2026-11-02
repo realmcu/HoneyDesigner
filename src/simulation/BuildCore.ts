@@ -6,7 +6,7 @@ import { minimatch } from 'minimatch';
 import { ImageConverterService, ImageConvertOptions, ConvertResult, CompressionType, YuvSampleMode, YuvBlurBits } from '../services/ImageConverterService';
 import { VideoConverterService } from '../services/VideoConverterService';
 import { Model3DConverterService } from '../services/Model3DConverterService';
-import { FontConverterService, FontConvertOptions } from '../services/FontConverterService';
+import { FontConverterService, FontConvertOptions, CharacterSetItem } from '../services/FontConverterService';
 import { GlassConverterService, GlassConvertOptions, GlassConvertResult } from '../services/GlassConverterService';
 import { ConversionConfigService, VideoFormat, ConversionConfig, YuvBlur, VideoScaleConfig, VideoCropConfig, PreprocessOrder } from '../services/ConversionConfigService';
 import { SamplingFactor } from '../../tools/image-to-jpeg-converter/src/index';
@@ -14,9 +14,11 @@ import { ProjectConfig, DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig'
 import { RomfsConfig } from '../common/RomfsConfig';
 import { generateRomfsC, romfsRootName } from './RomfsC';
 import { ConversionCache } from './ConversionCache';
+import { FontManifestGroup, loadFontManifest, manifestCovers, saveFontManifest } from './FontManifest';
 import { buildSConstruct } from './SConstructTemplate';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
+import { CharsetProcessor } from '../../tools/font-converter/src/charset-processor';
 import { imageFileHasAlpha } from '../utils/imageAlpha';
 import { loadProjectI18nCatalog } from '../project-i18n/files';
 import { summarizeI18nAutoCharsetForKeys } from '../project-i18n/autoCharset';
@@ -398,6 +400,13 @@ Return('objs')
         }
     }
 
+    /**
+     * 找出还没有按当前 HML 需求准备好的字体产物。
+     *
+     * 判据是「该字体组已转换的码点是否覆盖当前需求」，而不是 HML 的修改时间：
+     * 改控件坐标、增删无关控件都不再触发字体重转。字体文件与字符集文件变化由
+     * 清单指纹负责（见 FontManifest）。
+     */
     public async findStaleFontAsset(): Promise<string | undefined> {
         const configs = await this.getLabelFontConfigs();
         if (configs.length === 0) {
@@ -408,23 +417,169 @@ Return('objs')
         const outputDir = path.join(this.buildDir, 'assets');
         const romfsPath = path.join(this.buildDir, RomfsConfig.getFileName());
         const romfsTime = fs.existsSync(romfsPath) ? fs.statSync(romfsPath).mtimeMs : 0;
+        const manifest = loadFontManifest(this.buildDir);
+        const conversionConfig = ConversionConfigService.getInstance().loadConfig(this.projectRoot);
+        const projectI18nCatalog = loadProjectI18nCatalog(this.projectRoot);
 
-        for (const config of configs) {
-            const relativePath = config.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
-            const sourcePath = path.join(assetsDir, relativePath);
-            const fontName = path.basename(relativePath, path.extname(relativePath)).replace(/-/g, '_');
-            const outputName = config.fontType === 'vector'
-                ? `${fontName}_vector.bin`
-                : `${fontName}_size${config.fontSize}_bits${config.renderMode}_bitmap.bin`;
-            const outputPath = path.join(outputDir, path.dirname(relativePath), outputName);
-            const sourceTime = fs.existsSync(sourcePath) ? fs.statSync(sourcePath).mtimeMs : 0;
+        for (const group of this.groupLabelConfigsByFont(configs)) {
+            const fontRelativePath = group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
+            const sourcePath = path.join(assetsDir, fontRelativePath);
+
+            // 直接拷贝的字体产物是原文件名（不是转换后的 .bin），只要求拷贝结果不早于源文件
+            if (conversionConfig.items[group.fontFile.replace(/\\/g, '/')]?.fontCopyOnly) {
+                const fontDir = path.dirname(fontRelativePath);
+                const fontOutputDir = fontDir === '.' ? outputDir : path.join(outputDir, fontDir);
+                const copiedPath = path.join(fontOutputDir, path.basename(sourcePath));
+                const sourceTime = fs.existsSync(sourcePath) ? fs.statSync(sourcePath).mtimeMs : 0;
+                const copiedTime = fs.existsSync(copiedPath) ? fs.statSync(copiedPath).mtimeMs : 0;
+                if (!sourceTime || !copiedTime || copiedTime < sourceTime) {
+                    return copiedPath;
+                }
+                continue;
+            }
+
+            const outputPath = this.fontGroupOutputPath(group, outputDir);
             const outputTime = fs.existsSync(outputPath) ? fs.statSync(outputPath).mtimeMs : 0;
+            if (!outputTime || romfsTime < outputTime) {
+                return outputPath;
+            }
 
-            if (!sourceTime || !outputTime || romfsTime < Math.max(sourceTime, outputTime, config.sourceMtimeMs ?? 0)) {
+            const key = this.fontGroupManifestKey(group);
+            let fresh: boolean;
+            try {
+                fresh = manifestCovers(
+                    manifest,
+                    key,
+                    this.fontGroupFingerprint(group, assetsDir),
+                    this.fontGroupCharacters(group, projectI18nCatalog),
+                    group.fontType === 'vector' ? group.fontSize : 0,
+                );
+            } catch {
+                // 字符集本身无法解析时交给转换流程报错，这里不判定为新鲜
+                return outputPath;
+            }
+            if (!fresh) {
                 return outputPath;
             }
         }
         return undefined;
+    }
+
+    /**
+     * 字符集来源实际展开出的码点。
+     * 空值来源在这里丢弃（与 FontConverterService.convert 一致），否则 file / codepage 空串
+     * 会抛异常；这里只用于判新鲜，真正的错误留给转换流程报告。
+     */
+    private requestedCharacters(characterSets: Array<{ type: string; value: string }>): number[] {
+        const usable = characterSets.filter(cs => typeof cs.value === 'string' && cs.value.trim().length > 0);
+        return CharsetProcessor.mergeCharacterSources(usable as any, path.join(this.projectRoot, 'assets'));
+    }
+
+    /** 码点序列化为字符串存入清单（GBK 等上万码点，不能用展开运算符传参） */
+    private codepointsToString(chars: number[]): string {
+        const parts: string[] = [];
+        for (const cp of chars) {
+            parts.push(String.fromCodePoint(cp));
+        }
+        return parts.join('');
+    }
+
+    /** 字体组的分组键，与 groupLabelConfigsByFont 保持一致 */
+    private fontGroupManifestKey(group: { fontFile: string; fontSize: number; fontType: 'bitmap' | 'vector'; renderMode: number }): string {
+        return group.fontType === 'vector'
+            ? `${group.fontFile}|vector`
+            : `${group.fontFile}|${group.fontSize}|bitmap|${group.renderMode}`;
+    }
+
+    /** 字体组的产物路径，与 convertFontsWithLabelConfig 的命名规则一致 */
+    private fontGroupOutputPath(
+        group: { fontFile: string; fontSize: number; fontType: 'bitmap' | 'vector'; renderMode: number },
+        outputDir: string,
+    ): string {
+        const fontRelativePath = group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
+        const fontDir = path.dirname(fontRelativePath);
+        const fontOutputDir = fontDir === '.' ? outputDir : path.join(outputDir, fontDir);
+        const fontName = path.basename(fontRelativePath, path.extname(fontRelativePath)).replace(/-/g, '_');
+        const outputName = group.fontType === 'vector'
+            ? `${fontName}_vector.bin`
+            : `${fontName}_size${group.fontSize}_bits${group.renderMode}_bitmap.bin`;
+        return path.join(fontOutputDir, outputName);
+    }
+
+    /** 字体组当前需要覆盖的全部码点（文本 + i18n 文案 + 附加字符集），与转换时一致 */
+    private fontGroupCharacters(
+        group: {
+            characters: string;
+            i18nKeys: string[];
+            additionalCharSets: Array<{ type: 'range' | 'file' | 'codepage' | 'string'; value: string }>;
+        },
+        catalog: ReturnType<typeof loadProjectI18nCatalog>,
+    ): number[] {
+        const merged = this.buildFontCharacterSets(group, catalog);
+        return CharsetProcessor.mergeCharacterSources(merged as any, path.join(this.projectRoot, 'assets'));
+    }
+
+    /**
+     * 字体组的输入指纹：字体文件与字符集文件的内容指纹 + 影响产物内容的转换参数。
+     * 任一变化都必须重转，避免用到过期的字形数据。
+     *
+     * 矢量字体的字号只决定曲线精度，由清单的 precision 按最大值比较，不放进指纹；
+     * 放进来的话，改小字号会连带把精度更高的产物判为过期。
+     */
+    private fontGroupFingerprint(
+        group: {
+            fontFile: string;
+            fontSize: number;
+            fontType: 'bitmap' | 'vector';
+            renderMode: number;
+            additionalCharSets: Array<{ type: 'range' | 'file' | 'codepage' | 'string'; value: string }>;
+        },
+        assetsDir: string,
+    ): string {
+        const fontRelativePath = group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
+        const parts = [
+            ConversionCache.fileKey(path.join(assetsDir, fontRelativePath)) ?? 'missing',
+            group.fontType,
+            ...(group.fontType === 'vector' ? [] : [String(group.fontSize), String(group.renderMode)]),
+        ];
+        for (const cs of group.additionalCharSets) {
+            const resolved = CharsetSourceResolver.resolve(cs as any);
+            if (cs.type === 'file' || cs.type === 'codepage') {
+                const absolutePath = path.isAbsolute(resolved.value)
+                    ? resolved.value
+                    : path.resolve(this.projectRoot, path.normalize(resolved.value));
+                parts.push(`${cs.type}:${ConversionCache.fileKey(absolutePath) ?? 'missing'}`);
+            } else {
+                parts.push(`${cs.type}:${cs.value}`);
+            }
+        }
+        return parts.join('|');
+    }
+
+    /** 把字体组的需求展开为 CharsetProcessor 可消费的字符集来源（与转换时使用的完全一致） */
+    private buildFontCharacterSets(
+        group: {
+            characters: string;
+            i18nKeys: string[];
+            additionalCharSets: Array<{ type: 'range' | 'file' | 'codepage' | 'string'; value: string }>;
+        },
+        catalog: ReturnType<typeof loadProjectI18nCatalog>,
+    ): CharacterSetItem[] {
+        const autoCharset = summarizeI18nAutoCharsetForKeys(catalog, group.i18nKeys);
+        return [
+            { type: 'string', value: group.characters },
+            ...(autoCharset.source ? [autoCharset.source] : []),
+            ...group.additionalCharSets.map((cs): CharacterSetItem => {
+                const resolved = CharsetSourceResolver.resolve(cs);
+                if ((cs.type === 'file' || cs.type === 'codepage') && resolved.value) {
+                    const absolutePath = path.isAbsolute(resolved.value)
+                        ? resolved.value
+                        : path.resolve(this.projectRoot, path.normalize(resolved.value));
+                    return { type: cs.type, value: absolutePath };
+                }
+                return { type: cs.type, value: cs.value };
+            }),
+        ];
     }
 
     /**
@@ -2083,6 +2238,9 @@ Return('objs')
         }
         
         const fontConverter = new FontConverterService();
+        // 转换完成后写入的覆盖清单，供下次判断能否跳过（见 FontManifest）
+        const manifest = loadFontManifest(this.buildDir);
+        const manifestGroups: Record<string, FontManifestGroup> = {};
 
         for (const group of fontGroups) {
             const fontRelativePath = group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -2124,28 +2282,37 @@ Return('objs')
             }
 
             const groupI18nAutoCharset = summarizeI18nAutoCharsetForKeys(projectI18nCatalog, group.i18nKeys);
-            const mergedCharacterSets = [
-                // 使用合并后的字符集（文本字符）
-                { type: 'string' as const, value: group.characters },
-                ...(groupI18nAutoCharset.source ? [groupI18nAutoCharset.source] : []),
-                // 添加附加字符集，将文件路径转换为绝对路径
-                ...group.additionalCharSets.map(cs => {
-                    // 先解析预置标识符（如 "GBK.cst"/"CP936"）为插件内绝对路径；
-                    // resolver 不改变 type，自定义路径原样返回再按 projectRoot 还原。
-                    const resolved = CharsetSourceResolver.resolve(cs as any);
-                    if ((cs.type === 'file' || cs.type === 'codepage') && resolved.value) {
-                        let absolutePath: string;
-                        if (path.isAbsolute(resolved.value)) {
-                            absolutePath = resolved.value;
-                        } else {
-                            const normalizedPath = path.normalize(resolved.value);
-                            absolutePath = path.resolve(this.projectRoot, normalizedPath);
-                        }
-                        return { type: cs.type, value: absolutePath };
-                    }
-                    return cs;
-                })
-            ];
+            // 与 findStaleFontAsset 共用同一套字符集展开，保证「判新鲜」和「实际转换」的范围一致
+            const mergedCharacterSets = this.buildFontCharacterSets(group, projectI18nCatalog);
+
+            // 上次转换已覆盖当前需求、且产物还在时跳过：改控件坐标、增删无关控件、新增已在
+            // 附加字符集范围内的字符都不再重转字库。进度标签同样跳过——它的字符需求固定为
+            // 数字与符号，与设计期文本无关；若其字号恰好并入某个大字体组，重转代价很高。
+            // 判新鲜失败（字符集无法解析）时按需要重转处理，错误交给下面的转换流程报告。
+            const manifestKey = this.fontGroupManifestKey(group);
+            const existingGroup = manifest.groups[manifestKey];
+            let covered = false;
+            if (existingGroup) {
+                try {
+                    covered = manifestCovers(
+                        manifest,
+                        manifestKey,
+                        this.fontGroupFingerprint(group, assetsDir),
+                        this.requestedCharacters(mergedCharacterSets),
+                        group.fontType === 'vector' ? group.fontSize : 0,
+                    );
+                } catch {
+                    covered = false;
+                }
+            }
+            if (covered) {
+                const existingPath = this.fontGroupOutputPath(group, outputDir);
+                if (fs.existsSync(existingPath)) {
+                    manifestGroups[manifestKey] = existingGroup;
+                    results.push({ success: true, inputPath: fontPath, outputPath: fontOutputDir });
+                    continue;
+                }
+            }
 
             // 构建转换选项
             const options: FontConvertOptions = {
@@ -2187,7 +2354,12 @@ Return('objs')
                 }
                 
                 if (result.success) {
-                    // 成功时不显示日志，只在最后统计
+                    // 记下本次实际覆盖的范围，下次同样需求即可跳过转换
+                    manifestGroups[this.fontGroupManifestKey(group)] = {
+                        fingerprint: this.fontGroupFingerprint(group, assetsDir),
+                        chars: this.codepointsToString(this.requestedCharacters(mergedCharacterSets)),
+                        precision: group.fontType === 'vector' ? group.fontSize : 0,
+                    };
                 } else {
                     // 失败时显示详细信息，方便调试
                     this.logger.log(vscode.l10n.t('Converting font: {0} ({1}, size={2}, bits={3})', group.fontFile, group.fontType, group.fontSize, group.renderMode));
@@ -2290,6 +2462,9 @@ Return('objs')
                 this.logger.log(vscode.l10n.t('Forced font conversion error: {0} - {1}', fontRelPath, error.message), true);
             }
         }
+
+        // 只记录本次成功转换的组；转换失败的组不进清单，下次仍会重转
+        saveFontManifest(this.buildDir, { version: 1, groups: manifestGroups });
 
         return results;
     }

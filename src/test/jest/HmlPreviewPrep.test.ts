@@ -120,9 +120,32 @@ describe('fontRequirementsCovered', () => {
     expect(fontRequirementsCovered(converted, fontRequirementsOf([label('Normal', ` characterSets='[]'`)]))).toBe(false);
   });
 
-  it('groups vector fonts regardless of size', () => {
+  it('shares one vector group and keeps converted characters across sizes', () => {
+    const converted = fontRequirementsOf([label('ab', ' fontType="vector"')]);
+    const sameSize = label('ba', ' fontType="vector"');
+    expect(fontRequirementsCovered(converted, fontRequirementsOf([sameSize]))).toBe(true);
+  });
+
+  it('rejects a larger vector size because curve precision is bounded by the max', () => {
     const converted = fontRequirementsOf([label('ab', ' fontType="vector"')]);
     const bigger = label('ba', ' fontType="vector"').replace('20', '48');
-    expect(fontRequirementsCovered(converted, fontRequirementsOf([bigger]))).toBe(true);
+    expect(fontRequirementsCovered(converted, fontRequirementsOf([bigger]))).toBe(false);
+  });
+
+  it('accepts a smaller vector size and is unaffected by adding then removing one', () => {
+    const converted = fontRequirementsOf([
+      label('ab', ' fontType="vector"'),
+      label('ab', ' fontType="vector"').replace('20', '48'),
+    ]);
+    const smaller = label('ba', ' fontType="vector"').replace('20', '12');
+    expect(fontRequirementsCovered(converted, fontRequirementsOf([smaller]))).toBe(true);
+    // 转换时含 48，之后删掉 48 所在控件，剩下的 20 仍被覆盖
+    const remaining = label('ba', ' fontType="vector"');
+    expect(fontRequirementsCovered(converted, fontRequirementsOf([remaining]))).toBe(true);
+  });
+
+  it('keeps bitmap groups bound to their exact size', () => {
+    const converted = fontRequirementsOf([label('ab')]);
+    expect(fontRequirementsCovered(converted, fontRequirementsOf([label('ab').replace('20', '12')]))).toBe(false);
   });
 });

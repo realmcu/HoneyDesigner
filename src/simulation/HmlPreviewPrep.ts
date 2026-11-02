@@ -84,6 +84,15 @@ export type FontRequirements = Map<string, Set<string>>;
 
 const FONT_LABEL_TAGS = new Set(['hg_label', 'hg_time_label', 'hg_timer_label']);
 
+/** 矢量字体组的曲线离散精度标记：组内最大字号，越大轮廓越精细 */
+export function vectorPrecisionToken(fontSize: string | number | undefined): string {
+    return `p:${(typeof fontSize === 'number' ? fontSize : Number(fontSize)) || 16}`;
+}
+
+function precisionOf(token: string): number {
+    return Number(token.slice(2)) || 0;
+}
+
 export function fontRequirementsOf(contents: Iterable<string>): FontRequirements {
     const groups: FontRequirements = new Map();
     for (const content of contents) {
@@ -96,13 +105,19 @@ export function fontRequirementsOf(contents: Iterable<string>): FontRequirements
             if (!fontFile) {
                 continue;
             }
-            const key = attrs.get('fontType') === 'vector'
+            const isVector = attrs.get('fontType') === 'vector';
+            const key = isVector
                 ? `${fontFile}|vector`
                 : `${fontFile}|${attrs.get('fontSize') ?? '16'}|${attrs.get('renderMode') ?? '4'}`;
             let tokens = groups.get(key);
             if (!tokens) {
                 tokens = new Set();
                 groups.set(key, tokens);
+            }
+            // 矢量字形按字体原始单位存储，字号只决定曲线离散精度，转换时取组内最大值。
+            // 逐标签记标记、比较时取最大，避免先 +20 再 -20 的抖动改变集合本身。
+            if (isVector) {
+                tokens.add(vectorPrecisionToken(attrs.get('fontSize')));
             }
             for (const ch of attrs.get('text') ?? '') {
                 tokens.add(`c:${ch}`);
@@ -120,17 +135,34 @@ export function fontRequirementsOf(contents: Iterable<string>): FontRequirements
     return groups;
 }
 
-/** converted 转换出的字体是否已包含 next 需要的全部内容（少了字符不必重新转换） */
+/**
+ * converted 转换出的字体是否已包含 next 需要的全部内容。
+ * 少了字符不必重新转换；矢量精度按最大值比较，只有出现更大的字号才失效。
+ */
 export function fontRequirementsCovered(converted: FontRequirements, next: FontRequirements): boolean {
     for (const [key, tokens] of next) {
         const have = converted.get(key);
         if (!have) {
             return false;
         }
+        let nextPrecision = 0;
+        let havePrecision = 0;
+        for (const token of have) {
+            if (token.startsWith('p:')) {
+                havePrecision = Math.max(havePrecision, precisionOf(token));
+            }
+        }
         for (const token of tokens) {
+            if (token.startsWith('p:')) {
+                nextPrecision = Math.max(nextPrecision, precisionOf(token));
+                continue;
+            }
             if (!have.has(token)) {
                 return false;
             }
+        }
+        if (nextPrecision > havePrecision) {
+            return false;
         }
     }
     return true;
