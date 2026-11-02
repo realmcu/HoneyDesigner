@@ -67,13 +67,14 @@ const WINDOW_CHROME_WIDTH = 22;
 const WINDOW_MIN_WIDTH = 280;
 
 /**
- * 画面放大倍数：小屏放大到 2 倍以便看清，但最多占页面宽度的一半（留出设计器），
+ * 画面缩放倍数：与桌面模拟器一样按引擎分辨率 1:1 显示，不放大（放大会把引擎的像素边缘
+ * 成倍放大成锯齿）；放不下时才缩小，最多占页面宽度的一半（留出设计器），
  * 高度留出标题栏、提示与边距。
  */
 function fitScale(width: number, height: number, viewport: { w: number; h: number }): number {
     const availableWidth = Math.min(viewport.w * 0.5, viewport.w - 48);
     const availableHeight = viewport.h - 220;
-    const scale = Math.min(2, availableWidth / width, availableHeight / height);
+    const scale = Math.min(1, availableWidth / width, availableHeight / height);
     return Math.max(0.25, Math.floor(scale * 4) / 4);
 }
 

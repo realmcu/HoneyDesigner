@@ -609,7 +609,8 @@
 .web-sim-progress { display: flex; flex-direction: column; gap: 6px; min-width: 260px; }
 .web-sim-bar { height: 4px; background: var(--vscode-input-background); border-radius: 2px; overflow: hidden; }
 .web-sim-bar-fill { height: 100%; background: var(--vscode-progressBar-background); transition: width 0.2s; }
-.web-sim-canvas { image-rendering: pixelated; background: #000; display: block; outline: none; }
+/* 缩小或高 DPI 屏的非整数倍缩放用平滑插值，pixelated 会让像素宽窄不一 */
+.web-sim-canvas { image-rendering: auto; background: #000; display: block; outline: none; }
 
 /* 硬件按键：与桌面模拟器底部的圆形按键一致，四枚均分一行 */
 .web-sim-keys {
