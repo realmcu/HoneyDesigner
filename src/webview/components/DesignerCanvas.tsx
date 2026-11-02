@@ -48,6 +48,8 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [pendingDragComponent, setPendingDragComponent] = useState<string | null>(null);
+  // 按在已选中组件范围内时实际点到的组件：松开时若未拖动则改选它
+  const pendingClickSelectRef = useRef<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 }); // 组件拖拽起始位置
   const [alignmentLines, setAlignmentLines] = useState<AlignmentLine[]>([]); // 对齐辅助线
@@ -284,7 +286,29 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     
     let component = components.find(c => c.id === componentId);
     if (!component) return;
-    
+
+    // 按在已选中组件的范围内时拖动已选中组件，即使上面盖着其他组件；
+    // 没有拖动就松开，才按点击选中最上层的组件（见 handleComponentMouseUp）
+    pendingClickSelectRef.current = null;
+    const hasModifier = e.ctrlKey || e.metaKey || e.shiftKey || e.altKey;
+    if (!hasModifier && !selectedComponents.includes(componentId)) {
+      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+      const selectedUnderPointer = coords && selectedComponents
+        .map(id => components.find(c => c.id === id))
+        .find((comp): comp is Component => {
+          if (!comp || isContainerType(comp.type) || comp.type === 'hg_list_item') return false;
+          if (comp.locked || comp.visible === false) return false;
+          const absPos = getAbsolutePosition(comp, components);
+          return coords.x >= absPos.x && coords.x <= absPos.x + comp.position.width
+            && coords.y >= absPos.y && coords.y <= absPos.y + comp.position.height;
+        });
+      if (selectedUnderPointer) {
+        pendingClickSelectRef.current = componentId;
+        component = selectedUnderPointer;
+        componentId = selectedUnderPointer.id;
+      }
+    }
+
     // 如果点击的是容器组件，启动框选定时器
     if (isContainerType(component.type)) {
       const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
@@ -366,7 +390,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     const multi = (e.ctrlKey || e.metaKey || e.shiftKey) && !e.altKey;
     if (multi) {
       addToSelection(componentId);
-    } else {
+    } else if (!pendingClickSelectRef.current) {
       onComponentSelect(componentId);
     }
 
@@ -615,7 +639,14 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     
     // 记录是否有拖拽操作
     const hadDragOperation = !!draggedComponent;
-    
+
+    // 在已选中组件范围内单击（未拖动）：选中被点到的最上层组件
+    const clickSelectId = pendingClickSelectRef.current;
+    pendingClickSelectRef.current = null;
+    if (clickSelectId && !hadDragOperation) {
+      onComponentSelect(clickSelectId);
+    }
+
     // 处理跨容器拖拽（框选移动不触发跨容器拖拽）
     // 注意：禁用自动跨容器移动，避免误操作
     // 用户可以通过属性面板手动修改父容器
