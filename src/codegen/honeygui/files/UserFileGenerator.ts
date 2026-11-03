@@ -4,6 +4,12 @@
  */
 import { Component } from '../../../hml/types';
 
+const USER_FILE_BANNER = `/**
+ * USER-OWNED FILE - GENERATED ONCE BY HONEYGUI AUTOGEN.
+ * This file is not overwritten after creation; edit it freely.
+ */
+`;
+
 export class UserFileGenerator {
 
   /**
@@ -11,16 +17,11 @@ export class UserFileGenerator {
    */
   generateHeader(baseName: string, listComponents: Component[] = []): string {
     const guardName = `${baseName.toUpperCase()}_USER_H`;
-    let code = `#ifndef ${guardName}
+    let code = `${USER_FILE_BANNER}#ifndef ${guardName}
 #define ${guardName}
 
 #include "../callbacks/${baseName}_callbacks.h"
 #include "../ui/${baseName}_ui.h"
-
-/**
- * User-defined header file
- * This file is generated once only, feel free to modify
- */
 
 // Add custom declarations here
 `;
@@ -41,12 +42,7 @@ export class UserFileGenerator {
    * Generate user implementation file
    */
   generateImplementation(baseName: string, listComponents: Component[] = []): string {
-    let code = `#include "${baseName}_user.h"
-
-/**
- * User-defined implementation
- * This file is generated once only, feel free to modify
- */
+    let code = `${USER_FILE_BANNER}#include "${baseName}_user.h"
 
 // Add custom implementations here
 
@@ -109,5 +105,16 @@ export class UserFileGenerator {
 `;
 
     return code;
+  }
+
+  /** Add the standard banner without touching existing user code. */
+  ensureHeader(content: string): string {
+    if (content.startsWith(USER_FILE_BANNER)) {
+      return content;
+    }
+
+    const legacyComment = /\n?\/\*\*\n \* User-defined (?:header file|implementation)\n \* This file is generated once only, feel free to modify\n \*\/\n?/g;
+    const body = content.replace(legacyComment, '\n').replace(/^\n+/, '');
+    return `${USER_FILE_BANNER}${body}`;
   }
 }
