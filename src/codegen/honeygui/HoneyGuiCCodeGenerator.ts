@@ -368,6 +368,11 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
  */
 #include "${baseName}_ui.h"
 #include "../callbacks/${baseName}_callbacks.h"
+#if defined(__has_include)
+#  if __has_include("../user/${baseName}_user.h")
+#    include "../user/${baseName}_user.h"
+#  endif
+#endif
 #include <stddef.h>
 `;
 

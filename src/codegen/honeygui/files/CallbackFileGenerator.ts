@@ -183,6 +183,11 @@ export class CallbackFileGenerator {
     
     let code = `#include "${baseName}_callbacks.h"
 #include "../ui/${baseName}_ui.h"
+#if defined(__has_include)
+#  if __has_include("../user/${baseName}_user.h")
+#    include "../user/${baseName}_user.h"
+#  endif
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
