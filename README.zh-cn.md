@@ -61,3 +61,4 @@ MIT
 
 - [HoneyGUI SDK](https://github.com/realmcu/HoneyGUI)
 - [问题反馈](https://github.com/realmcu/HoneyDesigner/issues)
+- [发布指南](RELEASING.md)

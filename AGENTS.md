@@ -254,6 +254,8 @@ HmlEditorProvider.resolveCustomTextEditor()
 
 ## VSCode 插件市场发布
 
+面向维护者的可执行发布清单见 [`RELEASING.md`](RELEASING.md)。
+
 ### 自动发布
 - 正常发布由 `.github/workflows/publish.yml` 完成，入口是推送格式为 `vX.Y.Z` 的 Git Tag；`workflow_dispatch` 仅用于对已有 Tag 手动重跑
 - 工作流会校验 Tag、`package.json` 和 `package-lock.json` 版本一致性，并依次执行 lint、完整单测、编译、Webview 构建、打包依赖审计、VSIX 打包和制品上传
