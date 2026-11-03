@@ -1,16 +1,25 @@
 /**
  * 浏览器版启动页：最近工程、新建工程、导入 ZIP、打开本地目录
+ *
+ * 布局有两种状态：
+ * - 没有最近工程：完整 Hero（标题 + 入口 + 设计/代码预览）→ 示例工程 → 最近工程空状态
+ * - 有最近工程：紧凑标题与入口 → 最近工程列表 → 示例工程
+ * 两种状态共用同一套入口按钮，顺序固定：新建工程 / 打开本地文件夹 / 导入 ZIP。
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { Folder, Clock, ChevronRight, ChevronDown, ArrowUpRight, ArrowRight, Plus, Github, X } from 'lucide-react';
 import {
     StoredProject,
+    ProjectSummary,
     listProjects,
     deleteProject,
+    clearProjectHistory,
     saveProjectRecord,
     writeBrowserFiles,
     createProjectId,
     pickProjectDirectory,
     directoryContainsProject,
+    readProjectSummary,
 } from '../host/projectStore';
 import { scaffoldProject, NewProjectOptions, PROJECT_NAME_PATTERN } from '../host/projectScaffold';
 import { importProjectZip } from '../host/projectZip';
@@ -22,6 +31,8 @@ import { WEB_EXAMPLES } from '../host/exampleProjects';
 const RESOLUTIONS = ['410X502', '480X272', '800X480', '1024X600', '1280X720'];
 const MIN_SDKS = ['API 2: HoneyGUI V1.1.0', 'API 3: HoneyGUI V1.2.0', 'API 4: HoneyGUI V2.0.0'];
 const PIXEL_MODES = ['ARGB8888', 'RGB565', 'ARGB4444', 'L8'];
+
+const GITHUB_URL = 'https://github.com/realmcu/HoneyDesigner';
 
 interface ProjectLauncherProps {
     onOpen(project: StoredProject): void;
@@ -67,8 +78,13 @@ function NewProjectForm({ onCreate, onCancel }: { onCreate(options: NewProjectOp
     };
 
     return (
-        <form className="web-card web-form" onSubmit={submit}>
-            <h2>{t('New Project')}</h2>
+        <form className="web-card web-form web-modal" onSubmit={submit} role="dialog" aria-label={t('New Project')}>
+            <div className="hg-modal-head">
+                <h2>{t('New Project')}</h2>
+                <button className="hg-icon-btn" type="button" onClick={onCancel} aria-label={t('Cancel')} title={t('Cancel')}>
+                    <X size={14} strokeWidth={1.6} aria-hidden="true" />
+                </button>
+            </div>
             <label className="web-field">
                 <span className="web-field-label">{t('Project Name')}</span>
                 <input className="web-input" value={name} onChange={e => setName(e.target.value)} autoFocus />
@@ -144,15 +160,130 @@ function NewProjectForm({ onCreate, onCancel }: { onCreate(options: NewProjectOp
     );
 }
 
+/** 相对时间；只用现有 updatedAt 字段，不补造数据 */
+function formatRelativeTime(timestamp: number, locale: WebLocale): string {
+    const diff = Date.now() - timestamp;
+    const minute = 60_000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    if (diff < minute) {
+        return t('Just now');
+    }
+    if (diff < hour) {
+        return t('{0} min ago', Math.floor(diff / minute));
+    }
+    if (diff < day) {
+        return t('{0} h ago', Math.floor(diff / hour));
+    }
+    if (diff < 2 * day) {
+        return t('Yesterday');
+    }
+    return new Date(timestamp).toLocaleDateString(locale === 'zh-cn' ? 'zh-CN' : 'en', { month: 'short', day: 'numeric' });
+}
+
+/** 六边形 Logo：沿用站点图标轮廓，配色换成品牌琥珀 */
+function BrandMark() {
+    return (
+        <svg className="hg-brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <path d="M16 2.6 27.6 9.3v13.4L16 29.4 4.4 22.7V9.3L16 2.6Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M16 10.4 21.8 13.7v6.6L16 23.6 10.2 20.3v-6.6L16 10.4Z" fill="currentColor" />
+        </svg>
+    );
+}
+
+/**
+ * 设计与代码对应预览。
+ * 代码行取自真实生成结果（gui_img_create_from_fs 系列），不展示虚构的构建输出。
+ */
+function DesignCodePreview() {
+    return (
+        <div className="hg-preview" aria-label={t('Design and code side by side')}>
+            <div className="hg-preview-head">
+                <span className="hg-preview-dots" aria-hidden="true"><i /><i /><i /></span>
+                <span className="hg-preview-file">src/ui/dashboardMain.c</span>
+                <span className="hg-preview-engine">HONEYGUI</span>
+            </div>
+            <div className="hg-preview-body">
+                <div className="hg-preview-canvas">
+                    <div className="hg-device">
+                        <div className="hg-device-clock">14:51</div>
+                        <svg className="hg-device-ring" viewBox="0 0 76 76" fill="none" aria-hidden="true">
+                            <circle cx="38" cy="38" r="31" stroke="var(--hg-ring-track)" strokeWidth="6" />
+                            <circle
+                                cx="38" cy="38" r="31"
+                                stroke="var(--hg-amber)" strokeWidth="6" strokeLinecap="round"
+                                strokeDasharray="140 195" transform="rotate(-90 38 38)"
+                            />
+                        </svg>
+                        <div className="hg-device-pct">72%</div>
+                        <div className="hg-device-btn">Start</div>
+                    </div>
+                </div>
+                <div className="hg-preview-code">
+                    <div className="hg-code-caption">{t('Button in code')}</div>
+                    <div className="hg-code-line">gui_view_create(</div>
+                    <div className="hg-code-line">{'  gui_obj_get_root(),'}</div>
+                    <div className="hg-code-line">{'  "dashboardMainView",'}</div>
+                    <div className="hg-code-line">{'  0, 0, 0, 0);'}</div>
+                    <div className="hg-code-line hg-code-line--hl"><span className="hg-code-mark" />start_engine = gui_rect_create(</div>
+                    <div className="hg-code-line hg-code-line--hl"><span className="hg-code-mark" />{'  view, "start_engine",'}</div>
+                    <div className="hg-code-line hg-code-line--hl"><span className="hg-code-mark" />{'  24, 132, 84, 26,'}</div>
+                    <div className="hg-code-line">{'  13, gui_rgba(245,179,36,36));'}</div>
+                    <div className="hg-code-line">gui_rect_set_stroke(start_engine,</div>
+                    <div className="hg-code-line">{'  1.5f, gui_rgb(245, 179, 36));'}</div>
+                    <div className="hg-code-line">gui_rect_set_glow(start_engine,</div>
+                    <div className="hg-code-line">{'  gui_rgba(245,179,36,90), 12);'}</div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SampleCard({ example, busy, onOpen }: {
+    example: typeof WEB_EXAMPLES[number];
+    busy: boolean;
+    onOpen(): void;
+}) {
+    return (
+        <button className="hg-sample" type="button" disabled={busy} onClick={onOpen}>
+            <span className="hg-sample-thumb">
+                <img src={new URL(example.thumbnail, document.baseURI).toString()} alt="" />
+            </span>
+            <span className="hg-sample-info">
+                <span className="hg-sample-info-top">
+                    <span className="hg-sample-name">{example.name}</span>
+                    <span className="hg-sample-tag">{t(example.tagKey)}</span>
+                </span>
+                <span className="hg-sample-desc">{t(example.descriptionKey)}</span>
+                <span className="hg-sample-open">
+                    {busy ? t('Loading...') : t('Open Example')}
+                    {!busy && <ArrowRight size={13} strokeWidth={1.6} aria-hidden="true" />}
+                </span>
+            </span>
+        </button>
+    );
+}
+
 export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
     const [projects, setProjects] = useState<StoredProject[] | undefined>();
+    const [summaries, setSummaries] = useState<Record<string, ProjectSummary | undefined>>({});
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | undefined>();
     const [locale, setLocaleState] = useState<WebLocale>(getWebLocale());
     const [loadingExample, setLoadingExample] = useState<string | null>(null);
     const zipInputRef = useRef<HTMLInputElement>(null);
 
-    const refresh = () => listProjects().then(setProjects).catch(err => setError(String(err)));
+    const loadSummaries = (list: StoredProject[]) => {
+        void Promise.all(list.map(async project => [project.id, await readProjectSummary(project)] as const))
+            .then(entries => setSummaries(Object.fromEntries(entries)));
+    };
+
+    const refresh = () => listProjects()
+        .then(list => {
+            setProjects(list);
+            loadSummaries(list);
+        })
+        .catch(err => setError(String(err)));
 
     useEffect(() => {
         void refresh();
@@ -243,109 +374,226 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
         await refresh();
     };
 
-    return (
-        <div className="web-launcher">
-            <header className="web-launcher-header">
-                <div className="web-launcher-intro">
-                    <h1>HoneyGUI Designer <span className="web-badge">Web</span></h1>
-                    <p className="web-muted">{t('Design HoneyGUI / LVGL interfaces in the browser and generate C code. Simulation and flashing require the VS Code extension.')}</p>
+    const clearHistory = async (list: StoredProject[]) => {
+        if (!globalThis.confirm(t('Clear the recent project list? Project files are not deleted.'))) {
+            return;
+        }
+        try {
+            // 只移除历史记录，工程文件保留（本地文件夹不动，浏览器中的文件也不删）
+            await clearProjectHistory(list);
+            await refresh();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        }
+    };
+
+    const hasDirectoryAccess = isDirectoryAccessSupported();
+    const hasRecent = (projects?.length ?? 0) > 0;
+
+    const entryActions = (
+        <div className="hg-actions">
+            <button className="hg-btn hg-btn--primary" type="button" onClick={() => setCreating(true)}>
+                <Plus size={15} strokeWidth={2} aria-hidden="true" />
+                {t('New Project')}
+            </button>
+            <button
+                className="hg-btn hg-btn--ghost"
+                type="button"
+                onClick={openDirectory}
+                disabled={!hasDirectoryAccess}
+                title={hasDirectoryAccess ? undefined : t('Requires a Chromium-based browser (Chrome, Edge)')}
+            >
+                <Folder size={16} strokeWidth={1.5} aria-hidden="true" />
+                {t('Open Local Folder')}
+            </button>
+            <button className="hg-link-import" type="button" onClick={() => zipInputRef.current?.click()}>
+                {t('Or import a ZIP project')}
+            </button>
+            <input
+                ref={zipInputRef}
+                type="file"
+                accept=".zip"
+                hidden
+                onChange={e => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) {
+                        void importZip(file);
+                    }
+                }}
+            />
+        </div>
+    );
+
+    const recentSection = (
+        <section className="hg-block hg-recent">
+            <div className="hg-block-head">
+                <h2 className="hg-block-title">{t('Recent Projects')}</h2>
+                {hasRecent && (
+                    <button className="hg-clear" type="button" onClick={() => void clearHistory(projects!)}>
+                        {t('Clear History')}
+                    </button>
+                )}
+            </div>
+            {projects === undefined ? (
+                <div className="hg-empty">
+                    <Clock size={18} strokeWidth={1.5} aria-hidden="true" />
+                    <span className="hg-empty-title">{t('Loading...')}</span>
                 </div>
-                <label className="web-locale-select">
-                    <span>{t('Language')}</span>
-                    <select className="web-input" value={locale} onChange={e => changeLocale(e.target.value as WebLocale)}>
-                        <option value="en">English</option>
-                        <option value="zh-cn">简体中文</option>
-                    </select>
-                </label>
+            ) : hasRecent ? (
+                <ul className="hg-recent-list">
+                    {projects!.map(project => {
+                        const summary = summaries[project.id];
+                        // 与设计稿一致：只显示入口文件名与画布尺寸，不把 ui/ 目录前缀铺进列表
+                        const meta = [
+                            summary?.mainHmlFile?.split('/').pop() ?? 'project.json',
+                            summary?.resolution?.replace(/X/i, '×'),
+                        ].filter(Boolean).join(' · ');
+                        return (
+                            <li key={project.id} className="hg-recent-item">
+                                <button className="hg-recent-open" type="button" onClick={() => onOpen(project)}>
+                                    <span className="hg-recent-icon">
+                                        <Folder size={15} strokeWidth={1.5} aria-hidden="true" />
+                                    </span>
+                                    <span className="hg-recent-col">
+                                        <span className="hg-recent-name" title={project.name}>{project.name}</span>
+                                        <span className="hg-recent-meta" title={meta}>{meta}</span>
+                                    </span>
+                                    <span className="hg-recent-time">{formatRelativeTime(project.updatedAt, locale)}</span>
+                                    <ChevronRight className="hg-recent-chev" size={14} strokeWidth={1.6} aria-hidden="true" />
+                                </button>
+                                {/* 图标按钮不占行内布局宽度：绝对定位在行尾，悬停或聚焦时才显示，避免层级变大 */}
+                                <button
+                                    className="hg-recent-remove"
+                                    type="button"
+                                    title={project.mode === 'directory' ? t('Remove') : t('Delete')}
+                                    aria-label={project.mode === 'directory' ? t('Remove') : t('Delete')}
+                                    onClick={() => void removeProject(project)}
+                                >
+                                    <X size={13} strokeWidth={1.6} aria-hidden="true" />
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            ) : (
+                <div className="hg-empty">
+                    <Clock size={18} strokeWidth={1.5} aria-hidden="true" />
+                    <span className="hg-empty-title">{t('No projects yet')}</span>
+                    <span className="hg-empty-desc">{t('Create a project, or start from a sample below')}</span>
+                </div>
+            )}
+        </section>
+    );
+
+    const samplesSection = (
+        <section className="hg-block hg-samples">
+            <div className="hg-block-head">
+                <div className="hg-block-head-left">
+                    <h2 className="hg-block-title">{t('Example Projects')}</h2>
+                    <span className="hg-block-desc">{t('Complete projects, ready to run')}</span>
+                </div>
+                <a className="hg-block-link" href={GITHUB_URL} target="_blank" rel="noreferrer">
+                    {t('View all on GitHub')}
+                    <ArrowUpRight size={13} strokeWidth={1.5} aria-hidden="true" />
+                </a>
+            </div>
+            <div className="hg-sample-grid">
+                {WEB_EXAMPLES.map(example => (
+                    <SampleCard
+                        key={example.id}
+                        example={example}
+                        busy={loadingExample === example.id}
+                        onOpen={() => void openExample(example)}
+                    />
+                ))}
+            </div>
+        </section>
+    );
+
+    return (
+        <div className={`hg-shell${hasRecent ? ' hg-shell--recent' : ''}`}>
+            <header className="hg-topbar-outer">
+                <div className="hg-rail hg-topbar">
+                    <div className="hg-brand">
+                        <BrandMark />
+                        <span className="hg-brand-name">HoneyGUI Designer</span>
+                    </div>
+                    <div className="hg-top-actions">
+                        <label className="hg-lang">
+                            <span className="hg-visually-hidden">{t('Language')}</span>
+                            <select value={locale} onChange={e => changeLocale(e.target.value as WebLocale)}>
+                                <option value="en">English</option>
+                                <option value="zh-cn">简体中文</option>
+                            </select>
+                            <ChevronDown size={12} strokeWidth={1.6} aria-hidden="true" />
+                        </label>
+                        <a
+                            className="hg-icon-btn"
+                            href={GITHUB_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={t('GitHub repository')}
+                            title={t('GitHub repository')}
+                        >
+                            <Github size={15} strokeWidth={1.5} aria-hidden="true" />
+                        </a>
+                    </div>
+                </div>
             </header>
 
-            {error && <div className="web-banner web-banner-error" role="alert">{error}</div>}
+            <main className="hg-rail hg-content">
+                {error && <div className="hg-banner hg-banner--error" role="alert">{error}</div>}
 
-            {creating ? (
-                <NewProjectForm onCreate={createProject} onCancel={() => setCreating(false)} />
-            ) : (
-                <>
-                    <div className="web-launcher-actions">
-                        <button className="web-action-card" onClick={() => setCreating(true)}>
-                            <span className="web-action-title">{t('New Project')}</span>
-                            <span className="web-muted">{t('Stored in this browser')}</span>
-                        </button>
-                        <button className="web-action-card" onClick={() => zipInputRef.current?.click()}>
-                            <span className="web-action-title">{t('Import ZIP')}</span>
-                            <span className="web-muted">{t('A zipped project folder containing project.json')}</span>
-                        </button>
-                        <button
-                            className="web-action-card"
-                            onClick={openDirectory}
-                            disabled={!isDirectoryAccessSupported()}
-                            title={isDirectoryAccessSupported() ? undefined : t('Requires a Chromium-based browser (Chrome, Edge)')}
-                        >
-                            <span className="web-action-title">{t('Open Local Folder')}</span>
-                            <span className="web-muted">
-                                {isDirectoryAccessSupported() ? t('Edit files on disk directly') : t('Requires a Chromium-based browser (Chrome, Edge)')}
-                            </span>
-                        </button>
-                        <input
-                            ref={zipInputRef}
-                            type="file"
-                            accept=".zip"
-                            hidden
-                            onChange={e => {
-                                const file = e.target.files?.[0];
-                                e.target.value = '';
-                                if (file) {
-                                    void importZip(file);
-                                }
-                            }}
-                        />
-                    </div>
+                {creating ? (
+                    <NewProjectForm onCreate={createProject} onCancel={() => setCreating(false)} />
+                ) : (
+                    <>
+                        <section className={`hg-hero${hasRecent ? ' hg-hero--compact' : ''}`}>
+                            <div className="hg-hero-copy">
+                                <div className="hg-eyebrow">
+                                    <span className="hg-eyebrow-dot" aria-hidden="true" />
+                                    <span className="hg-eyebrow-text">{t('HONEYGUI · Visual Designer')}</span>
+                                </div>
 
-                    <section className="web-examples">
-                        <h2>{t('Example Projects')}</h2>
-                        <div className="web-examples-list">
-                            {WEB_EXAMPLES.map(example => (
-                                <button key={example.id} className="web-example" type="button"
-                                    disabled={loadingExample !== null}
-                                    onClick={() => void openExample(example)}>
-                                    <span className="web-example-image">
-                                        <img src={new URL(example.thumbnail, document.baseURI).toString()} alt="" />
-                                    </span>
-                                    <span className="web-example-details">
-                                        <strong>{example.name}</strong>
-                                        <span className="web-muted">{t(example.descriptionKey)}</span>
-                                        <span className="web-example-action">
-                                            {loadingExample === example.id ? t('Loading...') : t('Open Example')}
-                                        </span>
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    </section>
+                                {hasRecent ? (
+                                    <>
+                                        <h1 className="hg-headline hg-headline--compact">{t('Start designing a HoneyGUI interface')}</h1>
+                                        <p className="hg-lede">{t('Pick up where you left off, or start something new from an example.')}</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h1 className="hg-headline hg-headline--full">
+                                            <span className="hg-headline-line">{t('Drag a HoneyGUI interface together,')}</span>
+                                            <span className="hg-headline-line hg-headline-line--accent">{t('get the matching C code.')}</span>
+                                        </h1>
+                                        <p className="hg-lede">
+                                            {t('Turn the controls on the canvas into C code, keeping layout and logic apart.')}
+                                            <br />
+                                            {t('Simulation and flashing need the VS Code extension.')}
+                                        </p>
+                                    </>
+                                )}
 
-                    <section className="web-card">
-                        <h2>{t('Recent Projects')}</h2>
-                        {projects === undefined && <p className="web-muted">{t('Loading...')}</p>}
-                        {projects?.length === 0 && <p className="web-muted">{t('No projects yet')}</p>}
-                        <ul className="web-project-list">
-                            {projects?.map(project => (
-                                <li key={project.id} className="web-project-item">
-                                    <button className="web-project-open" onClick={() => onOpen(project)}>
-                                        <span className="web-project-name">{project.name}</span>
-                                        <span className="web-muted">
-                                            {project.mode === 'directory' ? t('Local folder') : t('Browser storage')}
-                                            {' · '}
-                                            {new Date(project.updatedAt).toLocaleString(locale === 'zh-cn' ? 'zh-CN' : 'en')}
-                                        </span>
-                                    </button>
-                                    <button className="web-button" onClick={() => removeProject(project)}>
-                                        {project.mode === 'directory' ? t('Remove') : t('Delete')}
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
-                </>
-            )}
+                                {entryActions}
+                            </div>
+                            {!hasRecent && <DesignCodePreview />}
+                        </section>
+
+                        {hasRecent ? (
+                            <>
+                                {recentSection}
+                                {samplesSection}
+                            </>
+                        ) : (
+                            <>
+                                {samplesSection}
+                                {recentSection}
+                            </>
+                        )}
+                    </>
+                )}
+            </main>
         </div>
     );
 }

@@ -9,6 +9,7 @@ export const WEB_EXAMPLES = [
     {
         id: chatbot.id,
         name: chatbot.name,
+        tagKey: 'Multi-page',
         descriptionKey: 'template.chatbot.description',
         archive: 'examples/chatbot.zip',
         thumbnail: 'examples/chatbot.png',
@@ -16,6 +17,7 @@ export const WEB_EXAMPLES = [
     {
         id: dashboard.id,
         name: dashboard.name,
+        tagKey: 'Dashboard',
         descriptionKey: 'template.dashboard.description',
         archive: 'examples/dashboard.zip',
         thumbnail: 'examples/dashboard.png',

@@ -124,6 +124,64 @@ export async function deleteProject(id: string): Promise<void> {
     await transactionDone(tx);
 }
 
+/** 只删除工程记录，保留已存储的工程文件（启动页「清空记录」用） */
+export async function deleteProjectRecord(id: string): Promise<void> {
+    const db = await openDb();
+    const tx = db.transaction('projects', 'readwrite');
+    tx.objectStore('projects').delete(id);
+    await transactionDone(tx);
+}
+
+/** 清空最近工程列表；只移除记录，本地文件夹与浏览器中已存的工程文件都不动 */
+export async function clearProjectHistory(projects: StoredProject[]): Promise<void> {
+    for (const project of projects) {
+        await deleteProjectRecord(project.id);
+    }
+}
+
+/** 启动页列表要展示的工程信息，全部读自工程自身的 project.json */
+export interface ProjectSummary {
+    /** 入口 HML 文件（工程内相对路径） */
+    mainHmlFile?: string;
+    /** 画布分辨率，如 480X272 */
+    resolution?: string;
+}
+
+/**
+ * 读取工程的 project.json 取得入口文件与分辨率。
+ * 本地目录工程在授权失效（未授予读权限）时读取会抛错，此时返回 undefined，
+ * 由调用方退回到「本地文件夹 / 浏览器存储」这类已知信息，不弹权限提示。
+ */
+export async function readProjectSummary(project: StoredProject): Promise<ProjectSummary | undefined> {
+    try {
+        let text: string | undefined;
+        if (project.mode === 'directory') {
+            if (!project.handle) {
+                return undefined;
+            }
+            const fileHandle = await project.handle.getFileHandle('project.json');
+            text = await (await fileHandle.getFile()).text();
+        } else {
+            const db = await openDb();
+            const tx = db.transaction('files', 'readonly');
+            const entry = await requestToPromise(
+                tx.objectStore('files').get(entryKey(project.id, 'project.json')) as IDBRequest<StoredEntry | undefined>
+            );
+            text = entry?.data ? new TextDecoder().decode(entry.data) : undefined;
+        }
+        if (!text) {
+            return undefined;
+        }
+        const config = JSON.parse(text) as { mainHmlFile?: unknown; resolution?: unknown };
+        return {
+            mainHmlFile: typeof config.mainHmlFile === 'string' ? config.mainHmlFile : undefined,
+            resolution: typeof config.resolution === 'string' ? config.resolution : undefined,
+        };
+    } catch {
+        return undefined;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // browser 模式：IndexedDB 文件
 // ---------------------------------------------------------------------------
