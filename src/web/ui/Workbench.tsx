@@ -21,6 +21,7 @@ import { openDesigner, findMainHml, OpenedDesigner } from '../host/browserHost';
 import { exportProjectZip, downloadBlob } from '../host/projectZip';
 import { hostUi } from '../host/hostUi';
 import * as fs from '../shims/fs';
+import { TerminalPanel } from './TerminalPanel';
 
 interface WorkbenchProps {
     project: StoredProject;
@@ -36,6 +37,9 @@ type Phase =
 /** 新建 HML 文件的文件名规则：与组件 id 命名一致，避免生成非法控件名 */
 const HML_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+const TERMINAL_DEFAULT_HEIGHT = 240;
+const TERMINAL_MIN_HEIGHT = 100;
+
 /** 关闭或切换工程前清空内存文件系统中的工程目录，避免多个工程的文件残留 */
 function unloadProjectFiles(root: string): void {
     fs.rmSync(root, { recursive: true, force: true });
@@ -47,6 +51,9 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
     const [attempt, setAttempt] = useState(0);
     const currentFilePath = useDesignerStore(state => state.currentFilePath);
     const openedRef = useRef<{ opened?: OpenedDesigner; sync?: ProjectSync; root?: string }>({});
+    // 终端面板打开时才连接本机服务，默认收起
+    const [terminalOpen, setTerminalOpen] = useState(false);
+    const [terminalHeight, setTerminalHeight] = useState(TERMINAL_DEFAULT_HEIGHT);
 
     useEffect(() => {
         let cancelled = false;
@@ -194,6 +201,23 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
         onClose();
     };
 
+    /** 拖动终端面板上边缘调整高度 */
+    const startTerminalResize = (event: React.PointerEvent) => {
+        event.preventDefault();
+        const startY = event.clientY;
+        const startHeight = terminalHeight;
+        const onMove = (move: PointerEvent) => {
+            const max = Math.max(TERMINAL_MIN_HEIGHT, window.innerHeight * 0.7);
+            setTerminalHeight(Math.min(max, Math.max(TERMINAL_MIN_HEIGHT, startHeight + startY - move.clientY)));
+        };
+        const onUp = () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+    };
+
     const syncLabel = syncState === 'saving' ? t('Saving...')
         : syncState === 'error' ? t('Save failed')
         : project.mode === 'directory' ? t('Local folder') : t('Browser storage');
@@ -212,6 +236,7 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                 <span className="web-topbar-spacer" />
                 <button className="web-button" onClick={() => void createHmlFile()} disabled={phase.kind !== 'ready'}>{t('New HML File')}</button>
                 <button className="web-button" onClick={showCode} disabled={phase.kind !== 'ready'}>{t('Generated Code')}</button>
+                <button className="web-button" aria-pressed={terminalOpen} onClick={() => setTerminalOpen(open => !open)}>{t('Terminal')}</button>
                 <button className="web-button primary" onClick={exportZip} disabled={phase.kind !== 'ready'}>{t('Export ZIP')}</button>
             </div>
             <div className="web-designer-host">
@@ -234,6 +259,13 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                     </div>
                 )}
             </div>
+            {terminalOpen && (
+                <TerminalPanel
+                    height={terminalHeight}
+                    onResizeStart={startTerminalResize}
+                    onClose={() => setTerminalOpen(false)}
+                />
+            )}
         </div>
     );
 }

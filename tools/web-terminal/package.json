@@ -1,0 +1,14 @@
+{
+  "name": "@honeygui/web-terminal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local terminal bridge for the HoneyGUI browser designer (development preview)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "node-pty": "^1.1.0",
+    "ws": "^8.18.0"
+  }
+}
