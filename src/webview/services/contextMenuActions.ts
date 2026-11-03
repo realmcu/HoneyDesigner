@@ -1,4 +1,5 @@
 import { Component } from '../types';
+import { t } from '../i18n';
 
 /**
  * 菜单动作处理器类型
@@ -46,7 +47,7 @@ const actionHandlers: Record<string, MenuActionHandler> = {
     if (component.type === 'hg_list_item') {
       postMessage({
         command: 'showInfo',
-        text: '列表项由父列表自动管理，请调整父列表的"项数量"属性'
+        text: t('List items are managed by the parent list; adjust its Item Count property')
       });
       return;
     }

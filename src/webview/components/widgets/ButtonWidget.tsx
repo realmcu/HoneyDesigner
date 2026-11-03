@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../../i18n';
 import { WidgetProps } from './types';
 import { useWebviewUri } from '../../hooks/useWebviewUri';
 import { useDesignerStore } from '../../store';
@@ -63,12 +64,11 @@ export const ButtonWidget: React.FC<WidgetProps> = ({ component, style, handlers
   };
 
   const placeholderIcon = toggleMode ? '🔄' : '🔘';
-  const placeholderText = toggleMode
-    ? `双态按钮 (当前: ${isOn ? '开启' : '关闭'})`
-    : '按钮';
+  const toggleText = t('Toggle Button (Current: {0})', t(isOn ? 'On' : 'Off'));
+  const placeholderText = toggleMode ? toggleText : t('Button');
   const titleText = toggleMode
-    ? `双态按钮 (当前: ${isOn ? '开启' : '关闭'})`
-    : `按钮${isPressed ? ' (按下)' : ''}`;
+    ? toggleText
+    : (isPressed ? t('Button (Pressed)') : t('Button'));
 
   // 图片模式渲染（Toggle 和 Normal 共用）
   if (hasImages) {

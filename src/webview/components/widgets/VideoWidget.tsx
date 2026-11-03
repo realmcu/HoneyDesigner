@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { t } from '../../i18n';
 import { WidgetProps } from './types';
 import { useWebviewUri } from '../../hooks/useWebviewUri';
 import { useDesignerStore } from '../../store';
@@ -291,8 +292,8 @@ export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers 
           <div style={{ fontSize: '48px', marginBottom: '8px' }}>
             {videoPath ? '▶️' : '🎬'}
           </div>
-          <div>{videoPath ? fileName : '视频组件'}</div>
-          {!videoPath && <div style={{ fontSize: '10px', marginTop: '4px' }}>设置 src 属性</div>}
+          <div>{videoPath ? fileName : t('Video')}</div>
+          {!videoPath && <div style={{ fontSize: '10px', marginTop: '4px' }}>{t('Set the src property')}</div>}
         </div>
       </div>
     );

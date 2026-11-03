@@ -10,6 +10,7 @@ import { generateComponentId } from '../../utils/componentNaming';
 import { calculateNewIndex, reorderArray, rebuildComponentsArray, LayerDirection } from '../utils';
 import { getVscodeAPI, removeComponentsImpl } from '../shared';
 import type { DesignerStore } from '../types';
+import { t } from '../../i18n';
 
 export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<DesignerStore>> = (set, get) => ({
   // Actions
@@ -112,7 +113,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
         const hasOtherEntry = state.components.some(c => c.id !== id && c.type === 'hg_view' && (c.data?.entry === true || c.data?.entry === 'true'));
         if (!hasOtherEntry) {
           if (getVscodeAPI()) {
-            getVscodeAPI()!.postMessage({ command: 'showError', text: '必须至少保留一个入口视图(Entry View)' });
+            getVscodeAPI()!.postMessage({ command: 'showError', text: t('Must keep at least one Entry View') });
           }
           finalUpdates.data = { ...finalUpdates.data, entry: true };
         }
@@ -132,7 +133,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
             if (getVscodeAPI()) {
               getVscodeAPI()!.postMessage({
                 command: 'showError',
-                text: '项数量必须大于等于 1'
+                text: t('Item count must be at least 1')
               });
             }
           }
@@ -153,7 +154,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
             if (getVscodeAPI()) {
               getVscodeAPI()!.postMessage({
                 command: 'showError',
-                text: '项宽度必须大于等于 1'
+                text: t('Item width must be at least 1')
               });
             }
           }
@@ -167,7 +168,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
             if (getVscodeAPI()) {
               getVscodeAPI()!.postMessage({
                 command: 'showError',
-                text: '项高度必须大于等于 1'
+                text: t('Item height must be at least 1')
               });
             }
           }
@@ -181,7 +182,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
             if (getVscodeAPI()) {
               getVscodeAPI()!.postMessage({
                 command: 'showError',
-                text: '项间距必须大于等于 0'
+                text: t('Item spacing cannot be negative')
               });
             }
           }
@@ -434,7 +435,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
     const isEntryView = component.type === 'hg_view' && (component.data?.entry === true || component.data?.entry === 'true');
     if (id === 'mainView' || isEntryView) {
       if (getVscodeAPI()) {
-        getVscodeAPI()!.postMessage({ command: 'notify', text: '主视图(Entry View)不可删除' });
+        getVscodeAPI()!.postMessage({ command: 'notify', text: t('The main view (Entry View) cannot be deleted') });
       }
       return;
     }
@@ -444,7 +445,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '列表项由 list 控件自动管理，请修改 noteNum 属性来调整数量'
+          text: t('List items are managed by the list widget; change noteNum to adjust the count')
         });
       }
       return;
@@ -453,12 +454,12 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
     const result = removeComponentsImpl(set, get, [id]);
 
     if (getVscodeAPI() && result) {
-      let message = `删除控件: ${id}`;
+      let message = t('Deleted component: {0}', id);
       if (result.cleanedCount > 0) {
-        message += `，已清理 ${result.cleanedCount} 个视图切换引用`;
+        message += '\n' + t('Cleaned up {0} view switch references', result.cleanedCount);
       }
       if (result.brokenRefs.length > 0) {
-        message += `\n⚠ 以下控件存在断裂的事件引用: ${result.brokenRefs.join(', ')}`;
+        message += `\n⚠ ${t('Components with broken event references: {0}', result.brokenRefs.join(', '))}`;
         console.warn(`[事件引用] 删除 ${id} 后产生断裂引用，受影响控件:`, result.brokenRefs);
       }
       getVscodeAPI()!.postMessage({ command: 'notify', text: message });
@@ -479,7 +480,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
 
     if (filteredIds.length === 0) {
       if (getVscodeAPI()) {
-        getVscodeAPI()!.postMessage({ command: 'notify', text: '主视图(Entry View)不可删除' });
+        getVscodeAPI()!.postMessage({ command: 'notify', text: t('The main view (Entry View) cannot be deleted') });
       }
       return;
     }
@@ -489,15 +490,15 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
     if (getVscodeAPI() && result) {
       let message: string;
       if (filteredIds.length < ids.length) {
-        message = '根视图已跳过，其他组件已删除';
+        message = t('Root view skipped; other components deleted');
       } else {
-        message = `批量删除控件: ${filteredIds.length} 个`;
+        message = t('Deleted {0} components', filteredIds.length);
       }
       if (result.cleanedCount > 0) {
-        message += `，已清理 ${result.cleanedCount} 个视图切换引用`;
+        message += '\n' + t('Cleaned up {0} view switch references', result.cleanedCount);
       }
       if (result.brokenRefs.length > 0) {
-        message += `\n⚠ 以下控件存在断裂的事件引用: ${result.brokenRefs.join(', ')}`;
+        message += `\n⚠ ${t('Components with broken event references: {0}', result.brokenRefs.join(', '))}`;
         console.warn(`[事件引用] 批量删除后产生断裂引用，受影响控件:`, result.brokenRefs);
       }
       getVscodeAPI()!.postMessage({ command: 'notify', text: message });
@@ -539,7 +540,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: 'hg_view 只能作为根组件，无法移动'
+          text: t('hg_view can only be the root component and cannot be moved')
         });
       }
       return;
@@ -552,7 +553,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
         if (getVscodeAPI()) {
           getVscodeAPI()!.postMessage({
             command: 'showInfo',
-            text: 'list_item 只能在 hg_list 控件中'
+            text: t('list_item can only live inside a hg_list widget')
           });
         }
         return;
@@ -566,7 +567,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
         if (getVscodeAPI()) {
           getVscodeAPI()!.postMessage({
             command: 'showInfo',
-            text: 'hg_list 只能包含 list_item 子组件'
+            text: t('hg_list can only contain list_item children')
           });
         }
         return;
@@ -585,7 +586,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '不能将组件移动到自己的子组件中'
+          text: t('A component cannot be moved into its own descendant')
         });
       }
       return;
@@ -602,7 +603,7 @@ export const createComponentsSlice: StateCreator<DesignerStore, [], [], Partial<
         if (getVscodeAPI()) {
           getVscodeAPI()!.postMessage({
             command: 'showInfo',
-            text: '只有容器控件（hg_view, hg_window）可以包含子组件'
+            text: t('Only container widgets (hg_view, hg_window, hg_list, hg_list_item) can hold children')
           });
         }
         return;

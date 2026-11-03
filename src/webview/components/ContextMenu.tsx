@@ -57,11 +57,9 @@ function calculateMenuPosition(
  */
 const MenuItemComponent: React.FC<{
   item: MenuItem;
-  component: Component;
+  label: string;
   onClick: () => void;
-}> = ({ item, component, onClick }) => {
-  const label = getMenuItemLabel(item, component);
-  
+}> = ({ item, label, onClick }) => {
   return (
     <>
       <div
@@ -154,8 +152,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {menuItems.map((item) => (
         <MenuItemComponent
           key={item.id}
-          item={{ ...item, label: getItemLabel(item) }}
-          component={component}
+          item={item}
+          label={getItemLabel(item)}
           onClick={() => onAction(item.id, component)}
         />
       ))}

@@ -755,25 +755,25 @@ export const CanvasEditorModal: React.FC<CanvasEditorModalProps> = ({
 
                 {/* 图层工具 */}
                 <div className="toolbar-group">
-                  <button className="tool-btn" onClick={bringToFront} title="置顶">⤒</button>
-                  <button className="tool-btn" onClick={bringForward} title="上移">↑</button>
-                  <button className="tool-btn" onClick={sendBackward} title="下移">↓</button>
-                  <button className="tool-btn" onClick={sendToBack} title="置底">⤓</button>
+                  <button className="tool-btn" onClick={bringToFront} title={t('Bring to Front')}>⤒</button>
+                  <button className="tool-btn" onClick={bringForward} title={t('Bring Forward')}>↑</button>
+                  <button className="tool-btn" onClick={sendBackward} title={t('Send Backward')}>↓</button>
+                  <button className="tool-btn" onClick={sendToBack} title={t('Send to Back')}>⤓</button>
                 </div>
 
                 <div className="toolbar-separator" />
 
                 {/* 组合工具 */}
                 <div className="toolbar-group">
-                  <button className="tool-btn" onClick={groupSelected} title="组合 (Ctrl+G)">⊞</button>
-                  <button className="tool-btn" onClick={ungroupSelected} title="取消组合 (Ctrl+Shift+G)">⊟</button>
+                  <button className="tool-btn" onClick={groupSelected} title={t('Group (Ctrl+G)')}>⊞</button>
+                  <button className="tool-btn" onClick={ungroupSelected} title={t('Ungroup (Ctrl+Shift+G)')}>⊟</button>
                 </div>
 
                 <div className="toolbar-separator" />
 
                 {/* 导入工具 */}
                 <div className="toolbar-group">
-                  <button className="tool-btn" onClick={importImage} title="导入图片">🖼</button>
+                  <button className="tool-btn" onClick={importImage} title={t('Import Image')}>🖼</button>
                 </div>
               </div>
               {/* Fabric.js Canvas */}

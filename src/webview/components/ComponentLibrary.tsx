@@ -30,7 +30,7 @@ const advancedVariants: Record<string, AdvancedVariant[]> = {
     { type: 'hg_time_label', label: 'Time Label', icon: 'time-label' },
     {
       type: 'hg_timer_label',
-      label: '计时标签',
+      label: 'Timer Label',
       icon: 'timer-label',
       preset: {
         text: '00:00:00',

@@ -24,7 +24,7 @@ export const Hg3DProperties: React.FC<PropertyPanelProps> = ({ component, onUpda
       componentId: componentIdRef.current,
       propertyName: 'modelPath',
       filters: {
-        '3D模型': ['obj', 'gltf', 'glb']
+        [t('3D Model')]: ['obj', 'gltf', 'glb']
       }
     });
   };

@@ -1,12 +1,13 @@
 import { Component } from '../types';
-import { t } from '../i18n';
+import { t, LocaleKey } from '../i18n';
 
 /**
  * 菜单项定义
  */
 export interface MenuItem {
   id: string;
-  label: string | ((component: Component) => string);
+  /** 字符串为 i18n key；函数返回已翻译文本 */
+  label: LocaleKey | ((component: Component) => string);
   icon?: string;
   danger?: boolean;
   dividerAfter?: boolean;
@@ -16,15 +17,15 @@ export interface MenuItem {
  * 通用菜单项
  */
 const commonMenuItems: MenuItem[] = [
-  { id: 'gotoSlot', label: '跳转到槽函数', dividerAfter: true },
-  { id: 'copyForAI', label: '复制给 AI', dividerAfter: true },
-  { id: 'bringToFront', label: '置于顶层' },
-  { id: 'sendToBack', label: '置于底层' },
-  { id: 'bringForward', label: '上移一层' },
-  { id: 'sendBackward', label: '下移一层', dividerAfter: true },
-  { id: 'lock', label: (c) => c.locked ? '解锁' : '锁定' },
-  { id: 'delete', label: '删除', danger: true },
-  { id: 'deleteSelected', label: '删除选中的组件', danger: true },
+  { id: 'gotoSlot', label: 'Go to Slot Function', dividerAfter: true },
+  { id: 'copyForAI', label: 'Copy for AI', dividerAfter: true },
+  { id: 'bringToFront', label: 'Bring to Front' },
+  { id: 'sendToBack', label: 'Send to Back' },
+  { id: 'bringForward', label: 'Bring Forward' },
+  { id: 'sendBackward', label: 'Send Backward', dividerAfter: true },
+  { id: 'lock', label: (c) => c.locked ? t('Unlock') : t('Lock') },
+  { id: 'delete', label: 'Delete', danger: true },
+  { id: 'deleteSelected', label: 'Delete Selected Components', danger: true },
 ];
 
 /**
@@ -39,12 +40,12 @@ const menuItemsByType: Record<string, MenuItem[]> = {
  * 获取组件的菜单项
  */
 export function getMenuItems(
-  componentType: string, 
+  componentType: string,
   _hasClipboard: boolean = false,
   multiSelectCount: number = 1
 ): MenuItem[] {
   const items = menuItemsByType[componentType] || commonMenuItems;
-  
+
   // 如果是多选，将"删除"改为"deleteSelected"以便触发批量删除逻辑
   if (multiSelectCount > 1) {
     return items.map(item => {
@@ -54,14 +55,15 @@ export function getMenuItems(
       return item;
     }).filter(item => item.id !== 'deleteSelected' || multiSelectCount > 1);
   }
-  
+
   // 单选时，隐藏"deleteSelected"菜单项
   return items.filter(item => item.id !== 'deleteSelected');
 }
 
 /**
  * 获取菜单项的显示文本
+ * 字符串 label 是 i18n key，函数 label 自行返回已翻译文本
  */
 export function getMenuItemLabel(item: MenuItem, component: Component): string {
-  return typeof item.label === 'function' ? item.label(component) : item.label;
+  return typeof item.label === 'function' ? item.label(component) : t(item.label);
 }

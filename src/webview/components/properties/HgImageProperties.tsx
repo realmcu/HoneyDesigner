@@ -106,7 +106,7 @@ export const HgImageProperties: React.FC<PropertyPanelProps> = ({ component, onU
               });
             }
           }}
-          placeholder="图片路径"
+          placeholder={t('Image Path')}
           style={{
             flex: 1,
             padding: '4px 6px',
@@ -127,7 +127,7 @@ export const HgImageProperties: React.FC<PropertyPanelProps> = ({ component, onU
             cursor: 'pointer',
             fontSize: '12px'
           }}
-          title="选择图片文件"
+          title={t('Select Image File')}
         >
           📁
         </button>
@@ -191,7 +191,7 @@ export const HgImageProperties: React.FC<PropertyPanelProps> = ({ component, onU
       <div className="properties-content">
       {activeTab === 'properties' ? (
         <>
-          <BaseProperties component={component} onUpdate={onUpdate} components={components} disableSize={true} sizeTooltip="图片尺寸由源文件决定" />
+          <BaseProperties component={component} onUpdate={onUpdate} components={components} disableSize={true} sizeTooltip={t('Image size is determined by the source file')} />
 
           {/* 内容 */}
           <CollapsibleGroup title={t('Content')}>

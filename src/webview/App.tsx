@@ -986,7 +986,7 @@ const App: React.FC = () => {
         if (api) {
           api.postMessage({
             command: 'notify',
-            text: `${objFile.name} 缺少依赖文件: ${missingFiles.join(', ')}。请同时选中这些文件一起拖拽。`
+            text: t('Missing dependency files for {0}: {1}. Select them together when dragging.', objFile.name, missingFiles.join(', '))
           });
         }
       }
@@ -1762,7 +1762,7 @@ const App: React.FC = () => {
           <button
             className="collapse-button left"
             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); leftPanel.toggle(); }}
-            title="收起左侧面板 (Ctrl+B)"
+            title={t('Collapse Left Panel (Ctrl+B)')}
           >
             ◀
           </button>
@@ -1773,7 +1773,7 @@ const App: React.FC = () => {
           <button
             className="expand-button left"
             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); leftPanel.toggle(); }}
-            title="展开左侧面板 (Ctrl+B)"
+            title={t('Expand Left Panel (Ctrl+B)')}
           >
             ▶
           </button>
@@ -1796,7 +1796,7 @@ const App: React.FC = () => {
           <button
             className="expand-button right"
             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); rightPanel.toggle(); }}
-            title="展开右侧面板 (Ctrl+Shift+B)"
+            title={t('Expand Right Panel (Ctrl+Shift+B)')}
           >
             ◀
           </button>
@@ -1811,7 +1811,7 @@ const App: React.FC = () => {
           <button
             className="collapse-button right"
             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); rightPanel.toggle(); }}
-            title="收起右侧面板 (Ctrl+Shift+B)"
+            title={t('Collapse Right Panel (Ctrl+Shift+B)')}
           >
             ▶
           </button>

@@ -7,7 +7,7 @@ import en from './locales/en';
 import zhCN from './locales/zh-cn';
 
 type LocaleMessages = typeof en;
-type LocaleKey = keyof LocaleMessages;
+export type LocaleKey = keyof LocaleMessages;
 
 const locales: Record<string, LocaleMessages> = {
   'en': en,
@@ -40,11 +40,11 @@ export function t(key: LocaleKey, ...args: (string | number)[]): string {
   const messages = locales[currentLocale] || locales['en'];
   let text = messages[key] || en[key] || key;
   
-  // 替换参数
+  // 替换参数。使用函数式 replacement，避免参数中的 $&、$' 等被当作替换模式。
   args.forEach((arg, index) => {
-    text = text.replace(`{${index}}`, String(arg));
+    text = text.replace(`{${index}}`, () => String(arg));
   });
-  
+
   return text;
 }
 

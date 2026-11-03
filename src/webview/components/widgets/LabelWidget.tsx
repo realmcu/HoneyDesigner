@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../../i18n';
 import { WidgetProps } from './types';
 import { useFontLoader } from '../../hooks/useFontLoader';
 import { useFontGlyphCheck } from '../../hooks/useFontGlyphCheck';
@@ -169,17 +170,18 @@ export const LabelWidget: React.FC<WidgetProps> = ({ component, style, handlers,
   const diagnosticMessages: string[] = [];
   if (showWarning) {
     const chars = missingChars.slice(0, 5).map(c => `"${c}"`).join(' ');
-    diagnosticMessages.push(`缺字 ${chars}${missingChars.length > 5 ? ` 等${missingChars.length}个` : ''}`);
+    const suffix = missingChars.length > 5 ? t('and {0} more', missingChars.length - 5) : '';
+    diagnosticMessages.push(`${t('Missing glyphs: {0}', chars)}${suffix}`);
   }
   if (likelyTextOverflow) {
-    diagnosticMessages.push('可能溢出');
+    diagnosticMessages.push(t('Text may overflow'));
   }
   if (likelyWrapHeightOverflow) {
     // BOTTOM 溢出是设计预期：裁掉顶部、保留结尾，措辞需区分以免被当成缺陷
-    diagnosticMessages.push(layoutParams.vAlign === 'BOTTOM' ? '换行超高，顶部被裁' : '换行高度不足');
+    diagnosticMessages.push(layoutParams.vAlign === 'BOTTOM' ? t('Wrapped text exceeds height; top is clipped') : t('Insufficient height for wrapped text'));
   }
   if (resolvedText.source === 'componentName' && !isSplitTime) {
-    diagnosticMessages.push('文本为空，设备上将显示空白');
+    diagnosticMessages.push(t('Text is empty and will render blank on device'));
   }
 
   const renderDiagnosticBadges = () => {

@@ -9,6 +9,7 @@
  */
 
 import { Component, ComponentPosition } from '../types';
+import type { LocaleKey } from '../i18n';
 
 /**
  * 对齐类型
@@ -265,7 +266,7 @@ export function resizeComponents(
  */
 export interface AlignmentConfig {
   type: AlignType | DistributeType | ResizeType;
-  label: string;
+  labelKey: LocaleKey;
   icon?: string;
   shortcut?: string;
   minComponents: number;
@@ -277,19 +278,19 @@ export interface AlignmentConfig {
  */
 export const ALIGNMENT_CONFIGS: AlignmentConfig[] = [
   // 对齐
-  { type: 'left', label: '左对齐', shortcut: 'Ctrl+Shift+L', minComponents: 2, category: 'align' },
-  { type: 'right', label: '右对齐', shortcut: 'Ctrl+Shift+R', minComponents: 2, category: 'align' },
-  { type: 'top', label: '顶对齐', shortcut: 'Ctrl+Shift+T', minComponents: 2, category: 'align' },
-  { type: 'bottom', label: '底对齐', shortcut: 'Ctrl+Shift+B', minComponents: 2, category: 'align' },
-  { type: 'centerH', label: '左右居中', shortcut: 'Ctrl+Shift+H', minComponents: 2, category: 'align' },
-  { type: 'centerV', label: '上下居中', shortcut: 'Ctrl+Shift+V', minComponents: 2, category: 'align' },
+  { type: 'left', labelKey: 'Align Left', shortcut: 'Ctrl+Shift+L', minComponents: 2, category: 'align' },
+  { type: 'right', labelKey: 'Align Right', shortcut: 'Ctrl+Shift+R', minComponents: 2, category: 'align' },
+  { type: 'top', labelKey: 'Align Top', shortcut: 'Ctrl+Shift+T', minComponents: 2, category: 'align' },
+  { type: 'bottom', labelKey: 'Align Bottom', shortcut: 'Ctrl+Shift+B', minComponents: 2, category: 'align' },
+  { type: 'centerH', labelKey: 'Align Center', shortcut: 'Ctrl+Shift+H', minComponents: 2, category: 'align' },
+  { type: 'centerV', labelKey: 'Align Middle', shortcut: 'Ctrl+Shift+V', minComponents: 2, category: 'align' },
   // 分布
-  { type: 'horizontal', label: '水平分布', shortcut: 'Ctrl+Shift+D', minComponents: 3, category: 'distribute' },
-  { type: 'vertical', label: '垂直分布', shortcut: 'Ctrl+Alt+D', minComponents: 3, category: 'distribute' },
+  { type: 'horizontal', labelKey: 'Distribute Horizontally', shortcut: 'Ctrl+Shift+D', minComponents: 3, category: 'distribute' },
+  { type: 'vertical', labelKey: 'Distribute Vertically', shortcut: 'Ctrl+Alt+D', minComponents: 3, category: 'distribute' },
   // 尺寸
-  { type: 'sameWidth', label: '等宽', minComponents: 2, category: 'resize' },
-  { type: 'sameHeight', label: '等高', minComponents: 2, category: 'resize' },
-  { type: 'sameSize', label: '等大小', minComponents: 2, category: 'resize' },
+  { type: 'sameWidth', labelKey: 'Same Width', minComponents: 2, category: 'resize' },
+  { type: 'sameHeight', labelKey: 'Same Height', minComponents: 2, category: 'resize' },
+  { type: 'sameSize', labelKey: 'Same Size', minComponents: 2, category: 'resize' },
 ];
 
 /**

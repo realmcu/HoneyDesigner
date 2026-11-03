@@ -235,6 +235,12 @@ const en = {
   'Shape Path': 'Shape Path',
   'Distortion (%)': 'Distortion (%)',
   'Effect Range (%)': 'Effect Range (%)',
+  'Movable': 'Movable',
+  'Click': 'Click',
+  'Offset X': 'Offset X',
+  'Offset Y': 'Offset Y',
+  'Reverse Direction': 'Reverse Direction',
+  'Streaming': 'Streaming',
 
   // Toolbar
   'Save': 'Save',
@@ -1299,6 +1305,76 @@ const en = {
   'Back': 'Back',
   'Menu': 'Menu',
   'Power': 'Power',
+
+  // Context menu actions
+  'Go to Slot Function': 'Go to Slot Function',
+  'Copy for AI': 'Copy for AI',
+  'Bring Forward': 'Bring Forward',
+  'Send Backward': 'Send Backward',
+  'Delete Selected Components': 'Delete Selected Components',
+
+  // Align, distribute and resize
+  'Same Width': 'Same Width',
+  'Same Height': 'Same Height',
+  'Same Size': 'Same Size',
+  'Select at least 3 components to distribute': 'Select at least 3 components',
+  'Components to align must belong to the same list widget': 'Components to align must belong to the same list widget',
+  'Components to align must belong to the same container': 'Components to align must belong to the same container',
+  'Components to distribute must belong to the same container': 'Components to distribute must belong to the same container',
+
+  // Component ID validation
+  'Name cannot be empty': 'Name cannot be empty',
+  '"{0}" is a C keyword': '"{0}" is a C keyword',
+  '"{0}" is already used by another component': '"{0}" is already used by another component',
+
+  // Component editing messages
+  'Must keep at least one Entry View': 'Must keep at least one Entry View',
+  'The main view (Entry View) cannot be deleted': 'The main view (Entry View) cannot be deleted',
+  'Item count must be at least 1': 'Item count must be at least 1',
+  'Item width must be at least 1': 'Item width must be at least 1',
+  'Item height must be at least 1': 'Item height must be at least 1',
+  'Item spacing cannot be negative': 'Item spacing cannot be negative',
+  'List items are managed by the list widget; change noteNum to adjust the count': 'List items are managed by the list widget; change noteNum to adjust the count',
+  'List items are managed by the parent list; adjust its Item Count property': 'List items are managed by the parent list; adjust its Item Count property',
+  'List items cannot be copied or cut': 'List items cannot be copied or cut',
+  'hg_view can only be the root component and cannot be moved': 'hg_view can only be the root component and cannot be moved',
+  'list_item can only live inside a hg_list widget': 'list_item can only live inside a hg_list widget',
+  'hg_list can only contain list_item children': 'hg_list can only contain list_item children',
+  'A component cannot be moved into its own descendant': 'A component cannot be moved into its own descendant',
+  'Only container widgets (hg_view, hg_window, hg_list, hg_list_item) can hold children': 'Only container widgets (hg_view, hg_window, hg_list, hg_list_item) can hold children',
+  'Deleted component: {0}': 'Deleted component: {0}',
+  'Deleted {0} components': 'Deleted {0} components',
+  'Root view skipped; other components deleted': 'Root view skipped; other components deleted',
+  'Cleaned up {0} view switch references': 'Cleaned up {0} view switch references',
+  'Components with broken event references: {0}': 'Components with broken event references: {0}',
+  'Missing dependency files for {0}: {1}. Select them together when dragging.': 'Missing dependency files for {0}: {1}. Select them together when dragging.',
+
+  // Widget placeholders and diagnostics
+  'Missing glyphs: {0}': 'Missing glyphs: {0}',
+  'and {0} more': ' and {0} more',
+  'Text may overflow': 'Text may overflow',
+  'Wrapped text exceeds height; top is clipped': 'Wrapped text exceeds height; top is clipped',
+  'Insufficient height for wrapped text': 'Insufficient height for wrapped text',
+  'Text is empty and will render blank on device': 'Text is empty and will render blank on device',
+  'Toggle Button (Current: {0})': 'Toggle Button (Current: {0})',
+  'Button (Pressed)': 'Button (Pressed)',
+  'On': 'On',
+  'Off': 'Off',
+  'Set the src property': 'Set the src property',
+  'Select GIF File': 'Select GIF File',
+  'GIF size is determined by the source file': 'GIF size is determined by the source file',
+  'Image size is determined by the source file': 'Image size is determined by the source file',
+
+  // Panel tooltips
+  'Collapse Left Panel (Ctrl+B)': 'Collapse Left Panel (Ctrl+B)',
+  'Expand Left Panel (Ctrl+B)': 'Expand Left Panel (Ctrl+B)',
+  'Collapse Right Panel (Ctrl+Shift+B)': 'Collapse Right Panel (Ctrl+Shift+B)',
+  'Expand Right Panel (Ctrl+Shift+B)': 'Expand Right Panel (Ctrl+Shift+B)',
+
+  // Canvas editor toolbar
+  'Group (Ctrl+G)': 'Group (Ctrl+G)',
+  'Ungroup (Ctrl+Shift+G)': 'Ungroup (Ctrl+Shift+G)',
+  'Import Image': 'Import Image',
 };
 
 export default en;

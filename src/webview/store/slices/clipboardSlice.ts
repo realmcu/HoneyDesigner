@@ -10,6 +10,7 @@ import { generateComponentId } from '../../utils/componentNaming';
 import { isDropTargetType } from '../../utils/componentUtils';
 import { getVscodeAPI } from '../shared';
 import type { DesignerStore } from '../types';
+import { t } from '../../i18n';
 
 export const createClipboardSlice: StateCreator<DesignerStore, [], [], Partial<DesignerStore>> = (set, get) => ({
   // Clipboard operations
@@ -23,7 +24,7 @@ export const createClipboardSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '列表项不支持复制或剪切操作'
+          text: t('List items cannot be copied or cut')
         });
       }
       return;
@@ -59,7 +60,7 @@ export const createClipboardSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '列表项不支持复制或剪切操作'
+          text: t('List items cannot be copied or cut')
         });
       }
       return;
@@ -235,7 +236,7 @@ export const createClipboardSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '列表项不支持复制或剪切操作'
+          text: t('List items cannot be copied or cut')
         });
       }
       return;
@@ -290,7 +291,7 @@ export const createClipboardSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '列表项不支持复制或剪切操作'
+          text: t('List items cannot be copied or cut')
         });
       }
       return;

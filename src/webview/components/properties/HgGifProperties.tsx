@@ -104,7 +104,7 @@ export const HgGifProperties: React.FC<PropertyPanelProps> = ({ component, onUpd
               });
             }
           }}
-          placeholder="GIF 路径"
+          placeholder={t('GIF Path')}
           style={{
             flex: 1,
             padding: '4px 6px',
@@ -125,7 +125,7 @@ export const HgGifProperties: React.FC<PropertyPanelProps> = ({ component, onUpd
             cursor: 'pointer',
             fontSize: '12px'
           }}
-          title="选择 GIF 文件"
+          title={t('Select GIF File')}
         >
           📁
         </button>
@@ -165,7 +165,7 @@ export const HgGifProperties: React.FC<PropertyPanelProps> = ({ component, onUpd
       <div className="properties-content">
       {activeTab === 'properties' ? (
         <>
-          <BaseProperties component={component} onUpdate={onUpdate} components={components} disableSize={true} sizeTooltip="GIF 尺寸由源文件决定" />
+          <BaseProperties component={component} onUpdate={onUpdate} components={components} disableSize={true} sizeTooltip={t('GIF size is determined by the source file')} />
 
           {/* 内容 */}
           <CollapsibleGroup title={t('Content')}>

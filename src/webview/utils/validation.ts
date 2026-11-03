@@ -1,5 +1,8 @@
 /**
  * ID/变量名校验工具
+ *
+ * 同时被 webview 与扩展宿主（HmlValidationService）使用。宿主的验证结果只经
+ * 本地 HTTP API 返回、不进 VS Code UI，因此这里固定输出英文，不依赖 webview i18n。
  */
 
 const C_KEYWORDS = new Set([
@@ -20,13 +23,13 @@ export interface ValidationResult {
  */
 function isValidCIdentifier(id: string): ValidationResult {
   if (!id || !id.trim()) {
-    return { valid: false, error: '名称不能为空' };
+    return { valid: false, error: 'Name cannot be empty' };
   }
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(id)) {
-    return { valid: false, error: '只能包含字母、数字、下划线，且以字母或下划线开头' };
+    return { valid: false, error: 'Use letters, numbers and underscores; start with a letter or underscore.' };
   }
   if (C_KEYWORDS.has(id)) {
-    return { valid: false, error: `"${id}" 是 C 语言关键字` };
+    return { valid: false, error: `"${id}" is a C keyword` };
   }
   return { valid: true };
 }
@@ -38,7 +41,7 @@ function isValidCIdentifier(id: string): ValidationResult {
 function isUniqueId(id: string, existingIds: string[], currentId?: string): ValidationResult {
   const othersIds = currentId ? existingIds.filter(i => i !== currentId) : existingIds;
   if (othersIds.includes(id)) {
-    return { valid: false, error: `"${id}" 已被其他组件使用` };
+    return { valid: false, error: `"${id}" is already used by another component` };
   }
   return { valid: true };
 }
@@ -49,6 +52,6 @@ function isUniqueId(id: string, existingIds: string[], currentId?: string): Vali
 export function validateComponentId(id: string, existingIds: string[], currentId?: string): ValidationResult {
   const validResult = isValidCIdentifier(id);
   if (!validResult.valid) return validResult;
-  
+
   return isUniqueId(id, existingIds, currentId);
 }

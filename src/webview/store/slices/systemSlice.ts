@@ -10,6 +10,7 @@ import { setVSCodeAPIInstance } from '../vscodeAPI';
 import { getVscodeAPI, setVscodeAPI } from '../shared';
 import { parseResolutionStr } from '../utils';
 import type { DesignerStore } from '../types';
+import { t } from '../../i18n';
 
 export const createSystemSlice: StateCreator<DesignerStore, [], [], Partial<DesignerStore>> = (set, get) => ({
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),
@@ -28,8 +29,8 @@ export const createSystemSlice: StateCreator<DesignerStore, [], [], Partial<Desi
 
   canUndo: () => get().undoStack.length > 0,
   canRedo: () => get().redoStack.length > 0,
-  getUndoLabel: () => get().canUndo() ? '撤销' : null,
-  getRedoLabel: () => get().canRedo() ? '重做' : null,
+  getUndoLabel: () => get().canUndo() ? t('Undo') : null,
+  getRedoLabel: () => get().canRedo() ? t('Redo') : null,
 
   // VSCode communication
   setVSCodeAPI: (api) => {

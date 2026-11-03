@@ -15,6 +15,7 @@ import {
 } from '../../utils/alignmentUtils';
 import { getVscodeAPI } from '../shared';
 import type { DesignerStore } from '../types';
+import { t } from '../../i18n';
 
 export const createAlignmentSlice: StateCreator<DesignerStore, [], [], Partial<DesignerStore>> = (set, get) => ({
   // ============ 对齐操作 ============
@@ -26,7 +27,7 @@ export const createAlignmentSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '请至少选择 2 个组件进行对齐'
+          text: t('Select at least 2 components')
         });
       }
       return;
@@ -54,7 +55,7 @@ export const createAlignmentSlice: StateCreator<DesignerStore, [], [], Partial<D
           if (getVscodeAPI()) {
             getVscodeAPI()!.postMessage({
               command: 'showInfo',
-              text: '只能对齐同一 list 控件内的组件'
+              text: t('Components to align must belong to the same list widget')
             });
           }
           return;
@@ -65,7 +66,7 @@ export const createAlignmentSlice: StateCreator<DesignerStore, [], [], Partial<D
         if (getVscodeAPI()) {
           getVscodeAPI()!.postMessage({
             command: 'showInfo',
-            text: '只能对齐同一容器内的组件'
+            text: t('Components to align must belong to the same container')
           });
         }
         return;
@@ -106,7 +107,7 @@ export const createAlignmentSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '请至少选择 3 个组件进行分布'
+          text: t('Select at least 3 components to distribute')
         });
       }
       return;
@@ -120,7 +121,7 @@ export const createAlignmentSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '只能分布同一容器内的组件'
+          text: t('Components to distribute must belong to the same container')
         });
       }
       return;
@@ -146,7 +147,7 @@ export const createAlignmentSlice: StateCreator<DesignerStore, [], [], Partial<D
       if (getVscodeAPI()) {
         getVscodeAPI()!.postMessage({
           command: 'showInfo',
-          text: '请至少选择 2 个组件进行尺寸调整'
+          text: t('Select at least 2 components')
         });
       }
       return;

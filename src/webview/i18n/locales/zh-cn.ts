@@ -235,6 +235,12 @@ const zhCN = {
   'Shape Path': '形状路径',
   'Distortion (%)': '扭曲强度(%)',
   'Effect Range (%)': '效果范围(%)',
+  'Movable': '可移动',
+  'Click': '点击',
+  'Offset X': 'X 偏移',
+  'Offset Y': 'Y 偏移',
+  'Reverse Direction': '反向滚动',
+  'Streaming': '流媒体',
 
   // Toolbar
   'Save': '保存',
@@ -1299,6 +1305,76 @@ const zhCN = {
   'Back': '返回',
   'Menu': '菜单',
   'Power': '电源',
+
+  // Context menu actions
+  'Go to Slot Function': '跳转到槽函数',
+  'Copy for AI': '复制给 AI',
+  'Bring Forward': '上移一层',
+  'Send Backward': '下移一层',
+  'Delete Selected Components': '删除选中的组件',
+
+  // Align, distribute and resize
+  'Same Width': '等宽',
+  'Same Height': '等高',
+  'Same Size': '等大小',
+  'Select at least 3 components to distribute': '请至少选择 3 个组件进行分布',
+  'Components to align must belong to the same list widget': '只能对齐同一 list 控件内的组件',
+  'Components to align must belong to the same container': '只能对齐同一容器内的组件',
+  'Components to distribute must belong to the same container': '只能分布同一容器内的组件',
+
+  // Component ID validation
+  'Name cannot be empty': '名称不能为空',
+  '"{0}" is a C keyword': '"{0}" 是 C 语言关键字',
+  '"{0}" is already used by another component': '"{0}" 已被其他组件使用',
+
+  // Component editing messages
+  'Must keep at least one Entry View': '必须至少保留一个入口视图(Entry View)',
+  'The main view (Entry View) cannot be deleted': '主视图(Entry View)不可删除',
+  'Item count must be at least 1': '项数量必须大于等于 1',
+  'Item width must be at least 1': '项宽度必须大于等于 1',
+  'Item height must be at least 1': '项高度必须大于等于 1',
+  'Item spacing cannot be negative': '项间距必须大于等于 0',
+  'List items are managed by the list widget; change noteNum to adjust the count': '列表项由 list 控件自动管理，请修改 noteNum 属性来调整数量',
+  'List items are managed by the parent list; adjust its Item Count property': '列表项由父列表自动管理，请调整父列表的"项数量"属性',
+  'List items cannot be copied or cut': '列表项不支持复制或剪切操作',
+  'hg_view can only be the root component and cannot be moved': 'hg_view 只能作为根组件，无法移动',
+  'list_item can only live inside a hg_list widget': 'list_item 只能在 hg_list 控件中',
+  'hg_list can only contain list_item children': 'hg_list 只能包含 list_item 子组件',
+  'A component cannot be moved into its own descendant': '不能将组件移动到自己的子组件中',
+  'Only container widgets (hg_view, hg_window, hg_list, hg_list_item) can hold children': '只有容器控件（hg_view, hg_window, hg_list, hg_list_item）可以包含子组件',
+  'Deleted component: {0}': '删除控件: {0}',
+  'Deleted {0} components': '批量删除控件: {0} 个',
+  'Root view skipped; other components deleted': '根视图已跳过，其他组件已删除',
+  'Cleaned up {0} view switch references': '已清理 {0} 个视图切换引用',
+  'Components with broken event references: {0}': '以下控件存在断裂的事件引用: {0}',
+  'Missing dependency files for {0}: {1}. Select them together when dragging.': '{0} 缺少依赖文件: {1}。请同时选中这些文件一起拖拽。',
+
+  // Widget placeholders and diagnostics
+  'Missing glyphs: {0}': '缺字 {0}',
+  'and {0} more': ' 等{0}个',
+  'Text may overflow': '可能溢出',
+  'Wrapped text exceeds height; top is clipped': '换行超高，顶部被裁',
+  'Insufficient height for wrapped text': '换行高度不足',
+  'Text is empty and will render blank on device': '文本为空，设备上将显示空白',
+  'Toggle Button (Current: {0})': '双态按钮 (当前: {0})',
+  'Button (Pressed)': '按钮 (按下)',
+  'On': '开启',
+  'Off': '关闭',
+  'Set the src property': '设置 src 属性',
+  'Select GIF File': '选择 GIF 文件',
+  'GIF size is determined by the source file': 'GIF 尺寸由源文件决定',
+  'Image size is determined by the source file': '图片尺寸由源文件决定',
+
+  // Panel tooltips
+  'Collapse Left Panel (Ctrl+B)': '收起左侧面板 (Ctrl+B)',
+  'Expand Left Panel (Ctrl+B)': '展开左侧面板 (Ctrl+B)',
+  'Collapse Right Panel (Ctrl+Shift+B)': '收起右侧面板 (Ctrl+Shift+B)',
+  'Expand Right Panel (Ctrl+Shift+B)': '展开右侧面板 (Ctrl+Shift+B)',
+
+  // Canvas editor toolbar
+  'Group (Ctrl+G)': '组合 (Ctrl+G)',
+  'Ungroup (Ctrl+Shift+G)': '取消组合 (Ctrl+Shift+G)',
+  'Import Image': '导入图片',
 };
 
 export default zhCN;

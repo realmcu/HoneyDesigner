@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 import { useDesignerStore } from '../store';
+import { t } from '../i18n';
 
 export const useKeyboardShortcuts = () => {
   useEffect(() => {
@@ -102,7 +103,7 @@ export const useKeyboardShortcuts = () => {
               if (window.vscodeAPI) {
                 window.vscodeAPI.postMessage({
                   command: 'showInfo',
-                  text: '列表项由父列表自动管理，请调整父列表的"项数量"属性'
+                  text: t('List items are managed by the parent list; adjust its Item Count property')
                 });
               }
               return;

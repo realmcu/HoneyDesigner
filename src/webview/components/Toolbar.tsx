@@ -476,7 +476,7 @@ const Toolbar: React.FC = () => {
                 <div className="align-menu-title">{t('Align')}</div>
                 {getAlignmentConfigsByCategory('align').map((config) => (
                   <button key={config.type} className="align-menu-item" onClick={() => handleAlign(config.type as AlignType)}>
-                    <span>{config.label}</span>
+                    <span>{t(config.labelKey)}</span>
                     {config.shortcut && <span className="shortcut">{config.shortcut}</span>}
                   </button>
                 ))}
@@ -491,7 +491,7 @@ const Toolbar: React.FC = () => {
                     onClick={() => handleDistribute(config.type as DistributeType)}
                     disabled={selectedComponents.length < config.minComponents}
                   >
-                    <span>{config.label}</span>
+                    <span>{t(config.labelKey)}</span>
                     {config.shortcut && <span className="shortcut">{config.shortcut}</span>}
                   </button>
                 ))}
@@ -501,7 +501,7 @@ const Toolbar: React.FC = () => {
                 <div className="align-menu-title">{t('Size')}</div>
                 {getAlignmentConfigsByCategory('resize').map((config) => (
                   <button key={config.type} className="align-menu-item" onClick={() => handleResize(config.type as ResizeType)}>
-                    <span>{config.label}</span>
+                    <span>{t(config.labelKey)}</span>
                   </button>
                 ))}
               </div>
@@ -742,7 +742,7 @@ const Toolbar: React.FC = () => {
                           <div className="toolbar-menu-subtitle">{t('Align')}</div>
                           {getAlignmentConfigsByCategory('align').map((config) => (
                             <button key={config.type} className="toolbar-menu-item" onClick={() => handleAlign(config.type as AlignType, true)}>
-                              <span>{config.label}</span>
+                              <span>{t(config.labelKey)}</span>
                               {config.shortcut && <span className="shortcut">{config.shortcut}</span>}
                             </button>
                           ))}
@@ -754,14 +754,14 @@ const Toolbar: React.FC = () => {
                               onClick={() => handleDistribute(config.type as DistributeType, true)}
                               disabled={selectedComponents.length < config.minComponents}
                             >
-                              <span>{config.label}</span>
+                              <span>{t(config.labelKey)}</span>
                               {config.shortcut && <span className="shortcut">{config.shortcut}</span>}
                             </button>
                           ))}
                           <div className="toolbar-menu-subtitle">{t('Size')}</div>
                           {getAlignmentConfigsByCategory('resize').map((config) => (
                             <button key={config.type} className="toolbar-menu-item" onClick={() => handleResize(config.type as ResizeType, true)}>
-                              <span>{config.label}</span>
+                              <span>{t(config.labelKey)}</span>
                             </button>
                           ))}
                         </div>

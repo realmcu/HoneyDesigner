@@ -1,5 +1,6 @@
 import { Component } from '../types';
 import { AlignmentLine } from '../components/AlignmentGuides';
+import { t } from '../i18n';
 
 const SNAP_THRESHOLD = 8; // 吸附阈值（像素）
 
@@ -94,7 +95,7 @@ export function calculateAlignment(
     lines.push({
       type: 'vertical',
       position: absCenterX, // 使用绝对坐标
-      label: '左右居中',
+      label: t('Align Center'),
       color: '#00ff00', // 亮绿色高亮
     });
   }
@@ -104,7 +105,7 @@ export function calculateAlignment(
     lines.push({
       type: 'horizontal',
       position: absCenterY, // 使用绝对坐标
-      label: '上下居中',
+      label: t('Align Middle'),
       color: '#00ff00', // 亮绿色高亮
     });
   }
@@ -116,7 +117,7 @@ export function calculateAlignment(
     lines.push({
       type: 'vertical',
       position: parentAbsPos.x + containerX, // 使用绝对坐标
-      label: '左对齐',
+      label: t('Align Left'),
       color: '#ff00ff',
     });
   }
@@ -127,7 +128,7 @@ export function calculateAlignment(
     lines.push({
       type: 'horizontal',
       position: parentAbsPos.y + containerY, // 使用绝对坐标
-      label: '顶对齐',
+      label: t('Align Top'),
       color: '#ff00ff',
     });
   }
@@ -138,7 +139,7 @@ export function calculateAlignment(
     lines.push({
       type: 'vertical',
       position: parentAbsPos.x + containerX + containerWidth, // 使用绝对坐标
-      label: '右对齐',
+      label: t('Align Right'),
       color: '#ff00ff',
     });
   }
@@ -149,7 +150,7 @@ export function calculateAlignment(
     lines.push({
       type: 'horizontal',
       position: parentAbsPos.y + containerY + containerHeight, // 使用绝对坐标
-      label: '底对齐',
+      label: t('Align Bottom'),
       color: '#ff00ff',
     });
   }
