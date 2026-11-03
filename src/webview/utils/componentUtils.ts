@@ -49,6 +49,32 @@ export const getAbsolutePosition = (
 };
 
 /**
+ * 判断 ancestorId 是否为 descendantId 的祖先容器。
+ *
+ * 画布命中时用得到：子控件的元素本身就嵌在父容器的元素里，元素栈天然会把父容器
+ * 一起带出来；祖先容器不应该抢走已选中子控件的拖动。
+ */
+export const isAncestorOfComponent = (
+  ancestorId: string,
+  descendantId: string,
+  components: Component[]
+): boolean => {
+  if (ancestorId === descendantId) {
+    return false;
+  }
+  let parent = components.find(c => c.id === descendantId)?.parent ?? null;
+  const guard = new Set<string>();
+  while (parent && !guard.has(parent)) {
+    if (parent === ancestorId) {
+      return true;
+    }
+    guard.add(parent);
+    parent = components.find(c => c.id === parent)?.parent ?? null;
+  }
+  return false;
+};
+
+/**
  * 查找指定位置的目标容器组件
  * 只返回容器类型（hg_view 或 hg_window）
  * 返回最小的包含该位置的容器
