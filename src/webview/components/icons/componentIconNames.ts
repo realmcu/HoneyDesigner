@@ -1,0 +1,37 @@
+/**
+ * 组件图标名。
+ * 该类型必须保持无 React / lucide-react 依赖，避免被 extension host 编译链带入 VSIX。
+ */
+export type ComponentIconName =
+  | 'button'
+  | 'label'
+  | 'time-label'
+  | 'timer-label'
+  | 'input'
+  | 'image'
+  | 'checkbox'
+  | 'radio'
+  | 'switch'
+  | 'progressbar'
+  | 'slider'
+  | 'view'
+  | 'window'
+  | 'canvas'
+  | 'list'
+  | 'list-item'
+  | 'video'
+  | 'streaming'
+  | 'gif'
+  | 'model-3d'
+  | 'arc'
+  | 'circle'
+  | 'rect'
+  | 'svg'
+  | 'lottie'
+  | 'glass'
+  | 'particle'
+  | 'menu-cellular'
+  | 'qrcode'
+  | 'dual-state'
+  | 'opacity'
+  | 'unknown';

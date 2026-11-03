@@ -10,7 +10,7 @@ import type {
   ComponentData as HmlComponentData
 } from '../hml/types';
 import type { ProjectI18nIndex } from '../project-i18n/projectIndex';
-import type { ComponentIconName } from './components/icons/ComponentIcon';
+import type { ComponentIconName } from './components/icons/componentIconNames';
 import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
 import type { EventType } from '../hml/eventTypes';
 

@@ -23,44 +23,9 @@ import {
   ToggleLeft as ToggleLeftIcon,
   Type as TypeIcon,
 } from 'lucide-react';
+import type { ComponentIconName } from './componentIconNames';
 
-/**
- * 组件图标名。
- * 每个名字对应一个 lucide 图标，或本文件内的手绘图标（lucide 没有合适形状时）。
- */
-export type ComponentIconName =
-  | 'button'
-  | 'label'
-  | 'time-label'
-  | 'timer-label'
-  | 'input'
-  | 'image'
-  | 'checkbox'
-  | 'radio'
-  | 'switch'
-  | 'progressbar'
-  | 'slider'
-  | 'view'
-  | 'window'
-  | 'canvas'
-  | 'list'
-  | 'list-item'
-  | 'video'
-  | 'streaming'
-  | 'gif'
-  | 'model-3d'
-  | 'arc'
-  | 'circle'
-  | 'rect'
-  | 'svg'
-  | 'lottie'
-  | 'glass'
-  | 'particle'
-  | 'menu-cellular'
-  | 'qrcode'
-  | 'dual-state'
-  | 'opacity'
-  | 'unknown';
+export type { ComponentIconName } from './componentIconNames';
 
 interface IconProps {
   size?: number;
