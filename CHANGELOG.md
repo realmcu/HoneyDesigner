@@ -4,6 +4,40 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [2.2.2] - 2026-11-03
+
+### Added
+
+- 浏览器版设计器可直接预览和仿真 HoneyGUI 工程，并内置浏览器仿真引擎与编译工具链
+- 浏览器仿真窗口支持硬件按键输入、原生分辨率显示和运行状态反馈
+- 标签、时间标签和计时标签新增文本透明度配置，支持 HoneyGUI 与 LVGL
+- 新增独立发布指南，记录正式版/预览版规则、质量门禁、tag 发布和失败处理流程
+
+### Changed
+
+- HoneyGUI 的 HML `callFunction` 绑定改为全局生成到 `src/generated/auto_generated_bindings.c`
+- 生成的 UI 和 callbacks 通过条件 include 兼容已有 user 头文件；user 目录不存在时仍可独立编译
+- Webview 用户可见文本统一接入国际化，并补充 bundle、key 和 `t()` 调用一致性测试
+- 浏览器版工作台移除工程文件树，改为顶栏新建 HML 入口
+- 合并仿真资产更新流程，减少 Linux、Win32 和浏览器仿真资源同步的重复工作
+- 字体转换使用 manifest 判断字符集覆盖，避免未变化字体重复转换
+- 图片转换减少逐像素临时缓冲，改善资源转换性能
+
+### Fixed
+
+- 修复被其他组件遮挡时无法拖动当前选中组件的问题
+- 修复浏览器版启动页在部分语言下布局跳动的问题
+- 修复浏览器仿真画面缩放后出现锯齿的问题
+- 修复浏览器文件系统 shim 缺少 `writeSync` 的问题
+- 修复仿真构建日志、字符集统计和路径提示未完整国际化的问题
+
+### Internal
+
+- 新增 ROMFS、HML 快速预览、字体 manifest、Webview i18n 和自动绑定的回归测试
+- 更新浏览器、Linux 和 Win32 仿真引擎及资源
+- 修复仿真资产 workflow 的 SDK 分支版本判断和并发更新问题
+- 修复图标类型导入导致 React 和 lucide-react 被误打包进 VSIX 的问题
+
 ## [2.2.0] - 2026-10-21
 
 ### Added
