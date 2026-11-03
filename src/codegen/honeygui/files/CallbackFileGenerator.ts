@@ -76,6 +76,7 @@ export class CallbackFileGenerator {
 #include "gui_api.h"
 #include "gui_text.h"
 #include "gui_obj_focus.h"
+#include "../generated/auto_generated_bindings.h"
 
 `;
 
@@ -182,7 +183,6 @@ export class CallbackFileGenerator {
     
     let code = `#include "${baseName}_callbacks.h"
 #include "../ui/${baseName}_ui.h"
-#include "../user/${baseName}_user.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
