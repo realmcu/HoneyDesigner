@@ -4,6 +4,29 @@
 
 All notable changes to HoneyGUI Visual Designer will be documented in this file.
 
+## [2.2.4] - 2026-11-04
+
+### Added
+
+- 浏览器版设计器支持从 GitHub 仓库直接打开工程，并显示导入进度与错误提示
+- 新增画布命中测试与选中框覆盖层，支持在重叠控件中准确选中和拖动目标组件
+
+### Changed
+
+- 浏览器版启动页重新设计，整合最近工程、示例模板和 GitHub 导入入口
+- HoneyGUI 生成的 UI、callbacks 和 user 文件增加标准归属说明，明确自动覆盖与用户保护区规则
+- callbacks 头文件新增可保留自定义声明的保护区
+
+### Fixed
+
+- 修复重叠控件无法稳定选中、拖动目标控件以及选中框被遮挡或裁剪的问题
+- 修复复杂画布布局下的点击命中判断错误
+
+### Internal
+
+- 更新 Linux、Win32 和浏览器仿真资产，支持系统值变更订阅、矩形/圆形阴影及 JPEG 编码接口
+- 新增 GitHub 导入、画布选中和重叠控件命中测试
+
 ## [2.2.2] - 2026-11-03
 
 ### Added
