@@ -1,5 +1,6 @@
 import { Component } from '../types';
 import { isContainerType } from './componentUtils';
+import { COMPONENT_ID_ATTRIBUTE } from './componentHitStack';
 
 /**
  * 计算组件样式
@@ -16,24 +17,16 @@ export const calculateComponentStyle = (
   allComponents?: Component[],
   draggedComponentId?: string | null
 ): React.CSSProperties => {
-  // List 容器不显示边框（除非选中）
+  // 选中框不再画在控件自身：控件被上层控件盖住、被父容器 overflow:hidden 裁掉时，
+  // 画在自身上的选中框也一起看不见（拖动时靠临时抬高 z-index 才露出来）。
+  // 选中框统一由画布外层的 SelectionOverlay 绘制，这里只保留设计期的辅助边框。
   let border = '1px solid transparent';
   if (component.type === 'hg_list') {
-    if (isSelected || isMultiSelected) {
-      border = '2px solid #007ACC';
-    } else {
-      border = 'none';
-    }
+    border = 'none';
   } else if (component.type === 'hg_window') {
-    if (isSelected || isMultiSelected) {
-      border = '2px solid #007ACC';
-    } else {
-      border = '1px dashed rgba(150, 150, 150, 0.5)';
-    }
-  } else if (isListItem && !isSelected && !isMultiSelected) {
     border = '1px dashed rgba(150, 150, 150, 0.5)';
-  } else if (isSelected || isMultiSelected) {
-    border = '2px solid #007ACC';
+  } else if (isListItem) {
+    border = '1px dashed rgba(150, 150, 150, 0.5)';
   } else if (isHovered) {
     border = '1px dashed #007ACC';
   }
@@ -214,6 +207,9 @@ export const calculateComponentStyle = (
 
 /**
  * 创建通用的组件事件处理器
+ *
+ * 同时把组件 id 写到根节点的 data-component-id 上，命中测试用它把
+ * document.elementsFromPoint 的元素栈映射回控件（见 utils/componentHitStack.ts）。
  */
 export const createComponentHandlers = (
   componentId: string,
@@ -223,6 +219,7 @@ export const createComponentHandlers = (
   onContextMenu?: (e: React.MouseEvent, id: string) => void,
   onDoubleClick?: (e: React.MouseEvent, id: string) => void
 ) => ({
+  [COMPONENT_ID_ATTRIBUTE]: componentId,
   onMouseDown: (e: React.MouseEvent) => {
     // 只响应鼠标左键
     if (e.button === 0) {

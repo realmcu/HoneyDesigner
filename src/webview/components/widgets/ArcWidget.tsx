@@ -214,18 +214,21 @@ export const ArcWidget: React.FC<WidgetProps> = ({ component, style, handlers, c
     <div style={{ ...style, overflow: 'visible' }} {...handlers}>
       {useGradient && gradientStops.length >= 2 ? (
         // 使用 Canvas 绘制角度渐变
-        <canvas 
+        // 弧形的包围盒大部分是透明的：交给父级命中测试按几何过滤，
+        // 这里不接收指针事件，避免点在空白处却抢走了下层控件的点击。
+        <canvas
           ref={canvasRef}
-          style={{ 
+          style={{
             display: 'block',
             width: `${width}px`,
             height: `${height}px`,
-            background: 'transparent'
-          }} 
+            background: 'transparent',
+            pointerEvents: 'none',
+          }}
         />
       ) : (
         // 使用 SVG 绘制纯色弧形
-        <svg width={width} height={height} style={{ display: 'block' }}>
+        <svg width={width} height={height} style={{ display: 'block', pointerEvents: 'none' }}>
           <path
             d={pathD}
             fill="none"

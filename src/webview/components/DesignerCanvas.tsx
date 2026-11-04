@@ -1,25 +1,23 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useDesignerStore } from '../store';
-import { Component, ComponentType } from '../types';
+import { Component } from '../types';
 import { useCanvasZoom } from '../hooks/useCanvasZoom';
 import { useCanvasDrag } from '../hooks/useCanvasDrag';
 import { useContextMenu } from '../hooks/useContextMenu';
-import { useComponentResize, RADIUS_SIZED_TYPES } from '../hooks/useComponentResize';
+import { useComponentResize } from '../hooks/useComponentResize';
 import { calculateComponentStyle, createComponentHandlers } from '../utils/componentRenderer';
 import { widgetRegistry } from './widgets';
 import { ContextMenu } from './ContextMenu';
 import { executeMenuAction, MenuActionHelpers } from '../services/contextMenuActions';
 import { ViewConnectionLayer } from './ViewConnectionLayer';
 import { AlignmentGuides, AlignmentLine } from './AlignmentGuides';
-import { ResizeHandles, ResizeDirection } from './ResizeHandles';
-
-/** 画布上可直接拖拽手柄修改尺寸的组件类型 */
-const RESIZABLE_TYPES: ComponentType[] = ['hg_label', 'hg_rect', 'hg_circle', 'hg_arc', 'hg_progress'];
-const CORNER_DIRECTIONS: ResizeDirection[] = ['nw', 'ne', 'sw', 'se'];
 import { MoveHandle } from './MoveHandle';
 import { calculateAlignment } from '../utils/dragAlignmentGuides';
 import { getAbsolutePosition, findComponentAtPosition, isContainerType } from '../utils/componentUtils';
+import { getComponentStackAt } from '../utils/componentHitStack';
+import { resolveClickTarget } from '../utils/canvasSelection';
 import { fromCanvasEvent, getCanvasCoordinates } from '../utils/canvasCoordinates';
+import { SelectionOverlay } from './SelectionOverlay';
 import { t } from '../i18n';
 import './DesignerCanvas.css';
 
@@ -29,6 +27,9 @@ interface DesignerCanvasProps {
   onDragOver?: (e: React.DragEvent) => void;
   onCanvasDoubleClick?: (componentId: string) => void;
 }
+
+/** 判定「同一位置重复单击」的容差（设计坐标 px） */
+const CLICK_REPEAT_TOLERANCE = 2;
 
 const REACT_LAZY_TYPE = Symbol.for('react.lazy');
 
@@ -48,8 +49,10 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [pendingDragComponent, setPendingDragComponent] = useState<string | null>(null);
-  // 按在已选中组件范围内时实际点到的组件：松开时若未拖动则改选它
-  const pendingClickSelectRef = useRef<string | null>(null);
+  // 上一次左键按下的位置、控件栈与下一次该穿透到的层，用于「同位置重复单击逐层穿透」
+  const lastClickRef = useRef<{ x: number; y: number; stack: string[]; nextIndex: number } | null>(null);
+  // 重复单击要穿透到的下层控件：松开且没拖动时才切换选中，按住拖动则仍拖原控件
+  const pendingPenetrateRef = useRef<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 }); // 组件拖拽起始位置
   const [alignmentLines, setAlignmentLines] = useState<AlignmentLine[]>([]); // 对齐辅助线
@@ -126,7 +129,6 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
   // 使用组件调整大小 Hook
   const {
     isResizing,
-    resizingComponentId,
     handleResizeStart,
     handleResizeMove,
     handleResizeEnd,
@@ -283,35 +285,70 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
 
   const handleComponentMouseDown = (e: React.MouseEvent, componentId: string) => {
     e.stopPropagation();
-    
+
     let component = components.find(c => c.id === componentId);
     if (!component) return;
 
-    // 按在已选中组件的范围内时拖动已选中组件，即使上面盖着其他组件；
-    // 没有拖动就松开，才按点击选中最上层的组件（见 handleComponentMouseUp）
-    pendingClickSelectRef.current = null;
-    const hasModifier = e.ctrlKey || e.metaKey || e.shiftKey || e.altKey;
-    if (!hasModifier && !selectedComponents.includes(componentId)) {
-      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
-      const selectedUnderPointer = coords && selectedComponents
-        .map(id => components.find(c => c.id === id))
-        .find((comp): comp is Component => {
-          if (!comp || isContainerType(comp.type) || comp.type === 'hg_list_item') return false;
-          if (comp.locked || comp.visible === false) return false;
-          const absPos = getAbsolutePosition(comp, components);
-          return coords.x >= absPos.x && coords.x <= absPos.x + comp.position.width
-            && coords.y >= absPos.y && coords.y <= absPos.y + comp.position.height;
-        });
-      if (selectedUnderPointer) {
-        pendingClickSelectRef.current = componentId;
-        component = selectedUnderPointer;
-        componentId = selectedUnderPointer.id;
+    // 修饰键按下或画布平移时不算"重复单击"
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+      lastClickRef.current = null;
+    }
+
+    const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
+    // 该点下自顶向下的控件栈（已按控件形状过滤，已剔除祖先容器），用于重叠时穿透
+    const hitStack = getComponentStackAt(e.clientX, e.clientY, components, coords);
+    const stack = hitStack.length > 0 ? hitStack : [componentId];
+    const isMulti = e.ctrlKey || e.metaKey || e.shiftKey;
+
+    // 同一位置重复单击逐层穿透：指针没动、且落在同一控件栈上才算「重复单击」
+    const lastClick = lastClickRef.current;
+    const repeating = !!coords && !!lastClick
+      && stack.length > 1
+      && Math.abs(coords.x - lastClick.x) <= CLICK_REPEAT_TOLERANCE
+      && Math.abs(coords.y - lastClick.y) <= CLICK_REPEAT_TOLERANCE
+      && stack.join('|') === lastClick.stack.join('|');
+
+    // 选中与拖动用同一个目标，避免「按下时选中 A、拖动的却是 B」。
+    // 规则细节见 utils/canvasSelection.ts（选中了被透明热区盖住的控件也能拖得动；
+    // 同位置重复单击的穿透只在松开且未拖动时生效）
+    const { targetId, penetrateId } = resolveClickTarget({
+      eventComponentId: componentId,
+      hitStack: stack,
+      components,
+      selectedIds: selectedComponents,
+      point: coords,
+      repeating,
+      repeatIndex: lastClick?.nextIndex ?? 0,
+      hasModifier: isMulti || e.altKey,
+    });
+
+    pendingPenetrateRef.current = penetrateId;
+
+    if (coords) {
+      // 穿透成立时下一次从穿透到的那层继续往下
+      // 目标不在栈里（例如按在已选中弧的空心处，弧被形状过滤掉了）时，下一次从最上层开始
+      const targetIndex = stack.indexOf(penetrateId ?? targetId);
+      lastClickRef.current = {
+        x: coords.x,
+        y: coords.y,
+        stack,
+        nextIndex: targetIndex < 0 ? 0 : (targetIndex + 1) % stack.length,
+      };
+    }
+
+    const pierced = targetId !== componentId;
+
+    // 目标不是事件来源控件时，按普通单击处理：不叠加修饰键的多选
+    if (pierced) {
+      const piercedComponent = components.find(c => c.id === targetId);
+      if (piercedComponent) {
+        component = piercedComponent;
+        componentId = piercedComponent.id;
       }
     }
 
-    // 如果点击的是容器组件，启动框选定时器
+    // 如果点击的是容器组件，启动框选定时器（短按松开时会被 handleComponentMouseUp 取消）
     if (isContainerType(component.type)) {
-      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
       if (coords) {
         const timer = setTimeout(() => {
           setIsBoxSelecting(true);
@@ -319,64 +356,15 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
           setBoxSelectEnd({ x: coords.x, y: coords.y });
           setSelectedComponents([]); // 清空之前的选择
         }, 300);
-        
+
         setBoxSelectTimer(timer);
       }
-    } else {
+    } else if (boxSelectTimer) {
       // 如果点击的是非容器组件，清除框选定时器
-      if (boxSelectTimer) {
-        clearTimeout(boxSelectTimer);
-        setBoxSelectTimer(null);
-      }
+      clearTimeout(boxSelectTimer);
+      setBoxSelectTimer(null);
     }
-    
-    // Ctrl + 点击：穿透选中内层控件（只在同级组件之间循环，不包括父容器）
-    if (e.ctrlKey && !e.shiftKey && !e.metaKey) {
-      // 获取鼠标在画布中的位置
-      const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
-      if (coords) {
-        // 查找当前点击位置的所有同级组件（不包括父容器）
-        const clickedComponents: Component[] = [];
-        const currentParent = component.parent;
-        
-        // 获取同级组件列表
-        const siblings = components.filter(c => c.parent === currentParent);
-        
-        // 检查每个同级组件是否在点击位置
-        siblings.forEach(sibling => {
-          // 计算组件的绝对位置
-          let absX = sibling.position.x;
-          let absY = sibling.position.y;
-          
-          // 如果有父容器，需要加上父容器的位置
-          if (currentParent) {
-            const parent = components.find(c => c.id === currentParent);
-            if (parent) {
-              absX += parent.position.x;
-              absY += parent.position.y;
-            }
-          }
-          
-          const compLeft = absX;
-          const compTop = absY;
-          const compRight = compLeft + sibling.position.width;
-          const compBottom = compTop + sibling.position.height;
-          
-          if (coords.x >= compLeft && coords.x <= compRight && coords.y >= compTop && coords.y <= compBottom) {
-            clickedComponents.push(sibling);
-          }
-        });
-        
-        // 如果找到多个同级组件，选择下一个（循环选择）
-        if (clickedComponents.length > 1) {
-          const currentIndex = clickedComponents.findIndex(c => c.id === selectedComponent);
-          const nextIndex = (currentIndex + 1) % clickedComponents.length;
-          component = clickedComponents[nextIndex];
-          componentId = component.id;
-        }
-      }
-    }
-    
+
     // Alt + 点击：选中父容器
     if (e.altKey && component.parent) {
       const parentComponent = components.find(c => c.id === component!.parent);
@@ -385,12 +373,12 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
         componentId = parentComponent.id;
       }
     }
-    
+
     // 选中当前组件（允许选中 locked 组件）
-    const multi = (e.ctrlKey || e.metaKey || e.shiftKey) && !e.altKey;
+    const multi = isMulti && !e.altKey && !pierced;
     if (multi) {
       addToSelection(componentId);
-    } else if (!pendingClickSelectRef.current) {
+    } else {
       onComponentSelect(componentId);
     }
 
@@ -446,6 +434,26 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     setPendingDragComponent(draggableComponent.id);
     setDragStart({ x: e.clientX, y: e.clientY });
   };
+
+  // 控件的鼠标处理器必须始终调用「本次渲染」的版本。
+  //
+  // widgetMemo 比较 props 时刻意忽略 handlers（每次都是新引用），控件只在自身数据变化时重渲染；
+  // 选中框挪到 SelectionOverlay 后，选中/取消选中也不再让控件重渲染。直接把
+  // handleComponentMouseDown 传下去，控件里就会一直攥着旧闭包里的 selectedComponents ——
+  // 表现为「明明选中了 0.85 文本，按下拖动的却是之前选中的弧」。
+  const componentMouseDownRef = useRef(handleComponentMouseDown);
+  componentMouseDownRef.current = handleComponentMouseDown;
+  const stableComponentMouseDown = useCallback(
+    (e: React.MouseEvent, id: string) => componentMouseDownRef.current(e, id),
+    []
+  );
+  // 同理：右键菜单要拿到最新的组件数据（例如锁定状态）
+  const componentContextMenuRef = useRef(handleComponentContextMenu);
+  componentContextMenuRef.current = handleComponentContextMenu;
+  const stableComponentContextMenu = useCallback(
+    (e: React.MouseEvent, id: string) => componentContextMenuRef.current(e, id),
+    []
+  );
 
   const handleComponentMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     // 先处理画布拖动
@@ -640,11 +648,17 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     // 记录是否有拖拽操作
     const hadDragOperation = !!draggedComponent;
 
-    // 在已选中组件范围内单击（未拖动）：选中被点到的最上层组件
-    const clickSelectId = pendingClickSelectRef.current;
-    pendingClickSelectRef.current = null;
-    if (clickSelectId && !hadDragOperation) {
-      onComponentSelect(clickSelectId);
+    // 松开时只处理一种改选：同位置重复单击、且这次没有拖动 —— 用户在逐层找下层控件。
+    // 其它情况一律不改选：选中与拖动已经在 mousedown 时用同一个目标决定好了，
+    // 松手再改选会产生「按下时是红弧、松手后变成 c1_bg 背景图」的跳变。
+    const penetrateId = pendingPenetrateRef.current;
+    pendingPenetrateRef.current = null;
+    if (penetrateId && !hadDragOperation) {
+      onComponentSelect(penetrateId);
+    }
+    // 拖动过就不再算「同位置重复单击」，下一次按下重新从最上层算起
+    if (hadDragOperation) {
+      lastClickRef.current = null;
     }
 
     // 处理跨容器拖拽（框选移动不触发跨容器拖拽）
@@ -801,10 +815,10 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
 
     const handlers = createComponentHandlers(
       component.id,
-      handleComponentMouseDown,
+      stableComponentMouseDown,
       handleMouseEnter,
       handleMouseLeave,
-      handleComponentContextMenu,
+      stableComponentContextMenu,
       handleDoubleClick
     );
 
@@ -820,11 +834,8 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
       );
     }
 
-    // 是否显示 resize handles（文本与基础图形，选中且未锁定的组件）
-    const showResizeHandles = RESIZABLE_TYPES.includes(component.type) && (isSelected || isMultiSelected) && !component.locked
-      && (!isResizing || resizingComponentId === component.id);
-    // 圆形/弧形只能等比缩放，仅显示四角手柄
-    const resizeDirections = RADIUS_SIZED_TYPES.includes(component.type) ? CORNER_DIRECTIONS : undefined;
+    // 选中框与尺寸手柄不再画在控件内部（会被上层控件盖住、被父容器 overflow:hidden 裁掉），
+    // 统一由画布外的 SelectionOverlay 渲染（见下方 return 中的覆盖层）。
 
     // 懒加载控件（hg_3d / hg_lottie）首次渲染需要 Suspense 边界。
     // 只包裹这类控件，其余控件的渲染路径保持不变，避免无谓的额外层级。
@@ -838,14 +849,9 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
         node
       );
 
-    // 处理 resize 开始
-    const onResizeStartHandler = (e: React.MouseEvent, direction: ResizeDirection, compId: string) => {
-      handleResizeStart(e, direction, compId, component);
-    };
-
     // 容器组件需要渲染子组件
     const isContainer = isContainerType(component.type);
-    
+
     if (isContainer) {
       // 正常渲染所有子组件
       const children = component.children?.map((childId) => {
@@ -856,31 +862,12 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
       return withSuspense(
         <Widget key={component.id} component={component} style={style} handlers={handlers}>
           {children}
-          {showResizeHandles && (
-            <ResizeHandles
-              componentId={component.id}
-              width={component.position.width}
-              height={component.position.height}
-              directions={resizeDirections}
-              onResizeStart={onResizeStartHandler}
-            />
-          )}
         </Widget>
       );
     }
 
     return withSuspense(
-      <Widget key={component.id} component={component} style={style} handlers={handlers}>
-        {showResizeHandles && (
-          <ResizeHandles
-            componentId={component.id}
-            width={component.position.width}
-            height={component.position.height}
-            directions={resizeDirections}
-            onResizeStart={onResizeStartHandler}
-          />
-        )}
-      </Widget>
+      <Widget key={component.id} component={component} style={style} handlers={handlers} />
     );
   };
 
@@ -912,14 +899,18 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
           // 如果不是画布拖拽（Ctrl+左键或中键），则检测框选
           // 允许在任何地方（包括容器内部）触发框选
           if (e.button === 0 && !e.ctrlKey && !e.metaKey) {
+            // 点到空白处/容器透明区域，逐层穿透的"重复单击"重新计数
+            lastClickRef.current = null;
+
             const coords = fromCanvasEvent(e.clientX, e.clientY, canvasRef.current, zoom, canvasOffset, false);
             if (!coords) return;
             const mouseX = coords.x;
             const mouseY = coords.y;
 
-            // 检查是否点击在某个组件上
+            // 检查是否点击在某个组件上。控件自己的 mousedown 会 stopPropagation，
+            // 能走到这里说明点在空白处；落在容器上时仍允许长按框选。
             const clickedComponent = findComponentAtPosition(mouseX, mouseY, components);
-            
+
             // 如果点击在容器组件上（或空白区域），设置长按定时器
             if (!clickedComponent || isContainerType(clickedComponent.type)) {
               const timer = setTimeout(() => {
@@ -928,7 +919,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
                 setBoxSelectEnd({ x: mouseX, y: mouseY });
                 setSelectedComponents([]); // 清空之前的选择
               }, 300);
-              
+
               setBoxSelectTimer(timer);
             }
           }
@@ -983,6 +974,16 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
           {components
             .filter((c) => c.parent === null)
             .map((component) => renderComponent(component))}
+
+          {/* 选中框与尺寸手柄覆盖层 - 独立于组件层，
+              不受同级控件 z-index 遮挡、也不受父容器 overflow:hidden 裁剪 */}
+          <SelectionOverlay
+            components={components}
+            selectedId={selectedComponent}
+            selectedIds={selectedComponents}
+            dragging={!!draggedComponent}
+            onResizeStart={(e, direction, compId, comp) => handleResizeStart(e, direction, compId, comp)}
+          />
 
           {/* 移动手柄覆盖层 - 独立于组件层，不受 overflow:hidden 影响 */}
           {(() => {

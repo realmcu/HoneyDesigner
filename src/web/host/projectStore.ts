@@ -20,6 +20,18 @@ export interface StoredProject {
     mode: ProjectStorageMode;
     updatedAt: number;
     handle?: FileSystemDirectoryHandle;
+    /**
+     * 工程来源地址（例如导入时的 GitHub 仓库 URL），仅用于展示来源。
+     * 不含同步或自动更新语义：再次打开读的是浏览器里的副本，不会回源拉取。
+     */
+    sourceUrl?: string;
+    /**
+     * 来源工程的标识（例如 `github.com/owner/repo/子目录`），只用于导入时识别「已经导入过」，
+     * 避免同一个仓库工程在浏览器里出现多份副本。
+     */
+    sourceKey?: string;
+    /** 导入时的来源版本（GitHub commit SHA），用于提示已有副本是否与仓库当前版本一致 */
+    sourceRevision?: string;
 }
 
 interface StoredEntry {
@@ -132,6 +144,14 @@ export async function deleteProjectRecord(id: string): Promise<void> {
     await transactionDone(tx);
 }
 
+/**
+ * 删除本次新导入工程的写入痕迹。
+ * 只按传入的工程 id 删，不会波及任何已有工程 —— 用于导入中途失败或校验不通过时回滚。
+ */
+export async function discardProject(id: string): Promise<void> {
+    await deleteProject(id);
+}
+
 /** 清空最近工程列表；只移除记录，本地文件夹与浏览器中已存的工程文件都不动 */
 export async function clearProjectHistory(projects: StoredProject[]): Promise<void> {
     for (const project of projects) {
@@ -190,7 +210,28 @@ export async function readProjectSummary(project: StoredProject): Promise<Projec
 export async function writeBrowserFiles(projectId: string, files: Map<string, Uint8Array>): Promise<void> {
     const db = await openDb();
     const tx = db.transaction('files', 'readwrite');
+    putBrowserFiles(tx.objectStore('files'), projectId, files);
+    await transactionDone(tx);
+}
+
+/**
+ * 用一组新文件整体替换浏览器工程的内容，并更新工程记录（重新下载覆盖已有副本时用）。
+ *
+ * 删旧文件、写新文件、改记录在同一个 IndexedDB 事务里完成：任一步失败整个事务回滚，
+ * 旧副本保持原样，不会出现「旧文件删了一半、新文件没写完」的工程。
+ */
+export async function replaceBrowserProject(project: StoredProject, files: Map<string, Uint8Array>): Promise<void> {
+    const db = await openDb();
+    const tx = db.transaction(['projects', 'files'], 'readwrite');
     const store = tx.objectStore('files');
+    const keys = await requestToPromise(store.index('projectId').getAllKeys(IDBKeyRange.only(project.id)));
+    keys.forEach(key => store.delete(key));
+    putBrowserFiles(store, project.id, files);
+    tx.objectStore('projects').put(project);
+    await transactionDone(tx);
+}
+
+function putBrowserFiles(store: IDBObjectStore, projectId: string, files: Map<string, Uint8Array>): void {
     const dirs = new Set<string>();
     for (const [relPath, data] of files) {
         store.put({ key: entryKey(projectId, relPath), projectId, path: relPath, kind: 'file', data } satisfies StoredEntry);
@@ -201,7 +242,6 @@ export async function writeBrowserFiles(projectId: string, files: Map<string, Ui
         }
     }
     dirs.forEach(dir => store.put({ key: entryKey(projectId, dir), projectId, path: dir, kind: 'dir' } satisfies StoredEntry));
-    await transactionDone(tx);
 }
 
 async function loadBrowserProject(project: StoredProject, root: string): Promise<void> {

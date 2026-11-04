@@ -112,6 +112,39 @@
   z-index: 999;
 }
 
+/* Selection overlay: 选中框画在组件层之外，避免被上层控件遮挡或被父容器裁剪 */
+.selection-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.selection-overlay-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid #007ACC;
+  pointer-events: none;
+}
+
+/* 多选时非主选中项用虚线，主选中项保持实线 */
+.selection-overlay-box.secondary {
+  border-style: dashed;
+}
+
+/* 锁定控件不可拖动，用灰色区分 */
+.selection-overlay-box.locked {
+  border-color: rgba(200, 200, 200, 0.7);
+}
+
+.selection-overlay-handles {
+  position: absolute;
+  pointer-events: none;
+}
+
 /* Resize handles */
 .resize-handle {
   position: absolute;

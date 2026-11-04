@@ -391,6 +391,8 @@ export const Model3DWidget: React.FC<WidgetProps> = ({ component, style, handler
   }, [modelUri, mtlUri, worldX, worldY, worldZ, rotationX, rotationY, rotationZ, scale, cameraPosX, cameraPosY, cameraPosZ, cameraLookX, cameraLookY, cameraLookZ, autoRotationEnabled, autoRotationAxis, autoRotationSpeed]);
 
   // 触摸旋转交互
+  // 未使用 {...handlers} 展开：onMouseDown/onMouseUp 要叠加 3D 旋转逻辑，
+  // 因此这里手动复刻 handlers 里的 data-component-id，保证画布命中测试能找到本控件。
   const handleMouseDown = (e: React.MouseEvent) => {
     handlers.onMouseDown(e);
     // 只响应鼠标中键（滚轮按下）
@@ -438,9 +440,10 @@ export const Model3DWidget: React.FC<WidgetProps> = ({ component, style, handler
   };
 
   return (
-    <div 
-      key={component.id} 
+    <div
+      key={component.id}
       style={style}
+      data-component-id={component.id}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}

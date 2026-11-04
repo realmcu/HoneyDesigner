@@ -94,7 +94,9 @@ export const CircleWidget: React.FC<WidgetProps> = ({ component, style, handlers
 
   return (
     <div style={{ ...style, overflow: 'visible' }} {...handlers} {...previewHandlers}>
-      <svg width={width} height={height} style={{ display: 'block', overflow: 'visible' }}>
+      {/* 圆形的包围盒四角是透明的：子元素不接收指针事件，
+          命中由根节点 + 父级几何过滤决定，避免点在四角却抢掉下层控件的点击 */}
+      <svg width={width} height={height} style={{ display: 'block', overflow: 'visible', pointerEvents: 'none' }}>
         {renderGradient()}
         <circle
           cx={cx}

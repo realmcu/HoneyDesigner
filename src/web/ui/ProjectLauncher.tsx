@@ -15,7 +15,9 @@ import {
     deleteProject,
     clearProjectHistory,
     saveProjectRecord,
+    discardProject,
     writeBrowserFiles,
+    replaceBrowserProject,
     createProjectId,
     pickProjectDirectory,
     directoryContainsProject,
@@ -23,6 +25,7 @@ import {
 } from '../host/projectStore';
 import { scaffoldProject, NewProjectOptions, PROJECT_NAME_PATTERN } from '../host/projectScaffold';
 import { importProjectZip } from '../host/projectZip';
+import { GitHubImportDialog, GitHubImportResult } from './GitHubImportDialog';
 import { isDirectoryAccessSupported, getWebLocale, setWebLocale, WebLocale } from '../host/webEnvironment';
 import { DEFAULT_ROMFS_BASE_ADDR } from '../../common/ProjectConfig';
 import { t, setLocale } from '../../webview/i18n';
@@ -271,6 +274,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
     const [error, setError] = useState<string | undefined>();
     const [locale, setLocaleState] = useState<WebLocale>(getWebLocale());
     const [loadingExample, setLoadingExample] = useState<string | null>(null);
+    const [importingFromGitHub, setImportingFromGitHub] = useState(false);
     const zipInputRef = useRef<HTMLInputElement>(null);
 
     const loadSummaries = (list: StoredProject[]) => {
@@ -296,12 +300,40 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
         setLocaleState(next);
     };
 
+    /**
+     * 把一组工程文件落进浏览器存储并打开。
+     *
+     * 所有导入入口（新建 / ZIP / 示例 / GitHub）都走这里，保证同一套提交语义：
+     * 先写文件、再写工程记录，任一步失败就删掉**本次新工程 ID** 下的全部写入，
+     * 不会留下「最近工程里有、文件却是空的」这种半成品，也不会碰到已有工程。
+     */
+    const persistProject = async (
+        name: string,
+        files: Map<string, Uint8Array>,
+        source?: Pick<StoredProject, 'sourceUrl' | 'sourceKey' | 'sourceRevision'>
+    ): Promise<StoredProject> => {
+        const project: StoredProject = {
+            id: createProjectId(),
+            name,
+            mode: 'browser',
+            updatedAt: Date.now(),
+            ...source,
+        };
+        try {
+            await writeBrowserFiles(project.id, files);
+            await saveProjectRecord(project);
+        } catch (err) {
+            // 回滚只针对这个新 id；失败也不能影响打开流程之外的已有工程
+            await discardProject(project.id).catch(() => undefined);
+            throw err;
+        }
+        onOpen(project);
+        return project;
+    };
+
     const createProject = async (options: NewProjectOptions) => {
         try {
-            const project: StoredProject = { id: createProjectId(), name: options.name, mode: 'browser', updatedAt: Date.now() };
-            await writeBrowserFiles(project.id, scaffoldProject(options));
-            await saveProjectRecord(project);
-            onOpen(project);
+            await persistProject(options.name, scaffoldProject(options));
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
         }
@@ -311,10 +343,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
         setError(undefined);
         try {
             const imported = importProjectZip(file.name, new Uint8Array(await file.arrayBuffer()));
-            const project: StoredProject = { id: createProjectId(), name: imported.name, mode: 'browser', updatedAt: Date.now() };
-            await writeBrowserFiles(project.id, imported.files);
-            await saveProjectRecord(project);
-            onOpen(project);
+            await persistProject(imported.name, imported.files);
         } catch (err) {
             setError(t('Import failed: {0}', err instanceof Error ? err.message : String(err)));
         }
@@ -328,20 +357,35 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
             const response = await fetch(new URL(example.archive, document.baseURI));
             if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
             const imported = importProjectZip(example.archive, new Uint8Array(await response.arrayBuffer()));
-            const project: StoredProject = {
-                id: createProjectId(),
-                name: imported.name,
-                mode: 'browser',
-                updatedAt: Date.now(),
-            };
-            await writeBrowserFiles(project.id, imported.files);
-            await saveProjectRecord(project);
-            onOpen(project);
+            await persistProject(imported.name, imported.files);
         } catch (err) {
             setError(t('Example could not be opened: {0}', err instanceof Error ? err.message : String(err)));
         } finally {
             setLoadingExample(null);
         }
+    };
+
+    /**
+     * GitHub 导入：落库失败向上抛，由弹框显示并允许重试。
+     * 覆盖已有副本时沿用原工程 ID，最近工程里仍是同一条记录，不会多出一份。
+     */
+    const importFromGitHub = async (result: GitHubImportResult) => {
+        const source = { sourceUrl: result.sourceUrl, sourceKey: result.sourceKey, sourceRevision: result.sourceRevision };
+        if (result.replace) {
+            const project: StoredProject = { ...result.replace, name: result.name, updatedAt: Date.now(), ...source };
+            await replaceBrowserProject(project, result.files);
+            setImportingFromGitHub(false);
+            onOpen(project);
+            return;
+        }
+        await persistProject(result.name, result.files, source);
+        setImportingFromGitHub(false);
+    };
+
+    /** 同一来源只认浏览器副本；本地文件夹工程不参与（它们不是从 GitHub 下载的） */
+    const findGitHubCopy = async (sourceKey: string) => {
+        const list = await listProjects();
+        return list.find(project => project.mode === 'browser' && project.sourceKey === sourceKey);
     };
 
     const openDirectory = async () => {
@@ -408,6 +452,10 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
             </button>
             <button className="hg-link-import" type="button" onClick={() => zipInputRef.current?.click()}>
                 {t('Or import a ZIP project')}
+            </button>
+            {/* 次级入口：与 ZIP 导入同级的文字链接，不与「新建工程」争主按钮 */}
+            <button className="hg-link-import" type="button" onClick={() => setImportingFromGitHub(true)}>
+                {t('Or open a GitHub repository')}
             </button>
             <input
                 ref={zipInputRef}
@@ -547,6 +595,16 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
 
                 {creating ? (
                     <NewProjectForm onCreate={createProject} onCancel={() => setCreating(false)} />
+                ) : importingFromGitHub ? (
+                    <GitHubImportDialog
+                        onCancel={() => setImportingFromGitHub(false)}
+                        onImport={importFromGitHub}
+                        findExisting={findGitHubCopy}
+                        onOpenExisting={project => {
+                            setImportingFromGitHub(false);
+                            onOpen(project);
+                        }}
+                    />
                 ) : (
                     <>
                         <section className={`hg-hero${hasRecent ? ' hg-hero--compact' : ''}`}>

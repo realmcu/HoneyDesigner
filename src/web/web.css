@@ -862,6 +862,130 @@
 
 .hg-link-import:hover { color: var(--hg-text); }
 
+/* ---------- GitHub 导入弹框 ---------- */
+
+.hg-import-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--hg-text-2);
+}
+
+/* 来源地址：仓库链接 + 分支/短 SHA */
+.hg-import-source {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hg-space-sm);
+  min-width: 0;
+  margin: 0;
+  font-family: var(--hg-mono);
+  font-size: 12px;
+}
+
+.hg-import-source a {
+  overflow: hidden;
+  color: var(--hg-amber);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hg-import-source a:hover {
+  text-decoration: underline;
+}
+
+.hg-import-source-rev {
+  flex-shrink: 0;
+  color: var(--hg-text-3);
+}
+
+.hg-import-status {
+  display: flex;
+  align-items: center;
+  gap: var(--hg-space-sm);
+  padding: var(--hg-space-md) 0;
+  font-size: 12.5px;
+  color: var(--hg-text-2);
+}
+
+.hg-spin { animation: hg-spin 1s linear infinite; }
+
+@keyframes hg-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hg-spin { animation: none; }
+}
+
+.hg-import-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.hg-import-option {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: var(--hg-radius-control);
+  border: 1px solid var(--hg-line);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s var(--hg-ease), border-color 0.16s var(--hg-ease);
+}
+
+.hg-import-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--hg-line-strong);
+}
+
+.hg-import-option-name { font-size: 13px; font-weight: 600; color: var(--hg-text); }
+
+.hg-import-option-meta {
+  font-size: 11.5px;
+  color: var(--hg-text-3);
+  word-break: break-all;
+}
+
+.hg-import-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hg-space-sm);
+  padding: var(--hg-space-md) 0;
+}
+
+.hg-import-progress-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.hg-import-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--hg-amber-gradient);
+  transition: width 0.2s var(--hg-ease);
+}
+
+.hg-import-progress-text {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hg-space-md);
+  font-size: 12px;
+  color: var(--hg-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- 设计与代码预览 ---------- */
 
 .hg-preview {
