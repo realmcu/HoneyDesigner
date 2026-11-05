@@ -4,6 +4,7 @@
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor, convertColorWithOpacity, convertColorToRgba } from '../utils';
+import { resolveGlow, resolveShadow, SHADOW_DIRECTION_ENUMS } from '../../../shared/geometryEffects';
 
 export class CircleGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -84,6 +85,25 @@ export class CircleGenerator implements ComponentCodeGenerator {
           code += `${indentStr}gui_circle_add_gradient_stop(${component.id}, ${position}, ${color});\n`;
         });
       }
+    }
+
+    // Drop shadow: configure first, then enable, so set_shadow() builds the mask
+    // from the final colour/blur/spread/direction rather than the defaults.
+    const shadow = resolveShadow(component.style);
+    if (shadow) {
+      code += `${indentStr}// Set drop shadow\n`;
+      code += `${indentStr}gui_circle_set_shadow_color(${component.id}, ${convertColorWithOpacity(shadow.color, shadow.opacity)});\n`;
+      code += `${indentStr}gui_circle_set_shadow_blur(${component.id}, ${shadow.blur});\n`;
+      code += `${indentStr}gui_circle_set_shadow_spread(${component.id}, ${shadow.spread});\n`;
+      code += `${indentStr}gui_circle_set_shadow_direction(${component.id}, ${SHADOW_DIRECTION_ENUMS[shadow.direction]}, ${shadow.distance});\n`;
+      code += `${indentStr}gui_circle_set_shadow(${component.id});\n`;
+    }
+
+    // Outer glow
+    const glow = resolveGlow(component.style);
+    if (glow) {
+      code += `${indentStr}// Set outer glow\n`;
+      code += `${indentStr}gui_circle_set_glow(${component.id}, ${convertColorWithOpacity(glow.color, glow.opacity)}, ${glow.blur});\n`;
     }
 
     // Visibility

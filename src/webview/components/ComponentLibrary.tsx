@@ -2,6 +2,7 @@
 import { ComponentType, ComponentDefinition, PropertyDefinition } from '../types';
 import { t } from '../i18n';
 import { PARTICLE_EFFECT_TYPES } from '../constants/particleEffects';
+import { GEOMETRY_SHADOW_DIRECTIONS } from '../../shared/geometryEffects';
 import { useDesignerStore } from '../store';
 import ComponentIcon, { ComponentIconName } from './icons/ComponentIcon';
 import './ComponentLibrary.css';
@@ -513,6 +514,18 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'opacity', label: 'Opacity (0-255)', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientType', label: 'Gradient Type', type: 'select', defaultValue: 'radial', options: ['radial', 'angular'], group: 'style' },
+      // 发光与阴影（仅 HoneyGUI）
+      { name: 'glowEnabled', label: 'Enable Glow', type: 'boolean', defaultValue: false, group: 'style' },
+      { name: 'glowColor', label: 'Glow Color', type: 'color', defaultValue: '#FFFFFF', group: 'style' },
+      { name: 'glowOpacity', label: 'Glow Strength', type: 'number', defaultValue: 128, min: 0, max: 255, group: 'style' },
+      { name: 'glowBlur', label: 'Glow Blur', type: 'number', defaultValue: 12, min: 0, max: 32, group: 'style' },
+      { name: 'shadowEnabled', label: 'Enable Shadow', type: 'boolean', defaultValue: false, group: 'style' },
+      { name: 'shadowColor', label: 'Shadow Color', type: 'color', defaultValue: '#000000', group: 'style' },
+      { name: 'shadowOpacity', label: 'Shadow Strength', type: 'number', defaultValue: 128, min: 0, max: 255, group: 'style' },
+      { name: 'shadowBlur', label: 'Shadow Blur', type: 'number', defaultValue: 12, min: 0, max: 32, group: 'style' },
+      { name: 'shadowSpread', label: 'Shadow Spread', type: 'number', defaultValue: 0, min: 0, max: 32, group: 'style' },
+      { name: 'shadowDirection', label: 'Shadow Direction', type: 'select', defaultValue: 'bottom-right', options: GEOMETRY_SHADOW_DIRECTIONS, group: 'style' },
+      { name: 'shadowDistance', label: 'Shadow Distance', type: 'number', defaultValue: 4, min: 0, max: 64, group: 'style' },
       // 按键效果属性
       { name: 'buttonMode', label: 'Button Mode', type: 'select', defaultValue: 'none',
         options: ['none', 'dual-state', 'opacity'], group: 'interaction' },
@@ -537,6 +550,18 @@ const componentDefinitions: ComponentDefinition[] = [
       { name: 'opacity', label: 'Opacity', type: 'number', defaultValue: 255, min: 0, max: 255, group: 'style' },
       { name: 'useGradient', label: 'Enable Gradient', type: 'boolean', defaultValue: false, group: 'style' },
       { name: 'gradientDirection', label: 'Gradient Direction', type: 'select', defaultValue: 'horizontal', options: ['horizontal', 'vertical', 'diagonal_tl_br', 'diagonal_tr_bl'], group: 'style' },
+      // 发光与阴影（仅 HoneyGUI）
+      { name: 'glowEnabled', label: 'Enable Glow', type: 'boolean', defaultValue: false, group: 'style' },
+      { name: 'glowColor', label: 'Glow Color', type: 'color', defaultValue: '#FFFFFF', group: 'style' },
+      { name: 'glowOpacity', label: 'Glow Strength', type: 'number', defaultValue: 128, min: 0, max: 255, group: 'style' },
+      { name: 'glowBlur', label: 'Glow Blur', type: 'number', defaultValue: 12, min: 0, max: 32, group: 'style' },
+      { name: 'shadowEnabled', label: 'Enable Shadow', type: 'boolean', defaultValue: false, group: 'style' },
+      { name: 'shadowColor', label: 'Shadow Color', type: 'color', defaultValue: '#000000', group: 'style' },
+      { name: 'shadowOpacity', label: 'Shadow Strength', type: 'number', defaultValue: 128, min: 0, max: 255, group: 'style' },
+      { name: 'shadowBlur', label: 'Shadow Blur', type: 'number', defaultValue: 12, min: 0, max: 32, group: 'style' },
+      { name: 'shadowSpread', label: 'Shadow Spread', type: 'number', defaultValue: 0, min: 0, max: 32, group: 'style' },
+      { name: 'shadowDirection', label: 'Shadow Direction', type: 'select', defaultValue: 'bottom-right', options: GEOMETRY_SHADOW_DIRECTIONS, group: 'style' },
+      { name: 'shadowDistance', label: 'Shadow Distance', type: 'number', defaultValue: 4, min: 0, max: 64, group: 'style' },
       // 按键效果属性
       { name: 'buttonMode', label: 'Button Mode', type: 'select', defaultValue: 'none',
         options: ['none', 'dual-state', 'opacity'], group: 'interaction' },

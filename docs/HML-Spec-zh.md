@@ -857,13 +857,31 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 |-----------|------|---------|-------------|
 | `radius` | number | 40 | 圆形半径 |
 | `fillColor` | color | #007acc | 填充颜色 |
+| `strokeWidth` | number | 0 | 仅 HoneyGUI：描边宽度（>= 0）；0 关闭描边 |
+| `strokeColor` | color | #FFFFFF | 仅 HoneyGUI：描边颜色 |
 | `opacity` | number | 255 | 不透明度（0–255） |
 | `useGradient` | boolean | false | 启用渐变 |
 | `gradientType` | enum | radial | `radial` / `angular` |
+| `glowEnabled` | boolean | false | 仅 HoneyGUI：启用外发光 |
+| `glowColor` | color | #FFFFFF | 仅 HoneyGUI：发光颜色 |
+| `glowOpacity` | number | 128 | 仅 HoneyGUI：发光强度，即颜色 alpha（0–255）；0 关闭 |
+| `glowBlur` | number | 12 | 仅 HoneyGUI：发光模糊半径（1–32 像素）；0 关闭 |
+| `shadowEnabled` | boolean | false | 仅 HoneyGUI：启用投影 |
+| `shadowColor` | color | #000000 | 仅 HoneyGUI：阴影颜色 |
+| `shadowOpacity` | number | 128 | 仅 HoneyGUI：阴影强度，即颜色 alpha（0–255）；0 关闭 |
+| `shadowBlur` | number | 12 | 仅 HoneyGUI：阴影模糊半径（1–32 像素） |
+| `shadowSpread` | number | 0 | 仅 HoneyGUI：阴影向外扩张量（每边 0–32 像素） |
+| `shadowDirection` | enum | bottom-right | 仅 HoneyGUI：`top-left` / `top` / `top-right` / `left` / `center` / `right` / `bottom-left` / `bottom` / `bottom-right` |
+| `shadowDistance` | number | 4 | 仅 HoneyGUI：阴影偏移长度（0–64 像素） |
 
 
 - **默认尺寸**：80×80
 - **C API**：`gui_circle_create`
+- **发光/阴影 C API**：`gui_circle_set_glow` / `gui_circle_clear_glow`；`gui_circle_set_shadow` 配合 `gui_circle_set_shadow_color` / `gui_circle_set_shadow_blur` / `gui_circle_set_shadow_spread` / `gui_circle_set_shadow_direction`
+- **说明**：
+  - 发光和阴影是绘制在主体之下的独立图层，不会影响主体的填充与描边。
+  - 代码生成先设置阴影的颜色、模糊、扩散和方向，最后才调用 `set_shadow()`，因为该调用会构建遮罩。
+  - 画布用 `box-shadow` 预览这两种效果，与代码生成共用同一套规整规则。
 
 ### 9.3 `hg_rect` — 矩形
 
@@ -874,14 +892,29 @@ fallback：如果 assets 文件夹中没有字体文件，则将 fallback 文件
 |-----------|------|---------|-------------|
 | `borderRadius` | number | 0 | 圆角半径 |
 | `fillColor` | color | #007acc | 填充颜色 |
+| `strokeWidth` | number | 0 | 仅 HoneyGUI：描边宽度（>= 0）；0 关闭描边 |
+| `strokeColor` | color | #FFFFFF | 仅 HoneyGUI：描边颜色 |
 | `opacity` | number | 255 | 不透明度（0–255） |
 | `useGradient` | boolean | false | 启用渐变 |
 | `gradientDirection` | enum | horizontal | `horizontal` / `vertical` / `diagonal_tl_br` / `diagonal_tr_bl` |
+| `glowEnabled` | boolean | false | 仅 HoneyGUI：启用外发光 |
+| `glowColor` | color | #FFFFFF | 仅 HoneyGUI：发光颜色 |
+| `glowOpacity` | number | 128 | 仅 HoneyGUI：发光强度，即颜色 alpha（0–255）；0 关闭 |
+| `glowBlur` | number | 12 | 仅 HoneyGUI：发光模糊半径（1–32 像素）；0 关闭 |
+| `shadowEnabled` | boolean | false | 仅 HoneyGUI：启用投影 |
+| `shadowColor` | color | #000000 | 仅 HoneyGUI：阴影颜色 |
+| `shadowOpacity` | number | 128 | 仅 HoneyGUI：阴影强度，即颜色 alpha（0–255）；0 关闭 |
+| `shadowBlur` | number | 12 | 仅 HoneyGUI：阴影模糊半径（1–32 像素） |
+| `shadowSpread` | number | 0 | 仅 HoneyGUI：阴影向外扩张量（每边 0–32 像素） |
+| `shadowDirection` | enum | bottom-right | 仅 HoneyGUI：`top-left` / `top` / `top-right` / `left` / `center` / `right` / `bottom-left` / `bottom` / `bottom-right` |
+| `shadowDistance` | number | 4 | 仅 HoneyGUI：阴影偏移长度（0–64 像素） |
 
 > `hg_rect` 同样支持与 `hg_circle` 相同的**按钮模式**属性。
 
 - **默认尺寸**：120×80
 - **C API**：`gui_rect_create`
+- **发光/阴影 C API**：`gui_rect_set_glow` / `gui_rect_clear_glow`；`gui_rect_set_shadow` 配合 `gui_rect_set_shadow_color` / `gui_rect_set_shadow_blur` / `gui_rect_set_shadow_spread` / `gui_rect_set_shadow_direction`
+- **说明**：`hg_rect` 的发光与阴影属性与 `hg_circle` 完全一致，`set_shadow()` 的调用顺序规则也相同。
 
 
 ### 9.4 `hg_qbcode` — 二维码/条形码
@@ -1504,7 +1537,7 @@ src/
 HML 解析器将 XML 属性归类到以下几组：
 
 ### 样式属性
-`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
+`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`, `glowEnabled`, `glowColor`, `glowOpacity`, `glowBlur`, `shadowEnabled`, `shadowColor`, `shadowOpacity`, `shadowBlur`, `shadowSpread`, `shadowDirection`, `shadowDistance`
 
 ### 数据属性
 `text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `spinArcLen`, `spinPeriod`, `slideLengthPercent`, `spinAutostart`, `showTrack`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `colorMode`, `thresholdLow`, `thresholdHigh`, `zoneLowColor`, `zoneMidColor`, `zoneHighColor`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`

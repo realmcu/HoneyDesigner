@@ -1,6 +1,7 @@
 import React from 'react';
 import { WidgetProps } from './types';
 import { useGeometryButtonPreview } from './useGeometryButtonPreview';
+import { toCssBoxShadow } from '../../../shared/geometryEffects';
 
 interface GradientStop {
   position: number;
@@ -61,6 +62,8 @@ export const RectWidget: React.FC<WidgetProps> = ({ component, style, handlers, 
     background: getGradientBackground(),
     borderRadius: borderRadius,
     border: strokeWidth > 0 ? `${strokeWidth}px solid ${s.strokeColor ?? '#FFFFFF'}` : undefined,
+    // 发光/阴影与 codegen 共用同一套规整规则，保证预览与生成代码一致
+    boxShadow: toCssBoxShadow(s),
     boxSizing: 'border-box',
     opacity: opacity / 255,
   };

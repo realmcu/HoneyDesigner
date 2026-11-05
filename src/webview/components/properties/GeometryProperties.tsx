@@ -9,15 +9,26 @@ import { GradientStopsEditor, GradientStop } from './GradientStopsEditor';
 import { componentDefinitions } from '../ComponentLibrary';
 import { useDesignerStore } from '../../store';
 import { t } from '../../i18n';
+import { isGeometryEffectProperty, SHADOW_DIRECTION_LABEL_KEYS } from '../../../shared/geometryEffects';
 
 export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
   const definition = componentDefinitions.find((d) => d.type === component.type);
   const targetEngine = useDesignerStore(state => state.projectConfig?.targetEngine || 'honeygui');
-  const styleProperties = definition?.properties.filter(p =>
-    p.group === 'style' &&
-    (targetEngine === 'honeygui' || (p.name !== 'strokeWidth' && p.name !== 'strokeColor') || component.type === 'hg_arc')
-  ) || [];
+  // 发光/阴影只有 HoneyGUI 的 rect/circle 生成器会产出代码，LVGL 下隐藏避免误导
+  const styleProperties = definition?.properties.filter(p => {
+    if (p.group !== 'style') return false;
+    if (isGeometryEffectProperty(p.name)) {
+      if (targetEngine !== 'honeygui') return false;
+      // 未启用时只保留开关本身，避免一堆无效参数干扰
+      if (p.name.startsWith('glow')) return p.name === 'glowEnabled' || component.style?.glowEnabled === true;
+      if (p.name.startsWith('shadow')) return p.name === 'shadowEnabled' || component.style?.shadowEnabled === true;
+      return true;
+    }
+    // stroke 只在 HoneyGUI 生效（hg_arc 例外，由 LVGL 自己的生成器处理）
+    if (targetEngine !== 'honeygui') return component.type === 'hg_arc' || (p.name !== 'strokeWidth' && p.name !== 'strokeColor');
+    return true;
+  }) || [];
 
   // 渐变色标数据（存储在 data.gradientStops 中）
   const gradientStops: GradientStop[] = component.data?.gradientStops || [];
@@ -54,6 +65,15 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
         [property]: value,
       },
     });
+  };
+
+  // 发光/阴影参数固定成组出现；方向下拉把内部取值（bottom-right 等）映射为本地化文案
+  const optionsFor = (propertyName: string): string[] | { value: string; label: string }[] | undefined => {
+    if (propertyName !== 'shadowDirection') return undefined;
+    return Object.entries(SHADOW_DIRECTION_LABEL_KEYS).map(([value, labelKey]) => ({
+      value,
+      label: t(labelKey as any),
+    }));
   };
 
   const handleDataChange = (property: string, value: any) => {
@@ -100,9 +120,11 @@ export const GeometryProperties: React.FC<PropertyPanelProps> = ({ component, on
                       <PropertyEditor
                         type={property.type as any}
                         value={(component.style as any)?.[property.name] ??
-                          ((property.name === 'strokeWidth' || property.name === 'strokeColor') ? property.defaultValue : undefined)}
+                          // 老文件里没有这些属性时回落到定义中的默认值，避免控件显示为空
+                          ((property.name === 'strokeWidth' || property.name === 'strokeColor' ||
+                            isGeometryEffectProperty(property.name)) ? property.defaultValue : undefined)}
                         onChange={(value) => handleStyleChange(property.name, value)}
-                        options={property.options as string[]}
+                        options={optionsFor(property.name) ?? (property.options as string[])}
                         min={(property as any).min}
                         max={(property as any).max}
                       />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { WidgetProps } from './types';
 import { useGeometryButtonPreview } from './useGeometryButtonPreview';
+import { toCssBoxShadow } from '../../../shared/geometryEffects';
 
 interface GradientStop {
   position: number;
@@ -92,8 +93,27 @@ export const CircleWidget: React.FC<WidgetProps> = ({ component, style, handlers
     ? `url(#${gradientId})` 
     : fillColor;
 
+  // 发光/阴影要跟随圆形轮廓：SVG 不支持 box-shadow，这里用覆盖圆的圆形底衬承载 box-shadow
+  const effectShadow = toCssBoxShadow(s);
+  const diameter = radius * 2;
+
   return (
     <div style={{ ...style, overflow: 'visible' }} {...handlers} {...previewHandlers}>
+      {effectShadow && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: cx - radius,
+            top: cy - radius,
+            width: diameter,
+            height: diameter,
+            borderRadius: '50%',
+            boxShadow: effectShadow,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       {/* 圆形的包围盒四角是透明的：子元素不接收指针事件，
           命中由根节点 + 父级几何过滤决定，避免点在四角却抢掉下层控件的点击 */}
       <svg width={width} height={height} style={{ display: 'block', overflow: 'visible', pointerEvents: 'none' }}>

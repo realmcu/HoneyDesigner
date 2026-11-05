@@ -906,10 +906,26 @@ Progress indicator bar. **HoneyGUI projects: do not use (unsupported).**
 | `opacity` | number | 255 | Opacity (0–255) |
 | `useGradient` | boolean | false | Enable gradient |
 | `gradientType` | enum | radial | `radial` / `angular` |
+| `glowEnabled` | boolean | false | HoneyGUI only: enable the outer glow |
+| `glowColor` | color | #FFFFFF | HoneyGUI only: glow color |
+| `glowOpacity` | number | 128 | HoneyGUI only: glow strength, i.e. the color alpha (0–255); 0 disables |
+| `glowBlur` | number | 12 | HoneyGUI only: glow blur radius (1–32 px); 0 disables |
+| `shadowEnabled` | boolean | false | HoneyGUI only: enable the drop shadow |
+| `shadowColor` | color | #000000 | HoneyGUI only: shadow color |
+| `shadowOpacity` | number | 128 | HoneyGUI only: shadow strength, i.e. the color alpha (0–255); 0 disables |
+| `shadowBlur` | number | 12 | HoneyGUI only: shadow blur radius (1–32 px) |
+| `shadowSpread` | number | 0 | HoneyGUI only: inflate the shadow beyond the body (0–32 px per side) |
+| `shadowDirection` | enum | bottom-right | HoneyGUI only: `top-left` / `top` / `top-right` / `left` / `center` / `right` / `bottom-left` / `bottom` / `bottom-right` |
+| `shadowDistance` | number | 4 | HoneyGUI only: shadow offset length (0–64 px) |
 
 
 - **Default size**: 80×80
 - **C API**: `gui_circle_create`
+- **Glow / shadow C API**: `gui_circle_set_glow` / `gui_circle_clear_glow`; `gui_circle_set_shadow` plus `gui_circle_set_shadow_color` / `gui_circle_set_shadow_blur` / `gui_circle_set_shadow_spread` / `gui_circle_set_shadow_direction`
+- **Notes**:
+  - The glow and shadow are separate layers drawn under the body, so they do not disturb fill or stroke.
+  - Codegen sets the shadow's color, blur, spread and direction first and calls `set_shadow()` last, because that call builds the mask.
+  - The Canvas previews both effects with `box-shadow`, driven by the same normalisation rules as codegen.
 
 ### 9.3 `hg_rect` — Rectangle
 
@@ -925,11 +941,24 @@ Progress indicator bar. **HoneyGUI projects: do not use (unsupported).**
 | `opacity` | number | 255 | Opacity (0–255) |
 | `useGradient` | boolean | false | Enable gradient |
 | `gradientDirection` | enum | horizontal | `horizontal` / `vertical` / `diagonal_tl_br` / `diagonal_tr_bl` |
+| `glowEnabled` | boolean | false | HoneyGUI only: enable the outer glow |
+| `glowColor` | color | #FFFFFF | HoneyGUI only: glow color |
+| `glowOpacity` | number | 128 | HoneyGUI only: glow strength, i.e. the color alpha (0–255); 0 disables |
+| `glowBlur` | number | 12 | HoneyGUI only: glow blur radius (1–32 px); 0 disables |
+| `shadowEnabled` | boolean | false | HoneyGUI only: enable the drop shadow |
+| `shadowColor` | color | #000000 | HoneyGUI only: shadow color |
+| `shadowOpacity` | number | 128 | HoneyGUI only: shadow strength, i.e. the color alpha (0–255); 0 disables |
+| `shadowBlur` | number | 12 | HoneyGUI only: shadow blur radius (1–32 px) |
+| `shadowSpread` | number | 0 | HoneyGUI only: inflate the shadow beyond the body (0–32 px per side) |
+| `shadowDirection` | enum | bottom-right | HoneyGUI only: `top-left` / `top` / `top-right` / `left` / `center` / `right` / `bottom-left` / `bottom` / `bottom-right` |
+| `shadowDistance` | number | 4 | HoneyGUI only: shadow offset length (0–64 px) |
 
 > `hg_rect` also supports the same **button mode** attributes as `hg_circle`.
 
 - **Default size**: 120×80
 - **C API**: `gui_rect_create`
+- **Glow / shadow C API**: `gui_rect_set_glow` / `gui_rect_clear_glow`; `gui_rect_set_shadow` plus `gui_rect_set_shadow_color` / `gui_rect_set_shadow_blur` / `gui_rect_set_shadow_spread` / `gui_rect_set_shadow_direction`
+- **Notes**: the glow and shadow attributes work exactly as on `hg_circle`, including the ordering rule for `set_shadow()`.
 
 
 ### 9.4 `hg_qbcode` — QR Code / Barcode
@@ -1585,7 +1614,7 @@ corner or edge handles to resize it.
 The HML parser categorizes XML attributes into the following buckets:
 
 ### Style Attributes
-`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `strokeColor`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`
+`color`, `backgroundColor`, `fontWeight`, `border`, `borderRadius`, `padding`, `margin`, `overflow`, `title`, `titleBarHeight`, `titleBarColor`, `radius`, `startAngle`, `endAngle`, `strokeWidth`, `strokeColor`, `fillColor`, `showBackground`, `itemWidth`, `itemHeight`, `direction`, `style`, `space`, `cardStackLocation`, `circleRadius`, `transform`, `align`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`, `useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `opacity`, `glowEnabled`, `glowColor`, `glowOpacity`, `glowBlur`, `shadowEnabled`, `shadowColor`, `shadowOpacity`, `shadowBlur`, `shadowSpread`, `shadowDirection`, `shadowDistance`
 
 ### Data Attributes
 `text`, `i18nKey`, `src`, `value`, `placeholder`, `options`, `min`, `max`, `step`, `checked`, `selected`, `noteNum`, `autoAlign`, `inertia`, `loop`, `createBar`, `enableAreaDisplay`, `keepNoteAlive`, `offset`, `outScope`, `fontFile`, `timeFormat`, `enableScroll`, `scrollDirection`, `scrollReverse`, `scrollStartOffset`, `scrollEndOffset`, `scrollInterval`, `scrollDuration`, `fontType`, `renderMode`, `fontSize`, `characterSets`, `residentMemory`, `animateStep`, `toggleMode`, `imageOn`, `imageOff`, `initialState`, `onCallback`, `offCallback`, `movable`, `click`,   `blendMode`, `fgColor`, `bgColor`, `highQuality`, `needClip`, `isTimerLabel`, `timerType`, `timerFormat`, `timerInitialValue`, `timerAutoStart`, `timers`, `progressMode`, `fillStart`, `segmentCount`, `segmentGap`, `arcStartAngle`, `arcSweepAngle`, `arcDirection`, `arcStrokeWidth`, `arcSegmentGap`, `spinArcLen`, `spinPeriod`, `slideLengthPercent`, `spinAutostart`, `showTrack`, `activeColor`, `inactiveColor`, `activeOpacity`, `inactiveOpacity`, `colorMode`, `thresholdLow`, `thresholdHigh`, `zoneLowColor`, `zoneMidColor`, `zoneHighColor`, `showValueLabel`, `valueLabelFormat`, `valueLabelColor`, `valueLabelOffsetX`, `valueLabelOffsetY`

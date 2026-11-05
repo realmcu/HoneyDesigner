@@ -601,6 +601,10 @@ export class HmlParser {
       'align', 'hAlign', 'vAlign', 'letterSpacing', 'lineSpacing', 'wordWrap', 'wordBreak',
       // 渐变属性
       'useGradient', 'gradientType', 'gradientDirection', 'gradientBox',
+      // 发光与阴影（hg_rect / hg_circle，仅 HoneyGUI）
+      'glowEnabled', 'glowColor', 'glowOpacity', 'glowBlur',
+      'shadowEnabled', 'shadowColor', 'shadowOpacity', 'shadowBlur',
+      'shadowSpread', 'shadowDirection', 'shadowDistance',
       // 透明度
       'opacity',
       // 进度条属性
@@ -611,7 +615,8 @@ export class HmlParser {
     const numericProps = new Set([
       'fontSize', 'borderRadius', 'padding', 'margin',
       'titleBarHeight', 'radius', 'startAngle', 'endAngle', 'strokeWidth',
-      'itemWidth', 'itemHeight', 'space', 'opacity'
+      'itemWidth', 'itemHeight', 'space', 'opacity',
+      'glowOpacity', 'glowBlur', 'shadowOpacity', 'shadowBlur', 'shadowSpread', 'shadowDistance'
     ]);
 
     const dataProps = new Set([
