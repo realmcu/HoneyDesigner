@@ -222,22 +222,24 @@ export class CommandManager {
             }
         });
 
-        // 创建新的设计稿
-        this.registerCommand('honeygui.createNewHmlInWorkspace', async () => {
+        // 创建新的设计稿（可从资源管理器文件夹行的内联按钮调用，入参是文件夹 Uri）
+        this.registerCommand('honeygui.createNewHmlInWorkspace', async (targetUri?: vscode.Uri) => {
             try {
                 logger.info('执行命令: honeygui.createNewHmlInWorkspace');
-                
+
                 // 获取工作区文件夹
                 const workspaceFolders = vscode.workspace.workspaceFolders;
                 if (!workspaceFolders || workspaceFolders.length === 0) {
                     vscode.window.showErrorMessage(vscode.l10n.t('Please open a workspace first'));
                     return;
                 }
-                
-                const workspaceRoot = workspaceFolders[0].uri.fsPath;
-                
+
+                // 从点击的文件夹（或工作区根）向上找项目根，找不到则退回第一个工作区
+                const startPath = targetUri?.fsPath ?? workspaceFolders[0].uri.fsPath;
+                const projectRoot = ProjectUtils.findProjectRoot(startPath) ?? workspaceFolders[0].uri.fsPath;
+
                 // 检查是否为 HoneyGUI 项目
-                const projectJsonPath = path.join(workspaceRoot, 'project.json');
+                const projectJsonPath = path.join(projectRoot, 'project.json');
                 if (!fs.existsSync(projectJsonPath)) {
                     const action = await vscode.window.showWarningMessage(
                         vscode.l10n.t('Not a HoneyGUI project. Please create a project first.'),
@@ -248,12 +250,12 @@ export class CommandManager {
                     }
                     return;
                 }
-                
+
                 // 验证项目类型
                 try {
                     const projectConfigContent = fs.readFileSync(projectJsonPath, 'utf8');
                     const projectConfig = JSON.parse(projectConfigContent);
-                    
+
                     if (projectConfig.type !== 'Designer' && projectConfig.$schema !== 'HoneyGUI') {
                         const action = await vscode.window.showWarningMessage(
                             vscode.l10n.t('Not a HoneyGUI project. Please create a project first.'),
@@ -268,15 +270,15 @@ export class CommandManager {
                     logger.warn(`无法验证项目类型: ${error}`);
                     // 如果解析失败，继续执行（向后兼容旧项目）
                 }
-                
-                // 使用第一个工作区的ui目录
-                const uiDir = path.join(workspaceRoot, 'ui');
-                
+
+                // 项目的ui目录
+                const uiDir = path.join(projectRoot, 'ui');
+
                 // 确保ui目录存在
                 if (!fs.existsSync(uiDir)) {
                     fs.mkdirSync(uiDir, { recursive: true });
                 }
-                
+
                 // 输入设计稿名称
                 const designName = await vscode.window.showInputBox({
                     prompt: vscode.l10n.t('Enter design name'),
@@ -293,21 +295,21 @@ export class CommandManager {
                         return null;
                     }
                 });
-                
+
                 if (designName) {
                     // 读取项目配置
-                    const projectConfig = ProjectUtils.loadProjectConfig(workspaceRoot);
+                    const projectConfig = ProjectUtils.loadProjectConfig(projectRoot);
                     const resolution = projectConfig.resolution || '480X272';
-                    
+
                     // 创建HML文件（直接放在 ui/ 目录下）
                     const hmlFilePath = path.join(uiDir, `${designName}.hml`);
-                    
+
                     // 检查文件是否已存在
                     if (fs.existsSync(hmlFilePath)) {
                         vscode.window.showErrorMessage(vscode.l10n.t('File already exists: {0}', `${designName}.hml`));
                         return;
                     }
-                    
+
                     // 使用 HmlTemplateManager 生成内容
                     const defaultContent = HmlTemplateManager.generateMainHml(
                         designName,
@@ -316,12 +318,12 @@ export class CommandManager {
                         projectConfig.minSdk,
                         projectConfig.pixelMode
                     );
-                    
+
                     fs.writeFileSync(hmlFilePath, defaultContent, 'utf8');
-                    
+
                     // 在设计器中打开新创建的文件
                     await vscode.commands.executeCommand('honeygui.openInDesigner', vscode.Uri.file(hmlFilePath));
-                    
+
                     vscode.window.showInformationMessage(vscode.l10n.t('Design created: {0}', designName));
                 }
             } catch (error) {

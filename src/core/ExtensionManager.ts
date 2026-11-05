@@ -69,6 +69,9 @@ export class ExtensionManager {
             // 注册文件关联
             this.registerFileAssociations();
 
+            // ui/ 下新建的无后缀文件自动补成 .hml
+            this.registerAutoHmlSuffix();
+
             // 检查环境
             await this.checkEnvironment();
 
@@ -109,6 +112,131 @@ export class ExtensionManager {
     private registerFileAssociations(): void {
         // HML文件的语言支持已在package.json中配置
         logger.info('文件关联注册完成');
+    }
+
+    /**
+     * 资源管理器自带的「新建文件」按钮新建出来的是无后缀文件，打开后落到纯文本编辑器，
+     * 体验上与设计器割裂（用户得手动补 .hml 才能进设计界面）。
+     *
+     * 「+」的真实流程是：先按默认名（Untitled-1）落盘创建，再让用户内联改名，
+     * 所以只监听创建事件拿不到最终文件名，必须连重命名事件一起监听。
+     */
+    private registerAutoHmlSuffix(): void {
+        const handle = (uris: readonly vscode.Uri[]) => {
+            // 目录在事件发生时再算：用户可能先激活扩展、后新建项目
+            const uiDirs = this.getProjectUiDirs();
+            if (uiDirs.length === 0) {
+                return;
+            }
+            for (const uri of uris) {
+                void this.renameToHmlIfNeeded(uri, uiDirs).catch(error => {
+                    logger.warn(`自动补全 .hml 后缀失败: ${error instanceof Error ? error.message : String(error)}`);
+                });
+            }
+        };
+
+        const onCreated = vscode.workspace.onDidCreateFiles(event => handle(event.files));
+        const onRenamed = vscode.workspace.onDidRenameFiles(event => handle(event.files.map(file => file.newUri)));
+
+        this.disposables.push(onCreated, onRenamed);
+        this.context.subscriptions.push(onCreated, onRenamed);
+        logger.info('无后缀文件自动补 .hml 监听已注册');
+    }
+
+    /**
+     * 项目 ui/ 目录列表：工作区根下的 ui/，以及工作区里各子项目（含 project.json）的 ui/。
+     * 只认这些目录，避免误改用户其它地方的临时文件。
+     */
+    private getProjectUiDirs(): string[] {
+        const dirs: string[] = [];
+        for (const folder of vscode.workspace.workspaceFolders ?? []) {
+            const root = folder.uri.fsPath;
+            if (fs.existsSync(path.join(root, 'project.json'))) {
+                dirs.push(path.join(root, 'ui'));
+                continue;
+            }
+            // 工作区直接打开了父目录时，向下找一层含 project.json 的子目录
+            try {
+                for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+                    if (!entry.isDirectory() || entry.name === 'node_modules' || entry.name.startsWith('.')) {
+                        continue;
+                    }
+                    const subRoot = path.join(root, entry.name);
+                    if (fs.existsSync(path.join(subRoot, 'project.json'))) {
+                        dirs.push(path.join(subRoot, 'ui'));
+                    }
+                }
+            } catch {
+                // 目录不可读时忽略
+            }
+        }
+        return dirs;
+    }
+
+    /**
+     * 把符合条件的文件改名为 .hml 并切换到设计器。
+     * 条件：位于项目 ui/ 目录下、文件名为合法标识符、文件为空。
+     * 用户若已开始输入内容（例如按 + 后先写了名字又写了正文），不打断他，原样保留。
+     */
+    private async renameToHmlIfNeeded(uri: vscode.Uri, uiDirs: string[]): Promise<void> {
+        if (uri.scheme !== 'file') {
+            return;
+        }
+        const filePath = uri.fsPath;
+        const dir = path.dirname(filePath);
+        const baseName = path.basename(filePath);
+        const isInUiDir = uiDirs.some(uiDir => path.resolve(dir) === path.resolve(uiDir));
+        if (!isInUiDir) {
+            return;
+        }
+        // 已带后缀、或 + 按钮默认的 "untitled" 之类不合法名字都不处理
+        if (path.extname(baseName) !== '' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(baseName)) {
+            return;
+        }
+        if (fs.existsSync(`${filePath}.hml`)) {
+            return;
+        }
+        try {
+            if (fs.statSync(filePath).size > 0) {
+                return;
+            }
+        } catch {
+            return;
+        }
+        // 用户在文档里敲了字但还没保存时磁盘仍是空的，这时不要抢过来改名
+        const isDirty = vscode.workspace.textDocuments.some(
+            doc => path.resolve(doc.uri.fsPath) === path.resolve(filePath) && doc.isDirty
+        );
+        if (isDirty) {
+            return;
+        }
+
+        // 「+」创建后 VS Code 会顺带用文本编辑器打开这个空文件。改名会让那个页签变成
+        // 「文件已删除」的残页，所以先关掉再改名。
+        await this.closeTextTabForPath(filePath);
+
+        const target = vscode.Uri.file(`${filePath}.hml`);
+        await vscode.workspace.fs.rename(uri, target, { overwrite: false });
+        logger.info(`已把无后缀文件补成 HML: ${baseName} -> ${baseName}.hml`);
+        await vscode.commands.executeCommand('honeygui.openInDesigner', target);
+    }
+
+    /** 关闭指向指定路径的文本编辑器页签（没有则空操作） */
+    private async closeTextTabForPath(filePath: string): Promise<void> {
+        const target = path.resolve(filePath);
+        for (const group of vscode.window.tabGroups.all) {
+            const tabs = group.tabs.filter(tab => {
+                const input = tab.input;
+                return input instanceof vscode.TabInputText && path.resolve(input.uri.fsPath) === target;
+            });
+            for (const tab of tabs) {
+                try {
+                    await vscode.window.tabGroups.close(tab, true);
+                } catch (error) {
+                    logger.warn(`关闭文本页签失败: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+        }
     }
 
     /**

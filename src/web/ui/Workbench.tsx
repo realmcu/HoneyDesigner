@@ -184,6 +184,101 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
         window.vscodeAPI?.postMessage({ command: 'switchFile', filePath: target });
     };
 
+    /**
+     * 删除当前打开的 HML 文件。
+     *
+     * 拦截三种情况，避免删出「工程打不开」或「跳转全断」：
+     * ① project.json 指定的 mainHmlFile —— 删掉它等于毁了工程入口；
+     * ② ui/ 下最后一个 HML —— 设计器没有可打开的文件；
+     * ③ 被其它 HML 的 switchView 引用的 view —— 删除后跳转变成断链。
+     * 前两条直接拒绝；第三条列出被谁引用，用户确认后才删。
+     */
+    const confirmDeleteHml = (target: string): boolean => {
+        const sel = useDesignerStore.getState();
+        const root = phase.kind === 'ready' ? phase.opened.projectRoot : '';
+        const rel = path.posix.relative(root, target);
+
+        // mainHmlFile 不在 ProjectConfig 接口里（各工程自行扩展），直接读 project.json
+        let mainHml: unknown;
+        try {
+            const raw = fs.readFileSync(path.posix.join(root, 'project.json'), 'utf8') as string;
+            mainHml = (JSON.parse(raw) as { mainHmlFile?: unknown }).mainHmlFile;
+        } catch {
+            // 读不到就当没有主文件声明，继续走后面的检查
+        }
+        if (typeof mainHml === 'string' && path.posix.normalize(mainHml) === path.posix.normalize(rel)) {
+            void hostUi.showMessage('warning', t('Cannot delete the main HML file declared in project.json. Set another mainHmlFile first.'), [], true);
+            return false;
+        }
+        if ((sel.allHmlFiles || []).filter(f => f.path !== target).length === 0) {
+            void hostUi.showMessage('warning', t('This is the only HML file in the project. Create another one before deleting it.'), [], true);
+            return false;
+        }
+
+        // 被引用：其它文件里的 switchView 以本文件某个 view 为 target
+        const doomed = (sel.allViews || []).filter(v => v.filePath && path.posix.resolve(v.filePath) === path.posix.resolve(target));
+        const doomedKeys = new Set(doomed.map(v => v.viewKey ?? v.id));
+        const doomedNames = new Set(doomed.map(v => v.id).concat(doomed.map(v => v.name)));
+        const inbound = new Set<string>();
+        for (const view of sel.allViews || []) {
+            if (doomedKeys.has(view.viewKey ?? view.id)) {
+                continue;
+            }
+            for (const edge of view.edges || []) {
+                const hits = edge.targetViewKey
+                    ? doomedKeys.has(edge.targetViewKey)
+                    : doomedNames.has(edge.target);
+                if (hits) {
+                    inbound.add(`${view.fileRelative ?? view.file}#${view.id}`);
+                }
+            }
+        }
+
+        const prompt = inbound.size > 0
+            ? t('The following views link to "{0}": {1}. Deleting it will break those jumps. Delete anyway?', rel, [...inbound].join(', '))
+            : t('Delete "{0}"? This cannot be undone.', rel);
+        return globalThis.confirm(prompt);
+    };
+
+    const deleteHmlFile = async () => {
+        if (phase.kind !== 'ready' || !currentFilePath) {
+            return;
+        }
+        const target = currentFilePath;
+        const sel = useDesignerStore.getState();
+
+        if (sel.isDirty && !globalThis.confirm(t('The design has unsaved changes. Switch files and discard them?'))) {
+            return;
+        }
+        if (!confirmDeleteHml(target)) {
+            return;
+        }
+
+        try {
+            // 先把待同步的改动落盘，避免删除后残留脏队列又把它写回去
+            await phase.sync.flush();
+            fs.rmSync(target);
+
+            const root = phase.opened.projectRoot;
+            const fallback = (sel.allHmlFiles || [])
+                .map(f => f.path)
+                .filter(p => p !== target)
+                .sort((a, b) => path.posix.relative(root, a).split('/').length - path.posix.relative(root, b).split('/').length
+                    || a.localeCompare(b))[0];
+            if (!fallback) {
+                // 理论到不了这里（confirmDeleteHml 已拦截），兜底防崩
+                return;
+            }
+
+            sel.clearSelection();
+            sel.setSelectedAsset(null);
+            window.vscodeAPI?.postMessage({ command: 'switchFile', filePath: fallback });
+            void hostUi.showMessage('info', t('Deleted "{0}".', path.posix.relative(root, target)), [], false);
+        } catch (cause) {
+            void hostUi.showMessage('error', t('Failed to delete HML file: {0}', cause instanceof Error ? cause.message : String(cause)), [], false);
+        }
+    };
+
     const close = async () => {
         if (phase.kind === 'ready') {
             if (useDesignerStore.getState().isDirty && !globalThis.confirm(t('The design has unsaved changes. Close anyway?'))) {
@@ -211,6 +306,14 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                 <span className={`web-sync web-sync-${syncState}`}>{syncLabel}</span>
                 <span className="web-topbar-spacer" />
                 <button className="web-button" onClick={() => void createHmlFile()} disabled={phase.kind !== 'ready'}>{t('New HML File')}</button>
+                <button
+                    className="web-button"
+                    onClick={() => void deleteHmlFile()}
+                    disabled={phase.kind !== 'ready' || !currentFilePath}
+                    title={currentFilePath ? path.posix.relative(phase.kind === 'ready' ? phase.opened.projectRoot : '', currentFilePath) : undefined}
+                >
+                    {t('Delete HML File')}
+                </button>
                 <button className="web-button" onClick={showCode} disabled={phase.kind !== 'ready'}>{t('Generated Code')}</button>
                 <button className="web-button primary" onClick={exportZip} disabled={phase.kind !== 'ready'}>{t('Export ZIP')}</button>
             </div>
