@@ -23,6 +23,10 @@ export interface BuildRequest {
     /** app_romfs.c 的内容；为空则不编译（浏览器仿真运行时资源走 ./assets，不依赖它） */
     romfs?: Uint8Array;
     screen: SimScreen;
+    /** 每个编译单元的缓存键（buildCore.unitKeys，顺序同 buildCore.planBuild 的 units） */
+    keys: string[];
+    /** 站点上有预编译目标文件的键 */
+    prebuilt: string[];
 }
 
 export type BuildPhase = 'download' | 'compile' | 'romfs' | 'link';

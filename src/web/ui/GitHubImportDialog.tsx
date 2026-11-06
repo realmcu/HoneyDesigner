@@ -23,6 +23,7 @@ import {
     RateLimitState,
     ResolvedSource,
     assertStorageCapacity,
+    contentVersion,
     discoverProjects,
     downloadProject,
     githubSourceKey,
@@ -34,19 +35,25 @@ import {
 import type { StoredProject } from '../host/projectStore';
 import { GITHUB_TEMPLATES } from '../host/exampleProjects';
 
+/**
+ * 原生 fetch 必须以 window 为 this 调用；它会被放进 options 对象、以 options.fetchImpl(...)
+ * 的形式调用，不绑定就抛 Illegal invocation
+ */
+const boundFetch = ((input: string, init?: RequestInit) => fetch(input, init)) as never;
+
 /** 候选工程的 project.json 正文读取：只在列工程名时用，失败不致命 */
 function makeReadText(
     fetchImpl: FetchLike,
     owner: string,
     repo: string,
-    sha: string,
+    version: string,
     channel: 'jsdelivr' | 'raw'
 ) {
     return async (entry: { path: string }): Promise<string | undefined> => {
         // 与正文下载走同一个通道，避免列出工程名时又去碰 raw
         const url = channel === 'jsdelivr'
-            ? jsDelivrFileUrl(owner, repo, sha, entry.path)
-            : rawFileUrl(owner, repo, sha, entry.path);
+            ? jsDelivrFileUrl(owner, repo, version, entry.path)
+            : rawFileUrl(owner, repo, version, entry.path);
         const response = await fetchImpl(url, {});
         return response.ok ? response.text() : undefined;
     };
@@ -163,9 +170,13 @@ function describeError(error: unknown): string {
 /** 来源地址：指向本次实际下载的 commit，方便用户核对下的是哪个仓库、哪个版本 */
 function SourceLink({ source, candidate }: { source: ResolvedSource; candidate: ProjectCandidate }) {
     const repoPath = `${source.owner}/${source.repo}`;
-    const href = `https://github.com/${repoPath}/tree/${source.sha}${candidate.rootPath ? `/${candidate.rootPath}` : ''}`;
+    const version = contentVersion(source);
+    const href = `https://github.com/${repoPath}/tree/${version}${candidate.rootPath ? `/${candidate.rootPath}` : ''}`;
     const label = `github.com/${repoPath}${candidate.rootPath ? `/${candidate.rootPath}` : ''}`;
-    const revision = `${source.ref ? `${source.ref} · ` : ''}${source.sha.slice(0, 7)}`;
+    // 没解析出 commit 时只显示分支名，不能编一个短 SHA
+    const revision = source.sha
+        ? `${source.ref ? `${source.ref} · ` : ''}${source.sha.slice(0, 7)}`
+        : source.ref || t('Latest version');
     return (
         <p className="hg-import-source">
             <a href={href} target="_blank" rel="noreferrer noopener" title={href}>{label}</a>
@@ -220,7 +231,7 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
     const startDownload = async (source: ResolvedSource, candidate: ProjectCandidate, replace?: StoredProject) => {
         const token = new CancelToken();
         cancelTokenRef.current = token;
-        const fetchImpl = fetch as never;
+        const fetchImpl = boundFetch;
 
         setStep({
             kind: 'downloading',
@@ -252,7 +263,7 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
                 name: project.name,
                 sourceUrl: url.trim(),
                 sourceKey: githubSourceKey(source.owner, source.repo, candidate.rootPath),
-                sourceRevision: source.sha,
+                sourceRevision: contentVersion(source),
                 replace,
             });
         } catch (error) {
@@ -284,11 +295,11 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
         }
 
         setStep({ kind: 'loading', label: t('Reading repository…') });
-        const fetchImpl = fetch as never;
+        const fetchImpl = boundFetch;
         const options = { fetchImpl, rateLimit: rateLimitRef.current };
 
         try {
-            // 优先走 atom + jsDelivr（不吃 GitHub 配额），失败自动降级到 API
+            // 优先走 jsDelivr（不吃 GitHub 配额），失败自动降级到 API
             const resolvedSource = await resolveSource(location.owner, location.repo, location.pathSegments, options);
 
             // 文件链接（/blob/）按文件所在目录限定范围；/tree/ 按剩余路径限定
@@ -309,7 +320,7 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
                         fetchImpl,
                         location.owner,
                         location.repo,
-                        resolvedSource.sha,
+                        contentVersion(resolvedSource),
                         resolvedSource.contentChannel
                     ),
                 }
@@ -389,8 +400,9 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
 
     if (step.kind === 'existing') {
         const { existing, source, candidate } = step;
-        // 副本记录的是下载时的 commit；与这次解析出的 SHA 相同说明仓库没有更新
-        const upToDate = existing.sourceRevision === source.sha;
+        // 副本记录的是下载时的 commit；与这次解析出的 SHA 相同说明仓库没有更新。
+        // 解析不出 commit 时只能按分支名比较，此时「相同」只说明分支名没变
+        const upToDate = Boolean(source.sha) && existing.sourceRevision === source.sha;
         return (
             <div className="web-card web-form web-modal" role="dialog" aria-label={t('Open from GitHub')}>
                 {header}

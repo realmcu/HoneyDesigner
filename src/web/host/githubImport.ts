@@ -17,8 +17,6 @@ import * as path from 'path';
 
 export const GITHUB_API = 'https://api.github.com';
 export const GITHUB_RAW = 'https://raw.githubusercontent.com';
-/** GitHub 的 Atom 订阅源：可解析出 commit SHA，且不占用 REST API 配额 */
-export const GITHUB_WEB = 'https://github.com';
 export const JSDELIVR_DATA = 'https://data.jsdelivr.com';
 export const JSDELIVR_CDN = 'https://cdn.jsdelivr.net';
 /** jsDelivr 拒绝服务大于 50 MB 的包 */
@@ -42,7 +40,7 @@ export type GitHubImportErrorCode =
     | 'invalid-url'
     /** Gitee 地址：浏览器里没有可用的下载通道，引导用户改用 GitHub 或 ZIP */
     | 'unsupported-host'
-    /** 快速通道（jsDelivr / atom）不可用，需要降级到 API */
+    /** 快速通道（jsDelivr）不可用，需要降级到 API */
     | 'channel-unavailable'
     /** 仓库不存在或无法公开访问（GitHub 对两者都返回 404，无法区分） */
     | 'repo-not-found'
@@ -382,30 +380,30 @@ export interface ResolvedRef {
     ref: string;
     /** ref 之后剩余的路径段 */
     rest: string[];
-    /** 解析走的通道：atom 不吃 REST 配额，api 吃 */
-    via: 'atom' | 'api';
-}
-
-const SHA_PATTERN = /Grit::Commit\/([0-9a-f]{40})/;
-
-function parseAtomSha(xml: string): string | undefined {
-    return xml.match(SHA_PATTERN)?.[1];
+    /** 解析走的通道：jsdelivr 不吃 REST 配额，api 吃 */
+    via: 'jsdelivr' | 'api';
 }
 
 /**
- * 用 GitHub 的 Atom 订阅源解析 ref，不消耗 REST API 配额。
+ * 用 jsDelivr 的清单接口解析 ref，不消耗 REST API 配额。
  *
- * `commits/{ref}.atom` 对分支、带 `/` 的分支、标签、`HEAD` 都能用；
- * 返回 404 表示 ref 不存在（与 API 语义一致）。
- * 这是避免「公司共享出口 IP 撞 60 次/小时」的主通道，失败时才降级到 API。
+ * 这是快速通道的主入口：`data.jsdelivr.com` 回 `Access-Control-Allow-Origin: *`，
+ * 而 `github.com` 的动态页面（包括 Atom 订阅源）不回这个头，浏览器里必然被挡。
+ * 拿清单本身就是第一步，分支/标签/SHA 都在同一个请求里确认。
+ *
+ * ref 是分支或标签时 jsDelivr 接受但不给 SHA（CDN 的 `X-JSD-Version` 也只回显分支名），
+ * 返回的 `sha` 为空，下载按分支名进行，靠清单里每个文件的 sha256 保证正文与清单一致。
+ * ref 本身是 40 位十六进制（用户粘了 commit 链接）时按 commit 处理。
+ *
+ * 只有清单接口返回 404 才回退更短的候选；遇到 403（超大仓库）等错误直接上抛，
+ * 由 resolveSource 决定降级，避免把限流类错误误当成「ref 不存在」。
  */
-export async function resolveRefViaAtom(
+export async function resolveRefViaJsDelivr(
     owner: string,
     repo: string,
     segments: string[],
     options: RequestOptions
-): Promise<ResolvedRef> {
-    // 从最长候选开始试：和 API 通道同样的「最长优先」规则
+): Promise<ResolvedRef & { tree: TreeEntry[] }> {
     const candidates: Array<{ ref: string; rest: string[] }> = segments.length === 0
         ? [{ ref: 'HEAD', rest: [] }]
         : segments.map((_, index) => ({
@@ -413,41 +411,70 @@ export async function resolveRefViaAtom(
             rest: segments.slice(segments.length - index),
         }));
 
+    // 不能写成 options.fetchImpl(...)：传入的是原生 fetch 时，this 会变成 options，
+    // 浏览器直接抛 Illegal invocation，快速通道每次都失败并降级到 API
+    const { fetchImpl } = options;
     let sawNotFound = false;
     for (const candidate of candidates) {
-        const url = `${GITHUB_WEB}/${owner}/${repo}/commits/${candidate.ref}.atom`;
         let response: ResponseLike;
         try {
-            response = await options.fetchImpl(url, { signal: options.signal, headers: { Accept: 'application/atom+xml' } });
+            response = await fetchImpl(jsDelivrListingUrl(owner, repo, candidate.ref), { signal: options.signal });
         } catch (error) {
             if (options.signal?.aborted) {
                 throw abortError();
             }
-            // atom 拿不到（网络、被墙）时交给 API 通道兜底
-            throw new GitHubImportError('network', 'Atom feed unavailable', { cause: error });
+            throw new GitHubImportError('network', 'jsDelivr is unavailable', { cause: error });
         }
 
         if (response.status === 404) {
             sawNotFound = true;
             continue;
         }
+        if (response.status === 403) {
+            throw new GitHubImportError('channel-unavailable', 'jsDelivr refused this package', { detail: 'jsdelivr' });
+        }
         if (!response.ok) {
-            throw await toHttpError(response);
+            throw new GitHubImportError('network', `jsDelivr responded ${response.status}`);
         }
 
-        const sha = parseAtomSha(await response.text());
-        if (!sha) {
-            // 订阅源格式变了，交给 API 通道
-            throw new GitHubImportError('network', 'Could not parse the commit id from the Atom feed');
-        }
-        return { sha, ref: candidate.ref === 'HEAD' ? '' : candidate.ref, rest: candidate.rest, via: 'atom' };
+        return {
+            sha: COMMIT_SHA.test(candidate.ref) ? candidate.ref : '',
+            ref: candidate.ref === 'HEAD' ? '' : candidate.ref,
+            rest: candidate.rest,
+            via: 'jsdelivr',
+            // 确认 ref 的这个请求就是清单本身，不再重取
+            tree: await parseJsDelivrListing(response),
+        };
     }
 
-    if (sawNotFound) {
-        // 仓库不存在和 ref 不存在在 atom 里都是 404，用一次 API 调用区分开
-        throw new GitHubImportError('ref-not-found', 'Could not resolve the branch, tag or commit in the URL');
+    // 404 既可能是仓库不存在，也可能是 ref 不存在。确认仓库本身在不在，
+    // 让「仓库地址写错了」和「分支名写错了」给出不同提示。
+    if (sawNotFound && !(await jsDelivrRepoExists(owner, repo, options))) {
+        throw new GitHubImportError('repo-not-found', 'Repository not found or not publicly accessible');
     }
     throw new GitHubImportError('ref-not-found', 'Could not resolve the branch, tag or commit in the URL');
+}
+
+const COMMIT_SHA = /^[0-9a-f]{40}$/i;
+
+/** 取正文用的版本：固定到 commit 时用 SHA，否则退回分支名；地址里没写分支时是默认分支 HEAD */
+export function contentVersion(source: { sha: string; ref: string }): string {
+    return source.sha || source.ref || 'HEAD';
+}
+
+/** 仓库是否存在（不消耗 GitHub API 配额）：不带版本的清单接口对不存在的仓库回 404 */
+async function jsDelivrRepoExists(owner: string, repo: string, options: RequestOptions): Promise<boolean> {
+    try {
+        const { fetchImpl } = options;
+        const response = await fetchImpl(`${JSDELIVR_DATA}/v1/packages/gh/${owner}/${repo}`, { signal: options.signal });
+        if (response.status === 404) {
+            return false;
+        }
+        // 5xx 等异常不据此断言仓库不存在
+        return true;
+    } catch {
+        return true;
+    }
 }
 
 /**
@@ -525,6 +552,8 @@ export interface TreeEntry {
     sha: string;
     /** tree 接口给出的「Git 对象大小」；Git LFS 文件在这里是指针大小，不是真实大小 */
     size?: number;
+    /** jsDelivr 清单给出的正文 sha256（base64）；只有快速通道有，用于下载后校验 */
+    hash?: string;
 }
 
 /** 符号链接在 Git 里是 mode 120000 的 blob，不能当普通文件导入 */
@@ -557,8 +586,9 @@ export async function fetchTree(
  *
  * 限制：
  * - 包大于 50 MB 时 jsDelivr 直接拒绝（403），调用方应降级到 API 通道
- * - 清单只有 path/size，**没有 Git mode**，因此查不出子模块和符号链接；
+ * - 清单只有 path/size/hash，**没有 Git mode**，因此查不出子模块和符号链接；
  *   走这条路时完整性校验要靠下游的配置校验兜底
+ * - `sha` 也可以是不带 commit 的分支名或标签（见 resolveRefViaJsDelivr）
  */
 export async function fetchTreeViaJsDelivr(
     owner: string,
@@ -566,11 +596,12 @@ export async function fetchTreeViaJsDelivr(
     sha: string,
     options: RequestOptions
 ): Promise<TreeEntry[]> {
-    const url = `${JSDELIVR_DATA}/v1/packages/gh/${owner}/${repo}@${sha}?structure=flat`;
+    const url = jsDelivrListingUrl(owner, repo, sha);
 
     let response: ResponseLike;
     try {
-        response = await options.fetchImpl(url, { signal: options.signal });
+        const { fetchImpl } = options;
+        response = await fetchImpl(url, { signal: options.signal });
     } catch (error) {
         if (options.signal?.aborted) {
             throw abortError();
@@ -586,7 +617,10 @@ export async function fetchTreeViaJsDelivr(
     if (!response.ok) {
         throw new GitHubImportError('network', `jsDelivr responded ${response.status}`);
     }
+    return parseJsDelivrListing(response);
+}
 
+async function parseJsDelivrListing(response: ResponseLike): Promise<TreeEntry[]> {
     let payload: { files?: unknown };
     try {
         payload = await response.json() as { files?: unknown };
@@ -597,7 +631,7 @@ export async function fetchTreeViaJsDelivr(
         throw new GitHubImportError('network', 'Unexpected jsDelivr response');
     }
 
-    return (payload.files as Array<{ name?: unknown; size?: unknown }>)
+    return (payload.files as Array<{ name?: unknown; hash?: unknown; size?: unknown }>)
         .filter(file => typeof file.name === 'string')
         .map(file => ({
             // jsDelivr 的 name 带前导 `/`，统一成仓库内相对路径
@@ -607,13 +641,22 @@ export async function fetchTreeViaJsDelivr(
             type: 'blob' as const,
             sha: '',
             size: typeof file.size === 'number' ? file.size : undefined,
+            // 正文的 sha256（base64），下载后据此校验，见 downloadFile
+            hash: typeof file.hash === 'string' ? file.hash : undefined,
         }));
 }
 
-/** jsDelivr 上取单个文件正文的 URL */
-export function jsDelivrFileUrl(owner: string, repo: string, sha: string, filePath: string): string {
+/** jsDelivr 的清单接口地址；ref 可以是分支、标签或 commit SHA */
+export function jsDelivrListingUrl(owner: string, repo: string, ref: string): string {
+    // 分支名允许含 `/`，必须整段编码，否则 jsDelivr 只取到第一段（实测返回 400）
+    return `${JSDELIVR_DATA}/v1/packages/gh/${owner}/${repo}@${encodeURIComponent(ref)}?structure=flat`;
+}
+
+/** jsDelivr 上取单个文件正文的 URL；version 是 commit SHA 或分支/标签名 */
+export function jsDelivrFileUrl(owner: string, repo: string, version: string, filePath: string): string {
     const encoded = filePath.split('/').map(encodeURIComponent).join('/');
-    return `${JSDELIVR_CDN}/gh/${owner}/${repo}@${sha}/${encoded}`;
+    // 与清单接口相同，含 `/` 的分支名要整段编码，否则 CDN 把第一段当分支、其余当路径
+    return `${JSDELIVR_CDN}/gh/${owner}/${repo}@${encodeURIComponent(version)}/${encoded}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -655,16 +698,25 @@ export interface ResolvedSource {
     candidates: ProjectCandidate[];
     /** 文件正文从哪个通道取 */
     contentChannel: 'jsdelivr' | 'raw';
+    /**
+     * 是否固定到了某个 commit。false 表示快速通道按分支名取（jsDelivr 不把分支解析成 commit），
+     * 下载和链接都用分支名，正文由清单里的 sha256 校验
+     */
+    pinned: boolean;
 }
 
 /**
  * 解析仓库并取文件清单，优先走不消耗 GitHub REST 配额的组合：
  *
- *   SHA   → github.com/{o}/{r}/commits/{ref}.atom   （不吃配额）
- *   清单  → data.jsdelivr.com                      （不吃配额）
- *   正文  → cdn.jsdelivr.net                       （不吃配额）
+ *   ref + 清单 → data.jsdelivr.com  （不吃配额，CORS 放行；清单带每个文件的 sha256）
+ *   正文       → cdn.jsdelivr.net   （不吃配额）
  *
- * 任一环失败（jsDelivr 包超 50 MB、atom 被墙、解析不到 SHA）就整体降级到
+ * 分支导入不固定 commit：jsDelivr 没有免配额且放行 CORS 的接口能把分支解析成 SHA。
+ *
+ * 注意不走 Atom：`github.com` 的动态页面不回 `Access-Control-Allow-Origin`，
+ * 浏览器里必然被 CORS 挡住，之前每一步都要靠降级到 API 才能完成。
+ *
+ * 任一环失败（jsDelivr 包超 50 MB、网络）就整体降级到
  * api.github.com + raw.githubusercontent.com：这条路径每次导入耗 2 次配额，
  * 但能覆盖大仓库和取不到 mode 的场景。
  *
@@ -694,8 +746,7 @@ export async function resolveSource(
     let fallbackReason: GitHubImportError | undefined;
     if (!options.forceApi) {
         try {
-            const resolved = await resolveRefViaAtom(owner, repo, segments, options);
-            const tree = await fetchTreeViaJsDelivr(owner, repo, resolved.sha, options);
+            const { tree, ...resolved } = await resolveRefViaJsDelivr(owner, repo, segments, options);
             return {
                 owner,
                 repo,
@@ -705,6 +756,7 @@ export async function resolveSource(
                 tree,
                 candidates: [],
                 contentChannel: 'jsdelivr',
+                pinned: COMMIT_SHA.test(resolved.sha),
             };
         } catch (error) {
             // 取消要原样向上抛，不能被当成「降级信号」
@@ -747,6 +799,7 @@ export async function resolveSource(
         tree,
         candidates: [],
         contentChannel: 'raw',
+        pinned: true,
     };
 }
 
@@ -996,14 +1049,13 @@ function startsWithLfsPointer(bytes: Uint8Array): boolean {
 
 /** 取单个文件的正文；任何失败都放大成整体失败，不产出残缺工程 */
 async function downloadFile(
-    owner: string,
-    repo: string,
-    sha: string,
-    channel: 'jsdelivr' | 'raw',
+    source: ResolvedSource,
     entry: TreeEntry,
     options: DownloadOptions,
     state: { bytes: number; aborted: boolean }
 ): Promise<Uint8Array> {
+    const { owner, repo, contentChannel: channel } = source;
+    const version = contentVersion(source);
     const { fetchImpl, rateLimit, signal, token } = options;
     token?.throwIfCancelled();
     if (signal?.aborted) {
@@ -1014,7 +1066,7 @@ async function downloadFile(
     // 但仍会观察响应头，以便后续 REST 调用准确判断剩余额度
     let response: ResponseLike;
     try {
-        response = await fetchImpl(contentUrl(channel, owner, repo, sha, entry.path), { signal });
+        response = await fetchImpl(contentUrl(channel, owner, repo, version, entry.path), { signal });
     } catch (error) {
         if (token?.isCancelled || signal?.aborted) {
             throw abortError();
@@ -1054,7 +1106,29 @@ async function downloadFile(
         });
     }
 
+    // 快速通道用清单里的 sha256 校验正文。API 通道给出的是 Git blob SHA-1，
+    // 算法不同，这里不校验（那条通道的正文由 GitHub 自己保证）
+    if (channel === 'jsdelivr' && entry.hash) {
+        const actual = await sha256Base64(bytes);
+        if (actual !== entry.hash) {
+            throw new GitHubImportError('network', `Content check failed for ${entry.path}`, {
+                paths: [entry.path],
+            });
+        }
+    }
+
     return bytes;
+}
+
+/** sha256 的 base64 编码，与 jsDelivr 清单里的 hash 格式一致 */
+async function sha256Base64(bytes: Uint8Array): Promise<string> {
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes as unknown as ArrayBuffer);
+    const view = new Uint8Array(digest);
+    let binary = '';
+    for (const byte of view) {
+        binary += String.fromCharCode(byte);
+    }
+    return btoa(binary);
 }
 
 /** 固定并发的任务池；取消后不再派发新任务，但会等已发起的全部结束 */
@@ -1120,7 +1194,7 @@ export async function downloadProject(
     candidate: ProjectCandidate,
     options: DownloadOptions
 ): Promise<DownloadedProject> {
-    const { owner, repo, sha, tree } = source;
+    const { tree } = source;
     const scope = tree.filter(entry => isUnder(entry.path, candidate.rootPath));
 
     const submodules = scope.filter(entry => entry.type === 'commit' || entry.mode === SUBMODULE_MODE);
@@ -1170,7 +1244,7 @@ export async function downloadProject(
             // 已经在收尾，不必再发起新请求
             throw new GitHubImportError('cancelled', 'Download aborted');
         }
-        const bytes = await downloadFile(owner, repo, sha, source.contentChannel, entry, options, state);
+        const bytes = await downloadFile(source, entry, options, state);
         files.set(relativeTo(entry.path, candidate.rootPath), bytes);
         filesDone += 1;
         report();

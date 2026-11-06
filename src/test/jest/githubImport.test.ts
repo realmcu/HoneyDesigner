@@ -24,7 +24,7 @@ import {
     pickMainHml,
     rawFileUrl,
     resolveRef,
-    resolveRefViaAtom,
+    resolveRefViaJsDelivr,
     resolveSource,
 } from '../../web/host/githubImport';
 import { GITHUB_TEMPLATES } from '../../web/host/exampleProjects';
@@ -268,64 +268,75 @@ describe('resolveRef', () => {
 });
 
 // ---------------------------------------------------------------------------
-// atom 通道（不消耗 REST 配额）
+// jsDelivr 快速通道：ref 解析（不消耗 REST 配额，且 CORS 放行）
 // ---------------------------------------------------------------------------
 
-function atomXml(sha: string): string {
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>Recent Commits to repo:master</title>
-  <entry>
-    <id>tag:github.com,2008:Grit::Commit/${sha}</id>
-  </entry>
-</feed>`;
+const SHA = 'a'.repeat(40);
+
+/** 清单接口的假响应：按 ref 命中，其余 404 */
+function jsDelivrListing(ref: string, files: unknown[] = [{ name: '/project.json', size: 10 }]) {
+    return { match: new RegExp(`data\\.jsdelivr\\.com/v1/packages/gh/o/r@${ref.replace(/[/]/g, '%2F')}`), response: { json: { files } } };
 }
 
-describe('parseAtomSha / resolveRefViaAtom', () => {
-    it('从 Atom 订阅源解析出 commit SHA', async () => {
-        const { fetchImpl, calls } = makeFetch([
-            { match: /commits\/HEAD\.atom/, response: { body: atomXml('a'.repeat(40)) } },
-        ]);
-        const resolved = await resolveRefViaAtom('o', 'r', [], { fetchImpl, rateLimit: noop() });
-        expect(resolved.sha).toBe('a'.repeat(40));
-        expect(resolved.via).toBe('atom');
-        expect(calls[0].url).toContain('github.com/o/r/commits/HEAD.atom');
+describe('resolveRefViaJsDelivr', () => {
+    it('不带 ref 时用 HEAD 取清单，不碰 api.github.com 与 github.com', async () => {
+        const { fetchImpl, calls } = makeFetch([jsDelivrListing('HEAD')]);
+        const resolved = await resolveRefViaJsDelivr('o', 'r', [], { fetchImpl, rateLimit: noop() });
+        expect(resolved.via).toBe('jsdelivr');
+        expect(resolved.ref).toBe('');
+        expect(calls.every(c => c.url.includes('data.jsdelivr.com'))).toBe(true);
     });
 
-    it('带 / 的分支名整段作为 ref，不做拆分', async () => {
-        const { fetchImpl } = makeFetch([
-            { match: /commits\/feat%2Fnew-ui\.atom|commits\/feat\/new-ui\.atom/, response: { body: atomXml('b'.repeat(40)) } },
-        ]);
-        const resolved = await resolveRefViaAtom('o', 'r', ['feat', 'new-ui'], { fetchImpl, rateLimit: noop() });
+    it('带 / 的分支名整段编码成一个 ref，不做拆分', async () => {
+        // jsDelivr 只认整段编码的分支名，不编码时返回 400
+        const { fetchImpl, calls } = makeFetch([jsDelivrListing('feat/new-ui')]);
+        const resolved = await resolveRefViaJsDelivr('o', 'r', ['feat', 'new-ui'], { fetchImpl, rateLimit: noop() });
         expect(resolved.ref).toBe('feat/new-ui');
         expect(resolved.rest).toEqual([]);
+        expect(calls[0].url).toContain('@feat%2Fnew-ui');
     });
 
     it('最长候选 404 时回退到更短的候选', async () => {
         const { fetchImpl, calls } = makeFetch([
-            { match: /commits\/feat\/ui\/sub\.atom/, response: { status: 404, body: 'nope' } },
-            { match: /commits\/feat\/ui\.atom/, response: { body: atomXml('c'.repeat(40)) } },
+            { match: /@feat%2Fui%2Fsub/, response: { status: 404, body: 'nope' } },
+            jsDelivrListing('feat/ui'),
         ]);
-        const resolved = await resolveRefViaAtom('o', 'r', ['feat', 'ui', 'sub'], { fetchImpl, rateLimit: noop() });
+        const resolved = await resolveRefViaJsDelivr('o', 'r', ['feat', 'ui', 'sub'], { fetchImpl, rateLimit: noop() });
         expect(resolved.ref).toBe('feat/ui');
         expect(resolved.rest).toEqual(['sub']);
         expect(calls).toHaveLength(2);
     });
 
-    it('全部候选 404 时报 ref-not-found', async () => {
-        const { fetchImpl } = makeFetch([
-            { match: /\.atom/, response: { status: 404, body: 'nope' } },
-        ]);
-        await expect(resolveRefViaAtom('o', 'r', ['x', 'y'], { fetchImpl, rateLimit: noop() }))
-            .rejects.toMatchObject({ code: 'ref-not-found' });
+    it('分支名解析出的 sha 为空：jsDelivr 不把分支解析成 commit', async () => {
+        const { fetchImpl } = makeFetch([jsDelivrListing('main')]);
+        const resolved = await resolveRefViaJsDelivr('o', 'r', ['main'], { fetchImpl, rateLimit: noop() });
+        expect(resolved.sha).toBe('');
     });
 
-    it('订阅源里没有 commit id 时抛错，交由 API 兜底', async () => {
+    it('用户粘的是 commit 链接时直接当 commit 用，不再探测', async () => {
+        const { fetchImpl } = makeFetch([jsDelivrListing(SHA)]);
+        const resolved = await resolveRefViaJsDelivr('o', 'r', [SHA], { fetchImpl, rateLimit: noop() });
+        expect(resolved.sha).toBe(SHA);
+        expect(resolved.ref).toBe(SHA);
+    });
+
+    it('全部候选 404 且仓库不存在时报 repo-not-found', async () => {
         const { fetchImpl } = makeFetch([
-            { match: /\.atom/, response: { body: '<feed><title>no commits</title></feed>' } },
+            { match: /@x%2Fy|@x/, response: { status: 404, body: 'nope' } },
+            // 不带版本的清单接口：仓库不存在
+            { match: /packages\/gh\/o\/r$/, response: { status: 404, body: 'nope' } },
         ]);
-        await expect(resolveRefViaAtom('o', 'r', [], { fetchImpl, rateLimit: noop() }))
-            .rejects.toMatchObject({ code: 'network' });
+        await expect(resolveRefViaJsDelivr('o', 'r', ['x', 'y'], { fetchImpl, rateLimit: noop() }))
+            .rejects.toMatchObject({ code: 'repo-not-found' });
+    });
+
+    it('仓库存在但 ref 不存在时报 ref-not-found', async () => {
+        const { fetchImpl } = makeFetch([
+            { match: /@nope/, response: { status: 404, body: 'nope' } },
+            { match: /packages\/gh\/o\/r$/, response: { body: '{"versions":[]}' } },
+        ]);
+        await expect(resolveRefViaJsDelivr('o', 'r', ['nope'], { fetchImpl, rateLimit: noop() }))
+            .rejects.toMatchObject({ code: 'ref-not-found' });
     });
 });
 
@@ -370,25 +381,45 @@ describe('fetchTreeViaJsDelivr', () => {
 // ---------------------------------------------------------------------------
 
 describe('resolveSource 通道选择', () => {
-    const jsdelivrOk = (): Array<{ match: RegExp; response: FakeResponseInit | (() => FakeResponseInit) }> => [
-        { match: /commits\/HEAD\.atom/, response: { body: atomXml('d'.repeat(40)) } },
-        {
-            match: /data\.jsdelivr\.com/,
-            response: { json: { files: [{ name: '/project.json', size: 10 }] } },
-        },
-    ];
-
-    it('默认走 atom + jsDelivr，不碰 api.github.com', async () => {
-        const { fetchImpl, calls } = makeFetch(jsdelivrOk());
+    it('默认走 jsDelivr，只发一次清单请求，不碰 api.github.com 与 github.com', async () => {
+        const { fetchImpl, calls } = makeFetch([
+            jsDelivrListing('HEAD', [{ name: '/project.json', size: 10, hash: 'h1' }]),
+        ]);
         const source = await resolveSource('o', 'r', [], { fetchImpl, rateLimit: noop() });
         expect(source.contentChannel).toBe('jsdelivr');
-        expect(source.sha).toBe('d'.repeat(40));
-        expect(calls.some(c => c.url.includes('api.github.com'))).toBe(false);
+        expect(source.sha).toBe('');
+        expect(source.ref).toBe('');
+        expect(source.pinned).toBe(false);
+        // 清单里的 sha256 保留下来，供下载时校验
+        expect(source.tree[0].hash).toBe('h1');
+        expect(calls).toHaveLength(1);
+        expect(calls[0].url).toContain('@HEAD');
+    });
+
+    it('不以 options 作为 this 调用 fetchImpl（原生 fetch 会抛 Illegal invocation）', async () => {
+        const { fetchImpl: inner } = makeFetch([
+            jsDelivrListing('HEAD', [{ name: '/project.json', size: 10, hash: 'h1' }]),
+        ]);
+        // 与浏览器原生 fetch 一样：this 不是全局对象时直接抛错
+        const strictFetch = function (this: unknown, url: string, init?: unknown) {
+            if (this !== undefined && this !== globalThis) {
+                throw new TypeError('Illegal invocation');
+            }
+            return (inner as (u: string, i?: unknown) => unknown)(url, init);
+        } as typeof inner;
+        const source = await resolveSource('o', 'r', [], { fetchImpl: strictFetch, rateLimit: noop() });
+        expect(source.contentChannel).toBe('jsdelivr');
+    });
+
+    it('commit 链接固定到该 commit', async () => {
+        const { fetchImpl } = makeFetch([jsDelivrListing(SHA)]);
+        const source = await resolveSource('o', 'r', [SHA], { fetchImpl, rateLimit: noop() });
+        expect(source.sha).toBe(SHA);
+        expect(source.pinned).toBe(true);
     });
 
     it('jsDelivr 拒绝大包时降级到 API 通道', async () => {
         const { fetchImpl, calls } = makeFetch([
-            { match: /commits\/HEAD\.atom/, response: { body: atomXml('e'.repeat(40)) } },
             { match: /data\.jsdelivr\.com/, response: { status: 403, body: 'too big' } },
             // 降级后的 API 路径
             { match: /api\.github\.com\/repos\/o\/r\/commits/, response: { json: [{ sha: 'f'.repeat(40) }] } },
@@ -397,13 +428,14 @@ describe('resolveSource 通道选择', () => {
         const source = await resolveSource('o', 'r', [], { fetchImpl, rateLimit: noop() });
         expect(source.contentChannel).toBe('raw');
         expect(source.sha).toBe('f'.repeat(40));
+        expect(source.pinned).toBe(true);
         expect(calls.some(c => c.url.includes('data.jsdelivr.com'))).toBe(true);
         expect(calls.some(c => c.url.includes('api.github.com'))).toBe(true);
     });
 
-    it('atom 不可用时也降级', async () => {
+    it('jsDelivr 故障时也降级', async () => {
         const { fetchImpl } = makeFetch([
-            { match: /commits\/HEAD\.atom/, response: { status: 500, body: 'boom' } },
+            { match: /data\.jsdelivr\.com/, response: { status: 500, body: 'boom' } },
             { match: /api\.github\.com\/repos\/o\/r\/commits/, response: { json: [{ sha: 'g'.repeat(40) }] } },
             { match: /api\.github\.com\/repos\/o\/r\/git\/trees/, response: { json: { truncated: false, tree: [blob('project.json')] } } },
         ]);
@@ -418,7 +450,6 @@ describe('resolveSource 通道选择', () => {
         ]);
         const source = await resolveSource('o', 'r', [], { fetchImpl, rateLimit: noop(), forceApi: true });
         expect(source.contentChannel).toBe('raw');
-        expect(calls.some(c => c.url.includes('.atom'))).toBe(false);
         expect(calls.some(c => c.url.includes('jsdelivr'))).toBe(false);
     });
 
@@ -427,8 +458,6 @@ describe('resolveSource 通道选择', () => {
         // 「API 次数用尽」这种和体积无关的错误，完全误导
         const rateLimit = new RateLimitState();
         const { fetchImpl, calls } = makeFetch([
-            // 必须是合法十六进制，否则 atom 解析会失败而不是走到降级判断
-            { match: /commits\/HEAD\.atom/, response: { body: atomXml('1'.repeat(40)) } },
             { match: /data\.jsdelivr\.com/, response: { status: 403, body: 'too big' } },
             // 让配额先变成「已耗尽」
             {
@@ -447,7 +476,6 @@ describe('resolveSource 通道选择', () => {
     it('配额在第一次 API 调用时才发现耗尽，仍报体积问题', async () => {
         // 实际使用中每次导入都是新的 RateLimitState，快速通道不碰 API，降级前无从得知配额
         const { fetchImpl } = makeFetch([
-            { match: /commits\/HEAD\.atom/, response: { body: atomXml('1'.repeat(40)) } },
             { match: /data\.jsdelivr\.com/, response: { status: 403, body: 'too big' } },
             {
                 match: /api\.github\.com/,
@@ -459,9 +487,9 @@ describe('resolveSource 通道选择', () => {
             .rejects.toMatchObject({ code: 'channel-unavailable', options: { resetAt: 1800000000 * 1000 } });
     });
 
-    it('快速通道非体积原因失败、API 又限流时，报限流', async () => {
+    it('快速通道因故失败、API 又限流时，报限流', async () => {
         const { fetchImpl } = makeFetch([
-            { match: /commits\/HEAD\.atom/, response: { status: 500, body: '' } },
+            { match: /data\.jsdelivr\.com/, response: { status: 500, body: '' } },
             {
                 match: /api\.github\.com/,
                 response: { status: 403, headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1800000000' }, json: {} },
@@ -703,6 +731,7 @@ function source(entries: TreeEntry[] = PROJECT_FILES) {
         tree: entries,
         candidates: [],
         contentChannel: 'raw' as const,
+        pinned: true,
     };
 }
 
@@ -1019,6 +1048,84 @@ describe('取消', () => {
             token,
         })).rejects.toMatchObject({ code: 'cancelled' });
         expect(calls).toHaveLength(0);
+    });
+
+    it('快速通道用清单里的 sha256 校验正文', async () => {
+        const bodies: Record<string, string> = {
+            'proj/project.json': PROJECT_JSON,
+            'proj/ui/Main.hml': '<view/>',
+            'proj/assets/logo.png': 'PNG',
+        };
+        const sha256 = async (text: string): Promise<string> => {
+            const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+            return Buffer.from(new Uint8Array(digest)).toString('base64');
+        };
+        const entries: TreeEntry[] = await Promise.all(
+            Object.entries(bodies).map(async ([path, text]) => ({ ...blob(path, text.length), hash: await sha256(text) }))
+        );
+        const fetchImpl: FetchLike = async url => {
+            const rel = decodeURIComponent(url.split('@main/')[1] ?? '');
+            return makeResponse({ body: bodies[rel] ?? '' });
+        };
+
+        const project = await downloadProject(
+            { ...source(entries), sha: '', contentChannel: 'jsdelivr', pinned: false },
+            candidate,
+            { fetchImpl, rateLimit: noop() }
+        );
+        expect([...project.files.keys()].sort()).toEqual(['assets/logo.png', 'project.json', 'ui/Main.hml']);
+    });
+
+    it('正文与清单 hash 不符时整体失败', async () => {
+        const entries: TreeEntry[] = [
+            { ...blob('proj/project.json', 10), hash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' },
+        ];
+        const fetchImpl: FetchLike = async () => makeResponse({ body: PROJECT_JSON });
+        await expect(downloadProject(
+            { ...source(entries), contentChannel: 'jsdelivr' },
+            { ...candidate, fileCount: 1 },
+            { fetchImpl, rateLimit: noop() }
+        )).rejects.toMatchObject({ code: 'network', options: { paths: ['proj/project.json'] } });
+    });
+
+    it('未固定到 commit 时用分支名下载，含 / 的分支名整段编码', async () => {
+        const calls: Call[] = [];
+        const fetchImpl: FetchLike = async url => {
+            calls.push({ url });
+            return makeResponse({ body: url.endsWith('project.json') ? PROJECT_JSON : '<view/>' });
+        };
+        await downloadProject(
+            {
+                ...source([blob('proj/project.json', 10), blob('proj/ui/Main.hml', 7)]),
+                sha: '',
+                ref: 'feat/ui',
+                contentChannel: 'jsdelivr',
+                pinned: false,
+            },
+            { ...candidate, fileCount: 2 },
+            { fetchImpl, rateLimit: noop() }
+        );
+        expect(calls.every(c => c.url.includes('/gh/o/r@feat%2Fui/proj/'))).toBe(true);
+    });
+
+    it('地址里没写分支时按默认分支 HEAD 下载', async () => {
+        const calls: Call[] = [];
+        const fetchImpl: FetchLike = async url => {
+            calls.push({ url });
+            return makeResponse({ body: url.endsWith('project.json') ? PROJECT_JSON : '<view/>' });
+        };
+        await downloadProject(
+            {
+                ...source([blob('proj/project.json', 10), blob('proj/ui/Main.hml', 7)]),
+                sha: '',
+                ref: '',
+                contentChannel: 'jsdelivr',
+                pinned: false,
+            },
+            { ...candidate, fileCount: 2 },
+            { fetchImpl, rateLimit: noop() }
+        );
+        expect(calls.every(c => c.url.includes('/gh/o/r@HEAD/proj/'))).toBe(true);
     });
 });
 

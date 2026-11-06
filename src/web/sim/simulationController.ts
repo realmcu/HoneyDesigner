@@ -157,7 +157,7 @@ export class SimulationController {
         this.session = session;
         this.notifyState = notifyState;
         this.running = { root: projectRoot, mode, hml: pickHml(inputs.assets), fonts: inputs.fonts ?? new Map(), reloadedBytes: 0 };
-        simulationUi.running(inputs.screen.width, inputs.screen.height, mode, inputs.gaps);
+        simulationUi.running(inputs.screen.width, inputs.screen.height, mode, inputs.gaps, inputs.blankEntry);
         notifyState(true);
         if (mode === 'preview') {
             this.watch(projectRoot);
@@ -236,7 +236,7 @@ export class SimulationController {
             running.reloadedBytes += bytes;
             running.hml = hml;
             session.updateHml(changed, removed);
-            simulationUi.setGaps(this.service.collectGaps(hml));
+            simulationUi.setGaps(this.service.collectGaps(hml), this.service.blankEntry(hml));
             this.log(`Preview updated: ${[...Object.keys(changed), ...removed].join(', ')}`);
             return;
         }

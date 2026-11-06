@@ -5,6 +5,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Home, CornerUpLeft, AlignJustify, Power } from 'lucide-react';
 import { simulationUi } from '../sim/simulationUi';
+import type { SimulationMode } from '../sim/simulationService';
 import type { SimKey } from '../sim/engineHost';
 import type { PreviewGap } from '../../simulation/HmlPreviewPrep';
 import { t } from '../../webview/i18n';
@@ -26,6 +27,8 @@ export interface SimulationWindowProps {
     /** 仿真画布挂载点：运行时由 browserHost 取走 canvas 交给引擎 */
     onCanvas(canvas: HTMLCanvasElement | null): void;
     onStop(): void;
+    /** 以指定方式重新开始仿真 */
+    onRestart(mode: SimulationMode): void;
     /** 硬件按键，与桌面模拟器底部的 Home / Back / Menu / Power 一致 */
     onKey(key: SimKey): void;
 }
@@ -83,7 +86,7 @@ function gapNames(gaps: PreviewGap[], kind: PreviewGap['kind']): string {
     return names.length > MAX_GAP_NAMES ? `${names.slice(0, MAX_GAP_NAMES).join(', ')} …(+${names.length - MAX_GAP_NAMES})` : names.join(', ');
 }
 
-function PreviewGaps({ gaps }: { gaps: PreviewGap[] }) {
+function PreviewGaps({ gaps, onFull }: { gaps: PreviewGap[]; onFull(): void }) {
     const rows: Array<[PreviewGap['kind'], 'Components: {0}' | 'C functions not run: {0}' | 'Attributes ignored: {0}']> = [
         ['component', 'Components: {0}'],
         ['function', 'C functions not run: {0}'],
@@ -91,18 +94,17 @@ function PreviewGaps({ gaps }: { gaps: PreviewGap[] }) {
     ];
     return (
         <details className="web-sim-gaps">
-            <summary>{t('Not shown in the browser simulator')} ({gaps.length})</summary>
+            <summary>{t('Not shown in quick preview')} ({gaps.length})</summary>
             {rows.map(([kind, label]) => {
                 const names = gapNames(gaps, kind);
                 return names ? <div key={kind} className="web-sim-gap-row">{t(label, names)}</div> : null;
             })}
-            {/* 网页版只跑 HML 运行时，没有可切换的完整仿真模式 */}
-            <div className="web-sim-gap-row">{t('The browser simulator does not compile project C code. Use the VS Code extension to simulate the full project.')}</div>
+            <button className="web-button" onClick={onFull}>{t('Run full simulation')}</button>
         </details>
     );
 }
 
-export function SimulationWindow({ onCanvas, onStop, onKey }: SimulationWindowProps) {
+export function SimulationWindow({ onCanvas, onStop, onRestart, onKey }: SimulationWindowProps) {
     const state = useSyncExternalStore(simulationUi.subscribe, simulationUi.getSnapshot);
     // 初始位置在工具栏下方的右侧，避免盖住工具栏按钮
     const { position, handlers } = useDrag({ x: Math.max(12, window.innerWidth - 560), y: 110 });
@@ -116,7 +118,7 @@ export function SimulationWindow({ onCanvas, onStop, onKey }: SimulationWindowPr
     const [elapsed, setElapsed] = useState(0);
     const logRef = useRef<HTMLPreElement>(null);
 
-    const { phase, open, log, gaps } = state;
+    const { phase, open, log, mode, gaps, blankEntry } = state;
     const building = phase.kind === 'building';
 
     useEffect(() => {
@@ -154,11 +156,19 @@ export function SimulationWindow({ onCanvas, onStop, onKey }: SimulationWindowPr
         <div className="web-sim-window" style={{ left, top: position.y }} role="dialog" aria-label={t('Simulator')}>
             <div className="web-sim-titlebar" {...handlers}>
                 <span className="web-sim-title">{t('Simulator')}</span>
-                {/* 网页版固定运行 HML 运行时，不再提供编译 C 工程的完整仿真 */}
-                <span className="web-sim-mode-label"
-                    title={t('Runs the HML directly. Starts in seconds and follows your saves; project C code does not run.')}>
-                    {t('Quick Preview')}
-                </span>
+                <select
+                    className="web-sim-mode"
+                    aria-label={t('Simulation mode')}
+                    title={mode === 'preview'
+                        ? t('Runs the HML directly. Starts in seconds and follows your saves; project C code does not run.')
+                        : t('Compiles the project C code in the browser, like the desktop simulator. Unmodified examples start without downloading the compiler.')}
+                    value={mode}
+                    disabled={building}
+                    onChange={event => onRestart(event.target.value as SimulationMode)}
+                >
+                    <option value="preview">{t('Quick Preview')}</option>
+                    <option value="full">{t('Full Simulation')}</option>
+                </select>
                 <span className="web-topbar-spacer" />
                 <button className="web-icon-button" aria-label={t('Show log')} title={t('Show log')} onClick={() => setShowLog(v => !v)}>≡</button>
                 <button className="web-icon-button" aria-label={open ? t('Collapse') : t('Expand')} onClick={() => simulationUi.setOpen(!open)}>{open ? '–' : '□'}</button>
@@ -175,7 +185,7 @@ export function SimulationWindow({ onCanvas, onStop, onKey }: SimulationWindowPr
                         </div>
                         <div className="web-sim-bar"><div className="web-sim-bar-fill" style={{ width: `${Math.round((phase.progress.fraction ?? 0) * 100)}%` }} /></div>
                         <div className="web-muted">{t('Elapsed {0}s', elapsed)}</div>
-                        {phase.progress.stage === 'toolchain' && <div className="web-muted">{t('The first build downloads the compiler (about 105 MB). It is cached for next time.')}</div>}
+                        {phase.progress.stage === 'toolchain' && <div className="web-muted">{t('Changed code needs the compiler (about 30 MB download). It is cached for next time.')}</div>}
                     </div>
                 )}
 
@@ -203,10 +213,16 @@ export function SimulationWindow({ onCanvas, onStop, onKey }: SimulationWindowPr
                     </div>
                 )}
 
-                {phase.kind === 'running' && (
+                {phase.kind === 'running' && mode === 'preview' && (
                     <>
+                        {blankEntry && (
+                            <div className="web-sim-blank" role="alert">
+                                <span>{t('The start screen is drawn by project C code, which quick preview does not run, so it stays blank.')}</span>
+                                <button className="web-button" onClick={() => onRestart('full')}>{t('Run full simulation')}</button>
+                            </div>
+                        )}
                         <div className="web-muted">{t('Updates when you save.')}</div>
-                        {gaps.length > 0 && <PreviewGaps gaps={gaps} />}
+                        {gaps.length > 0 && <PreviewGaps gaps={gaps} onFull={() => onRestart('full')} />}
                     </>
                 )}
 

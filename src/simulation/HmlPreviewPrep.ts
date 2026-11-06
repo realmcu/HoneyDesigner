@@ -168,6 +168,38 @@ export function fontRequirementsCovered(converted: FontRequirements, next: FontR
     return true;
 }
 
+/** 函数名或调用表达式（如 "gui_stream_transport_get()"）中的函数名；未设置或 NULL 时为 undefined */
+function functionNameOf(value: string | undefined): string | undefined {
+    const fn = value?.trim().replace(/\s*\(.*$/, '');
+    return fn && fn !== 'NULL' ? fn : undefined;
+}
+
+/**
+ * 入口视图（entry="true"）在 HML 里没有组件，内容全部由切入函数（switchInFunctionName）用 C 代码绘制。
+ * 快速预览不执行 C 代码，这样的工程一启动就是空白画面。
+ */
+export function entryViewDrawnByCode(contents: Iterable<string>): boolean {
+    for (const content of contents) {
+        const text = blankComments(content);
+        const tags = scanOpenTags(text);
+        const index = tags.findIndex(tag => tag.name === 'hg_view' && parseTagAttributes(tag.attrsText).get('entry') === 'true');
+        if (index < 0) {
+            continue;
+        }
+        const view = tags[index];
+        if (!functionNameOf(parseTagAttributes(view.attrsText).get('switchInFunctionName'))) {
+            return false;
+        }
+        if (view.raw.endsWith('/>')) {
+            return true;
+        }
+        const close = text.indexOf('</hg_view', view.start);
+        const end = close < 0 ? text.length : close;
+        return !tags.slice(index + 1).some(tag => tag.start < end && tag.name.startsWith('hg_'));
+    }
+    return false;
+}
+
 /** 汇总一个工程所有 HML 中快速预览缺失的内容 */
 export class PreviewGapCollector {
     private readonly gaps = new Map<string, PreviewGap>();
@@ -204,10 +236,9 @@ export class PreviewGapCollector {
         }
     }
 
-    /** 函数名或调用表达式（如 "gui_stream_transport_get()"）；NULL 表示未设置 */
     private addFunction(name: string | undefined): void {
-        const fn = name?.trim().replace(/\s*\(.*$/, '');
-        if (fn && fn !== 'NULL') {
+        const fn = functionNameOf(name);
+        if (fn) {
             this.add('function', fn);
         }
     }

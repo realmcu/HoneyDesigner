@@ -18,6 +18,8 @@ import {
     requestDirectoryPermission,
 } from '../host/projectStore';
 import { openDesigner, findMainHml, OpenedDesigner } from '../host/browserHost';
+import { isExampleProject } from '../host/exampleProjects';
+import { entryViewDrawnByCode } from '../../simulation/HmlPreviewPrep';
 import { exportProjectZip, downloadBlob } from '../host/projectZip';
 import { hostUi } from '../host/hostUi';
 import * as fs from '../shims/fs';
@@ -35,6 +37,15 @@ type Phase =
 
 /** 新建 HML 文件的文件名规则：与组件 id 命名一致，避免生成非法控件名 */
 const HML_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function entryDrawnByCode(root: string): boolean {
+    const uiDir = path.posix.join(root, 'ui');
+    if (!fs.existsSync(uiDir)) {
+        return false;
+    }
+    const files = (fs.readdirSync(uiDir, { recursive: true }) as string[]).filter(name => name.endsWith('.hml'));
+    return entryViewDrawnByCode(files.map(name => fs.readFileSync(path.posix.join(uiDir, name), 'utf8') as string));
+}
 
 /** 关闭或切换工程前清空内存文件系统中的工程目录，避免多个工程的文件残留 */
 function unloadProjectFiles(root: string): void {
@@ -66,7 +77,9 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                 }
                 const sync = new ProjectSync(project, root);
                 sync.onStateChange(state => setSyncState(state));
-                const opened = await openDesigner(root, hmlPath, project.id);
+                // 示例工程，以及入口视图靠 C 代码绘制（快速预览是空白画面）的工程默认完整仿真
+                const defaultMode = isExampleProject(project) || entryDrawnByCode(root) ? 'full' : 'preview';
+                const opened = await openDesigner(root, hmlPath, project.id, defaultMode);
                 if (cancelled) {
                     opened.dispose();
                     sync.dispose();

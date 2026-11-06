@@ -25,6 +25,17 @@ export const WEB_EXAMPLES = [
     },
 ] as const;
 
+/** 从内置示例打开的工程记下的来源标识（StoredProject.sourceKey） */
+const EXAMPLE_SOURCE_PREFIX = 'example:';
+
+export function exampleSourceKey(id: string): string {
+    return `${EXAMPLE_SOURCE_PREFIX}${id}`;
+}
+
+export function isExampleProject(project: { sourceKey?: string }): boolean {
+    return project.sourceKey?.startsWith(EXAMPLE_SOURCE_PREFIX) ?? false;
+}
+
 /**
  * 「从 GitHub 打开」下拉里的官方模板。
  *

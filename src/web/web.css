@@ -508,18 +508,28 @@
 }
 
 .web-sim-title { font-weight: 600; }
-.web-sim-mode-label {
+.web-sim-mode {
   margin-left: 8px;
-  padding: 1px 6px;
-  border: 1px solid var(--vscode-panel-border);
+  padding: 1px 4px;
+  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
   border-radius: 2px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 12px;
-  cursor: default;
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  font: inherit;
 }
 .web-sim-gaps { max-width: 480px; }
 .web-sim-gaps summary { cursor: pointer; color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
 .web-sim-gaps[open] { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.web-sim-blank {
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 6px 8px;
+  border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+  background: var(--vscode-inputValidation-warningBackground, rgba(204, 167, 0, 0.12));
+}
 .web-sim-gap-row { color: var(--vscode-descriptionForeground); word-break: break-word; }
 .web-sim-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .web-sim-progress { display: flex; flex-direction: column; gap: 6px; min-width: 260px; }

@@ -1,36 +1,27 @@
 /**
  * 构建 Worker：用 WASM 版 clang / wasm-ld 把工程的 C 源码编译链接成 project.wasm
  *
- * 在 Worker 中运行，编译期间页面保持可操作。编译器（约 105 MB）首次构建时才下载，
- * 之后由 Service Worker / HTTP 缓存提供。目标文件按「源码 + 编译参数」的哈希缓存在
- * 内存里：只改了界面代码时，未改动的文件（尤其是 22 MB 的 app_romfs.c）不会重编。
+ * 在 Worker 中运行，编译期间页面保持可操作。每个编译单元依次取：
+ *   1. 内存缓存（Worker 存活期间有效，页面不关闭就一直复用）；
+ *   2. 站点上 CI 预编译的目标文件（键相同即内容相同，见 buildCore.unitKeys）；
+ *   3. 现场编译。
+ * 只有第 3 步才需要编译器（压缩后约 29 MB），所以只改了界面的示例工程只重编界面文件，
+ * 所有单元都有现成目标文件时不下载编译器。缓存键由页面算好随请求传入。
  */
 /// <reference lib="webworker" />
 import type { BuildRequest, WorkerMessage } from './protocol';
 import { treeFromFlat, TreeNode } from './fileTree';
-import { sourceKey } from './hash';
+import { BinaryenModule, LINK_ARGS, asyncify, objectName, parseHeaderPack, planBuild, prebuiltObjectPath } from './buildCore';
 
 interface YowaspModule {
     runClang(args: string[], files: TreeNode, options?: Record<string, unknown>): Promise<Record<string, Uint8Array>>;
     runLLVM(args: string[], files: TreeNode, options?: Record<string, unknown>): Promise<Record<string, Uint8Array>>;
 }
 
-/** binaryen.js 中用到的部分 */
-interface BinaryenModule {
-    readBinary(data: Uint8Array): {
-        runPasses(passes: string[]): void;
-        optimize(): void;
-        emitBinary(): Uint8Array;
-        dispose(): void;
-    };
-    setOptimizeLevel(level: number): void;
-    setPassArgument(key: string, value: string | null): void;
-}
-
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 const post = (message: WorkerMessage, transfer: Transferable[] = []) => ctx.postMessage(message, transfer);
 
-/** 目标文件缓存：键为源码与编译参数的哈希。Worker 存活期间有效（页面不关闭就一直复用） */
+/** 目标文件缓存：键见 buildCore.unitKeys */
 const objectCache = new Map<string, Uint8Array>();
 /** 工具链头文件（引擎头 + 系统头）是否已加载，以及对应的基址 */
 let toolchain: { base: string; headers: Record<string, Uint8Array> } | undefined;
@@ -65,140 +56,98 @@ async function loadBinaryen(base: string): Promise<BinaryenModule> {
     return binaryen.module;
 }
 
-/**
- * 引擎每帧在 gui_thread_mdelay() 里经 Asyncify 让出执行权，并用 Asyncify 切换协作线程。
- * 让出时调用栈上的每一层都必须能保存和恢复，而 clang 编出的 project.wasm 没有这层处理：
- * 工程代码调到会让出的函数（例如在 gui_thread_create 建的线程里 gui_thread_mdelay），
- * 恢复时就会报 unreachable。这里对链接产物补做与 emcc -sASYNCIFY 侧模块相同的变换。
- */
-function asyncify(lib: BinaryenModule, wasm: Uint8Array): Uint8Array {
-    const module = lib.readBinary(wasm);
-    try {
-        lib.setOptimizeLevel(1);
-        // 侧模块使用主模块导出的 Asyncify 状态（emcc 对 SIDE_MODULE 传的也是这个参数）
-        lib.setPassArgument('asyncify-import-globals', '1');
-        module.runPasses(['asyncify']);
-        module.optimize();
-        return module.emitBinary();
-    } finally {
-        module.dispose();
-    }
-}
-
-/** 头文件包格式见 scripts/prepare-web-sim.js 的 packHeaders：整体 deflate，内部是「长度 + 路径 + 长度 + 内容」的序列 */
-async function unpackHeaders(compressed: Uint8Array): Promise<Record<string, Uint8Array>> {
-    const stream = new Blob([compressed as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    const raw = new Uint8Array(await new Response(stream).arrayBuffer());
-    const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
-    const decoder = new TextDecoder();
-    const headers: Record<string, Uint8Array> = {};
-
-    let offset = 4;
-    for (let i = view.getUint32(0, true); i > 0; i--) {
-        const nameLength = view.getUint16(offset, true);
-        offset += 2;
-        const name = decoder.decode(raw.subarray(offset, offset + nameLength));
-        offset += nameLength;
-        const size = view.getUint32(offset, true);
-        offset += 4;
-        headers[name] = raw.slice(offset, offset + size);
-        offset += size;
-    }
-    return headers;
-}
-
+/** 头文件包格式见 scripts/prepare-web-sim.js 的 packHeaders：整体 deflate */
 async function loadToolchain(base: string): Promise<Record<string, Uint8Array>> {
     if (toolchain && toolchain.base === base) {
         return toolchain.headers;
     }
-    const headers = await unpackHeaders(await fetchBytes(new URL('toolchain.pack', base).href));
+    const compressed = await fetchBytes(new URL('toolchain.pack', base).href);
+    const stream = new Blob([compressed as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    const headers = parseHeaderPack(new Uint8Array(await new Response(stream).arrayBuffer()));
     toolchain = { base, headers };
     return headers;
 }
 
-function compileFlags(request: BuildRequest, sourceDirs: string[]): string[] {
-    const { screen } = request;
-    return [
-        '--target=wasm32-unknown-emscripten', '-fPIC', '-O2', '-std=gnu99', '-nostdinc',
-        '-isystem', 'clangres/include', '-isystem', 'sysroot/include/compat', '-isystem', 'sysroot/include',
-        '-D_HONEYGUI_SIMULATOR_',
-        `-DDRV_LCD_WIDTH=${screen.width}`, `-DDRV_LCD_HEIGHT=${screen.height}`,
-        `-DDRV_LCD_CORNER_RADIUS=${screen.cornerRadius}`, `-DDRV_PIXEL_BITS=${screen.pixelBits}`,
-        '-I', 'engine', ...sourceDirs.flatMap(dir => ['-I', dir]),
-        // 生成代码不是给用户读警告的；真正的错误仍会让编译失败
-        '-Wno-everything',
-    ];
+/** 预编译目标文件；取不到（例如站点刚更新）时返回 undefined，改为现场编译 */
+async function fetchPrebuilt(base: string, key: string): Promise<Uint8Array | undefined> {
+    try {
+        const object = await fetchBytes(new URL(prebuiltObjectPath(key), base).href);
+        return object.length > 0 ? object : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 async function build(request: BuildRequest): Promise<void> {
     const timings: Record<string, number> = {};
     const lap = (name: string, since: number) => { timings[name] = Math.round(performance.now() - since); };
-
-    let t = performance.now();
-    post({ type: 'progress', phase: 'download', done: 0, total: 1 });
-    const [clang, headers, wasmOpt] = await Promise.all([
-        loadCompiler(request.toolchainBase), loadToolchain(request.toolchainBase), loadBinaryen(request.toolchainBase),
-    ]);
-    lap('load toolchain', t);
-
-    const files: Record<string, Uint8Array> = { ...headers };
-    for (const [name, data] of Object.entries(request.sources)) {
-        files[`src/${name}`] = data;
+    const base = request.toolchainBase;
+    const plan = planBuild(request.sources, request.screen, request.romfs);
+    if (request.keys.length !== plan.units.length) {
+        throw new Error('Build request keys do not match the compile units');
     }
-    const sourceNames = Object.keys(request.sources).filter(name => name.endsWith('.c'));
-    const sourceDirs = [...new Set(Object.keys(request.sources).map(name => {
-        const dir = name.split('/').slice(0, -1).join('/');
-        return dir ? `src/${dir}` : 'src';
-    }))];
-    const flags = compileFlags(request, sourceDirs);
-    const flagsKey = flags.join(' ');
-
-    // 参与编译的每个单元：生成的 C 文件，加上可选的 app_romfs.c
-    const units: Array<{ name: string; path: string; data: Uint8Array; extra: string[] }> = sourceNames.map(name => ({
-        name, path: `src/${name}`, data: request.sources[name], extra: [],
-    }));
-    if (request.romfs) {
-        files['app_romfs.c'] = request.romfs;
-        units.push({ name: 'app_romfs.c', path: 'app_romfs.c', data: request.romfs, extra: ['-O1'] });
-    }
-
-    const tree = treeFromFlat(files);
+    const available = new Set(request.prebuilt);
     const objects: Record<string, Uint8Array> = {};
-    t = performance.now();
-    let compiled = 0;
     let reused = 0;
+    let downloaded = 0;
 
-    for (const [index, unit] of units.entries()) {
-        const isRomfs = unit.name === 'app_romfs.c';
-        post({ type: 'progress', phase: isRomfs ? 'romfs' : 'compile', done: index, total: units.length, file: unit.name });
-
-        const key = await sourceKey(unit.data, flagsKey + unit.extra.join(' '));
+    // 1. 缓存与预编译产物
+    let t = performance.now();
+    const missing: number[] = [];
+    await Promise.all(plan.units.map(async (unit, index) => {
+        const key = request.keys[index];
         let object = objectCache.get(key);
         if (object) {
             reused++;
-        } else {
-            const out = await clang.runClang(['clang', ...flags, ...unit.extra, '-c', unit.path, '-o', 'out.o'], tree);
-            object = out['out.o'];
-            if (!object || object.length === 0) {
-                throw new Error(`Compiler produced no output for ${unit.name}`);
-            }
+        } else if (available.has(key) && (object = await fetchPrebuilt(base, key))) {
             objectCache.set(key, object);
-            compiled++;
+            downloaded++;
+        } else {
+            missing.push(index);
+            return;
         }
-        objects[`${unit.name.replace(/\//g, '_')}.o`] = object;
-    }
-    lap('compile', t);
-    timings.compiled = compiled;
-    timings.reused = reused;
-    post({ type: 'progress', phase: 'compile', done: units.length, total: units.length });
+        objects[objectName(unit)] = object;
+    }));
+    lap('prebuilt', t);
+
+    // 2. 现场编译剩下的单元（这时才下载编译器与头文件）
+    t = performance.now();
+    post({ type: 'progress', phase: 'download', done: 0, total: 1 });
+    const [clang, headers, wasmOpt] = await Promise.all([
+        loadCompiler(base),
+        missing.length > 0 ? loadToolchain(base) : Promise.resolve({}),
+        loadBinaryen(base),
+    ]);
+    lap('load toolchain', t);
 
     t = performance.now();
+    missing.sort((a, b) => a - b);
+    const tree = missing.length > 0 ? treeFromFlat({ ...headers, ...plan.files }) : {};
+    for (const [done, index] of missing.entries()) {
+        const unit = plan.units[index];
+        post({ type: 'progress', phase: unit.name === 'app_romfs.c' ? 'romfs' : 'compile', done, total: missing.length, file: unit.name });
+        const out = await clang.runClang(['clang', ...plan.flags, ...unit.extra, '-c', unit.path, '-o', 'out.o'], tree);
+        const object = out['out.o'];
+        if (!object || object.length === 0) {
+            throw new Error(`Compiler produced no output for ${unit.name}`);
+        }
+        objectCache.set(request.keys[index], object);
+        objects[objectName(unit)] = object;
+    }
+    lap('compile', t);
+    timings.compiled = missing.length;
+    timings.reused = reused;
+    timings.downloaded = downloaded;
+    post({ type: 'progress', phase: 'compile', done: missing.length, total: missing.length });
+
+    // 3. 链接（顺序与 CI 预编译一致：按单元顺序）
+    t = performance.now();
     post({ type: 'progress', phase: 'link', done: 0, total: 1 });
-    const linked = await clang.runLLVM([
-        'wasm-ld', '-o', 'project.wasm', '-Bdynamic', '--strip-debug', '-shared',
-        '--export=__wasm_call_ctors', '--unresolved-symbols=import-dynamic', '--no-export-dynamic', '--stack-first',
-        ...Object.keys(objects),
-    ], objects);
+    const ordered: Record<string, Uint8Array> = {};
+    for (const unit of plan.units) {
+        ordered[objectName(unit)] = objects[objectName(unit)];
+    }
+    const linked = await clang.runLLVM([...LINK_ARGS, ...Object.keys(ordered)], ordered);
     lap('link', t);
 
     t = performance.now();

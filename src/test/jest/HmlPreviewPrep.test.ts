@@ -4,7 +4,7 @@
  * - PreviewGapCollector 只报告 HML 运行时缺失、生成代码会表现出来的内容；
  * - fontRequirementsCovered 判断已转换字体能否显示保存后的文本。
  */
-import { PreviewGapCollector, fontRequirementsCovered, fontRequirementsOf, localizeHml } from '../../simulation/HmlPreviewPrep';
+import { PreviewGapCollector, entryViewDrawnByCode, fontRequirementsCovered, fontRequirementsOf, localizeHml } from '../../simulation/HmlPreviewPrep';
 import { parseTagAttributes, decodeXmlEntities } from '../../hml/tagScan';
 import type { I18nCatalog } from '../../project-i18n/types';
 
@@ -101,6 +101,23 @@ describe('PreviewGapCollector', () => {
 
   it('treats a legacy timer label as a missing component', () => {
     expect(gapsOf('<hg_label id="a" isTimerLabel="true"/>')).toEqual(['component:hg_timer_label:1']);
+  });
+});
+
+describe('entryViewDrawnByCode', () => {
+  it('detects an empty entry view filled in by its switch-in function', () => {
+    const other = '<hml><view><hg_view id="m" entry="false"><hg_label id="l"/></hg_view></view></hml>';
+    expect(entryViewDrawnByCode([other, '<hg_view id="v" entry="true" switchInFunctionName="draw_main">'
+      + '<events><event type="onKeyShortPress"><action type="switchView" target="m"/></event></events></hg_view>'
+      + '<hg_view id="w"><hg_label id="x"/></hg_view>'])).toBe(true);
+    expect(entryViewDrawnByCode(['<hg_view id="v" entry="true" switchInFunctionName="draw_main"/>'])).toBe(true);
+  });
+
+  it('ignores entry views that have components or no switch-in function', () => {
+    expect(entryViewDrawnByCode(['<hg_view id="v" entry="true" switchInFunctionName="f"><hg_image id="i"/></hg_view>'])).toBe(false);
+    expect(entryViewDrawnByCode(['<hg_view id="v" entry="true" switchInFunctionName="NULL"></hg_view>'])).toBe(false);
+    expect(entryViewDrawnByCode(['<hg_view id="v" entry="true"></hg_view>'])).toBe(false);
+    expect(entryViewDrawnByCode(['<!-- <hg_view id="c" entry="true" switchInFunctionName="f"/> --><hg_view id="v"/>'])).toBe(false);
   });
 });
 

@@ -16,6 +16,8 @@ export interface SimulationState {
     mode: SimulationMode;
     /** 快速预览中看不到的内容（完整仿真为空） */
     gaps: PreviewGap[];
+    /** 快速预览：入口视图的内容全部由 C 代码绘制，画面是空白的 */
+    blankEntry: boolean;
     /** 引擎与构建日志（最近若干行） */
     log: string[];
     /** 窗口是否展开（构建中、运行中都可以收起；出错时强制展开） */
@@ -24,7 +26,7 @@ export interface SimulationState {
 
 const MAX_LOG_LINES = 400;
 
-let state: SimulationState = { phase: { kind: 'idle' }, mode: 'preview', gaps: [], log: [], open: false };
+let state: SimulationState = { phase: { kind: 'idle' }, mode: 'preview', gaps: [], blankEntry: false, log: [], open: false };
 const listeners = new Set<() => void>();
 
 function set(next: Partial<SimulationState>): void {
@@ -47,6 +49,7 @@ export const simulationUi = {
             phase: { kind: 'building', progress: { stage: mode === 'full' ? 'codegen' : 'assets' }, startedAt: Date.now() },
             mode,
             gaps: [],
+            blankEntry: false,
             log: [],
             open: true,
         });
@@ -58,12 +61,12 @@ export const simulationUi = {
         }
     },
 
-    running(width: number, height: number, mode: SimulationMode, gaps: PreviewGap[]): void {
-        set({ phase: { kind: 'running', width, height }, mode, gaps });
+    running(width: number, height: number, mode: SimulationMode, gaps: PreviewGap[], blankEntry = false): void {
+        set({ phase: { kind: 'running', width, height }, mode, gaps, blankEntry });
     },
 
-    setGaps(gaps: PreviewGap[]): void {
-        set({ gaps });
+    setGaps(gaps: PreviewGap[], blankEntry: boolean): void {
+        set({ gaps, blankEntry });
     },
 
     fail(message: string): void {
@@ -71,7 +74,7 @@ export const simulationUi = {
     },
 
     reset(): void {
-        set({ phase: { kind: 'idle' }, gaps: [], open: false });
+        set({ phase: { kind: 'idle' }, gaps: [], blankEntry: false, open: false });
     },
 
     setOpen(open: boolean): void {

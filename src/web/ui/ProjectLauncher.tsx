@@ -29,7 +29,7 @@ import { GitHubImportDialog, GitHubImportResult } from './GitHubImportDialog';
 import { isDirectoryAccessSupported, getWebLocale, setWebLocale, WebLocale } from '../host/webEnvironment';
 import { DEFAULT_ROMFS_BASE_ADDR } from '../../common/ProjectConfig';
 import { t, setLocale } from '../../webview/i18n';
-import { WEB_EXAMPLES } from '../host/exampleProjects';
+import { WEB_EXAMPLES, exampleSourceKey } from '../host/exampleProjects';
 
 const RESOLUTIONS = ['410X502', '480X272', '800X480', '1024X600', '1280X720'];
 const MIN_SDKS = ['API 2: HoneyGUI V1.1.0', 'API 3: HoneyGUI V1.2.0', 'API 4: HoneyGUI V2.0.0'];
@@ -357,7 +357,8 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
             const response = await fetch(new URL(example.archive, document.baseURI));
             if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
             const imported = importProjectZip(example.archive, new Uint8Array(await response.arrayBuffer()));
-            await persistProject(imported.name, imported.files);
+            // 来源标识让示例默认用完整仿真：CI 预编译过，未修改时不需要下载编译器
+            await persistProject(imported.name, imported.files, { sourceKey: exampleSourceKey(example.id) });
         } catch (err) {
             setError(t('Example could not be opened: {0}', err instanceof Error ? err.message : String(err)));
         } finally {

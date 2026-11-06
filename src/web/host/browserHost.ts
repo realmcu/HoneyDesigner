@@ -11,6 +11,7 @@ import { DesignerPanel } from '../../designer/DesignerPanel';
 import { BrowserWebviewPanel } from './browserWebviewPanel';
 import { setWorkspaceFolder } from './webEnvironment';
 import { SimulationController, SimulationFlow } from '../sim/simulationController';
+import type { SimulationMode } from '../sim/simulationService';
 
 /** 需要本机工具链（SCons / Python / 串口）的命令，浏览器版给出说明而不是静默失败 */
 const DESKTOP_ONLY_COMMANDS = [
@@ -29,14 +30,25 @@ let simulation: SimulationController | undefined;
 /** 工具栏最近一次勾选的仿真阶段；在仿真窗口切换方式时沿用 */
 let lastFlow: SimulationFlow = { convert: true, codegen: true, simulate: true };
 
-/**
- * 网页版固定运行快速预览（HML 运行时），不再提供编译 C 工程的完整仿真：
- * 编译要下载约 105 MB 编译器、耗时数十秒，而浏览器版主要是看界面。
- * 需要跑工程 C 代码时请在 VS Code 扩展中仿真。
- */
+/** 仿真方式（快速预览 / 完整仿真）按工程记在浏览器里，下次打开沿用 */
+const SIMULATION_MODE_STORAGE_KEY = 'honeygui.web.simulationMode';
+let simulationModeKey = SIMULATION_MODE_STORAGE_KEY;
+
+function savedSimulationMode(fallback: SimulationMode): SimulationMode {
+    const saved = globalThis.localStorage?.getItem(simulationModeKey);
+    return saved === 'full' || saved === 'preview' ? saved : fallback;
+}
+
 export function setSimulationController(controller: SimulationController): void {
     simulation = controller;
     controller.setMode('preview');
+}
+
+/** 仿真窗口切换仿真方式：记住选择，并按新方式重新开始仿真 */
+export function restartSimulation(mode: SimulationMode): void {
+    globalThis.localStorage?.setItem(simulationModeKey, mode);
+    simulation?.setMode(mode);
+    void vscode.commands.executeCommand('honeygui.simulation', { flow: lastFlow });
 }
 
 /** 仿真窗口的关闭按钮：与工具栏「停止」走同一条命令，工具栏才会复位 */
@@ -156,10 +168,13 @@ export function findMainHml(projectRoot: string): string | undefined {
 /**
  * 为工程创建设计器宿主。与 HmlEditorProvider.resolveCustomTextEditor 的顺序一致：
  * 先解析文档（不推送），等设计器发来 ready 后由 MessageHandler 推送 loadHml。
+ * defaultMode：这个工程还没选过仿真方式时使用的方式（示例工程默认完整仿真）。
  */
-export async function openDesigner(projectRoot: string, hmlPath: string, stateKey: string): Promise<OpenedDesigner> {
+export async function openDesigner(projectRoot: string, hmlPath: string, stateKey: string, defaultMode: SimulationMode = 'preview'): Promise<OpenedDesigner> {
     registerBrowserCommands();
     setWorkspaceFolder(projectRoot);
+    simulationModeKey = `${SIMULATION_MODE_STORAGE_KEY}:${stateKey}`;
+    simulation?.setMode(savedSimulationMode(defaultMode));
 
     const panel = new BrowserWebviewPanel(stateKey);
     activePanel = panel;

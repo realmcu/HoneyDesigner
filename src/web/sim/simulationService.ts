@@ -18,13 +18,15 @@ import * as path from 'path';
 import * as fs from '../shims/fs';
 import * as vscode from '../shims/vscode';
 import { CodeGenerator } from '../../services/CodeGenerator';
-import { BuildCore } from '../../simulation/BuildCore';
+import { BuildCore, VideoPlan } from '../../simulation/BuildCore';
 import { ConversionCache } from '../../simulation/ConversionCache';
-import { FontRequirements, PreviewGap, PreviewGapCollector, fontRequirementsOf, localizeHml } from '../../simulation/HmlPreviewPrep';
+import { FontRequirements, PreviewGap, PreviewGapCollector, entryViewDrawnByCode, fontRequirementsOf, localizeHml } from '../../simulation/HmlPreviewPrep';
 import { loadProjectI18nCatalog } from '../../project-i18n/files';
 import { ProjectUtils } from '../../utils/ProjectUtils';
 import { BuildClient } from './buildClient';
 import type { SimScreen, BuildPhase } from './protocol';
+import { PREBUILT_INDEX, PrebuiltIndex, ToolchainInfo, planBuild, prebuiltProjectPath, projectKey, simScreen, unitKeys } from './buildCore';
+import { VIDEO_INDEX, VideoIndex, emptyVideoIndex, prebuiltVideoPath, videoKey, videoKeyVersion } from './prebuiltVideos';
 
 export type SimulationMode = 'preview' | 'full';
 
@@ -44,6 +46,8 @@ export interface SimulationInputs {
     project?: Uint8Array;
     /** 快速预览：运行时未实现、因而看不到的内容 */
     gaps: PreviewGap[];
+    /** 快速预览：入口视图的内容全部由 C 代码绘制，预览启动后是空白画面 */
+    blankEntry?: boolean;
     /** 快速预览：本次转换出的字体覆盖的内容（热更新据此判断是否要重新转换字体） */
     fonts?: FontRequirements;
     timings: Record<string, number>;
@@ -65,6 +69,19 @@ export interface SimulationOptions {
 const PHASE_TO_STAGE: Record<BuildPhase, SimulationProgress['stage']> = {
     download: 'toolchain', compile: 'compile', romfs: 'romfs', link: 'link',
 };
+
+const EMPTY_PREBUILT: PrebuiltIndex = { toolchain: '', projects: [], objects: [] };
+const EMPTY_VIDEOS: VideoIndex = emptyVideoIndex();
+
+/** 取 JSON 文件；不存在或无法解析时返回 undefined。不走 HTTP 缓存，站点更新后立即生效 */
+async function fetchJson<T>(url: URL): Promise<T | undefined> {
+    try {
+        const response = await fetch(url, { cache: 'no-store' });
+        return response.ok ? await response.json() as T : undefined;
+    } catch {
+        return undefined;
+    }
+}
 
 /** 把目录读成扁平映射（相对路径 → 内容） */
 function readTree(dir: string, filter: (rel: string) => boolean = () => true): Record<string, Uint8Array> {
@@ -91,6 +108,8 @@ export class SimulationService {
     /** 图片与字体的转换结果，在同一工程的多次仿真之间复用 */
     private readonly conversionCache = new ConversionCache();
     private cacheRoot: string | undefined;
+    private prebuilt: { base: string; index: PrebuiltIndex } | undefined;
+    private videos: { base: string; index: VideoIndex } | undefined;
 
     constructor(createWorker: () => Worker) {
         this.client = new BuildClient(createWorker);
@@ -125,7 +144,8 @@ export class SimulationService {
             lap('codegen', t);
         }
 
-        // 2. 资源转换（浏览器里 BuildCore 跳过 SCons 脚手架、视频，并用 TS 生成 romfs C）
+        // 2. 资源转换（浏览器里 BuildCore 跳过 SCons 脚手架，用 TS 生成 romfs C；视频取 CI 预转换的结果）
+        const simBase = new URL(options.simBase, globalThis.location.href).href;
         const core = new BuildCore(projectRoot, '/extension/lib/sim', config, {
             log: (message: string, isError?: boolean) => onLog?.(message, isError),
         });
@@ -150,6 +170,7 @@ export class SimulationService {
                     onProgress?.({ stage: 'assets', fraction: done / total, detail: `${done}/${total}` });
                     await new Promise(resolve => setTimeout(resolve, 0));
                 },
+                videoSource: plan => this.prebuiltVideo(simBase, plan),
             });
             lap('assets', t);
         } else {
@@ -161,14 +182,14 @@ export class SimulationService {
             // 界面文件直接取自 ui/*.hml：跳过转换时 build/assets/ui 可能是旧的，也可能留有已删除的文件
             const hml = this.readHml(projectRoot);
             const assets = { ...readTree(assetsDir, rel => !rel.startsWith('ui/')), ...hml };
-            return { screen, assets, gaps: this.collectGaps(hml), fonts, timings };
+            return { screen, assets, gaps: this.collectGaps(hml), blankEntry: this.blankEntry(hml), fonts, timings };
         }
         const assets = readTree(assetsDir);
 
         // 4. 编译链接（Worker）。只部署了引擎的站点（prepare-web-sim.js --preview-only）没有编译器
-        const toolchainBase = new URL(options.simBase, globalThis.location.href).href;
-        const probe = await fetch(new URL('toolchain.json', toolchainBase), { cache: 'no-store' }).catch(() => undefined);
-        if (!probe?.ok) {
+        const toolchainBase = simBase;
+        const toolchain = await fetchJson<ToolchainInfo>(new URL('toolchain.json', toolchainBase));
+        if (!toolchain) {
             throw new Error(vscode.l10n.t('Full simulation is not available on this site: the compiler is not deployed. Use Quick Preview, or simulate in VS Code.'));
         }
         const sources = readTree(ProjectUtils.getSrcDir(projectRoot), rel => /\.(c|h)$/.test(rel));
@@ -176,8 +197,24 @@ export class SimulationService {
         const romfs = options.compileRomfs && fs.existsSync(romfsPath)
             ? new Uint8Array(fs.readFileSync(romfsPath) as Uint8Array)
             : undefined;
+
+        // 未修改的示例工程：CI 已编好整个 project.wasm，直接下载，不需要编译器
+        t = performance.now();
+        const plan = planBuild(sources, screen, romfs);
+        const keys = await unitKeys(plan, toolchain.id);
+        const index = await this.prebuiltIndex(toolchainBase, toolchain.id);
+        const key = await projectKey(plan, keys);
+        if (index.projects.includes(key)) {
+            const response = await fetch(new URL(prebuiltProjectPath(key), toolchainBase)).catch(() => undefined);
+            if (response?.ok) {
+                const project = new Uint8Array(await response.arrayBuffer());
+                lap('prebuilt project', t);
+                onLog?.('Using the prebuilt project (no changes to compile)');
+                return { screen, assets, project, gaps: [], timings };
+            }
+        }
         const result = await this.client.build(
-            { toolchainBase, sources, romfs, screen },
+            { toolchainBase, sources, romfs, screen, keys, prebuilt: keys.filter(k => index.objects.includes(k)) },
             {
                 onProgress: message => onProgress?.({
                     stage: PHASE_TO_STAGE[message.phase],
@@ -187,6 +224,36 @@ export class SimulationService {
             }
         );
         return { screen, assets, project: result.project, gaps: [], timings: { ...timings, ...result.timings } };
+    }
+
+    /** 预编译索引；站点没有预编译产物或工具链已更换时为空 */
+    private async prebuiltIndex(base: string, toolchainId: string): Promise<PrebuiltIndex> {
+        if (this.prebuilt?.base !== base) {
+            const index = await fetchJson<PrebuiltIndex>(new URL(PREBUILT_INDEX, base));
+            this.prebuilt = { base, index: index?.toolchain === toolchainId ? index : EMPTY_PREBUILT };
+        }
+        return this.prebuilt.index;
+    }
+
+    /**
+     * CI 预转换的视频；源文件或转换参数与官方模板不同（键对不上）时为 undefined。
+     *
+     * 原始键里不含 FFprobe 的换算结果（浏览器读不了视频尺寸），换算并入产物键后
+     * 由索引带回来，所以这里只需要算原始键。
+     */
+    private async prebuiltVideo(base: string, plan: VideoPlan): Promise<Uint8Array | undefined> {
+        if (this.videos?.base !== base) {
+            const index = await fetchJson<VideoIndex>(new URL(VIDEO_INDEX, base));
+            this.videos = { base, index: index?.version === videoKeyVersion() ? index : EMPTY_VIDEOS };
+        }
+        const key = await videoKey(new Uint8Array(fs.readFileSync(plan.input) as Uint8Array), plan.spec);
+        const video = this.videos.index.videos[key];
+        if (!video) {
+            return undefined;
+        }
+        // 同一 URL 由 Service Worker 写入运行时缓存，之后离线也能取到
+        const response = await fetch(new URL(prebuiltVideoPath(video), base)).catch(() => undefined);
+        return response?.ok ? new Uint8Array(await response.arrayBuffer()) : undefined;
     }
 
     /**
@@ -222,6 +289,13 @@ export class SimulationService {
         return collector.list();
     }
 
+    blankEntry(files: Record<string, Uint8Array>): boolean {
+        const decoder = new TextDecoder();
+        return entryViewDrawnByCode(Object.entries(files)
+            .filter(([rel]) => rel.startsWith('ui/') && rel.endsWith('.xml'))
+            .map(([, data]) => decoder.decode(data)));
+    }
+
     /**
      * 界面文件交给运行时之前的处理：
      * - 带 i18nKey 的标签换成当前语言的文本（运行时不读 i18n/strings.json）；
@@ -248,12 +322,6 @@ export class SimulationService {
     private screenOf(config: ReturnType<typeof ProjectUtils.loadProjectConfig>): SimScreen {
         const { width, height } = ProjectUtils.parseResolution(config.resolution);
         // cornerRadius: -1 为圆形屏幕，>0 为圆角半径
-        const radius = config.cornerRadius ?? 0;
-        return {
-            width,
-            height,
-            pixelBits: ProjectUtils.getPixelBits(config.pixelMode),
-            cornerRadius: radius < 0 ? Math.floor(Math.min(width, height) / 2) : radius,
-        };
+        return simScreen(width, height, ProjectUtils.getPixelBits(config.pixelMode), config.cornerRadius ?? 0);
     }
 }

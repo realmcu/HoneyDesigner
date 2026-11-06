@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { spawn, ChildProcess } from 'child_process';
 import { minimatch } from 'minimatch';
 import { ImageConverterService, ImageConvertOptions, ConvertResult, CompressionType, YuvSampleMode, YuvBlurBits } from '../services/ImageConverterService';
-import { VideoConverterService } from '../services/VideoConverterService';
+import { VideoConverterService, VideoConvertOptions, VideoConvertResult } from '../services/VideoConverterService';
 import { Model3DConverterService } from '../services/Model3DConverterService';
 import { FontConverterService, FontConvertOptions, CharacterSetItem } from '../services/FontConverterService';
 import { GlassConverterService, GlassConvertOptions, GlassConvertResult } from '../services/GlassConverterService';
@@ -51,6 +51,53 @@ export interface ConvertAssetsOptions {
      * 否则整批转换会让页面卡住数十秒）。未设置时整批并行转换。
      */
     onImageConverted?(done: number, total: number): Promise<void>;
+    /**
+     * 设置后不调用 FFmpeg，视频的转换结果由它提供（浏览器版取 CI 预转换的结果）；
+     * 返回 undefined 的视频跳过，不中断其余资源的转换。
+     */
+    videoSource?(plan: VideoPlan): Promise<Uint8Array | undefined>;
+}
+
+/** 一个视频的转换参数（组件配置 > conversion.json > 项目配置 > 默认值 解析后的结果） */
+export interface VideoSpec {
+    format: VideoConvertOptions['format'];
+    quality: number;
+    frameRate: number;
+    crop?: VideoCropConfig;
+    /** conversion.json 中的缩放配置原样保留：百分比模式在转换时按视频尺寸换算 */
+    scale?: VideoScaleConfig;
+    preprocessOrder?: PreprocessOrder;
+}
+
+/**
+ * VideoSpec 参与键计算的字段，也决定键规则的版本（见 src/web/sim/prebuiltVideos.ts）。
+ * 顺序固定：键里是这些字段的 JSON 序列化。
+ */
+export const VIDEO_SPEC_FIELDS = ['format', 'quality', 'frameRate', 'crop', 'scale', 'preprocessOrder'] as const;
+
+/**
+ * VideoSpec 加了字段却没写进 VIDEO_SPEC_FIELDS 时，这里的类型不是 never，赋值 undefined 会编译报错，
+ * 报错信息里带着漏掉的字段名。这样键规则不会悄悄落后于 VideoSpec。
+ */
+const UNLISTED_VIDEO_SPEC_FIELDS: Exclude<keyof VideoSpec, typeof VIDEO_SPEC_FIELDS[number]> extends never
+    ? undefined
+    : Exclude<keyof VideoSpec, typeof VIDEO_SPEC_FIELDS[number]> = undefined;
+void UNLISTED_VIDEO_SPEC_FIELDS;
+
+/**
+ * 缩放配置换算成像素后的结果；undefined 表示不缩放。
+ * 百分比模式必须先读视频尺寸才能换算，换算结果参与产物键（见 resolveScale）。
+ */
+export type ResolvedScale = { width?: number; height?: number } | undefined;
+
+export interface VideoPlan {
+    /** 相对 assets/ 的源文件路径（正斜杠） */
+    relativePath: string;
+    input: string;
+    /** 相对 build/assets 的输出路径（正斜杠） */
+    outputRelative: string;
+    output: string;
+    spec: VideoSpec;
 }
 
 /**
@@ -201,30 +248,8 @@ Return('objs')
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        // 检查是否启用灵活打包模式
-        const configService = ConversionConfigService.getInstance();
-        const conversionConfig = configService.loadConfig(this.projectRoot);
-        const smartPacking = conversionConfig.smartPacking === true;
-
-        let usedAssets: {
-            images: Set<string>;
-            videos: Set<string>;
-            models: Set<string>;
-            fonts: Set<string>;
-            mapFonts: Set<string>;
-        };
-
-        if (smartPacking) {
-            // 灵活打包：只转换 HML 引用的资源 + alwaysConvert 列表
-            this.logger.log(vscode.l10n.t('Scanning asset references in HML files...'));
-            usedAssets = await this.scanUsedAssets();
-            this.logger.log(vscode.l10n.t('Found {0} images, {1} videos, {2} 3D models', usedAssets.images.size, usedAssets.videos.size, usedAssets.models.size));
-        } else {
-            // 全量打包（默认）：转换 assets 目录下所有资源
-            this.logger.log(vscode.l10n.t('Scanning all assets for full packaging...'));
-            usedAssets = await this.scanAllAssets();
-            this.logger.log(vscode.l10n.t('Found {0} images, {1} videos, {2} 3D models', usedAssets.images.size, usedAssets.videos.size, usedAssets.models.size));
-        }
+        const usedAssets = await this.scanAssets();
+        this.logger.log(vscode.l10n.t('Found {0} images, {1} videos, {2} 3D models', usedAssets.images.size, usedAssets.videos.size, usedAssets.models.size));
 
         // 转换图片资源（只转换使用的）
         this.logger.log(vscode.l10n.t('Converting image assets...'));
@@ -277,26 +302,24 @@ Return('objs')
             this.logger.log(msg);
         });
         
-        // 检查 FFmpeg 是否可用
-        const ffmpegAvailable = BuildCore.isBrowser() ? false : await videoConverter.checkFFmpegAvailable();
-        if (!ffmpegAvailable) {
+        const videoPlans = await this.planUsedVideos(assetsDir, outputDir, usedAssets.videos);
+
+        // 浏览器版没有 FFmpeg，转换结果由调用方提供（CI 预转换）
+        if (options.videoSource) {
+            await this.supplyVideos(options.videoSource, videoPlans);
+        } else if (BuildCore.isBrowser() || !await videoConverter.checkFFmpegAvailable()) {
             this.logger.log(BuildCore.isBrowser()
                 ? vscode.l10n.t('Video conversion is not supported in the browser build; skipped (convert videos in the VS Code extension).')
                 : vscode.l10n.t('FFmpeg not found, skipping video conversion. Install FFmpeg and add it to PATH.'), true);
-            this.logger.log(vscode.l10n.t('Videos skipped: 0'));
+            this.logger.log(vscode.l10n.t('Videos skipped: {0}', videoPlans.length));
         } else {
-            // 获取视频组件配置并进行智能转换（只转换使用的）
-            const videoResults = await this.convertUsedVideos(
-                videoConverter,
-                assetsDir,
-                outputDir,
-                usedAssets.videos
-            );
+            // 并行执行所有转换任务
+            const videoResults = await Promise.all(videoPlans.map(plan => this.convertVideo(videoConverter, plan)));
 
             const videoFailed = videoResults.filter(r => !r.success);
             if (videoFailed.length > 0) {
                 for (const f of videoFailed) {
-                    this.logger.log(vscode.l10n.t('Video conversion failed: {0} - {1}', f.inputPath, f.error), true);
+                    this.logger.log(vscode.l10n.t('Video conversion failed: {0} - {1}', f.inputPath, String(f.error)), true);
                 }
                 throw new Error(vscode.l10n.t('{0} video(s) failed to convert', videoFailed.length));
             }
@@ -305,7 +328,7 @@ Return('objs')
             const videoWarnings = videoResults.filter(r => r.success && r.warning);
             if (videoWarnings.length > 0) {
                 for (const w of videoWarnings) {
-                    this.logger.log(vscode.l10n.t('Video conversion warning: {0} - {1}', w.inputPath, w.warning), false);
+                    this.logger.log(vscode.l10n.t('Video conversion warning: {0} - {1}', w.inputPath, String(w.warning)), false);
                 }
             }
 
@@ -879,6 +902,23 @@ Return('objs')
         }
     }
 
+    /** 需要转换的资源：启用灵活打包时只取 HML 引用的 + alwaysConvert，否则取 assets 下全部 */
+    private async scanAssets(): Promise<{
+        images: Set<string>;
+        videos: Set<string>;
+        models: Set<string>;
+        fonts: Set<string>;
+        mapFonts: Set<string>;
+    }> {
+        const conversionConfig = ConversionConfigService.getInstance().loadConfig(this.projectRoot);
+        if (conversionConfig.smartPacking === true) {
+            this.logger.log(vscode.l10n.t('Scanning asset references in HML files...'));
+            return this.scanUsedAssets();
+        }
+        this.logger.log(vscode.l10n.t('Scanning all assets for full packaging...'));
+        return this.scanAllAssets();
+    }
+
     /**
      * 扫描 HML 文件中使用的所有资源
      */
@@ -1351,26 +1391,82 @@ Return('objs')
     }
 
     /**
-     * 转换使用的视频资源
+     * 视频转换计划：输出路径与转换参数。只读 HML 与 conversion.json，不调用 FFmpeg，
+     * 浏览器版据此查找 CI 预转换的结果（scripts/prebuild-web-videos.ts 用同一份计划生成）。
      */
-    private async convertUsedVideos(
+    async planVideos(): Promise<VideoPlan[]> {
+        const usedAssets = await this.scanAssets();
+        return this.planUsedVideos(path.join(this.projectRoot, 'assets'), path.join(this.buildDir, 'assets'), usedAssets.videos);
+    }
+
+    /**
+     * 按计划转换一个视频；百分比缩放需要视频尺寸，在这里读取。
+     * scale 已解析过时（CI 预转换要先用它算产物键）直接传入，省一次 FFprobe。
+     */
+    async convertVideo(
         videoConverter: VideoConverterService,
+        plan: VideoPlan,
+        scale?: ResolvedScale
+    ): Promise<VideoConvertResult> {
+        const { spec } = plan;
+        return videoConverter.convert(plan.input, plan.output, {
+            format: spec.format,
+            quality: spec.quality,
+            frameRate: spec.frameRate,
+            crop: spec.crop,
+            scale: scale ?? await this.resolveScale(videoConverter, plan),
+            preprocessOrder: spec.preprocessOrder,
+        });
+    }
+
+    /**
+     * 不调用 FFmpeg，由 source 提供转换结果（浏览器版）。没有结果的视频跳过并删掉旧输出，
+     * 不中断仿真：其余内容照常运行，只是这些视频不播放。
+     */
+    private async supplyVideos(source: NonNullable<ConvertAssetsOptions['videoSource']>, plans: VideoPlan[]): Promise<void> {
+        let supplied = 0;
+        for (const plan of plans) {
+            const fileKey = ConversionCache.fileKey(plan.input);
+            const cacheKey = fileKey && `${fileKey}|${JSON.stringify(plan.spec)}`;
+            if (cacheKey && this.conversionCache?.isFresh(plan.output, cacheKey)) {
+                supplied++;
+                continue;
+            }
+            const data = await source(plan);
+            if (!data) {
+                if (fs.existsSync(plan.output)) {
+                    fs.unlinkSync(plan.output);
+                }
+                this.logger.log(vscode.l10n.t('No prebuilt conversion for video {0}; skipped. Convert videos in the VS Code extension.', plan.relativePath), true);
+                continue;
+            }
+            fs.mkdirSync(path.dirname(plan.output), { recursive: true });
+            fs.writeFileSync(plan.output, data);
+            if (cacheKey) {
+                this.conversionCache?.remember(plan.output, cacheKey);
+            }
+            supplied++;
+        }
+        this.logger.log(vscode.l10n.t('Videos from prebuilt conversions: {0}, skipped: {1}', supplied, plans.length - supplied));
+    }
+
+    private async planUsedVideos(
         assetsDir: string,
         outputDir: string,
         usedVideos: Set<string>
-    ): Promise<any[]> {
+    ): Promise<VideoPlan[]> {
         if (usedVideos.size === 0) {
             return [];
         }
 
         // 获取项目中所有视频组件的配置
         const videoComponentConfigs = await this.getVideoComponentConfigs();
-        
+
         // 加载 conversion.json 配置
         const conversionConfigService = ConversionConfigService.getInstance();
         const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
-        
-        const convertTasks: Array<Promise<any>> = [];
+
+        const plans: VideoPlan[] = [];
 
         for (const relativePath of usedVideos) {
             const fullPath = path.join(assetsDir, relativePath);
@@ -1422,79 +1518,95 @@ Return('objs')
             // 根据格式校验和修正质量值
             const quality = this.normalizeVideoQuality(rawQuality, configFormat);
             
-            // 从 conversion.json 缩放配置计算 ScaleOptions
-            let computedScale: { width?: number; height?: number } | undefined;
-            if (resolvedVideoScale) {
-                if (resolvedVideoScale.mode === 'percentage' && (resolvedVideoScale.widthPercentage || resolvedVideoScale.heightPercentage)) {
-                    try {
-                        // crop-then-scale：百分比基于裁剪后的尺寸（上一步输出），而非原始视频
-                        // scale-then-crop 或无裁剪：百分比基于原始视频尺寸
-                        let baseWidth: number | undefined;
-                        let baseHeight: number | undefined;
-                        const effectiveOrder = resolvedPreprocessOrder ?? 'crop-then-scale';
-                        if (effectiveOrder === 'crop-then-scale' && resolvedVideoCrop) {
-                            baseWidth = resolvedVideoCrop.width;
-                            baseHeight = resolvedVideoCrop.height;
-                        } else {
-                            const videoInfo = await videoConverter.getVideoInfo(fullPath);
-                            if (videoInfo?.width && videoInfo?.height) {
-                                baseWidth = videoInfo.width;
-                                baseHeight = videoInfo.height;
-                            } else {
-                                this.logger.log(vscode.l10n.t('Cannot read video info to compute scale, skipping scaling: {0}', normalizedPath), true);
-                            }
-                        }
-                        if (baseWidth && baseHeight) {
-                            const wp = resolvedVideoScale.widthPercentage;
-                            const hp = resolvedVideoScale.heightPercentage;
-                            if (wp && hp) {
-                                computedScale = {
-                                    width: Math.round(baseWidth * wp / 100 / 2) * 2,
-                                    height: Math.round(baseHeight * hp / 100 / 2) * 2,
-                                };
-                            } else if (wp) {
-                                computedScale = { width: Math.round(baseWidth * wp / 100 / 2) * 2 };
-                            } else if (hp) {
-                                computedScale = { height: Math.round(baseHeight * hp / 100 / 2) * 2 };
-                            }
-                        }
-                    } catch (e) {
-                        this.logger.log(vscode.l10n.t('Failed to read video info, skipping scaling: {0} - {1}', normalizedPath, String(e)), true);
-                    }
-                } else if (resolvedVideoScale.mode === 'pixels' && (resolvedVideoScale.width || resolvedVideoScale.height)) {
-                    computedScale = {
-                        width: resolvedVideoScale.width,
-                        height: resolvedVideoScale.height,
-                    };
-                }
-            }
-            
-            const options = {
+            // 缩放保留配置原样（百分比要等转换时读视频尺寸才能换算成像素）；
+            // 字段顺序固定，spec 序列化后是预转换结果的键的一部分
+            const spec: VideoSpec = {
                 format: configFormat,
                 quality: quality,
                 frameRate: frameRate,
                 crop: resolvedVideoCrop,
-                scale: computedScale,
+                scale: resolvedVideoScale,
                 preprocessOrder: resolvedPreprocessOrder,
             };
-            
+
             // 生成输出路径
-            const outputExt = this.getVideoOutputExtension(options.format);
-            const outputPath = path.join(
-                outputDir,
-                relativePath.replace(/\.[^.]+$/i, outputExt)
-            );
-            
-            // 添加转换任务
-            convertTasks.push(
-                videoConverter.convert(fullPath, outputPath, options)
-            );
-            
-            this.logger.log(vscode.l10n.t('Planned conversion: {0} -> {1} ({2})', normalizedPath, options.format, outputExt));
+            const outputExt = this.getVideoOutputExtension(spec.format);
+            const outputRelative = normalizedPath.replace(/\.[^.]+$/i, outputExt);
+            plans.push({
+                relativePath: normalizedPath,
+                input: fullPath,
+                outputRelative,
+                output: path.join(outputDir, outputRelative),
+                spec,
+            });
+
+            this.logger.log(vscode.l10n.t('Planned conversion: {0} -> {1} ({2})', normalizedPath, spec.format, outputExt));
         }
 
-        // 并行执行所有转换任务
-        return Promise.all(convertTasks);
+        return plans;
+    }
+
+    /**
+     * 由缩放配置计算 ScaleOptions。
+     *
+     * 百分比模式要读视频尺寸（FFprobe），这个换算在桌面版与 CI 预转换中都会发生：
+     * 产物键必须用换算结果而不是原始百分比，否则 ffprobe 读出的源尺寸不同时，
+     * 键相同而产物不同。浏览器端全程不做 FFprobe，直接按键取结果。
+     */
+    async resolveScale(videoConverter: VideoConverterService, plan: VideoPlan): Promise<ResolvedScale> {
+        return this.resolveScaleOptions(videoConverter, plan);
+    }
+
+    /** 由缩放配置计算 ScaleOptions；百分比模式需要读取视频尺寸（FFprobe） */
+    private async resolveScaleOptions(
+        videoConverter: VideoConverterService,
+        plan: VideoPlan
+    ): Promise<ResolvedScale> {
+        const { scale, crop, preprocessOrder } = plan.spec;
+        if (!scale) {
+            return undefined;
+        }
+        if (scale.mode === 'pixels') {
+            return scale.width || scale.height ? { width: scale.width, height: scale.height } : undefined;
+        }
+        if (scale.mode !== 'percentage' || !(scale.widthPercentage || scale.heightPercentage)) {
+            return undefined;
+        }
+        try {
+            // crop-then-scale：百分比基于裁剪后的尺寸（上一步输出），而非原始视频
+            // scale-then-crop 或无裁剪：百分比基于原始视频尺寸
+            let baseWidth: number | undefined;
+            let baseHeight: number | undefined;
+            if ((preprocessOrder ?? 'crop-then-scale') === 'crop-then-scale' && crop) {
+                baseWidth = crop.width;
+                baseHeight = crop.height;
+            } else {
+                const videoInfo = await videoConverter.getVideoInfo(plan.input);
+                if (videoInfo?.width && videoInfo?.height) {
+                    baseWidth = videoInfo.width;
+                    baseHeight = videoInfo.height;
+                } else {
+                    this.logger.log(vscode.l10n.t('Cannot read video info to compute scale, skipping scaling: {0}', plan.relativePath), true);
+                }
+            }
+            if (baseWidth && baseHeight) {
+                const wp = scale.widthPercentage;
+                const hp = scale.heightPercentage;
+                if (wp && hp) {
+                    return {
+                        width: Math.round(baseWidth * wp / 100 / 2) * 2,
+                        height: Math.round(baseHeight * hp / 100 / 2) * 2,
+                    };
+                } else if (wp) {
+                    return { width: Math.round(baseWidth * wp / 100 / 2) * 2 };
+                } else if (hp) {
+                    return { height: Math.round(baseHeight * hp / 100 / 2) * 2 };
+                }
+            }
+        } catch (e) {
+            this.logger.log(vscode.l10n.t('Failed to read video info, skipping scaling: {0} - {1}', plan.relativePath, String(e)), true);
+        }
+        return undefined;
     }
 
     /**

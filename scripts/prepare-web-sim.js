@@ -6,7 +6,9 @@
  *   sim/clang/            WASM 版 clang / wasm-ld（来自 npm 包 @yowasp/clang，约 105 MB，完整仿真按需下载）
  *   sim/binaryen/         binaryen.js（来自 npm 包 binaryen），对链接产物做 Asyncify 变换
  *   sim/toolchain.pack    编译用头文件：引擎头文件 + 系统 C 头文件 + clang 内置头文件
- *   sim/toolchain.json    上面头文件包的统计
+ *   sim/toolchain.json    工具链标识（缓存键的一部分）与头文件包的统计
+ *
+ * 示例工程的预编译产物（sim/prebuilt/）随后由 scripts/prebuild-web-examples.js 生成。
  *
  * 引擎来自 HoneyGUI 的 simulator/web（.config_engine + -DWEB_SIM_MAIN_MODULE=ON），由
  * scripts/build-web-engine.js 构建到 lib/web-sim/。路径也可以用环境变量指定：
@@ -138,7 +140,14 @@ function copyCompiler() {
     const archive = packHeaders(path.join(out, 'toolchain'), index.sort());
     fs.rmSync(path.join(out, 'toolchain'), { recursive: true, force: true });
     fs.writeFileSync(path.join(out, 'toolchain.pack'), archive);
-    fs.writeFileSync(path.join(out, 'toolchain.json'), JSON.stringify({ files: index.length, bytes: archive.length }));
+    // 工具链标识：编译器、binaryen 版本与头文件包的哈希。它是目标文件缓存键的一部分，
+    // 任何一项变化，预编译产物（scripts/prebuild-web-examples.js）和浏览器里的缓存一起作废
+    const versionOf = pkg => JSON.parse(fs.readFileSync(path.join(root, 'node_modules', pkg, 'package.json'), 'utf8')).version;
+    const id = require('crypto').createHash('sha256')
+        .update(`@yowasp/clang@${versionOf('@yowasp/clang')} binaryen@${versionOf('binaryen')}\0`)
+        .update(archive)
+        .digest('hex');
+    fs.writeFileSync(path.join(out, 'toolchain.json'), JSON.stringify({ id, files: index.length, bytes: archive.length }));
     return { headers: index.length, packed: archive.length };
 }
 
