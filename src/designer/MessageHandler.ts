@@ -27,6 +27,15 @@ import { measurePerformance } from './HmlLoadPerformance';
  * 消息处理器 - 负责分发来自Webview的消息
  */
 export class MessageHandler {
+    /** webview 可通过 executeCommand 消息触发的命令（与 Toolbar 保持一致），其他命令一律拒绝 */
+    private static readonly WEBVIEW_COMMANDS = new Set([
+        'honeygui.convertResource',
+        'honeygui.uartDownload',
+        'honeygui.simulation.clean',
+        'honeygui.simulation.stop',
+        'honeygui.simulation',
+    ]);
+
     private readonly _panel: vscode.WebviewPanel;
     private readonly _assetManager: AssetManager;
     private readonly _codeGenerator: CodeGenerator;
@@ -177,6 +186,10 @@ export class MessageHandler {
             case 'executeCommand':
                 if (message.commandId) {
                     const commandId = message.commandId;
+                    if (!MessageHandler.WEBVIEW_COMMANDS.has(commandId)) {
+                        logger.warn(`[MessageHandler] 拒绝执行未登记的命令: ${commandId}`);
+                        break;
+                    }
                     // 对于需要等待完成的命令，执行后通知前端
                     const needsCompletion = [
                         'honeygui.simulation.clean',

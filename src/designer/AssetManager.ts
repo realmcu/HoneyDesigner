@@ -407,8 +407,12 @@ export class AssetManager extends EventEmitter {
             }
             
             const assetsDir = path.join(projectRoot, 'assets');
-            const filePath = path.join(assetsDir, assetPath);
-            
+            const filePath = ProjectUtils.resolveInside(assetsDir, assetPath);
+            if (!filePath) {
+                logger.warn(`[删除资源] 拒绝越界路径: ${assetPath}`);
+                return;
+            }
+
             logger.info(`[删除资源] 完整路径: ${filePath}`);
             
             if (fs.existsSync(filePath)) {
@@ -516,6 +520,11 @@ export class AssetManager extends EventEmitter {
 
             // 4. 执行删除操作
             for (const fileToDelete of filesToDelete) {
+                // 贴图/缓冲路径来自模型文件内容，可能含 ../，只删 assets/ 内的文件
+                if (!ProjectUtils.resolveInside(assetsDir, path.relative(assetsDir, fileToDelete))) {
+                    logger.warn(`[删除3D模型] 跳过 assets 目录外的依赖: ${fileToDelete}`);
+                    continue;
+                }
                 if (fs.existsSync(fileToDelete)) {
                     logger.info(`[删除3D模型] 删除文件: ${fileToDelete}`);
                     fs.unlinkSync(fileToDelete);
@@ -722,7 +731,14 @@ export class AssetManager extends EventEmitter {
             }
 
             const assetsDir = path.join(projectRoot, 'assets');
-            const fullOldPath = path.join(assetsDir, oldPath);
+            const fullOldPath = ProjectUtils.resolveInside(assetsDir, oldPath);
+            // 新名称只能是单段文件名，不能带目录分隔符或 ..
+            const isPlainName = typeof newName === 'string' && newName !== '.' && newName !== '..'
+                && !/[\\/\0]/.test(newName) && newName.trim() !== '';
+            if (!fullOldPath || !isPlainName) {
+                logger.warn(`[重命名资源] 拒绝非法路径: oldPath=${oldPath}, newName=${newName}`);
+                return;
+            }
             const dir = path.dirname(fullOldPath);
             const fullNewPath = path.join(dir, newName);
 
@@ -738,11 +754,11 @@ export class AssetManager extends EventEmitter {
             const oldDir = path.dirname(oldPath);
             const newPath = oldDir === '.' ? newName : `${oldDir}/${newName}`;
 
+            // 先重命名物理文件：失败时直接抛出，HML 引用保持不变
+            fs.renameSync(fullOldPath, fullNewPath);
+
             // 更新所有 HML 文件中的引用
             const updatedCount = await this.updateAssetReferencesInHml(projectRoot, oldPath, newPath, isFolder);
-
-            // 重命名物理文件
-            fs.renameSync(fullOldPath, fullNewPath);
 
             // 同步 conversion.json 中的 alwaysConvert 白名单
             this.updateAlwaysConvertPath(projectRoot, oldPath, newPath, isFolder);
@@ -953,11 +969,14 @@ export class AssetManager extends EventEmitter {
                                 content = content.split(oldPrefix).join(newPrefix);
                             }
                         } else {
-                            // 文件：整串精确替换
-                            matches = content.split(oldRef).length - 1;
-                            if (matches > 0) {
-                                content = content.split(oldRef).join(newRef);
-                            }
+                            // 文件：整串精确替换，要求后面紧跟引号（含 JSON 属性值里的 &quot;），
+                            // 避免 icon.png 误伤 icon.png.bak
+                            const escaped = oldRef.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const refRegex = new RegExp(escaped + '(?=["\'<]|&quot;|&apos;)', 'g');
+                            content = content.replace(refRegex, () => {
+                                matches++;
+                                return newRef;
+                            });
                         }
                         if (matches > 0) {
                             fs.writeFileSync(fullPath, content, 'utf-8');
@@ -1039,10 +1058,15 @@ export class AssetManager extends EventEmitter {
                 fs.mkdirSync(assetsDir, { recursive: true });
             }
 
-            // 构建完整路径（支持子文件夹）
+            // 构建完整路径（支持子文件夹），子目录和文件名都不能越出 assets/
             let targetDir = assetsDir;
             let assetRelativePath = fileName;
-            
+            const safeTarget = ProjectUtils.resolveInside(assetsDir, relativePath ? `${relativePath}/${fileName}` : fileName);
+            if (!safeTarget || /[\\/]/.test(fileName) || (relativePath && !ProjectUtils.resolveInside(assetsDir, relativePath))) {
+                logger.warn(`[保存图片] 拒绝越界路径: relativePath=${relativePath}, fileName=${fileName}`);
+                return;
+            }
+
             if (relativePath) {
                 targetDir = path.join(assetsDir, relativePath);
                 // 确保子目录存在

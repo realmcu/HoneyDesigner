@@ -110,6 +110,23 @@ export class ProjectUtils {
     }
 
     /**
+     * 把相对路径解析到 baseDir 内部；越界（`..`、绝对路径、等于 baseDir 本身）时返回 undefined。
+     * 处理来自 webview 或外部请求的路径时必须使用，避免删除/写入落到目录之外。
+     */
+    static resolveInside(baseDir: string, relativePath: string): string | undefined {
+        if (typeof relativePath !== 'string' || relativePath === '' || relativePath.includes('\0')) {
+            return undefined;
+        }
+        const base = path.resolve(baseDir);
+        const target = path.resolve(base, relativePath);
+        const rel = path.relative(base, target);
+        if (!rel || rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
+            return undefined;
+        }
+        return target;
+    }
+
+    /**
      * 获取assets目录路径
      * @param projectRoot 项目根目录
      * @returns assets目录的绝对路径
