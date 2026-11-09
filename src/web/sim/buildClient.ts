@@ -6,6 +6,8 @@ import type { BuildRequest, BuildResult, WorkerMessage } from './protocol';
 
 export interface BuildCallbacks {
     onProgress?(message: Extract<WorkerMessage, { type: 'progress' }>): void;
+    /** 单个文件的下载字节进度（编译器约 30 MB，下载期间界面靠它显示进度） */
+    onTransfer?(message: Extract<WorkerMessage, { type: 'transfer' }>): void;
 }
 
 export class BuildClient {
@@ -24,6 +26,8 @@ export class BuildClient {
             const onMessage = ({ data }: MessageEvent<WorkerMessage>) => {
                 if (data.type === 'progress') {
                     callbacks.onProgress?.(data);
+                } else if (data.type === 'transfer') {
+                    callbacks.onTransfer?.(data);
                 } else if (data.type === 'done') {
                     cleanup();
                     resolve({ project: data.project, timings: data.timings });

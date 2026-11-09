@@ -12,12 +12,10 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
-import { unzipSync } from 'fflate';
 import { BuildCore } from '../src/simulation/BuildCore';
 import { VideoConverterService } from '../src/services/VideoConverterService';
 import { ProjectUtils } from '../src/utils/ProjectUtils';
-import { GITHUB_TEMPLATES } from '../src/web/host/exampleProjects';
+import { collectProjects } from './webPrebuildProjects';
 import {
     VIDEO_DIR,
     VIDEO_INDEX,
@@ -31,7 +29,6 @@ import {
 
 const repo = path.resolve(__dirname, '..');
 const simDir = path.join(repo, 'dist', 'web', 'sim');
-const examplesDir = path.join(repo, 'src', 'web', 'examples');
 const outDir = path.join(simDir, VIDEO_DIR);
 
 function fail(message: string): never {
@@ -42,62 +39,6 @@ function fail(message: string): never {
 function argValue(name: string): string | undefined {
     const i = process.argv.indexOf(name);
     return i >= 0 ? process.argv[i + 1] : undefined;
-}
-
-/** 与 src/web/host/projectZip.ts 相同：最浅的 project.json 所在目录是工程根 */
-function findProjectRoot(dir: string): string | undefined {
-    let level = [dir];
-    while (level.length > 0) {
-        const hit = level.find(d => fs.existsSync(path.join(d, 'project.json')));
-        if (hit) {
-            return hit;
-        }
-        level = level.flatMap(d => fs.readdirSync(d, { withFileTypes: true })
-            .filter(e => e.isDirectory() && e.name !== '.git' && e.name !== 'node_modules' && e.name !== '__MACOSX')
-            .map(e => path.join(d, e.name)));
-    }
-    return undefined;
-}
-
-function unzipTo(zip: string, dest: string): void {
-    for (const [entry, data] of Object.entries(unzipSync(new Uint8Array(fs.readFileSync(zip))))) {
-        if (entry.endsWith('/') || entry.startsWith('__MACOSX/')) {
-            continue;
-        }
-        const file = path.join(dest, entry);
-        fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, data);
-    }
-}
-
-/** 官方模板（GitHub 镜像，与「从 GitHub 打开」的下拉一致）与内置示例 */
-function collectProjects(work: string): Array<{ label: string; root: string }> {
-    const projects: Array<{ label: string; root: string }> = [];
-    for (const template of GITHUB_TEMPLATES) {
-        const dest = path.join(work, `template-${template.id}`);
-        try {
-            execFileSync('git', ['clone', '--depth', '1', '--quiet', `${template.url}.git`, dest], { stdio: 'inherit' });
-        } catch {
-            // 克隆失败只影响这个模板的视频（浏览器里跳过），不让整个部署失败
-            console.warn(`prebuild-web-videos: warning: failed to clone ${template.url}, its videos will not play in the browser`);
-            continue;
-        }
-        const root = findProjectRoot(dest);
-        if (root) {
-            projects.push({ label: template.id, root });
-        }
-    }
-    if (fs.existsSync(examplesDir)) {
-        for (const zip of fs.readdirSync(examplesDir).filter(name => name.endsWith('.zip')).sort()) {
-            const dest = path.join(work, `example-${path.basename(zip, '.zip')}`);
-            unzipTo(path.join(examplesDir, zip), dest);
-            const root = findProjectRoot(dest);
-            if (root) {
-                projects.push({ label: `example ${zip}`, root });
-            }
-        }
-    }
-    return projects;
 }
 
 async function main(): Promise<void> {
@@ -116,7 +57,7 @@ async function main(): Promise<void> {
     let converted = 0;
     let reused = 0;
     try {
-        for (const { label, root } of collectProjects(work)) {
+        for (const { label, root } of collectProjects(work, 'prebuild-web-videos')) {
             const config = ProjectUtils.loadProjectConfig(root);
             if ((config.targetEngine || 'honeygui') !== 'honeygui') {
                 continue;

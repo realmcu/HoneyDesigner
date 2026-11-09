@@ -70,6 +70,10 @@ const PHASE_TO_STAGE: Record<BuildPhase, SimulationProgress['stage']> = {
     download: 'toolchain', compile: 'compile', romfs: 'romfs', link: 'link',
 };
 
+function formatBytes(bytes: number): string {
+    return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
 const EMPTY_PREBUILT: PrebuiltIndex = { toolchain: '', projects: [], objects: [] };
 const EMPTY_VIDEOS: VideoIndex = emptyVideoIndex();
 
@@ -220,6 +224,13 @@ export class SimulationService {
                     stage: PHASE_TO_STAGE[message.phase],
                     fraction: message.total > 0 ? message.done / message.total : undefined,
                     detail: message.file,
+                }),
+                onTransfer: message => onProgress?.({
+                    stage: 'toolchain',
+                    fraction: message.total > 0 ? message.loaded / message.total : undefined,
+                    detail: message.total > 0
+                        ? `${formatBytes(message.loaded)} / ${formatBytes(message.total)}`
+                        : formatBytes(message.loaded),
                 }),
             }
         );

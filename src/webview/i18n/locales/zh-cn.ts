@@ -1355,7 +1355,7 @@ const zhCN = {
   'Collapse': '收起',
   'Expand': '展开',
   'Elapsed {0}s': '已用时 {0} 秒',
-  'Changed code needs the compiler (about 30 MB download). It is cached for next time.': '代码有改动，需要下载编译器（约 30 MB），之后会缓存，不再重复下载。',
+  'Changed code needs the compiler (about 30 MB download). It is cached for next time.': '代码有改动，需要下载编译器（约 30 MB）。下载后会缓存，之后不再重复下载。',
   'Quick Preview': '快速预览',
   'Full Simulation': '完整仿真',
   'Simulation mode': '仿真方式',

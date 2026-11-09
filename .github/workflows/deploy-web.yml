@@ -83,9 +83,18 @@ jobs:
       - name: Prepare web simulation
         run: node scripts/prepare-web-sim.js
 
-      # 预编译示例工程：未修改的示例完整仿真时直接加载，修改后只重编改动的文件
+      # 预编译官方模板与内置示例：未修改的工程完整仿真时直接加载，修改后只重编改动的文件。
+      # 产物按键（含工具链标识）缓存，只编新增或改动的单元。
+      # 模板仓库更新不会触发本 workflow，需要时手动运行（workflow_dispatch）
+      - name: Restore prebuilt cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/honeygui-web-prebuilt
+          key: web-prebuilt-${{ github.run_id }}
+          restore-keys: web-prebuilt-
+
       - name: Prebuild web examples
-        run: node scripts/prebuild-web-examples.js
+        run: node scripts/prebuild-web-examples.js --cache ~/.cache/honeygui-web-prebuilt
 
       # 浏览器里没有 FFmpeg：官方模板与内置示例里的视频在这里用原生 FFmpeg 预转换，页面按键下载。
       # CINEPAK 转一段视频要一分钟左右，转换结果按键缓存，只转新增或改动的视频。

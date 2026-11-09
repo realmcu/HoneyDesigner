@@ -32,7 +32,13 @@ export interface BuildRequest {
 export type BuildPhase = 'download' | 'compile' | 'romfs' | 'link';
 
 export type WorkerMessage =
+    /** download：正在取编译器与头文件（total 为未知的下载量，恒为 0） */
     | { type: 'progress'; phase: BuildPhase; done: number; total: number; file?: string }
+    /**
+     * 下载单个文件的字节进度，几十 MB 的编译器下载期间界面靠它显示进度。
+     * total 为 0 表示服务器没给 Content-Length，只能显示已下载字节数。
+     */
+    | { type: 'transfer'; file: string; loaded: number; total: number }
     | { type: 'log'; text: string; isError?: boolean }
     | { type: 'done'; project: Uint8Array; timings: Record<string, number> }
     | { type: 'error'; message: string };

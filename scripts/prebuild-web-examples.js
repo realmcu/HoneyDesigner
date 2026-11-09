@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * 预编译网页版示例工程，产物写到 dist/web/sim/prebuilt/（详见 prebuild-web-examples.ts）。
- * 在 build:web 与 prepare-web-sim.js 之后运行：
+ * 预编译网页版官方模板与示例工程，产物写到 dist/web/sim/prebuilt/（详见 prebuild-web-examples.ts）。
+ * 需要 PATH 中有 git，在 build:web 与 prepare-web-sim.js 之后运行：
  *
- *   node scripts/prebuild-web-examples.js
+ *   node scripts/prebuild-web-examples.js [--cache <目录>]
  *
  * 代码生成与编译规则直接用 src/ 下的 TypeScript，这里用 esbuild 打包成一个 ES 模块再执行：
  * @yowasp/clang 与 binaryen 只提供 ES 模块，并按自身位置加载 wasm，保持外部引用；

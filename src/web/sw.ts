@@ -2,7 +2,9 @@
  * HoneyGUI Designer Web 的 Service Worker
  *
  * 1. `/__vfs/*`：工程文件存在于页面内存中，这里向发起请求的页面索取内容后返回
- * 2. 其余同源 GET 请求：网络优先、失败时回退缓存，首次访问后可离线使用
+ * 2. `sim/` 下的编译工具链：缓存优先，按 toolchain.json 的 id 失效（见 TOOLCHAIN_CACHE）
+ * 3. 带内容哈希的 JS/CSS：缓存优先
+ * 4. 其余同源 GET 请求：网络优先、失败时回退缓存，首次访问后可离线使用
  *
  * 与页面代码共用一个 TypeScript 工程（DOM lib），因此 Service Worker 专有类型按最小形状声明。
  */
@@ -42,6 +44,35 @@ const CACHE_PREFIX = 'honeygui-web-';
 const RUNTIME_CACHE = `${CACHE_PREFIX}runtime`;
 const VFS_READ_TIMEOUT_MS = 10000;
 
+/**
+ * 编译工具链缓存。编译器约 30 MB，走「网络优先」每次都要重下，
+ * 慢速链路上一次断线整次仿真就失败了，所以这些文件改为缓存优先。
+ *
+ * 文件名不带内容哈希，靠 toolchain.json 的 id 判断是否过期：id 随编译器、binaryen
+ * 与头文件包变化（scripts/prepare-web-sim.js），变了就整体丢掉重下。
+ */
+const TOOLCHAIN_CACHE = `${CACHE_PREFIX}toolchain`;
+const TOOLCHAIN_ID_KEY = new URL('__toolchain-id', self.location.href).toString();
+/**
+ * 这些路径由内容键命名或随 toolchain id 失效，可以安全地缓存优先。
+ * pathname 是去掉 scope 后的形式，仍保留前导 `/`（部署在子路径下时同样如此）。
+ */
+const CACHE_FIRST_PATH = /^\/?sim\/(clang|binaryen|prebuilt)\/|^\/?sim\/toolchain\.(json|pack)$/;
+/** 大文件下载失败时重试的次数（只影响缓存未命中的首次下载） */
+const FETCH_ATTEMPTS = 3;
+let toolchainChecked = false;
+
+self.addEventListener('install', event => {
+    event.waitUntil((async () => {
+        const manifest = await loadManifest();
+        if (manifest) {
+            const cache = await caches.open(`${CACHE_PREFIX}${manifest.version}`);
+            await cache.addAll(manifest.files.map(file => new URL(file, self.registration.scope).toString()));
+        }
+        await self.skipWaiting();
+    })());
+});
+
 /** 构建时生成的静态资源清单（webpack.web.config.js 的 PrecacheManifestPlugin） */
 interface PrecacheManifest {
     version: string;
@@ -56,17 +87,6 @@ async function loadManifest(): Promise<PrecacheManifest | undefined> {
         return undefined;
     }
 }
-
-self.addEventListener('install', event => {
-    event.waitUntil((async () => {
-        const manifest = await loadManifest();
-        if (manifest) {
-            const cache = await caches.open(`${CACHE_PREFIX}${manifest.version}`);
-            await cache.addAll(manifest.files.map(file => new URL(file, self.registration.scope).toString()));
-        }
-        await self.skipWaiting();
-    })());
-});
 
 /** 记录当前与上一个激活版本的缓存名 */
 const META_CACHE = `${CACHE_PREFIX}meta`;
@@ -88,7 +108,8 @@ self.addEventListener('activate', event => {
             versions = [current, ...versions.filter(v => v !== current)].slice(0, 2);
             await (await caches.open(META_CACHE)).put(ACTIVE_VERSIONS_KEY, new Response(JSON.stringify(versions)));
         }
-        const keep = new Set([RUNTIME_CACHE, META_CACHE, ...versions]);
+        // 工具链缓存单独按 toolchain.json 的 id 失效（prepareToolchain），这里不能清
+        const keep = new Set([RUNTIME_CACHE, META_CACHE, TOOLCHAIN_CACHE, ...versions]);
         const keys = await caches.keys();
         await Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && !keep.has(key)).map(key => caches.delete(key)));
         await self.clients.claim();
@@ -168,6 +189,69 @@ async function cacheFirst(request: Request): Promise<Response> {
     return response;
 }
 
+async function toolchainId(): Promise<string | undefined> {
+    try {
+        const cached = await (await caches.open(TOOLCHAIN_CACHE)).match(TOOLCHAIN_ID_KEY);
+        return cached ? (await cached.json() as { id: string }).id : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * 站点更新后编译器换了（toolchain.json 的 id 变了），旧缓存整体丢掉重下。
+ * 每个 Service Worker 生命周期只检查一次。
+ */
+async function prepareToolchain(scope: string): Promise<void> {
+    if (toolchainChecked) {
+        return;
+    }
+    toolchainChecked = true;
+    try {
+        const response = await fetch(new URL('sim/toolchain.json', scope).toString(), { cache: 'no-store' });
+        if (!response.ok) {
+            return;
+        }
+        const id = (await response.json() as { id?: string }).id;
+        if (!id || id === await toolchainId()) {
+            return;
+        }
+        await caches.delete(TOOLCHAIN_CACHE);
+        const cache = await caches.open(TOOLCHAIN_CACHE);
+        await cache.put(TOOLCHAIN_ID_KEY, new Response(JSON.stringify({ id })));
+    } catch {
+        // 离线或站点异常：沿用现有缓存
+    }
+}
+
+/**
+ * 工具链文件专用：缓存优先 + 失败重试。
+ * 命中缓存时直接返回（离线也能编译）；未命中时取网络，失败重试几次，
+ * 避免慢速链路上的一次断线就让整次仿真失败。
+ */
+async function toolchainFetch(request: Request): Promise<Response> {
+    const cache = await caches.open(TOOLCHAIN_CACHE);
+    const cached = await cache.match(request);
+    if (cached) {
+        return cached;
+    }
+    let lastError: unknown;
+    for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt++) {
+        try {
+            const response = await fetch(request);
+            if (response.ok && response.type === 'basic') {
+                // response.clone() 必须在返回响应之前同步取出，否则页面读走 body 后没法再克隆
+                const copy = response.clone();
+                void cache.put(request, copy).catch(() => { /* 超出配额时下次重下 */ });
+            }
+            return response;
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Failed to fetch');
+}
+
 function rejectAfter(timeoutMs: number): Promise<never> {
     return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs));
 }
@@ -219,6 +303,13 @@ self.addEventListener('fetch', event => {
     if (pathname.startsWith(VFS_PREFIX)) {
         const filePath = pathname.slice(VFS_PREFIX.length - 1).split('/').map(decodeURIComponent).join('/');
         event.respondWith(serveVfs(event, filePath));
+        return;
+    }
+    if (CACHE_FIRST_PATH.test(pathname)) {
+        event.respondWith((async () => {
+            await prepareToolchain(self.registration.scope);
+            return toolchainFetch(request);
+        })());
         return;
     }
     event.respondWith(HASHED_ASSET.test(pathname) ? cacheFirst(request) : networkFirst(request));
