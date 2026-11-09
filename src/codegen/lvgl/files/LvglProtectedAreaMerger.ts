@@ -8,6 +8,8 @@
  *   /* USER CODE END {name} *\/
  */
 
+import { logger } from '../../../utils/Logger';
+
 export class LvglProtectedAreaMerger {
   /**
    * Merge protected area code: extract user code from existing, merge into corresponding protected areas in generated
@@ -39,12 +41,13 @@ export class LvglProtectedAreaMerger {
       );
       const hasTarget = new RegExp(`\\/\\* USER CODE BEGIN ${name} \\*\\/`).test(generated);
       if (hasTarget) {
+        // Function replacer: user code may contain `$` sequences that must not be expanded
         result = result.replace(
           replaceRegex,
-          `/* USER CODE BEGIN ${name} */${content}/* USER CODE END ${name} */`
+          () => `/* USER CODE BEGIN ${name} */${content}/* USER CODE END ${name} */`
         );
       } else if (content.trim() !== '') {
-        console.warn(`[LvglProtectedAreaMerger] User code section "${name}" no longer exists in generated output and will be lost. Check if the component or event was removed.`);
+        logger.warn(`[LvglProtectedAreaMerger] User code section "${name}" no longer exists in generated output and will be lost. Check if the component or event was removed.`);
       }
     });
 

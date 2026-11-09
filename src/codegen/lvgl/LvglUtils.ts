@@ -55,14 +55,7 @@ export function normalizeHexColor(value: string, fallback: string): string {
 }
 
 
-/**
- * Escape special characters in a C string
- */
-export function escapeCString(value: string): string {
-  return value
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"');
-}
+export { escapeCString } from '../cString';
 
 /**
  * Select the closest LVGL built-in font by font size

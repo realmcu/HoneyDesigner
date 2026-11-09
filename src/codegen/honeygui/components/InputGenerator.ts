@@ -5,6 +5,7 @@
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor } from '../utils';
+import { escapeCString } from '../../cString';
 
 export class InputGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -56,13 +57,7 @@ export class InputGenerator implements ComponentCodeGenerator {
    * Escape special characters in C strings
    */
   private escapeCString(str: string): string {
-    return str
-      .replace(/\\/g, '\\\\')   // Backslash must be processed first
-      .replace(/"/g, '\\"')     // Double quote
-      .replace(/\n/g, '\\n')    // Newline
-      .replace(/\r/g, '\\r')    // Carriage return
-      .replace(/\t/g, '\\t')    // Tab
-      .replace(/\0/g, '\\0');   // Null character
+    return escapeCString(str);
   }
 
 }

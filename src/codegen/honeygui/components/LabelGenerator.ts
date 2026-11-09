@@ -7,6 +7,7 @@ import { Component } from '../../../hml/types';
 import { resolveLocalizedText } from '../../../project-i18n/catalog';
 import { isVectorTextFont, resolveTextGradient } from '../../../shared/textGradient';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { escapeCString } from '../../cString';
 
 const TEXT_GRADIENT_DIR_ENUM: Record<string, string> = {
   horizontal: 'GUI_TEXT_GRADIENT_HORIZONTAL',
@@ -233,13 +234,7 @@ export class LabelGenerator implements ComponentCodeGenerator {
    * Escape special characters in C strings
    */
   protected escapeCString(str: string): string {
-    return str
-      .replace(/\\/g, '\\\\')   // Backslash must be processed first
-      .replace(/"/g, '\\"')     // Double quote
-      .replace(/\n/g, '\\n')    // Newline
-      .replace(/\r/g, '\\r')    // Carriage return
-      .replace(/\t/g, '\\t')    // Tab
-      .replace(/\0/g, '\\0');   // Null character
+    return escapeCString(str);
   }
 
   /**
