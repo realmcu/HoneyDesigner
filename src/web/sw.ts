@@ -2,9 +2,12 @@
  * HoneyGUI Designer Web 的 Service Worker
  *
  * 1. `/__vfs/*`：工程文件存在于页面内存中，这里向发起请求的页面索取内容后返回
- * 2. `sim/` 下的编译工具链：缓存优先，按 toolchain.json 的 id 失效（见 TOOLCHAIN_CACHE）
- * 3. 带内容哈希的 JS/CSS：缓存优先
- * 4. 其余同源 GET 请求：网络优先、失败时回退缓存，首次访问后可离线使用
+ * 2. 编译工具链（sim/clang、sim/binaryen、toolchain.json|pack）：缓存优先，
+ *    按 toolchain.json 的 id 失效（见 TOOLCHAIN_CACHE）
+ * 3. 预编译产物（sim/prebuilt/o|p）：按键命名，缓存优先，随工具链 id 失效
+ * 4. 带内容哈希的 JS/CSS：缓存优先
+ * 5. 其余同源 GET 请求（含 sim/prebuilt/index.json）：网络优先、失败时回退缓存，
+ *    首次访问后可离线使用
  *
  * 与页面代码共用一个 TypeScript 工程（DOM lib），因此 Service Worker 专有类型按最小形状声明。
  */
@@ -50,14 +53,24 @@ const VFS_READ_TIMEOUT_MS = 10000;
  *
  * 文件名不带内容哈希，靠 toolchain.json 的 id 判断是否过期：id 随编译器、binaryen
  * 与头文件包变化（scripts/prepare-web-sim.js），变了就整体丢掉重下。
+ *
+ * CI 预编译的产物（sim/prebuilt/）也存在这里，但只在工具链 id 变化时清掉：
+ * 工程改动不换工具链，按键存放的产物不会互相覆盖，清掉只会让编译器重新下载。
  */
 const TOOLCHAIN_CACHE = `${CACHE_PREFIX}toolchain`;
 const TOOLCHAIN_ID_KEY = new URL('__toolchain-id', self.location.href).toString();
 /**
- * 这些路径由内容键命名或随 toolchain id 失效，可以安全地缓存优先。
+ * 不带内容哈希、但由工具链 id 兜底失效的文件：缓存优先。
  * pathname 是去掉 scope 后的形式，仍保留前导 `/`（部署在子路径下时同样如此）。
  */
-const CACHE_FIRST_PATH = /^\/?sim\/(clang|binaryen|prebuilt)\/|^\/?sim\/toolchain\.(json|pack)$/;
+const CACHE_FIRST_PATH = /^\/?sim\/(clang|binaryen|toolchain\.(json|pack))$/;
+/** 预编译产物按键（单元键、工程键）命名，同名即同内容，可以一直缓存 */
+const PREBUILT_ARTIFACT_PATH = /^\/?sim\/prebuilt\/[po]\//;
+/**
+ * 预编译索引不是按内容命名的：站点每次部署都可能新增工程，不能缓存优先，
+ * 否则浏览器永远看不到新工程，每次都要现场编译（也就要下载编译器）。
+ */
+const PREBUILT_INDEX_PATH = /^\/?sim\/prebuilt\/index\.json$/;
 /** 大文件下载失败时重试的次数（只影响缓存未命中的首次下载） */
 const FETCH_ATTEMPTS = 3;
 let toolchainChecked = false;
@@ -172,10 +185,25 @@ function putInRuntimeCache(request: Request, response: Response): void {
 
 async function cachedFallback(request: Request): Promise<Response | undefined> {
     const cached = await caches.match(request, { ignoreSearch: request.mode === 'navigate' });
-    if (cached || request.mode !== 'navigate') {
+    if (cached) {
         return cached;
     }
+    // 预编译索引存在工具链缓存里（见 rememberPrebuiltIndex），caches.match 覆盖不到
+    if (PREBUILT_INDEX_PATH.test(new URL(request.url).pathname)) {
+        return (await caches.open(TOOLCHAIN_CACHE)).match(request);
+    }
+    if (request.mode !== 'navigate') {
+        return undefined;
+    }
     return caches.match(new URL('./', self.registration.scope).toString());
+}
+
+/** 预编译索引存进工具链缓存：随工具链 id 一起失效，离线时作为回退 */
+function rememberPrebuiltIndex(request: Request, response: Response): void {
+    if (response.ok && response.type === 'basic') {
+        const copy = response.clone();
+        void caches.open(TOOLCHAIN_CACHE).then(cache => cache.put(request, copy)).catch(() => { /* 超出配额时下次重取 */ });
+    }
 }
 
 /** 缓存优先：命中预缓存/运行时缓存时不发网络请求 */
@@ -260,10 +288,15 @@ function rejectAfter(timeoutMs: number): Promise<never> {
  * 网络优先，离线时回退到缓存。
  * 页面导航额外带超时：弱网下超过 NAVIGATION_TIMEOUT_MS 先用缓存打开，网络请求继续
  * 在后台完成并刷新缓存，新版本在下次打开时生效。没有缓存（首次访问）时等待网络。
+ * 预编译索引放这里：离线时用上次的索引，仍能加载已缓存的预编译产物。
  */
 async function networkFirst(request: Request): Promise<Response> {
     const network = fetch(request).then(response => {
-        putInRuntimeCache(request, response);
+        if (PREBUILT_INDEX_PATH.test(new URL(request.url).pathname)) {
+            rememberPrebuiltIndex(request, response);
+        } else {
+            putInRuntimeCache(request, response);
+        }
         return response;
     });
     try {
@@ -305,7 +338,7 @@ self.addEventListener('fetch', event => {
         event.respondWith(serveVfs(event, filePath));
         return;
     }
-    if (CACHE_FIRST_PATH.test(pathname)) {
+    if (CACHE_FIRST_PATH.test(pathname) || PREBUILT_ARTIFACT_PATH.test(pathname)) {
         event.respondWith((async () => {
             await prepareToolchain(self.registration.scope);
             return toolchainFetch(request);
