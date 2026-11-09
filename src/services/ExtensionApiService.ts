@@ -187,16 +187,18 @@ export class ExtensionApiService implements vscode.Disposable {
         // 使 @resvg/resvg-wasm 不出现在激活路径上。
 
         this.server = http.createServer(async (req, res) => {
-            // 设置 CORS 头，允许跨域访问
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-            // 处理 OPTIONS 预检请求
-            if (req.method === 'OPTIONS') {
-                res.statusCode = 200;
-                res.end();
+            // 只服务本机命令行工具（curl、AI agent 等）。浏览器发出的请求会带 Origin，
+            // 一律拒绝：否则用户访问的任意网页都能跨站调用仿真、代码生成和文件读写接口。
+            // 不回任何 CORS 头，预检请求也就无法通过。
+            const rejection = this.checkRequestSource(req);
+            if (rejection) {
+                res.statusCode = 403;
+                res.end(JSON.stringify({
+                    success: false,
+                    error: { code: 'FORBIDDEN', message: rejection }
+                }));
                 return;
             }
 
@@ -486,6 +488,15 @@ export class ExtensionApiService implements vscode.Disposable {
                 const fs = require('fs');
                 const path = require('path');
 
+                if (typeof filePath !== 'string' || path.extname(filePath).toLowerCase() !== '.hml') {
+                    res.statusCode = 400;
+                    res.end(JSON.stringify({
+                        success: false,
+                        error: { code: 'INVALID_PARAMETER', message: 'filePath must point to a .hml file' }
+                    }));
+                    return;
+                }
+
                 let absolutePath: string;
 
                 // 如果是绝对路径，直接使用
@@ -761,15 +772,44 @@ export class ExtensionApiService implements vscode.Disposable {
     }
 
     /**
+     * 校验请求来源，返回拒绝原因；合法时返回 undefined
+     * - 带 Origin 头：来自浏览器页面（跨站请求或 DNS 重绑定），拒绝
+     * - Host 不是本机地址：DNS 重绑定把恶意域名解析到 127.0.0.1 时 Host 仍是该域名，拒绝
+     */
+    private checkRequestSource(req: http.IncomingMessage): string | undefined {
+        if (req.headers.origin !== undefined) {
+            return 'Requests from web pages are not allowed';
+        }
+        const host = (req.headers.host || '').toLowerCase();
+        const allowedHosts = [`localhost:${this.port}`, `127.0.0.1:${this.port}`];
+        if (!allowedHosts.includes(host)) {
+            return `Invalid Host header: ${host || '(empty)'}`;
+        }
+        return undefined;
+    }
+
+    /** 请求体上限：SVG 栅格化与 HML 校验的正文都远小于此 */
+    private static readonly MAX_BODY_BYTES = 16 * 1024 * 1024;
+
+    /**
      * 读取请求体
      */
     private readBody(req: http.IncomingMessage): Promise<any> {
         return new Promise((resolve, reject) => {
-            let body = '';
-            req.on('data', chunk => {
-                body += chunk.toString();
+            const chunks: Buffer[] = [];
+            let size = 0;
+            req.on('data', (chunk: Buffer) => {
+                size += chunk.length;
+                if (size > ExtensionApiService.MAX_BODY_BYTES) {
+                    reject(new Error('Request body too large'));
+                    req.destroy();
+                    return;
+                }
+                chunks.push(chunk);
             });
             req.on('end', () => {
+                // 整体解码，避免多字节 UTF-8 字符被 chunk 边界切断
+                const body = Buffer.concat(chunks).toString('utf-8');
                 try {
                     if (body.trim() === '') {
                         resolve({});
