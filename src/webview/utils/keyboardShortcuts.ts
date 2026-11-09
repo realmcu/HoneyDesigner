@@ -82,37 +82,38 @@ export const useKeyboardShortcuts = () => {
           break;
 
         // Delete (Delete key only, Backspace is reserved for text input)
-        case 'Delete':
+        // 设计器内唯一的 Delete 键删除入口，删除可通过 Ctrl+Z 撤销
+        case 'Delete': {
           if (e.repeat) break;
           e.preventDefault();
-          
-          // 多选删除
-          if (selectedComponents.length > 1) {
-            const { removeComponents } = useDesignerStore.getState();
-            console.log('[键盘快捷键] 批量删除组件:', selectedComponents);
-            removeComponents(selectedComponents);
+
+          const ids = selectedComponents.length > 0
+            ? selectedComponents
+            : (selectedComponent ? [selectedComponent] : []);
+          if (ids.length === 0) break;
+
+          // 列表项由父列表的数量属性管理，不允许直接删除
+          const deletableIds = ids.filter(id => components.find(c => c.id === id)?.type !== 'hg_list_item');
+          if (deletableIds.length < ids.length) {
+            window.vscodeAPI?.postMessage({
+              command: 'showInfo',
+              text: t('List items are managed by the parent list; adjust its Item Count property')
+            });
           }
-          // 单选删除
-          else if (selectedComponent) {
-            const component = components.find(c => c.id === selectedComponent);
-            
-            // 禁止删除列表项
-            if (component?.type === 'hg_list_item') {
-              console.log('[键盘快捷键] 禁止删除列表项');
-              // 发送提示消息
-              if (window.vscodeAPI) {
-                window.vscodeAPI.postMessage({
-                  command: 'showInfo',
-                  text: t('List items are managed by the parent list; adjust its Item Count property')
-                });
-              }
-              return;
-            }
-            
-            console.log('[键盘快捷键] 删除组件:', selectedComponent);
-            removeComponent(selectedComponent);
+          if (deletableIds.length === 0) break;
+
+          if (deletableIds.length > 1) {
+            useDesignerStore.getState().removeComponents(deletableIds);
+          } else {
+            removeComponent(deletableIds[0]);
+          }
+          // 主视图/入口视图会被 store 拒绝删除，只清掉确实已删除的选中项
+          const remaining = new Set(useDesignerStore.getState().components.map(c => c.id));
+          if (ids.some(id => !remaining.has(id))) {
+            useDesignerStore.getState().setSelectedComponents(ids.filter(id => remaining.has(id)));
           }
           break;
+        }
 
         // Copy (Ctrl+C)
         case 'c':
@@ -149,24 +150,18 @@ export const useKeyboardShortcuts = () => {
           }
           break;
 
-        // Duplicate (Ctrl+D)
+        // Ctrl+Shift+D: 水平分布；Ctrl+Alt+D: 垂直分布；Ctrl+D: 复制
+        // 带修饰键的分支必须先判断，否则会被 Ctrl+D 吞掉
         case 'd':
         case 'D':
-          if (isModKey && !e.repeat) {
-            e.preventDefault();
-            if (selectedComponent) {
-              duplicateComponent(selectedComponent);
-            }
-          }
-          // Ctrl+Shift+D: 水平分布
-          else if (isModKey && isShift && selectedComponents.length >= 3) {
-            e.preventDefault();
-            distributeSelectedComponents('horizontal');
-          }
-          // Ctrl+Alt+D: 垂直分布
-          else if (isModKey && isAlt && selectedComponents.length >= 3) {
-            e.preventDefault();
-            distributeSelectedComponents('vertical');
+          if (!isModKey || e.repeat) break;
+          e.preventDefault();
+          if (isShift) {
+            if (selectedComponents.length >= 3) distributeSelectedComponents('horizontal');
+          } else if (isAlt) {
+            if (selectedComponents.length >= 3) distributeSelectedComponents('vertical');
+          } else if (selectedComponent) {
+            duplicateComponent(selectedComponent);
           }
           break;
 

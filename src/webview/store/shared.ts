@@ -67,14 +67,22 @@ export const removeComponentsImpl = (
     });
   }
 
-  // 收集所有被删除的 ID（包含直接子组件）
-  const removedIds = new Set<string>();
-  ids.forEach(fid => {
-    removedIds.add(fid);
-    state.components.forEach(c => {
-      if (c.parent === fid) removedIds.add(c.id);
-    });
+  // 收集所有被删除的 ID（包含全部后代，否则孙组件会成为 parent 悬空的孤儿）
+  const childrenByParent = new Map<string, string[]>();
+  state.components.forEach(c => {
+    if (!c.parent) return;
+    const siblings = childrenByParent.get(c.parent);
+    if (siblings) siblings.push(c.id);
+    else childrenByParent.set(c.parent, [c.id]);
   });
+  const removedIds = new Set<string>();
+  const pending = [...ids];
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (removedIds.has(id)) continue;
+    removedIds.add(id);
+    childrenByParent.get(id)?.forEach(childId => pending.push(childId));
+  }
 
   set((state: DesignerStore) => ({
     components: state.components

@@ -680,7 +680,7 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     }
   };
 
-  // 处理键盘事件，特别是delete键删除选中组件和方向键移动组件
+  // 处理键盘事件：方向键移动组件
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 如果焦点在输入框、文本域或可编辑元素中，不处理快捷键
@@ -743,35 +743,17 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
         
         return;
       }
-
-      // 当按下delete或backspace键，并且有选中的组件时，删除该组件
-      if ((e.key === 'Delete' || e.key === 'Backspace') && (selectedComponent || (selectedComponents && selectedComponents.length > 0))) {
-        e.preventDefault();
-        const ids = selectedComponents && selectedComponents.length ? selectedComponents : [selectedComponent!];
-        const confirmMsg = ids.length > 1 
-          ? t('Confirm delete N components').replace('{n}', String(ids.length))
-          : t('Confirm delete selected component');
-        const shouldDelete = window.confirm ? window.confirm(confirmMsg) : true;
-        if (shouldDelete) {
-          if (ids.length > 1) {
-            removeComponents(ids);
-          } else {
-            removeComponent(ids[0]);
-          }
-          onComponentSelect(null);
-          setSelectedComponents([]);
-        }
-      }
+      // Delete 键删除统一由 utils/keyboardShortcuts.ts 处理，这里不再重复监听
     };
 
     // 添加键盘事件监听器
     window.addEventListener('keydown', handleKeyDown);
-    
+
     // 清理函数，移除事件监听器
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedComponent, selectedComponents, removeComponent, removeComponents, onComponentSelect, setSelectedComponents, components, updateComponent]);
+  }, [selectedComponent, selectedComponents, components, updateComponent]);
 
   const renderComponent = (component: Component, componentList: Component[] = components) => {
     const isSelected = selectedComponent === component.id;
