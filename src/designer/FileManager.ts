@@ -85,6 +85,8 @@ export class FileManager {
     // 单调递增序号：防止「保存进行中又产生新改动」时，保存成功回调把新改动的
     // dirty 标记误清掉（保存开始时记录序号，成功后仅在序号未变时清除）。
     private _webviewDirtySeq = 0;
+    // 外部变更与未保存改动冲突时的进行中询问，避免多路监听重复弹框
+    private _pendingReloadConfirm: Promise<boolean> | undefined;
 
     // project.json 文件监听器
     private _projectConfigWatcher: vscode.FileSystemWatcher | undefined;
@@ -827,6 +829,33 @@ export class FileManager {
     }
 
     /**
+     * 外部改动与未保存改动冲突时询问用户是否重载。
+     * 保存、文档变化、磁盘变化三路监听会接连触发，提示期间到达的后续变化共用同一次询问；
+     * 用户确认后读取的是磁盘最新内容。
+     * @returns true 表示继续重载
+     */
+    private _confirmReloadOverUnsavedChanges(): Promise<boolean> {
+        if (!this._pendingReloadConfirm) {
+            const reload = vscode.l10n.t('Reload');
+            const keep = vscode.l10n.t('Keep My Changes');
+            const fileName = this._filePath ? path.basename(this._filePath) : '';
+            this._pendingReloadConfirm = Promise.resolve(vscode.window.showWarningMessage(
+                vscode.l10n.t('{0} was changed outside the designer. Reloading will discard your unsaved design changes.', fileName),
+                reload,
+                keep
+            )).then(choice => {
+                if (choice !== reload) {
+                    logger.info('[FileManager] 用户保留未保存改动，跳过外部变更重载');
+                }
+                return choice === reload;
+            }).finally(() => {
+                this._pendingReloadConfirm = undefined;
+            });
+        }
+        return this._pendingReloadConfirm;
+    }
+
+    /**
      * 从文档更新内容（当文档在外部被修改时）
      */
     public async updateFromDocument(): Promise<void> {
@@ -884,6 +913,12 @@ export class FileManager {
                     logger.debug('[FileManager] 无快照，直接加载文件内容');
                 }
                 
+                // 设计器有未保存改动时，重载会把它们静默丢掉（Git 切分支、AI 改文件、
+                // 其他面板同步视图尺寸都会触发），先询问用户
+                if (this._webviewDirty && !(await this._confirmReloadOverUnsavedChanges())) {
+                    return;
+                }
+
                 logger.debug('[FileManager] 重新加载到设计器');
                 await this.loadFromDocument(document);
                 // loadFromDocument 只解析数据但不发送到前端（设计为等待 ready 消息）

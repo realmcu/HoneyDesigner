@@ -653,5 +653,8 @@
   "C/C++ extension installed. It takes effect after VS Code reloads; run again afterwards.": "C/C++ extension installed. It takes effect after VS Code reloads; run again afterwards.",
   "Cannot find gdb. Make sure the MinGW toolchain is on PATH.": "Cannot find gdb. Make sure the MinGW toolchain is on PATH.",
   "HoneyGUI Simulator": "HoneyGUI Simulator",
-  "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping"
+  "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping",
+  "Reload": "Reload",
+  "Keep My Changes": "Keep My Changes",
+  "{0} was changed outside the designer. Reloading will discard your unsaved design changes.": "{0} was changed outside the designer. Reloading will discard your unsaved design changes."
 }

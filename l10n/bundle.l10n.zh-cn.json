@@ -653,5 +653,8 @@
   "C/C++ extension installed. It takes effect after VS Code reloads; run again afterwards.": "C/C++ 扩展已安装，需要重载 VS Code 后生效，请稍后重试。",
   "Cannot find gdb. Make sure the MinGW toolchain is on PATH.": "找不到 gdb，请确认 MinGW 工具链已加入 PATH。",
   "HoneyGUI Simulator": "HoneyGUI 仿真器",
-  "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "提示：仿真器输出和程序日志显示在「调试控制台」，停止后仍可查看"
+  "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "提示：仿真器输出和程序日志显示在「调试控制台」，停止后仍可查看",
+  "Reload": "重新加载",
+  "Keep My Changes": "保留我的修改",
+  "{0} was changed outside the designer. Reloading will discard your unsaved design changes.": "{0} 已在设计器外被修改。重新加载将丢弃设计器中未保存的修改。"
 }
