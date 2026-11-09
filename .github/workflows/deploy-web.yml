@@ -43,6 +43,11 @@ on:
     workflows: ["Update Simulation Assets"]
     types: [completed]
     branches: [master]
+  # 官方模板（honeygui-template-*）更新不会触发 push，靠定时部署跟上：
+  # 每次都会重新克隆模板，有改动的单元和工程重新编译，没变的从缓存复制。
+  # GitHub 的定时任务在空闲时段可能延迟，cron 时间不必卡得很死。
+  schedule:
+    - cron: '17 3 * * *'
 
 permissions:
   contents: read
@@ -84,8 +89,7 @@ jobs:
         run: node scripts/prepare-web-sim.js
 
       # 预编译官方模板与内置示例：未修改的工程完整仿真时直接加载，修改后只重编改动的文件。
-      # 产物按键（含工具链标识）缓存，只编新增或改动的单元。
-      # 模板仓库更新不会触发本 workflow，需要时手动运行（workflow_dispatch）
+      # 产物按键（含工具链标识）缓存，只编新增或改动的单元
       - name: Restore prebuilt cache
         uses: actions/cache@v4
         with:
@@ -97,8 +101,7 @@ jobs:
         run: node scripts/prebuild-web-examples.js --cache ~/.cache/honeygui-web-prebuilt
 
       # 浏览器里没有 FFmpeg：官方模板与内置示例里的视频在这里用原生 FFmpeg 预转换，页面按键下载。
-      # CINEPAK 转一段视频要一分钟左右，转换结果按键缓存，只转新增或改动的视频。
-      # 模板仓库更新不会触发本 workflow，需要时手动运行（workflow_dispatch）
+      # CINEPAK 转一段视频要一分钟左右，转换结果按键缓存，只转新增或改动的视频
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
