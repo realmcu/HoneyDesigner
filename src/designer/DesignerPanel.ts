@@ -100,6 +100,21 @@ export class DesignerPanel {
     }
 
     /**
+     * 宿主批量改写了若干 HML（如分辨率变化后同步视图尺寸）后，刷新打开这些文件的
+     * 其他面板。写盘方的 watcher 回灌被登记表抑制，不显式刷新的话那些面板的内存态
+     * 会停在旧内容上。有未保存改动的面板不覆盖，交给它自己的外部变更提示。
+     */
+    public static reloadPanelsForFiles(filePaths: string[]): void {
+        for (const filePath of filePaths) {
+            const panel = DesignerPanel.panelRegistry.get(PendingWriteRegistry.normalizePathKey(filePath));
+            if (panel && !panel.hasUnsavedWebviewChanges) {
+                // 从磁盘重读：这些文件是别的面板刚改写的，本面板内存里的文档已过期
+                void panel._fileManager.reloadFromDisk();
+            }
+        }
+    }
+
+    /**
      * 导航写事务（T10）第 8 步的面板钩子。撤销历史已移到 webview 按文件在内存维护，
      * 写事务随后的 reloadAfterNavEdit → loadHml 会清空该历史；导航边编辑的回退
      * 由 NavEditService 自身的导航撤销栈负责，这里无需记录快照。
@@ -175,6 +190,12 @@ export class DesignerPanel {
         // 文件路径变化（创建加载/另存为/新建空白）时维护「路径 → 面板」索引
         this._disposables.push(
             this._fileManager.onDidChangeFilePath(filePath => this._syncPanelRegistry(filePath))
+        );
+
+        // 本面板批量改写了其他 HML（同步视图尺寸 / 清入口标记）后，刷新打开这些文件的
+        // 其他面板：写盘方的回灌已被登记表抑制，不主动刷新它们的内存态会停在旧内容上
+        this._disposables.push(
+            this._fileManager.onDidWriteOtherPanels(filePaths => DesignerPanel.reloadPanelsForFiles(filePaths))
         );
 
         // 如果有文档，设置文件路径

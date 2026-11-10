@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { logger } from '../utils/Logger';
 import { HmlController } from '../hml/HmlController';
-import { HmlContentComparator } from '../utils/HmlContentComparator';
 
 /**
  * 保存事务状态
@@ -169,21 +168,6 @@ export class SaveManager {
         }
 
         return null;
-    }
-
-    /**
-     * 智能对比磁盘内容和内存快照
-     */
-    public smartCompareContent(diskContent: string, snapshot: string): boolean {
-        const comparison = HmlContentComparator.smartCompare(diskContent, snapshot);
-
-        if (comparison.isEqual) {
-            logger.debug('[SaveManager] 智能对比：内容与内存快照一致');
-            return true;
-        } else {
-            logger.debug(`[SaveManager] 智能对比：内容有差异 - ${comparison.reason}`);
-            return false;
-        }
     }
 
     /**

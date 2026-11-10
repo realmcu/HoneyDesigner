@@ -9,7 +9,6 @@ import { ProjectUtils } from '../utils/ProjectUtils';
 import { HmlController } from '../hml/HmlController';
 import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
 import { SaveManager } from './SaveManager';
-import { HmlContentComparator } from '../utils/HmlContentComparator';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
@@ -74,7 +73,11 @@ export class FileManager {
     private readonly _saveManager: SaveManager;
     private readonly _performanceContext: HmlLoadPerformanceContext | undefined;
     private _filePath: string | undefined;
-    private _lastSerializedSnapshot: string | null = null;
+    /**
+     * 本面板上一次写入 / 加载的 HML 内容（sha1）。文件内容未变时，
+     * 面板之间的互相刷新（尺寸同步等）直接跳过，不再靠正则式内容对比。
+     */
+    private _ownContentHash: string | undefined;
     private _preparedFrontendComponents: {
         filePath: string;
         document: unknown;
@@ -84,6 +87,13 @@ export class FileManager {
     // 事件发射器
     private readonly _onDidUpdateTitle = new vscode.EventEmitter<string>();
     private readonly _onDidChangeFilePath = new vscode.EventEmitter<string | undefined>();
+
+    /**
+     * 宿主批量改写了若干 HML（同步视图尺寸、清入口标记），需要刷新打开这些文件的
+     * 其他面板。由 DesignerPanel 订阅：FileManager 不认识面板，反过来订阅不会成环。
+     */
+    private readonly _onDidWriteOtherPanels = new vscode.EventEmitter<string[]>();
+    public readonly onDidWriteOtherPanels = this._onDidWriteOtherPanels.event;
 
     // 事件
     public readonly onDidUpdateTitle = this._onDidUpdateTitle.event;
@@ -255,6 +265,8 @@ export class FileManager {
 
         const hmlFiles = scanAllHmlFiles(currentFilePath);
         logger.info(`[FileManager] 同步 hg_view 尺寸 ${width}x${height}，共 ${hmlFiles.length} 个 HML 文件`);
+        /** 本次实际改写的文件；写完后要主动通知打开这些文件的其他面板 */
+        const writtenFiles: string[] = [];
 
         for (const hmlFile of hmlFiles) {
             try {
@@ -281,16 +293,24 @@ export class FileManager {
 
                 // 当前文件在 VSCode 中有活跃的 TextDocument，必须通过 TextDocument API 写入，
                 // 否则磁盘与文档版本不同步会触发 "content is newer" 冲突（参见 _writeViaTextDocument）。
-                // 其余文件无活跃文档，直接写盘即可。
+                // 其余文件没有本面板的活跃文档（可能被其他面板打开，但本面板改的是文件本身），
+                // 走同一个写盘通道：登记预期写入，各面板 watcher 才不会被自己的写入触发回灌。
                 if (path.resolve(hmlFile.path) === path.resolve(currentFilePath)) {
                     await this._writeViaTextDocument(hmlFile.path, newContent);
                 } else {
-                    fs.writeFileSync(hmlFile.path, newContent, 'utf-8');
+                    this.writeOtherPanelHml(hmlFile.path, newContent);
                 }
+                writtenFiles.push(hmlFile.path);
                 logger.info(`[FileManager] 已更新 hg_view 尺寸: ${hmlFile.path}`);
             } catch (err) {
                 logger.warn(`[FileManager] 更新 hg_view 尺寸失败 ${hmlFile.path}: ${err}`);
             }
+        }
+
+        // 写盘对各面板的 watcher 回灌已被登记表抑制，改由这里显式刷新：
+        // 打开这些文件的其它面板重新加载，否则它们的内存态与磁盘不一致
+        if (writtenFiles.length > 0) {
+            this._onDidWriteOtherPanels.fire(writtenFiles);
         }
     }
 
@@ -434,7 +454,10 @@ export class FileManager {
     public disposeAndFlush(): Promise<void> {
         this._disposed = true;
         const done = this.flushPendingSave();
-        return done.finally(() => this._onDidSaveDesign.dispose());
+        return done.finally(() => {
+            this._onDidSaveDesign.dispose();
+            this._onDidWriteOtherPanels.dispose();
+        });
     }
 
     private _clearPendingSaveTimer(): void {
@@ -561,8 +584,29 @@ export class FileManager {
         this.discardPendingSave();
         this.setWebviewDirty(false);
         this._hmlController.parseContent(content, this._filePath);
-        this._lastSerializedSnapshot = content;
+        this._ownContentHash = undefined;
         await this.reloadCurrentDocument();
+    }
+
+    /**
+     * 宿主批量改写后从磁盘重新同步本面板（其他面板写盘时走这里）。
+     * 与 updateFromDocument 的区别：不做登记表 / watcher 判定，直接以磁盘为准，
+     * 调用方负责确认本面板没有未保存改动。
+     */
+    public async reloadFromDisk(): Promise<void> {
+        if (!this._filePath) {
+            return;
+        }
+        try {
+            const content = fs.readFileSync(this._filePath, 'utf-8');
+            if (!content || !content.includes('<hml')) {
+                return;
+            }
+            logger.info(`[FileManager] 按磁盘内容重新同步面板: ${this._filePath}`);
+            await this.reloadFromContent(content);
+        } catch (error) {
+            logger.warn(`[FileManager] 从磁盘重新同步失败 ${this._filePath}: ${error}`);
+        }
     }
 
     /**
@@ -570,8 +614,24 @@ export class FileManager {
      * 使用 WorkspaceEdit + document.save() 替代直接 fs.writeFileSync()
      * 防止 TextDocument 版本与磁盘文件不同步导致的 "content is newer" 冲突
      */
+    /**
+     * 写入一份不是本面板编辑产生的 HML（如其他面板改了分辨率后同步视图尺寸）。
+     * 同一个通道：登记预期写入再写盘，各面板 watcher 才不会把它当成外部改动回灌。
+     * 调用方负责通知相关面板刷新。
+     */
+    public writeOtherPanelHml(filePath: string, content: string): void {
+        PendingWriteRegistry.getInstance().register(filePath, PendingWriteRegistry.hashContent(content));
+        try {
+            fs.writeFileSync(filePath, content, 'utf-8');
+        } catch (error) {
+            PendingWriteRegistry.getInstance().unregister(filePath);
+            throw error;
+        }
+    }
+
     private async _writeViaTextDocument(filePath: string, content: string): Promise<void> {
         const transactionId = this._saveManager.beginTransaction(filePath, content);
+        PendingWriteRegistry.getInstance().register(filePath, PendingWriteRegistry.hashContent(content));
         try {
             const uri = vscode.Uri.file(filePath);
             const doc = await vscode.workspace.openTextDocument(uri);
@@ -582,6 +642,9 @@ export class FileManager {
             ), content);
             await vscode.workspace.applyEdit(wsEdit);
             await doc.save();
+        } catch (error) {
+            PendingWriteRegistry.getInstance().unregister(filePath);
+            throw error;
         } finally {
             this._saveManager.endTransaction();
         }
@@ -788,6 +851,8 @@ export class FileManager {
                     (this._performanceContext.metrics.hmlParses || 0) + 1;
             }
             logger.info(`[FileManager] 解析完成，获得 ${hmlDocument.view?.components?.length || 0} 个组件`);
+            // 换文件后旧文件的写入内容不再代表本面板
+            this._ownContentHash = undefined;
 
             // 为前端准备组件数据（预处理，等待 ready 消息后发送）
             const frontendComponents = this._prepareFrontendComponents(hmlDocument);
@@ -874,27 +939,13 @@ export class FileManager {
                     return;
                 }
                 
-                // 使用智能内容对比机制
-                if (this._lastSerializedSnapshot) {
-                    const comparison = HmlContentComparator.smartCompare(
-                        diskContent,
-                        this._lastSerializedSnapshot
-                    );
-                    
-                    if (comparison.isEqual) {
-                        logger.debug('[FileManager] 智能对比：保存后的内容与内存一致，跳过重载');
-                        logger.debug(`[FileManager] 对比详情: ${comparison.reason}`);
-                        // 清空快照，避免后续误匹配
-                        this._lastSerializedSnapshot = null;
-                        return;
-                    } else {
-                        logger.debug('[FileManager] 智能对比：文件内容发生变化');
-                        logger.debug(`[FileManager] 差异原因: ${comparison.reason}`);
-                    }
-                } else {
-                    logger.debug('[FileManager] 无快照，直接加载文件内容');
+                // 磁盘内容与面板上次写入 / 加载的一致（同一写操作的多路 watcher 回调、
+                // 其他面板改了与本文件无关的内容）：重载只会把同样的内容再解析一遍
+                if (this._ownContentHash && PendingWriteRegistry.hashContent(diskContent) === this._ownContentHash) {
+                    logger.debug('[FileManager] 磁盘内容与面板已知内容一致，跳过重载');
+                    return;
                 }
-                
+
                 // 设计器有未保存改动时，重载会把它们静默丢掉（Git 切分支、AI 改文件、
                 // 其他面板同步视图尺寸都会触发），先询问用户
                 if (this._webviewDirty && !(await this._confirmReloadOverUnsavedChanges())) {
@@ -918,9 +969,6 @@ export class FileManager {
     public async saveHml(content: string): Promise<boolean> {
         try {
             logger.info('[FileManager] 开始保存HML文件');
-
-            // 保存当前序列化快照（用于后续对比）
-            this._lastSerializedSnapshot = content;
 
             if (!this._filePath) {
                 logger.info('[FileManager] 没有文件路径，提示用户选择保存位置');
@@ -948,7 +996,17 @@ export class FileManager {
             const transactionId = this._saveManager.beginTransaction(filePath, content);
             logger.debug(`[FileManager] 保存事务ID: ${transactionId}`);
 
-            await this._saveManager.executeSave(filePath, content, transactionId);
+            // 所有 HML 写盘都要登记：各面板 watcher 据此认出「这是自己人写的」，
+            // 读取磁盘现值比对 hash 后再决定是否跳过回灌（外部改写不会被吞）
+            PendingWriteRegistry.getInstance().register(filePath, PendingWriteRegistry.hashContent(content));
+            try {
+                await this._saveManager.executeSave(filePath, content, transactionId);
+            } catch (error) {
+                PendingWriteRegistry.getInstance().unregister(filePath);
+                throw error;
+            }
+            // 写盘成功才记下内容：写盘触发的 watcher 回调据此跳过重载
+            this._ownContentHash = PendingWriteRegistry.hashContent(content);
 
             logger.info(`[FileManager] 保存成功: ${path.basename(filePath)}`);
             return true;

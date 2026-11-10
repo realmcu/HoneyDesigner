@@ -883,6 +883,8 @@ export class MessageHandler {
 
         const hmlFiles = scanDir(uiDir);
         let modifiedCount = 0;
+        /** 本次清掉 entry 的文件；写完后要主动刷新打开这些文件的其他面板 */
+        const writtenFiles: string[] = [];
 
         for (const hmlFile of hmlFiles) {
             // 跳过当前正在编辑的文件（已由前端处理）
@@ -895,7 +897,10 @@ export class MessageHandler {
                 // 将所有 entry="true" 替换为 entry="false"
                 const updated = content.replace(/\bentry\s*=\s*"true"/g, 'entry="false"');
                 if (updated !== content) {
-                    fs.writeFileSync(hmlFile, updated, 'utf-8');
+                    // 走统一写盘通道：登记预期写入，其他面板的 watcher 才不会被
+                    // 这次自写触发回灌（回灌会把它们未保存的编辑冲掉）
+                    this._fileManager.writeOtherPanelHml(hmlFile, updated);
+                    writtenFiles.push(hmlFile);
                     modifiedCount++;
                     logger.info(`[MessageHandler] Cleared entry in: ${path.basename(hmlFile)}`);
                 }
@@ -906,6 +911,8 @@ export class MessageHandler {
 
         if (modifiedCount > 0) {
             logger.info(`[MessageHandler] Cleared entry in ${modifiedCount} other HML file(s)`);
+            // 其他面板的刷新由 DesignerPanel 订阅 onDidWriteOtherPanels 完成
+
         }
     }
 
