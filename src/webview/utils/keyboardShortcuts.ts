@@ -58,17 +58,16 @@ export const useKeyboardShortcuts = () => {
           }
           break;
 
-        // Undo (Ctrl+Z)
+        // Undo (Ctrl+Z) / Redo (Ctrl+Shift+Z)：撤销历史由 webview store 按文件维护
         case 'z':
         case 'Z':
-          if (isModKey && !isShift) {
+          if (isModKey) {
             e.preventDefault();
-            window.vscodeAPI?.postMessage({ command: 'undo' });
-          }
-          // Redo (Ctrl+Shift+Z)
-          else if (isModKey && isShift) {
-            e.preventDefault();
-            window.vscodeAPI?.postMessage({ command: 'redo' });
+            if (isShift) {
+              useDesignerStore.getState().redo();
+            } else {
+              useDesignerStore.getState().undo();
+            }
           }
           break;
 
@@ -77,7 +76,7 @@ export const useKeyboardShortcuts = () => {
         case 'Y':
           if (isModKey) {
             e.preventDefault();
-            window.vscodeAPI?.postMessage({ command: 'redo' });
+            useDesignerStore.getState().redo();
           }
           break;
 

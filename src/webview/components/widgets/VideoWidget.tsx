@@ -3,6 +3,7 @@ import { t } from '../../i18n';
 import { WidgetProps } from './types';
 import { useWebviewUri } from '../../hooks/useWebviewUri';
 import { useDesignerStore } from '../../store';
+import { withoutHistory } from '../../store/history';
 
 export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers }) => {
   const videoPath = component.data?.src as string;
@@ -270,7 +271,8 @@ export const VideoWidget: React.FC<WidgetProps> = ({ component, style, handlers 
     const { w, h } = displaySize;
     const current = useDesignerStore.getState().components.find(c => c.id === component.id);
     if (!current || (current.position.width === w && current.position.height === h)) return;
-    updateComponent(component.id, { position: { ...current.position, width: w, height: h } }, { save: false });
+    // 跟随素材输出尺寸的派生同步，不单独成为一步撤销
+    withoutHistory(() => updateComponent(component.id, { position: { ...current.position, width: w, height: h } }, { save: false }));
   }, [displaySize?.w, displaySize?.h, component.id, updateComponent]);
 
   // 没有设置路径或加载失败时显示占位符

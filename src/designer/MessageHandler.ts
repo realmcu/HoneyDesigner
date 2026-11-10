@@ -61,7 +61,29 @@ export class MessageHandler {
         this._componentManager = componentManager;
         this._fileManager = fileManager;
         this._hmlController = hmlController;
+        this._fileManager.onDidSaveDesign(result => this._onDesignSaved(result));
     }
+
+    /** 这些消息会读盘或依赖磁盘上的 HML，处理前先写出排队中的自动保存 */
+    private static readonly FLUSH_BEFORE = new Set([
+        'preview',
+        'copyForAI',
+        'executeCommand',
+        'generateCode',
+        'gotoSlot',
+        'switchFile',
+        'setEntryView',
+        'switchProjectConfig',
+        'createProjectConfig',
+        'deleteProjectConfig',
+        'getProjectI18nIndex',
+        'deleteProjectI18nKey',
+        'renameProjectI18nKey',
+        'refreshNavGraph',
+        'getViewControls',
+        'applyNavEdit',
+        'navEditUndo',
+    ]);
 
     /**
      * 获取项目根目录，找不到时返回 undefined
@@ -85,6 +107,9 @@ export class MessageHandler {
     }
 
     public async handleMessage(message: any): Promise<void> {
+        if (MessageHandler.FLUSH_BEFORE.has(message?.command)) {
+            await this._fileManager.flushPendingSave();
+        }
         switch (message.command) {
             case 'ready':
                 logger.info('[MessageHandler] 收到前端ready消息');
@@ -130,24 +155,6 @@ export class MessageHandler {
                         ...message,
                         filePath: this._fileManager.currentFilePath,
                     });
-                }
-                break;
-
-            case 'undo':
-                logger.debug('[MessageHandler] 收到撤销请求');
-                const undoSuccess = await this._fileManager.undo();
-                this._fileManager.sendUndoRedoState();
-                if (!undoSuccess) {
-                    vscode.window.showInformationMessage(vscode.l10n.t('No undo action available'));
-                }
-                break;
-
-            case 'redo':
-                logger.debug('[MessageHandler] 收到重做请求');
-                const redoSuccess = await this._fileManager.redo();
-                this._fileManager.sendUndoRedoState();
-                if (!redoSuccess) {
-                    vscode.window.showInformationMessage(vscode.l10n.t('No redo action available'));
                 }
                 break;
 
@@ -696,58 +703,30 @@ export class MessageHandler {
         }
     }
 
+    /**
+     * 设计器保存：带组件的是编辑后的自动保存，合并后由 FileManager 写盘；
+     * 不带组件的是 Ctrl+S / 工具栏保存，立即写盘。
+     * 写盘结果经 onDidSaveDesign 回到 _onDesignSaved。
+     */
     private async handleSave(message: any): Promise<void> {
-        logger.debug(`[MessageHandler] 收到保存请求，组件数量: ${message?.content?.components?.length || 0}`);
-
-        // 记录保存开始时的 dirty 序号：保存期间若 webview 又报新改动（seq 变化），
-        // 保存成功后不清除 dirty 缓存（新改动不在本次落盘内容中）
-        const dirtySeqAtStart = this._fileManager.webviewDirtySeq;
-
-        try {
-            // 保存前记录当前状态到撤销栈（直接读文件，避免 VSCode buffer 不同步）
-            const currentFilePath = this._fileManager.currentFilePath;
-            if (currentFilePath) {
-                try {
-                    const currentContent = fs.readFileSync(currentFilePath, 'utf8');
-                    this._fileManager.pushUndoState(currentContent);
-                } catch (e) {
-                    logger.warn(`[MessageHandler] 记录撤销状态失败: ${e}`);
-                }
-            }
-
-            if (message?.content?.components && Array.isArray(message.content.components)) {
-                logger.debug('[MessageHandler] 更新组件到HmlController...');
-                this._hmlController.updateFromFrontendComponents(message.content.components);
-                logger.debug(`[MessageHandler] 组件更新完成，当前文档组件数: ${this._hmlController.currentDocument?.view?.components?.length || 0}`);
-            }
-        } catch (syncErr) {
-            logger.warn(`[MessageHandler] 前端组件同步失败: ${syncErr}`);
+        const components = message?.content?.components;
+        if (Array.isArray(components)) {
+            logger.debug(`[MessageHandler] 收到自动保存，组件数量: ${components.length}`);
+            this._fileManager.queueDesignSave(components);
+            return;
         }
-        const serializedContent = this._hmlController.serializeDocument();
-        logger.debug(`[MessageHandler] 序列化完成，内容长度: ${serializedContent.length}`);
-        const saved = await this._fileManager.saveHml(message.content?.raw ?? serializedContent);
+        logger.debug('[MessageHandler] 收到显式保存请求');
+        await this._fileManager.saveNow();
+    }
 
-        if (saved) {
-            // 保存成功：清宿主侧 dirty 缓存（仅当保存期间无新改动、seq 未变时——
-            // webview 在发 save 时已乐观复位本地 isDirty，保存窗口内的新编辑会
-            // 重新上报 dirty(true) 使 seq 递增，这里就不会误清）并回执 webview
-            this._fileManager.clearWebviewDirtyIfUnchanged(dirtySeqAtStart);
-            this._panel.webview.postMessage({ command: 'hmlSaved' });
-        } else {
-            // 保存失败：磁盘没有落下 webview 要保存的内容。webview 发 save 时
-            // 已乐观复位本地 isDirty，必须回执让它置回，否则后续无新编辑时
-            // 本地永远漏报 dirty（宿主缓存未清，仍为 dirty，方向安全）
-            this._panel.webview.postMessage({ command: 'hmlSaveFailed' });
+    /** 写盘后：视图列表变化才重扫，确实写了盘才调度代码生成 */
+    private _onDesignSaved(result: { written: boolean; viewsChanged: boolean }): void {
+        if (result.viewsChanged) {
+            void this._fileManager.updateAllViewsToFrontend();
         }
-
-        // 保存后通知前端更新撤销/重做状态
-        this._fileManager.sendUndoRedoState();
-
-        // 保存后重新扫描所有视图并更新前端
-        await this._fileManager.updateAllViewsToFrontend();
-
-        // 触发自动代码生成（带防抖）
-        this._scheduleAutoCodeGeneration();
+        if (result.written) {
+            this._scheduleAutoCodeGeneration();
+        }
     }
 
     /** 处理「复制给 AI」：保存 HML → 写高亮截图 → 组装英文文本包 → 写系统剪贴板。 */
@@ -2119,6 +2098,10 @@ export class MessageHandler {
     }
 
     dispose(): void {
+        if (this._autoCodeGenTimer) {
+            clearTimeout(this._autoCodeGenTimer);
+            this._autoCodeGenTimer = null;
+        }
         if (this._userFuncWatcher) {
             this._userFuncWatcher.dispose();
             this._userFuncWatcher = undefined;

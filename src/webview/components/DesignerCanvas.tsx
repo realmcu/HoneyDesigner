@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useDesignerStore } from '../store';
+import { beginHistoryGesture, endHistoryGesture } from '../store/history';
 import { Component } from '../types';
 import { useCanvasZoom } from '../hooks/useCanvasZoom';
 import { useCanvasDrag } from '../hooks/useCanvasDrag';
@@ -523,7 +524,8 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
           setBoxSelectTimer(null);
         }
         setIsBoxSelecting(false);
-        
+
+        beginHistoryGesture();
         setDraggedComponent(pendingDragComponent);
         setPendingDragComponent(null);
       }
@@ -673,8 +675,9 @@ const DesignerCanvas: React.FC<DesignerCanvasProps> = ({ onComponentSelect, onDr
     setMultiDragOffsets(new Map());
     setIsBoxSelectMove(false); // 重置框选移动标志
     
-    // 如果有拖拽操作，保存最终状态（触发一次 undo 快照 + 文件保存）
+    // 如果有拖拽操作，保存最终状态（撤销快照已在拖拽开始时记录）
     if (hadDragOperation) {
+      endHistoryGesture();
       const saveToFile = useDesignerStore.getState().saveToFile;
       saveToFile();
     }

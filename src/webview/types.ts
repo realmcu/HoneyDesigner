@@ -175,8 +175,8 @@ export interface DesignerState {
   canvasSize: { width: number; height: number };
   canvasBackgroundColor: string;
   editingMode: 'select' | 'move' | 'resize';
-  undoStack: any[];
-  redoStack: any[];
+  undoStack: Component[][]; // components 快照，栈顶为最近一步之前的状态
+  redoStack: Component[][];
   projectConfig?: any; // Project configuration (resolution, etc.)
   projectI18nCatalog: I18nCatalog; // Project text localization catalog
   projectI18nIndex?: ProjectI18nIndex; // Project-wide localization reference index

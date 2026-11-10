@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useDesignerStore, applyHostComponents } from './store';
+import { useDesignerStore, applyHostComponents, clearDesignerHistory } from './store';
+import { withoutHistory } from './store/history';
 import DesignerCanvas from './components/DesignerCanvas';
 import ComponentLibrary, { componentDefinitions } from './components/ComponentLibrary';
 import PropertiesPanel from './components/PropertiesPanel';
@@ -230,11 +231,12 @@ const App: React.FC = () => {
               const newHeight = parseInt(parts[1], 10);
               if (newWidth > 0 && newHeight > 0) {
                 const views = store.components.filter(c => c.type === 'hg_view');
-                views.forEach(v => {
+                // 跟随工程分辨率的派生同步，不进入撤销历史
+                withoutHistory(() => views.forEach(v => {
                   store.updateComponent(v.id, {
                     position: { ...v.position, width: newWidth, height: newHeight }
                   }, { save: false });
-                });
+                }));
               }
             }
           }
@@ -400,8 +402,10 @@ const App: React.FC = () => {
               applyHostComponents(() => useDesignerStore.setState(batchUpdate));
               const storeUpdatedAt = performance.now();
 
-              // 应用宿主内容后 store 与磁盘同步，复位脏状态并通知宿主
+              // 应用宿主内容后 store 与磁盘同步，复位脏状态并通知宿主；
+              // 旧快照不再对应磁盘内容（切换文件、外部修改、导航编辑），清空撤销历史
               if (message.components) {
+                clearDesignerHistory();
                 useDesignerStore.getState().resetDirty();
               }
 
@@ -506,6 +510,7 @@ const App: React.FC = () => {
               if (message.components) {
                 // 宿主推送的内容，components 变化不记为未保存改动
                 applyHostComponents(() => store.setComponents(message.components));
+                clearDesignerHistory();
                 useDesignerStore.getState().resetDirty();
                 // 仅首次加载时自适应居中
                 if (!hadComponentsBefore) {
@@ -812,15 +817,6 @@ const App: React.FC = () => {
           }
           break;
 
-
-        case 'undoRedoState':
-          if (typeof message.canUndo === 'boolean') {
-            useDesignerStore.setState({
-              undoStack: message.canUndo ? ['placeholder'] : [],
-              redoStack: message.canRedo ? ['placeholder'] : [],
-            });
-          }
-          break;
 
         case 'hmlSaved':
           // 宿主保存成功回执：本地脏标记已在发出 save 消息时乐观复位

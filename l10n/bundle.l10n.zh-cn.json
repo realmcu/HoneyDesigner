@@ -142,8 +142,6 @@
   "Successfully imported {0} images": "成功导入 {0} 张图片",
   "Failed to select folder": "选择文件夹失败",
 
-  "No undo action available": "没有可撤销的操作",
-  "No redo action available": "没有可重做的操作",
   "Select File": "选择文件",
   "All Files": "所有文件",
   "File browse failed: {0}": "文件浏览失败: {0}",

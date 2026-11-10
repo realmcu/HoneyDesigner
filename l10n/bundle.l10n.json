@@ -142,8 +142,6 @@
   "Successfully imported {0} images": "Successfully imported {0} images",
   "Failed to select folder": "Failed to select folder",
 
-  "No undo action available": "No undo action available",
-  "No redo action available": "No redo action available",
   "Select File": "Select File",
   "All Files": "All Files",
   "File browse failed: {0}": "File browse failed: {0}",

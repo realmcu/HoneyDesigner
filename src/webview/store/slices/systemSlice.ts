@@ -11,6 +11,32 @@ import { getVscodeAPI, setVscodeAPI } from '../shared';
 import { parseResolutionStr } from '../utils';
 import type { DesignerStore } from '../types';
 import { t } from '../../i18n';
+import { Component } from '../../types';
+import { pushHistory, resetHistoryCoalescing, withoutHistory } from '../history';
+
+type StoreSet = Parameters<StateCreator<DesignerStore, [], [], Partial<DesignerStore>>>[0];
+
+/** 回放一个历史快照：不再入栈，但照常标脏并保存；清掉已不存在的选中项 */
+function restoreHistorySnapshot(
+  set: StoreSet,
+  get: () => DesignerStore,
+  snapshot: Component[],
+  stacks: Pick<DesignerStore, 'undoStack' | 'redoStack'>
+): void {
+  const ids = new Set(snapshot.map(c => c.id));
+  const { selectedComponent, selectedComponents } = get();
+  const keptSelection = selectedComponents.filter(id => ids.has(id));
+  withoutHistory(() => set({
+    components: snapshot,
+    ...stacks,
+    selectedComponents: keptSelection,
+    selectedComponent: selectedComponent && ids.has(selectedComponent)
+      ? selectedComponent
+      : (keptSelection[0] ?? null),
+  }));
+  resetHistoryCoalescing();
+  get().saveToFile();
+}
 
 export const createSystemSlice: StateCreator<DesignerStore, [], [], Partial<DesignerStore>> = (set, get) => ({
   setSimulationRunning: (running) => set({ isSimulationRunning: running }),
@@ -18,13 +44,23 @@ export const createSystemSlice: StateCreator<DesignerStore, [], [], Partial<Desi
   setSimulationFlow: (flow) => set((state) => ({ simulationFlow: { ...state.simulationFlow, ...flow } })),
   setSimulationDebug: (debug) => set({ simulationDebug: debug }),
 
-  // Undo/Redo (由后端管理)
+  // Undo/Redo：栈在 webview 内存中（components 快照），回放后照常走保存
   undo: () => {
-    window.vscodeAPI?.postMessage({ command: 'undo' });
+    const { undoStack, redoStack, components } = get();
+    if (undoStack.length === 0) return;
+    restoreHistorySnapshot(set, get, undoStack[undoStack.length - 1], {
+      undoStack: undoStack.slice(0, -1),
+      redoStack: [...redoStack, components],
+    });
   },
 
   redo: () => {
-    window.vscodeAPI?.postMessage({ command: 'redo' });
+    const { undoStack, redoStack, components } = get();
+    if (redoStack.length === 0) return;
+    restoreHistorySnapshot(set, get, redoStack[redoStack.length - 1], {
+      undoStack: pushHistory(undoStack, components),
+      redoStack: redoStack.slice(0, -1),
+    });
   },
 
   canUndo: () => get().undoStack.length > 0,

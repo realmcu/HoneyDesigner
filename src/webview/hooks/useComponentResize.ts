@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
 import { Component } from '../types';
 import { ResizeDirection } from '../components/ResizeHandles';
+import { beginHistoryGesture, endHistoryGesture } from '../store/history';
+import { useDesignerStore } from '../store';
 
 interface ResizeState {
   isResizing: boolean;
@@ -22,7 +24,7 @@ export const RADIUS_SIZED_TYPES: Component['type'][] = ['hg_circle', 'hg_arc'];
 interface UseComponentResizeProps {
   zoom: number;
   canvasOffset: { x: number; y: number };
-  updateComponent: (id: string, updates: Partial<Component>) => void;
+  updateComponent: (id: string, updates: Partial<Component>, options?: { save?: boolean }) => void;
 }
 
 /**
@@ -51,6 +53,8 @@ export const useComponentResize = ({
   // 使用 ref 存储最新的 resize 状态，避免闭包问题
   const resizeStateRef = useRef(resizeState);
   resizeStateRef.current = resizeState;
+  // 拖动过程只改内存，松手时保存一次
+  const resizedRef = useRef(false);
 
   /**
    * 开始调整大小
@@ -64,6 +68,8 @@ export const useComponentResize = ({
     e.stopPropagation();
     e.preventDefault();
 
+    beginHistoryGesture();
+    resizedRef.current = false;
     setResizeState({
       isResizing: true,
       componentId,
@@ -148,7 +154,8 @@ export const useComponentResize = ({
       updateComponent(state.componentId, {
         position: { x, y, width: size, height: size },
         style: { ...state.startStyle, radius },
-      });
+      }, { save: false });
+      resizedRef.current = true;
       return;
     }
 
@@ -185,13 +192,19 @@ export const useComponentResize = ({
         width: newWidth,
         height: newHeight,
       },
-    });
+    }, { save: false });
+    resizedRef.current = true;
   }, [zoom, updateComponent]);
 
   /**
    * 结束调整大小
    */
   const handleResizeEnd = useCallback(() => {
+    endHistoryGesture();
+    if (resizedRef.current) {
+      resizedRef.current = false;
+      useDesignerStore.getState().saveToFile();
+    }
     setResizeState({
       isResizing: false,
       componentId: null,

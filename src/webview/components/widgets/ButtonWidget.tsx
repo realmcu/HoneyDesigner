@@ -3,6 +3,7 @@ import { t } from '../../i18n';
 import { WidgetProps } from './types';
 import { useWebviewUri } from '../../hooks/useWebviewUri';
 import { useDesignerStore } from '../../store';
+import { withoutHistory } from '../../store/history';
 
 export const ButtonWidget: React.FC<WidgetProps> = ({ component, style, handlers }) => {
   const toggleMode = component.data?.toggleMode === true;
@@ -56,9 +57,10 @@ export const ButtonWidget: React.FC<WidgetProps> = ({ component, style, handlers
     const naturalH = img.naturalHeight;
     if (naturalW > 0 && naturalH > 0) {
       if (component.position.width !== naturalW || component.position.height !== naturalH) {
-        updateComponent(component.id, {
+        // 跟随图片原始尺寸的派生同步，不单独成为一步撤销
+        withoutHistory(() => updateComponent(component.id, {
           position: { ...component.position, width: naturalW, height: naturalH }
-        });
+        }));
       }
     }
   };

@@ -20,6 +20,27 @@ import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
 import { measurePerformance } from './HmlLoadPerformance';
 import { performance } from 'perf_hooks';
 
+/** 自动保存的静默期：连续输入、方向键微调只在停顿后写一次盘 */
+const SAVE_DEBOUNCE_MS = 300;
+
+interface PendingDesignSave {
+    /** webview 最新组件；undefined 表示显式保存当前文档 */
+    components: Component[] | undefined;
+    /** 收到保存请求时的 dirty 序号，写盘成功后据此决定是否清 dirty 缓存 */
+    dirtySeq: number;
+    /** 排队时的文件，切换文件后迟到的保存不能写进新文件 */
+    filePath: string | undefined;
+    /** Ctrl+S / 工具栏保存：总是写盘并在状态栏提示 */
+    explicit: boolean;
+}
+
+function viewSignature(components: Component[] | undefined): string {
+    return (components || [])
+        .filter(c => c.type === 'hg_view')
+        .map(c => `${c.id}\u0000${c.name ?? ''}`)
+        .join('\u0001');
+}
+
 // 视图跳转边（导航图数据模型）迁至 src/shared/navContract.ts 并改判别联合
 // （评审 I6：control 可编辑 / timer 只读）。此处 re-export 保持既有 import 路径不变。
 export type { ViewNavEdge } from '../shared/navContract';
@@ -60,14 +81,6 @@ export class FileManager {
         components: Component[];
     } | undefined;
     
-    // 撤销/重做历史栈
-    private _undoStack: string[] = [];
-    private _redoStack: string[] = [];
-    private readonly _maxHistorySize = 50;
-    private _isInUndoRedo = false;
-    private _lastUndoPushTime = 0;
-    private readonly _undoDebounceMs = 500; // 连续操作合并窗口
-    
     // 事件发射器
     private readonly _onDidUpdateTitle = new vscode.EventEmitter<string>();
     private readonly _onDidChangeFilePath = new vscode.EventEmitter<string | undefined>();
@@ -87,6 +100,19 @@ export class FileManager {
     private _webviewDirtySeq = 0;
     // 外部变更与未保存改动冲突时的进行中询问，避免多路监听重复弹框
     private _pendingReloadConfirm: Promise<boolean> | undefined;
+
+    // 设计器自动保存合并：webview 每次编辑都会发 save，这里只保留最新一份组件，
+    // 静默 SAVE_DEBOUNCE_MS 后写盘一次；读盘或依赖磁盘内容的操作前先 flushPendingSave
+    private _pendingSave: PendingDesignSave | undefined;
+    private _pendingSaveTimer: ReturnType<typeof setTimeout> | undefined;
+    // 串行化写盘：flush 返回时，之前排队的写入都已完成
+    private _saveChain: Promise<void> = Promise.resolve();
+    // 上次推给 webview 的 hg_view id/name 签名，保存后只有它变化才重扫视图列表
+    private _lastViewSignature: string | undefined;
+    private _disposed = false;
+    private readonly _onDidSaveDesign = new vscode.EventEmitter<{ written: boolean; viewsChanged: boolean }>();
+    /** 设计器保存完成：written 表示确实写了盘，viewsChanged 表示本文件的 hg_view 列表有变化 */
+    public readonly onDidSaveDesign = this._onDidSaveDesign.event;
 
     // project.json 文件监听器
     private _projectConfigWatcher: vscode.FileSystemWatcher | undefined;
@@ -354,6 +380,129 @@ export class FileManager {
         }
     }
 
+    /** 设计器自动保存：合并到 SAVE_DEBOUNCE_MS 静默期后写盘一次 */
+    public queueDesignSave(components: Component[]): void {
+        this._pendingSave = {
+            components,
+            dirtySeq: this._webviewDirtySeq,
+            filePath: this._filePath,
+            explicit: this._pendingSave?.explicit ?? false,
+        };
+        this._clearPendingSaveTimer();
+        this._pendingSaveTimer = setTimeout(() => {
+            this._pendingSaveTimer = undefined;
+            void this.flushPendingSave();
+        }, SAVE_DEBOUNCE_MS);
+    }
+
+    /** Ctrl+S / 工具栏保存：立即写盘（有排队内容则写排队内容） */
+    public async saveNow(): Promise<void> {
+        if (this._pendingSave) {
+            this._pendingSave.explicit = true;
+        } else {
+            this._pendingSave = {
+                components: undefined,
+                dirtySeq: this._webviewDirtySeq,
+                filePath: this._filePath,
+                explicit: true,
+            };
+        }
+        await this.flushPendingSave();
+    }
+
+    /** 立即写出排队的保存，并等待之前的写盘全部完成 */
+    public flushPendingSave(): Promise<void> {
+        this._clearPendingSaveTimer();
+        const pending = this._pendingSave;
+        this._pendingSave = undefined;
+        if (pending) {
+            this._saveChain = this._saveChain.then(() => this._writeDesign(pending));
+        }
+        return this._saveChain;
+    }
+
+    /** 丢弃排队的保存（磁盘内容即将覆盖设计器状态时调用） */
+    public discardPendingSave(): void {
+        this._clearPendingSaveTimer();
+        if (this._pendingSave) {
+            logger.info('[FileManager] 丢弃未写盘的设计器保存');
+        }
+        this._pendingSave = undefined;
+    }
+
+    /** 面板关闭：写出排队的保存，之后不再向 webview 发消息 */
+    public disposeAndFlush(): Promise<void> {
+        this._disposed = true;
+        const done = this.flushPendingSave();
+        return done.finally(() => this._onDidSaveDesign.dispose());
+    }
+
+    private _clearPendingSaveTimer(): void {
+        if (this._pendingSaveTimer) {
+            clearTimeout(this._pendingSaveTimer);
+            this._pendingSaveTimer = undefined;
+        }
+    }
+
+    private _postToWebview(message: unknown): void {
+        if (this._disposed) {
+            return;
+        }
+        void Promise.resolve(this._panel.webview.postMessage(message)).catch(() => undefined);
+    }
+
+    private async _writeDesign(pending: PendingDesignSave): Promise<void> {
+        if (pending.filePath !== this._filePath) {
+            logger.warn(`[FileManager] 文件已切换，丢弃迟到的保存: ${pending.filePath}`);
+            return;
+        }
+        try {
+            if (pending.components) {
+                try {
+                    this._hmlController.updateFromFrontendComponents(pending.components);
+                } catch (syncErr) {
+                    logger.warn(`[FileManager] 前端组件同步失败: ${syncErr}`);
+                }
+            }
+            const content = this._hmlController.serializeDocument();
+
+            // 自动保存内容与磁盘一致（例如撤销回到已保存状态）时不写盘，
+            // 也就不会触发 watcher、视图重扫和代码生成
+            let unchanged = false;
+            if (!pending.explicit && this._filePath) {
+                try {
+                    unchanged = fs.readFileSync(this._filePath, 'utf-8') === content;
+                } catch {
+                    // 文件不存在时照常写入
+                }
+            }
+
+            const saved = unchanged || await this.saveHml(content);
+            if (saved) {
+                // 保存期间 webview 又报新改动（seq 变化）时不清 dirty 缓存：新改动不在本次落盘内容中
+                this.clearWebviewDirtyIfUnchanged(pending.dirtySeq);
+                this._postToWebview({ command: 'hmlSaved' });
+                if (pending.explicit && this._filePath && !this._disposed) {
+                    vscode.window.setStatusBarMessage(
+                        vscode.l10n.t('Design saved to {0}', path.basename(this._filePath)), 3000);
+                }
+            } else {
+                // webview 发 save 时已乐观复位本地 isDirty，必须回执让它置回
+                this._postToWebview({ command: 'hmlSaveFailed' });
+            }
+
+            const signature = viewSignature(this._hmlController.currentDocument?.view?.components);
+            const viewsChanged = signature !== this._lastViewSignature;
+            this._lastViewSignature = signature;
+            if (!this._disposed) {
+                this._onDidSaveDesign.fire({ written: saved && !unchanged, viewsChanged });
+            }
+        } catch (error) {
+            logger.error(`[FileManager] 写出设计器保存失败: ${error}`);
+            this._postToWebview({ command: 'hmlSaveFailed' });
+        }
+    }
+
     /**
      * 刷新其他 HML 文件的组件 ID 列表并发送给前端
      * 当面板重新获得焦点时调用，确保跨文件命名去重数据是最新的
@@ -386,6 +535,9 @@ export class FileManager {
             const allViews = await scanAllViews(this._filePath);
             const allHmlFiles = scanAllHmlFiles(this._filePath);
             logger.debug(`[FileManager] 更新视图列表: ${allViews.length} 个视图, ${allHmlFiles.length} 个文件`);
+            if (this._disposed) {
+                return;
+            }
             this._panel.webview.postMessage({
                 command: 'updateAllViews',
                 allViews,
@@ -397,59 +549,6 @@ export class FileManager {
     }
     
     /**
-     * 记录当前状态到撤销栈（在保存前调用）
-     * 使用滑动窗口防抖：连续快速操作期间只记录首次状态，
-     * 只有在操作间隔超过 500ms 后才创建新的撤销点
-     */
-    public pushUndoState(hmlContent: string): void {
-        // 避免重复记录相同内容
-        if (this._undoStack.length > 0 && this._undoStack[this._undoStack.length - 1] === hmlContent) {
-            this._lastUndoPushTime = Date.now(); // 即使跳过也更新活动时间
-            return;
-        }
-        
-        const now = Date.now();
-        const timeSinceLastActivity = now - this._lastUndoPushTime;
-        this._lastUndoPushTime = now; // 每次活动都重置计时器（滑动窗口）
-        
-        // 连续操作合并：只有间隔超过 500ms 才创建新的撤销点
-        if (timeSinceLastActivity < this._undoDebounceMs) {
-            logger.debug('[FileManager] 跳过撤销记录（连续操作合并）');
-            return;
-        }
-        
-        this._undoStack.push(hmlContent);
-        
-        // 限制栈大小
-        if (this._undoStack.length > this._maxHistorySize) {
-            this._undoStack.shift();
-        }
-        
-        // 新操作清空重做栈
-        this._redoStack = [];
-        
-        logger.debug(`[FileManager] 记录撤销状态，当前栈深度: ${this._undoStack.length}`);
-    }
-    
-    /**
-     * 无防抖地记录一次撤销快照（导航写事务 T10 专用）。
-     * pushUndoState 的 500ms 滑动窗口会把紧邻普通编辑的快照合并掉，
-     * 而导航写事务要求"Ctrl+Z 恰好整步回退本次边编辑"，必须强制入栈。
-     */
-    public pushUndoSnapshotImmediate(hmlContent: string): void {
-        if (this._undoStack.length > 0 && this._undoStack[this._undoStack.length - 1] === hmlContent) {
-            return;
-        }
-        this._undoStack.push(hmlContent);
-        if (this._undoStack.length > this._maxHistorySize) {
-            this._undoStack.shift();
-        }
-        this._redoStack = [];
-        this._lastUndoPushTime = Date.now();
-        logger.debug(`[FileManager] 记录撤销快照（导航写事务），当前栈深度: ${this._undoStack.length}`);
-    }
-
-    /**
      * 用磁盘上的新内容同步本面板（导航写事务 T10 写盘后调用）。
      * 面板 watcher 回灌已被 PendingWriteRegistry 抑制，由写事务显式同步：
      * 解析新内容 → 推 loadHml；同时更新快照并复位 dirty 缓存
@@ -459,92 +558,13 @@ export class FileManager {
         if (!this._filePath) {
             return;
         }
+        this.discardPendingSave();
         this.setWebviewDirty(false);
         this._hmlController.parseContent(content, this._filePath);
         this._lastSerializedSnapshot = content;
         await this.reloadCurrentDocument();
     }
 
-    /**
-     * 撤销
-     */
-    public async undo(): Promise<boolean> {
-        if (this._undoStack.length === 0 || !this._filePath) {
-            logger.debug('[FileManager] 无法撤销：栈为空或无文件');
-            return false;
-        }
-        
-        this._isInUndoRedo = true;
-        try {
-            // 读取当前文件内容作为重做状态
-            const currentContent = fs.readFileSync(this._filePath, 'utf8');
-            this._redoStack.push(currentContent);
-            
-            // 弹出上一个状态
-            const previousContent = this._undoStack.pop()!;
-            
-            // 解析并更新 hmlController（与正常加载一致；传路径保证 fallback id 带种子）
-            this._hmlController.parseContent(previousContent, this._filePath);
-            
-            // 通过 VSCode TextDocument API 写入，保持版本同步，防止 "content is newer" 冲突
-            await this._writeViaTextDocument(this._filePath, previousContent);
-            
-            // 更新快照
-            this._lastSerializedSnapshot = previousContent;
-            
-            // 重新加载到前端（此时 hmlController 已更新，reloadCurrentDocument 会发送正确数据）
-            await this.reloadCurrentDocument();
-            
-            logger.info(`[FileManager] 撤销成功，剩余撤销栈: ${this._undoStack.length}`);
-            return true;
-        } catch (error) {
-            logger.error(`[FileManager] 撤销失败: ${error}`);
-            return false;
-        } finally {
-            this._isInUndoRedo = false;
-        }
-    }
-    
-    /**
-     * 重做
-     */
-    public async redo(): Promise<boolean> {
-        if (this._redoStack.length === 0 || !this._filePath) {
-            logger.debug('[FileManager] 无法重做：栈为空或无文件');
-            return false;
-        }
-        
-        this._isInUndoRedo = true;
-        try {
-            // 读取当前文件内容作为撤销状态
-            const currentContent = fs.readFileSync(this._filePath, 'utf8');
-            this._undoStack.push(currentContent);
-            
-            // 弹出重做状态
-            const nextContent = this._redoStack.pop()!;
-            
-            // 解析并更新 hmlController（传路径保证 fallback id 带种子）
-            this._hmlController.parseContent(nextContent, this._filePath);
-            
-            // 通过 VSCode TextDocument API 写入，保持版本同步
-            await this._writeViaTextDocument(this._filePath, nextContent);
-            
-            // 更新快照
-            this._lastSerializedSnapshot = nextContent;
-            
-            // 重新加载到前端
-            await this.reloadCurrentDocument();
-            
-            logger.info(`[FileManager] 重做成功，剩余重做栈: ${this._redoStack.length}`);
-            return true;
-        } catch (error) {
-            logger.error(`[FileManager] 重做失败: ${error}`);
-            return false;
-        } finally {
-            this._isInUndoRedo = false;
-        }
-    }
-    
     /**
      * 通过 VSCode TextDocument API 写入文件
      * 使用 WorkspaceEdit + document.save() 替代直接 fs.writeFileSync()
@@ -567,40 +587,6 @@ export class FileManager {
         }
     }
     
-    /**
-     * 检查是否可以撤销
-     */
-    public canUndo(): boolean {
-        return this._undoStack.length > 0;
-    }
-    
-    /**
-     * 检查是否可以重做
-     */
-    public canRedo(): boolean {
-        return this._redoStack.length > 0;
-    }
-    
-    /**
-     * 清空历史（切换文件时调用）
-     */
-    public clearHistory(): void {
-        this._undoStack = [];
-        this._redoStack = [];
-        logger.debug('[FileManager] 清空撤销/重做历史');
-    }
-    
-    /**
-     * 发送撤销/重做状态到前端
-     */
-    public sendUndoRedoState(): void {
-        this._panel.webview.postMessage({
-            command: 'undoRedoState',
-            canUndo: this.canUndo(),
-            canRedo: this.canRedo()
-        });
-    }
-
     /**
      * 加载文件
      */
@@ -748,6 +734,8 @@ export class FileManager {
      */
     public async loadFromDocument(document: vscode.TextDocument): Promise<void> {
         this._setFilePath(document.uri.fsPath);
+        // 磁盘内容将覆盖设计器状态，排队中的旧保存不能再写回
+        this.discardPendingSave();
 
         // 即将把磁盘内容推给 webview（loadHml），store 将与磁盘同步；
         // webview 应用后也会回发 dirtyStateChanged(false)，此处先行清除避免陈旧 true
@@ -859,12 +847,6 @@ export class FileManager {
      * 从文档更新内容（当文档在外部被修改时）
      */
     public async updateFromDocument(): Promise<void> {
-        // 如果正在撤销/重做操作中，跳过更新（避免与 undo/redo 的 save 冲突）
-        if (this._isInUndoRedo) {
-            logger.debug('[FileManager] 正在撤销/重做操作中，跳过updateFromDocument');
-            return;
-        }
-        
         // 如果正在保存事务中，不执行更新（避免我们自己的保存操作触发重新加载）
         if (this._saveManager.getCurrentTransactionId() > 0) {
             logger.debug('[FileManager] 正在保存事务中，跳过updateFromDocument');
@@ -995,7 +977,9 @@ export class FileManager {
             }
             
             const hmlContent = this._hmlController.serializeDocument();
-            
+            // loadHml 会带上完整视图列表，以此为基准判断后续保存是否需要重扫
+            this._lastViewSignature = viewSignature(hmlDocument.view?.components);
+
             logger.info(`[FileManager] 重新发送loadHml，组件数: ${hmlDocument.view?.components?.length || 0}`);
             
             // 使用统一的发送方法（内部会自动获取 allViews）

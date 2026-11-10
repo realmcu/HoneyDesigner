@@ -101,13 +101,16 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
             cancelled = true;
             const { opened, sync, root } = openedRef.current;
             opened?.dispose();
-            void sync?.flush().finally(() => {
-                sync.dispose();
-                if (root) {
-                    unloadProjectFiles(root);
-                }
-            });
-            if (!sync && root) {
+            // dispose 会写出设计器排队的最后一次保存，写完再回写存储
+            if (sync) {
+                const finalSave = opened?.designer.finalSave ?? Promise.resolve();
+                void finalSave.then(() => sync.flush()).finally(() => {
+                    sync.dispose();
+                    if (root) {
+                        unloadProjectFiles(root);
+                    }
+                });
+            } else if (root) {
                 unloadProjectFiles(root);
             }
             openedRef.current = {};
@@ -130,6 +133,7 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
         if (phase.kind !== 'ready') {
             return;
         }
+        await phase.opened.designer.flushPendingSave();
         await phase.sync.flush();
         const zip = exportProjectZip(phase.opened.projectRoot, project.name);
         downloadBlob(zip, `${project.name}.zip`);
@@ -269,6 +273,7 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
 
         try {
             // 先把待同步的改动落盘，避免删除后残留脏队列又把它写回去
+            await phase.opened.designer.flushPendingSave();
             await phase.sync.flush();
             fs.rmSync(target);
 
@@ -297,6 +302,7 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
             if (useDesignerStore.getState().isDirty && !globalThis.confirm(t('The design has unsaved changes. Close anyway?'))) {
                 return;
             }
+            await phase.opened.designer.flushPendingSave();
             await phase.sync.flush();
         }
         onClose();

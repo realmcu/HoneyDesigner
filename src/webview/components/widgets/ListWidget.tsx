@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { WidgetProps } from './types';
-import { useDesignerStore } from '../../store';
+import { useDesignerStore, type DesignerStore } from '../../store';
+import { withoutHistory } from '../../store/history';
 
 /**
  * 计算列表项的位置
@@ -44,7 +45,10 @@ export const ListWidget: React.FC<WidgetProps> = ({ component, style, handlers, 
     syncInProgress.current = true;
 
     try {
-      const { components, updateComponent } = getState();
+      const { components } = getState();
+      // 派生排布不单独成为一步撤销
+      const updateComponent: DesignerStore['updateComponent'] = (id, updates, options) =>
+        withoutHistory(() => getState().updateComponent(id, updates, options));
 
       const itemWidth = parseInt(String(component.style?.itemWidth)) || 100;
       const itemHeight = parseInt(String(component.style?.itemHeight)) || 100;

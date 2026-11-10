@@ -22,6 +22,7 @@ import { createAlignmentSlice } from './store/slices/alignmentSlice';
 import { createNavSlice } from './store/slices/navSlice';
 import { createI18nSlice } from './store/slices/i18nSlice';
 import { createSystemSlice } from './store/slices/systemSlice';
+import { isHistorySuppressed, pushHistory, resetHistoryCoalescing, shouldStartHistoryStep } from './store/history';
 
 export type { DesignerStore } from './store/types';
 
@@ -106,16 +107,27 @@ export function applyHostComponents<T>(fn: () => T): T {
   }
 }
 
-// 集中订阅 components 引用变化 → 标脏。
+// 集中订阅 components 引用变化 → 记撤销历史 + 标脏。
 // 好处：无需在每个会改动组件的 action 里逐一埋点（现有 20+ 处 set 组件的
 // action，逐一埋点必漏）；宿主推送经 applyHostComponents 包裹不触发。
-// markDirty 内部 set() 会重入本订阅，但那次 components 引用未变，不会递归。
+// 本订阅内的 set() 会重入，但那次 components 引用未变，不会递归。
 useDesignerStore.subscribe((state, prevState) => {
   if (suppressDirtyTracking) return;
-  if (state.components !== prevState.components) {
-    useDesignerStore.getState().markDirty();
+  if (state.components === prevState.components) return;
+  if (!isHistorySuppressed() && shouldStartHistoryStep()) {
+    useDesignerStore.setState({
+      undoStack: pushHistory(state.undoStack, prevState.components),
+      redoStack: [],
+    });
   }
+  useDesignerStore.getState().markDirty();
 });
+
+/** 清空撤销/重做历史（加载新文件或宿主重载内容后调用） */
+export function clearDesignerHistory(): void {
+  resetHistoryCoalescing();
+  useDesignerStore.setState({ undoStack: [], redoStack: [] });
+}
 
 // Helper function to generate unique ID
 export const generateId = (): string => {

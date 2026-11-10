@@ -100,12 +100,12 @@ export class DesignerPanel {
     }
 
     /**
-     * 导航写事务（T10）第 8 步：把写前快照无防抖地压入本面板 undo 栈，
-     * 使 Ctrl+Z 可整步回退导航边编辑（设计文档约束 8）。
+     * 导航写事务（T10）第 8 步的面板钩子。撤销历史已移到 webview 按文件在内存维护，
+     * 写事务随后的 reloadAfterNavEdit → loadHml 会清空该历史；导航边编辑的回退
+     * 由 NavEditService 自身的导航撤销栈负责，这里无需记录快照。
      */
-    public pushNavUndoSnapshot(content: string): void {
-        this._fileManager.pushUndoSnapshotImmediate(content);
-        this._fileManager.sendUndoRedoState();
+    public pushNavUndoSnapshot(_content: string): void {
+        // 有意留空
     }
 
     /**
@@ -286,10 +286,25 @@ export class DesignerPanel {
         this._fileManager.reloadCurrentDocument();
     }
     
+    /** 立即写出静默期内排队的设计器保存 */
+    public flushPendingSave(): Promise<void> {
+        return this._fileManager.flushPendingSave();
+    }
+
+    private _finalSave: Promise<void> = Promise.resolve();
+
+    /** dispose 时最后一次写盘完成的 Promise（浏览器版据此再同步存储） */
+    public get finalSave(): Promise<void> {
+        return this._finalSave;
+    }
+
     public dispose(): void {
         // 从「路径 → 面板」索引中移除自己
         this._syncPanelRegistry(undefined);
         DesignerPanel.currentPanel = undefined;
+
+        // 写出静默期内尚未落盘的最后一次编辑
+        this._finalSave = this._fileManager.disposeAndFlush();
 
         // 清理 project.json watcher
         this._fileManager.disposeProjectConfigWatcher();
