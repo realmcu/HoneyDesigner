@@ -4,7 +4,7 @@
 
 All notable changes to HoneyDesigner will be documented in this file.
 
-## [2.2.6] - 2026-11-10
+## [2.2.8] - 2026-11-10
 
 ### Added
 
@@ -32,6 +32,7 @@ All notable changes to HoneyDesigner will be documented in this file.
 
 - 多次更新 HoneyGUI / LVGL 仿真资源
 - 增加浏览器版每日部署以同步模板变更
+- 将 `package-lock.json` 中的镜像 tarball 地址统一为官方 npm registry，修复 CI 安装依赖时的 504 超时
 
 ## [2.2.4] - 2026-11-04
 
