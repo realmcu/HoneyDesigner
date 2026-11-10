@@ -2,7 +2,7 @@
   "name": "honeygui-visual-designer",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "2.2.4",
+  "version": "2.2.6",
   "license": "MIT",
   "l10n": "./l10n",
   "repository": {

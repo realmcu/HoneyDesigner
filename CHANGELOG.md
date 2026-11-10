@@ -2,7 +2,36 @@
 
 <!-- markdownlint-configure-file {"MD024": {"allow_different_nesting": true}} -->
 
-All notable changes to HoneyGUI Visual Designer will be documented in this file.
+All notable changes to HoneyDesigner will be documented in this file.
+
+## [2.2.6] - 2026-11-10
+
+### Added
+
+- 浏览器版支持完整仿真，并通过 CI 预构建官方模板资源
+- 支持在文本编辑器外管理 HML 文件
+- hg_rect / hg_circle 新增发光与阴影配置
+
+### Changed
+
+- 插件显示名、命令标题、活动栏、欢迎页和生成文档统一为 HoneyDesigner；扩展 ID 保持不变，已有安装可继续自动更新
+- 更新 VSCode 中英文文档，覆盖双引擎、资源转换、事件、HML、编译仿真和部署
+- 优化浏览器版编译器和示例资源缓存，避免继续使用过期预构建索引
+
+### Fixed
+
+- 修复 Windows 上模板项目克隆后删除 `.git` 时因文件占用/只读属性导致的 `EPERM`
+- 修复生成工作区推荐扩展 ID 错误导致的 Marketplace 404
+- 修复 toggle 按钮回调用户代码被覆盖以及 C 字符串转义问题
+- 修复组件树删除子树、快捷键不可达和重叠控件选中/拖动问题
+- 修复外部文件变更时未提示丢弃未保存编辑的问题
+- 修复 Webview 文件操作越过项目目录以及本地 HTTP API 的浏览器/重绑定请求风险
+- 修复浏览器版缓存旧 `index.html` 导致页面内容过期的问题
+
+### Internal
+
+- 多次更新 HoneyGUI / LVGL 仿真资源
+- 增加浏览器版每日部署以同步模板变更
 
 ## [2.2.4] - 2026-11-04
 
