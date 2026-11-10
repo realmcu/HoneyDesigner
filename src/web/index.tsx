@@ -1,5 +1,5 @@
 /**
- * HoneyGUI Designer Web 入口
+ * HoneyDesigner Web 入口
  */
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';

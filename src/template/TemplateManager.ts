@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import { ProjectTemplate } from './ProjectTemplate';
 import { logger } from '../utils/Logger';
 import { AVAILABLE_TEMPLATES, TEMPLATE_CACHE_DIR } from './TemplateConfig';
+import { removePathWithRetry } from '../utils/removePath';
 
 const execAsync = promisify(exec);
 
@@ -173,14 +174,18 @@ export class TemplateManager {
         // 删除 .git 目录
         const gitDir = path.join(templatePath, '.git');
         if (fs.existsSync(gitDir)) {
-          fs.rmSync(gitDir, { recursive: true, force: true });
+          await removePathWithRetry(gitDir);
         }
         
         logger.info(`模板下载完成: ${templateId}`);
       } catch (error) {
         // 清理失败的下载
         if (fs.existsSync(templatePath)) {
-          fs.rmSync(templatePath, { recursive: true, force: true });
+          try {
+            await removePathWithRetry(templatePath);
+          } catch (cleanupError) {
+            logger.warn(`清理下载失败的模板目录失败: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
+          }
         }
         throw new Error(`下载模板失败: ${error instanceof Error ? error.message : String(error)}`);
       }

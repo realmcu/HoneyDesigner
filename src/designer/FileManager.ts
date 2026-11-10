@@ -733,7 +733,7 @@ export class FileManager {
             });
 
             // 更新面板标题
-            this._onDidUpdateTitle.fire('HoneyGUI 设计器 - 未命名');
+            this._onDidUpdateTitle.fire('HoneyDesigner - 未命名');
             this._setFilePath(undefined);
 
         } catch (error) {
@@ -813,7 +813,7 @@ export class FileManager {
 
             // 更新面板标题
             const fileName = path.basename(document.fileName);
-            this._onDidUpdateTitle.fire(`HoneyGUI Designer: ${fileName}`);
+            this._onDidUpdateTitle.fire(`HoneyDesigner: ${fileName}`);
             logger.info(`[FileManager] 文件加载完成并发送到前端: ${fileName}`);
 
             // 启动 project.json 监听，文件变化时自动推送新配置给前端
@@ -950,7 +950,7 @@ export class FileManager {
 
                     // 更新面板标题
                     const fileName = path.basename(selectedPath);
-                    this._onDidUpdateTitle.fire(`HoneyGUI 设计器 - ${fileName}`);
+                    this._onDidUpdateTitle.fire(`HoneyDesigner - ${fileName}`);
                 } else {
                     logger.info('[FileManager] 用户取消保存');
                     return false;

@@ -66,9 +66,9 @@ export function composeAiBundle(input: ComposeAiBundleInput): string {
   const hasSelection = selectedIds.length > 0;
 
   const header = hasSelection
-    ? `# HoneyGUI Designer selection — file: ${hmlRelPath}\n` +
+    ? `# HoneyDesigner selection — file: ${hmlRelPath}\n` +
       `Screenshot (selected items = red box, label = component id):\n${screenshotAbsPath}\n`
-    : `# HoneyGUI Designer — file: ${hmlRelPath} (no selection, whole screen)\n` +
+    : `# HoneyDesigner — file: ${hmlRelPath} (no selection, whole screen)\n` +
       `Screenshot:\n${screenshotAbsPath}\n`;
 
   const listed = hasSelection

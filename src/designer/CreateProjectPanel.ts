@@ -10,6 +10,7 @@ import { WebviewUtils } from '../common/WebviewUtils';
 import { logger } from '../utils/Logger';
 import { AVAILABLE_TEMPLATES } from '../template/TemplateConfig';
 import { ProjectUtils } from '../utils/ProjectUtils';
+import { removePathWithRetry } from '../utils/removePath';
 
 /**
  * 项目创建面板管理类
@@ -571,7 +572,7 @@ export class CreateProjectPanel {
             },
             extensions: {
                 recommendations: [
-                    'realmcu.honeygui-visual-designer'
+                    this._context.extension.id
                 ]
             }
         };
@@ -673,7 +674,7 @@ export class CreateProjectPanel {
                 progress.report({ message: vscode.l10n.t('Cleaning up...') });
                 const gitDir = path.join(projectPath, '.git');
                 if (fs.existsSync(gitDir)) {
-                    fs.rmSync(gitDir, { recursive: true, force: true });
+                    await removePathWithRetry(gitDir);
                 }
                 
                 // 更新 project.json（只更新 appId 和 romfsBaseAddr，保持模板原有的 name）
@@ -701,7 +702,7 @@ export class CreateProjectPanel {
                         'files.associations': { '*.hml': 'xml' }
                     },
                     extensions: {
-                        recommendations: ['realmcu.honeygui-visual-designer']
+                        recommendations: [this._context.extension.id]
                     }
                 };
                 fs.writeFileSync(

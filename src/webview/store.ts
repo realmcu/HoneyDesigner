@@ -1,5 +1,5 @@
 /**
- * Zustand Store for HoneyGUI Designer
+ * Zustand Store for HoneyDesigner
  * 管理设计器的状态和逻辑
  *
  * 本文件按 Zustand slice 模式拆分：

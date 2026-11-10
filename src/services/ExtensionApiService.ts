@@ -352,7 +352,7 @@ export class ExtensionApiService implements vscode.Disposable {
         res.end(JSON.stringify({
             success: true,
             data: {
-                name: packageJson.displayName || 'HoneyGUI Visual Designer',
+                name: packageJson.displayName || 'HoneyDesigner',
                 version: packageJson.version || 'unknown',
                 description: packageJson.description || '',
                 vscodeEngine: packageJson.engines?.vscode || 'unknown',

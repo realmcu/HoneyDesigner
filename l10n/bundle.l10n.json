@@ -13,7 +13,7 @@
   "No project config file detected": "No project config file detected",
   "Environment check failed: {0}": "Environment check failed: {0}",
 
-  "HoneyGUI Designer started! Use Ctrl+Shift+P and search \"HoneyGUI\" to create a project.": "HoneyGUI Designer started! Use Ctrl+Shift+P and search \"HoneyGUI\" to create a project.",
+  "HoneyDesigner started! Use Ctrl+Shift+P and search \"HoneyDesigner\" to create a project.": "HoneyDesigner started! Use Ctrl+Shift+P and search \"HoneyDesigner\" to create a project.",
   "Create Project": "Create Project",
   "View Documentation": "View Documentation",
 
@@ -178,7 +178,7 @@
 
   "Failed to create project: {0}": "Failed to create project: {0}",
   "Failed to open resource conversion tools: {0}": "Failed to open resource conversion tools: {0}",
-  "HoneyGUI Welcome": "HoneyGUI Welcome",
+  "HoneyDesigner Welcome": "HoneyDesigner Welcome",
   "Failed to open welcome page: {0}": "Failed to open welcome page: {0}",
   "Cache cleared": "Cache cleared",
   "Failed to clear cache: {0}": "Failed to clear cache: {0}",
@@ -188,7 +188,7 @@
   "Failed to open designer: please select an HML file": "Failed to open designer: please select an HML file",
   "Failed to open designer: {0}": "Failed to open designer: {0}",
   "Please open an HML file in text editor first": "Please open an HML file in text editor first",
-  "Please open HoneyGUI designer first": "Please open HoneyGUI designer first",
+  "Please open HoneyDesigner first": "Please open HoneyDesigner first",
   "View switch feature is under development...": "View switch feature is under development...",
   "Failed to switch view: {0}": "Failed to switch view: {0}",
   "Please open a workspace first": "Please open a workspace first",

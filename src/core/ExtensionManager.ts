@@ -312,7 +312,8 @@ export class ExtensionManager {
             const legacySpec = path.join(projectRoot, 'HML-Spec.md');
             if (fs.existsSync(legacySpec)) {
                 const c = fs.readFileSync(legacySpec, 'utf8');
-                if (c.includes('本文件由 HoneyGUI Visual Designer 自动分发')) {
+                if (c.includes('本文件由 HoneyGUI Visual Designer 自动分发')
+                    || c.includes('本文件由 HoneyDesigner 自动分发')) {
                     fs.rmSync(legacySpec);
                     logger.info('migrate: 已删除旧版根目录 HML-Spec.md（规范已移入 skill）');
                 }
@@ -398,7 +399,7 @@ export class ExtensionManager {
 
             const header =
                 `<!--\n` +
-                `  本文件由 HoneyGUI Visual Designer 自动分发，请勿手动编辑（每次打开项目会按需覆盖）。\n` +
+                `  本文件由 HoneyDesigner 自动分发，请勿手动编辑（每次打开项目会按需覆盖）。\n` +
                 `  当前项目 targetEngine = ${targetEngine}。\n` +
                 `  生成 HML 时：仅使用下方组件矩阵中标注 ${targetEngine} 为 ready(✓) 的组件；\n` +
                 `  标注 unsupported 的组件在本引擎不可用，一律勿用。\n` +
@@ -685,8 +686,8 @@ curl -X POST http://localhost:38912/api/validate-hml \\
 
 ## 看效果（仿真）
 
-在 VSCode 中打开本项目（已安装 HoneyGUI Visual Designer 扩展）：
-点击 HoneyGUI 侧边栏的 **Simulate（🚀）**，或命令面板执行 \`HoneyGUI: Simulate\`，
+在 VSCode 中打开本项目（已安装 HoneyDesigner 扩展）：
+点击 HoneyDesigner 侧边栏的 **Simulate（🚀）**，或命令面板执行 \`HoneyDesigner: Compile & Simulate\`，
 扩展会自动完成 codegen → SCons 编译 → 仿真器运行。
 `;
     }
@@ -785,7 +786,7 @@ curl -X POST http://localhost:38912/api/validate-hml \\
         this.context.globalState.update('honeygui.welcomeMessageShown', true);
         
         vscode.window.showInformationMessage(
-            'HoneyGUI设计器已启动！使用 Ctrl+Shift+P 搜索 "HoneyGUI" 开始创建项目。',
+            'HoneyDesigner 已启动！使用 Ctrl+Shift+P 搜索 "HoneyDesigner" 开始创建项目。',
             '创建项目',
             '查看文档'
         ).then(selection => {
@@ -804,12 +805,12 @@ curl -X POST http://localhost:38912/api/validate-hml \\
      * 清理资源
      */
     dispose(): void {
-        logger.info('HoneyGUI扩展正在清理资源...');
+        logger.info('HoneyDesigner 扩展正在清理资源...');
         
         this.commandManager.dispose();
         this.disposables.forEach(disposable => disposable.dispose());
         
-        logger.info('HoneyGUI扩展已清理完成');
+        logger.info('HoneyDesigner 扩展已清理完成');
     }
 }
 

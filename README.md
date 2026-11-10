@@ -1,4 +1,4 @@
-# HoneyGUI Design
+# HoneyDesigner
 
 Visual Embedded GUI Designer | Drag & Drop → Auto-generate C Code → Compile & Simulate
 
@@ -16,7 +16,7 @@ Visual Embedded GUI Designer | Drag & Drop → Auto-generate C Code → Compile 
 
 ## Installation
 
-Search VSCode Marketplace for **"HoneyGUI Visual Designer"** → Install
+Search VSCode Marketplace for **"HoneyDesigner"** → Install
 
 ## Web Version
 
@@ -31,13 +31,13 @@ Try it in the browser without installing anything: **https://realmcu.github.io/H
 
 | Step | Action |
 |------|--------|
-| 1 | New Project - Click HoneyGUI icon in sidebar |
+| 1 | New Project - Click HoneyDesigner icon in sidebar |
 | 2 | Design - Double-click .hml file, drag components to canvas |
 | 3 | Run - Click ▶ Compile & Simulate in toolbar |
 
 ## Resource Conversion
 
-`Ctrl+Shift+P → HoneyGUI: Resource Conversion Tools`
+`Ctrl+Shift+P → HoneyDesigner: Resource Conversion Tools`
 
 | Type | Input | Output |
 |------|-------|--------|

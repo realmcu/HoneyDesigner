@@ -25,6 +25,7 @@
   ],
   "keywords": [
     "HoneyGUI",
+    "HoneyDesigner",
     "UI Design",
     "Visual Designer",
     "Embedded UI"
@@ -51,7 +52,7 @@
     "customEditors": [
       {
         "viewType": "honeygui.hmlEditor",
-        "displayName": "HoneyGUI Design View",
+        "displayName": "Design View",
         "selector": [
           {
             "filenamePattern": "*.hml"
@@ -64,7 +65,7 @@
       "activitybar": [
         {
           "id": "honeygui-explorer",
-          "title": "HoneyGUI Visual Designer",
+          "title": "HoneyDesigner",
           "icon": "resources/HoneyGUI-LOGO.svg",
           "priority": 100
         }
@@ -248,7 +249,7 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "HoneyGUI",
+      "title": "HoneyDesigner",
       "properties": {
         "honeygui.codegen.language": {
           "type": "string",

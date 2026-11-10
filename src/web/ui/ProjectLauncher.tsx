@@ -566,7 +566,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                 <div className="hg-rail hg-topbar">
                     <div className="hg-brand">
                         <BrandMark />
-                        <span className="hg-brand-name">HoneyGUI Designer</span>
+                        <span className="hg-brand-name">HoneyDesigner</span>
                     </div>
                     <div className="hg-top-actions">
                         <label className="hg-lang">

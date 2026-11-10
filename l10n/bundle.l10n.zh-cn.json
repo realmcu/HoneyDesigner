@@ -13,7 +13,7 @@
   "No project config file detected": "未检测到项目配置文件",
   "Environment check failed: {0}": "环境检查失败: {0}",
 
-  "HoneyGUI Designer started! Use Ctrl+Shift+P and search \"HoneyGUI\" to create a project.": "HoneyGUI 设计器已启动！使用 Ctrl+Shift+P 搜索 \"HoneyGUI\" 开始创建项目。",
+  "HoneyDesigner started! Use Ctrl+Shift+P and search \"HoneyDesigner\" to create a project.": "HoneyDesigner 已启动！使用 Ctrl+Shift+P 搜索 \"HoneyDesigner\" 开始创建项目。",
   "Create Project": "创建项目",
   "View Documentation": "查看文档",
 
@@ -178,7 +178,7 @@
 
   "Failed to create project: {0}": "新建项目失败: {0}",
   "Failed to open resource conversion tools: {0}": "打开资源转换工具失败: {0}",
-  "HoneyGUI Welcome": "HoneyGUI 欢迎",
+  "HoneyDesigner Welcome": "HoneyDesigner 欢迎",
   "Failed to open welcome page: {0}": "打开欢迎页面失败: {0}",
   "Cache cleared": "缓存已清理",
   "Failed to clear cache: {0}": "清理缓存失败: {0}",
@@ -188,7 +188,7 @@
   "Failed to open designer: please select an HML file": "设计器打开失败: 请选择HML文件",
   "Failed to open designer: {0}": "设计器打开失败: {0}",
   "Please open an HML file in text editor first": "请在文本编辑器中打开一个HML文件后再执行该命令",
-  "Please open HoneyGUI designer first": "请先打开HoneyGUI设计器",
+  "Please open HoneyDesigner first": "请先打开 HoneyDesigner",
   "View switch feature is under development...": "视图切换功能开发中...",
   "Failed to switch view: {0}": "视图切换失败: {0}",
   "Please open a workspace first": "请先打开一个工作区",

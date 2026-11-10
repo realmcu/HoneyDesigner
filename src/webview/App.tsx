@@ -158,7 +158,7 @@ const App: React.FC = () => {
     };
 
     const handleGlobalError = (e: ErrorEvent) => {
-      console.error('[HoneyGUI Designer] Global error:', e.error);
+      console.error('[HoneyDesigner] Global error:', e.error);
       forwardToHost(`Global error: ${e.error?.message || e.message || 'Unknown error'}\n${e.error?.stack || ''}`);
       const errorDiv = document.createElement('div');
       errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c62828;color:white;padding:10px;z-index:9999;font-family:monospace;font-size:12px;white-space:pre-wrap;';
@@ -167,7 +167,7 @@ const App: React.FC = () => {
     };
 
     const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
-      console.error('[HoneyGUI Designer] Unhandled promise rejection:', e.reason);
+      console.error('[HoneyDesigner] Unhandled promise rejection:', e.reason);
       const reason = e.reason instanceof Error ? `${e.reason.message}\n${e.reason.stack || ''}` : String(e.reason);
       forwardToHost(`Unhandled promise rejection: ${reason}`);
     };
@@ -846,7 +846,7 @@ const App: React.FC = () => {
     // 检查React是否渲染成功
     setTimeout(() => {
       if (!document.getElementById('root')?.hasChildNodes()) {
-        console.error('[HoneyGUI Designer] React app did not render!');
+        console.error('[HoneyDesigner] React app did not render!');
         const errorDiv = document.createElement('div');
         errorDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#c62828;color:white;padding:20px;border-radius:4px;font-family:monospace;';
         errorDiv.innerHTML = `<h3>${t('React App not rendered')}</h3><p>${t('Please check console for error details')}</p>`;

@@ -1,5 +1,5 @@
 /**
- * HoneyGUI Designer Web 的 Service Worker
+ * HoneyDesigner Web 的 Service Worker
  *
  * 1. `/__vfs/*`：工程文件存在于页面内存中，这里向发起请求的页面索取内容后返回
  * 2. 编译工具链（sim/clang、sim/binaryen、toolchain.json|pack）：缓存优先，

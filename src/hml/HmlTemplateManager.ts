@@ -139,12 +139,12 @@ int main() {
         appId?: string,
         resolution?: string
     ): string {
-        let readme = `# ${projectName}\n\nA HoneyGUI project created with HoneyGUI Visual Designer.\n\n## Project Information\n\n`;
+        let readme = `# ${projectName}\n\nA HoneyGUI project created with HoneyDesigner.\n\n## Project Information\n\n`;
 
         if (appId) readme += `- **APP ID**: ${appId}\n`;
         if (resolution) readme += `- **Resolution**: ${resolution}\n`;
 
-        readme += `- **Format**: Standard HML Format (v1.0)\n- **Created**: ${new Date().toISOString()}\n\n## Project Structure\n\n- **ui/**: HML UI definition files\n- **src/**: C++ source code files\n- **assets/**: Project assets (images, fonts, etc.)\n\n## Getting Started\n\nOpen this project in HoneyGUI Visual Designer to start editing your UI.\n\n## HML File Format\n\nThis project uses the standard HML format:\n\n\u0060\u0060\u0060xml\n<?xml version="1.0" encoding="UTF-8"?>
+        readme += `- **Format**: Standard HML Format (v1.0)\n- **Created**: ${new Date().toISOString()}\n\n## Project Structure\n\n- **ui/**: HML UI definition files\n- **src/**: C++ source code files\n- **assets/**: Project assets (images, fonts, etc.)\n\n## Getting Started\n\nOpen this project in HoneyDesigner to start editing your UI.\n\n## HML File Format\n\nThis project uses the standard HML format:\n\n\u0060\u0060\u0060xml\n<?xml version="1.0" encoding="UTF-8"?>
 <hml>
     <meta>
         <project ... />

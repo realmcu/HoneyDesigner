@@ -652,7 +652,7 @@ export const env = {
     get language(): string {
         return getWebLocale() === 'zh-cn' ? 'zh-cn' : 'en';
     },
-    appName: 'HoneyGUI Designer Web',
+    appName: 'HoneyDesigner Web',
     uriScheme: 'https',
     clipboard: {
         async writeText(text: string): Promise<void> {

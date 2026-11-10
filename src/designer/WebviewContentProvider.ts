@@ -46,7 +46,7 @@ export class WebviewContentProvider {
                 htmlPath = vscode.Uri.joinPath(sourcePath, 'index.html');
             } else {
                 // 如果都不存在，使用内置的最小HTML模板
-                logger.warn(`[HoneyGUI Designer] 未找到HTML文件，使用内置最小模板`);
+                logger.warn(`[HoneyDesigner] 未找到HTML文件，使用内置最小模板`);
                 return this.getMinimalHtmlTemplate(webview);
             }
 
@@ -79,7 +79,7 @@ export class WebviewContentProvider {
                     }
                 }
             } catch (e) {
-                logger.warn(`[HoneyGUI Designer] 无法读取资源文件列表: ${e}`);
+                logger.warn(`[HoneyDesigner] 无法读取资源文件列表: ${e}`);
             }
 
             // 5. 替换资源URL
@@ -95,7 +95,7 @@ export class WebviewContentProvider {
                 htmlContent = htmlContent.replace('</body>', `<script src="${scriptUri}"></script></body>`);
             }
 
-            logger.debug(`[HoneyGUI Designer] Webview 初始化:`);
+            logger.debug(`[HoneyDesigner] Webview 初始化:`);
             logger.debug(`  使用路径: ${onDiskPath.toString()}`);
             if (stylesUri) logger.debug(`  Styles: ${stylesUri.toString()}`);
             if (scriptUri) logger.debug(`  Script: ${scriptUri.toString()}`);
@@ -123,7 +123,7 @@ export class WebviewContentProvider {
 
             return htmlContent;
         } catch (error) {
-            logger.error(`[HoneyGUI Designer] 加载HTML内容时出错: ${error}`);
+            logger.error(`[HoneyDesigner] 加载HTML内容时出错: ${error}`);
             
             // 无论发生什么错误，都返回最小可用的HTML模板
             return this.getMinimalHtmlTemplate(webview, error instanceof Error ? error.message : '未知错误');
@@ -143,7 +143,7 @@ export class WebviewContentProvider {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>HoneyGUI 设计器</title>
+            <title>HoneyDesigner</title>
             ${cspMetaTag}
             <style>
                 body {
@@ -195,7 +195,7 @@ export class WebviewContentProvider {
         </head>
         <body>
             <div class="container">
-                <h1>HoneyGUI 设计器</h1>
+                <h1>HoneyDesigner</h1>
                 ${errorMessage ? 
                     `<div class="message error">
                         <strong>加载警告:</strong> ${errorMessage}<br>

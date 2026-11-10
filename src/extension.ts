@@ -4,7 +4,7 @@ import { ExtensionManager } from './core/ExtensionManager';
 import { ExtensionApiService } from './services/ExtensionApiService';
 
 /**
- * HoneyGUI Visual Designer Extension Entry
+ * HoneyDesigner Extension Entry
  * Offline VSCode extension for HoneyGUI embedded GUI framework visual design
  */
 

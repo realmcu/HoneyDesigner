@@ -1,6 +1,6 @@
 {
-  "name": "HoneyGUI Designer Web",
-  "short_name": "HoneyGUI",
+  "name": "HoneyDesigner Web",
+  "short_name": "HoneyDesigner",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

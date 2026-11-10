@@ -55,7 +55,7 @@ export class CommandManager {
                 logger.info('执行命令: honeygui.welcome');
                 const panel = vscode.window.createWebviewPanel(
                     'honeyguiWelcome',
-                    vscode.l10n.t('HoneyGUI Welcome'),
+                    vscode.l10n.t('HoneyDesigner Welcome'),
                     vscode.ViewColumn.One,
                     {
                         enableScripts: true,
@@ -201,7 +201,7 @@ export class CommandManager {
                 const { DesignerPanel } = await import('../designer/DesignerPanel');
                 const panel = DesignerPanel.currentPanel;
                 if (!panel) {
-                    vscode.window.showWarningMessage(vscode.l10n.t('Please open HoneyGUI designer first'));
+                    vscode.window.showWarningMessage(vscode.l10n.t('Please open HoneyDesigner first'));
                     return;
                 }
                 await panel.generateCode();
@@ -472,7 +472,7 @@ export class CommandManager {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HoneyGUI 欢迎</title>
+    <title>HoneyDesigner</title>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -523,8 +523,8 @@ export class CommandManager {
 </head>
 <body>
     <div class="container">
-        <h1>🍯 HoneyGUI 设计器</h1>
-        <p>欢迎使用 HoneyGUI - 专为嵌入式GUI开发设计的可视化设计工具</p>
+        <h1>🍯 HoneyDesigner</h1>
+        <p>欢迎使用 HoneyDesigner - 专为 HoneyGUI 嵌入式 GUI 开发设计的可视化设计工具</p>
         
         <div class="feature">
             <h3>🎨 可视化设计</h3>
@@ -538,7 +538,7 @@ export class CommandManager {
         
         <div class="feature">
             <h3>⚡ 快速开始</h3>
-            <p>使用命令面板 <span class="code">Ctrl+Shift+P</span> 搜索 <span class="code">HoneyGUI</span> 开始创建项目</p>
+            <p>使用命令面板 <span class="code">Ctrl+Shift+P</span> 搜索 <span class="code">HoneyDesigner</span> 开始创建项目</p>
         </div>
         
         <div class="feature">

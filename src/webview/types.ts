@@ -1,5 +1,5 @@
 /**
- * HoneyGUI Designer React Types
+ * HoneyDesigner React Types
  * 定义所有组件的类型和接口
  */
 
