@@ -9,6 +9,7 @@
  */
 
 import { logger } from '../../../utils/Logger';
+import { reportDroppedProtectedArea } from '../../protectedAreaReport';
 
 export class LvglProtectedAreaMerger {
   /**
@@ -48,6 +49,8 @@ export class LvglProtectedAreaMerger {
         );
       } else if (content.trim() !== '') {
         logger.warn(`[LvglProtectedAreaMerger] User code section "${name}" no longer exists in generated output and will be lost. Check if the component or event was removed.`);
+        // 同时收集给生成入口：用户需要在界面上看到，而不是只在日志里
+        reportDroppedProtectedArea(name);
       }
     });
 

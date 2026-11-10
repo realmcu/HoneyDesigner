@@ -8,6 +8,7 @@
  */
 
 import { logger } from '../../../utils/Logger';
+import { reportDroppedProtectedArea } from '../../protectedAreaReport';
 
 interface MarkerStyle {
   begin: string;
@@ -61,6 +62,8 @@ export class ProtectedAreaMerger {
         result = result.replace(pattern, () => `/* ${style.begin} ${id} */${content}/* ${style.end} ${id} */`);
       } else if (content.trim() !== '') {
         logger.warn(`[ProtectedAreaMerger] Protected area "${id}" no longer exists in generated output; its user code was dropped. Check if the component or event was removed.`);
+        // 同时收集给生成入口：用户需要在界面上看到，而不是只在日志里
+        reportDroppedProtectedArea(id);
       }
     });
 

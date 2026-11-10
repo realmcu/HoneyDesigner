@@ -3,6 +3,7 @@ import { CodeGenerator } from './CodeGenerator';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { ProjectValidationReporter } from './ProjectValidationReporter';
 import { logger } from '../utils/Logger';
+import { takeDroppedProtectedAreas } from '../codegen/protectedAreaReport';
 
 export class CodeGenerationService {
     /**
@@ -56,12 +57,22 @@ export class CodeGenerationService {
                     reporter.dispose();
                 }
 
+                // 生成前清空缓冲，保证这里拿到的都是本次生成产生的
+                takeDroppedProtectedAreas();
+
                 const result = await codeGenerator.generate(projectRoot, (prog) => {
                     progress.report({
                         increment: 100 / prog.total,
                         message: `${prog.designName} (${prog.current}/${prog.total})...`
                     });
                 });
+
+                // 保护区代码丢失（组件改名或删掉了对应的回调）。以前只写日志，
+                // 用户在界面上看不到，手写代码就静默消失了
+                const dropped = takeDroppedProtectedAreas();
+                if (dropped.length > 0) {
+                    this.reportDroppedProtectedAreas(dropped);
+                }
 
                 if (result.success) {
                     vscode.window.showInformationMessage(
@@ -90,6 +101,21 @@ export class CodeGenerationService {
     /**
      * 提示用户清理孤立的生成文件
      */
+    /**
+     * 保护区代码丢失：写进输出通道并提示用户。这类丢失不可恢复，必须让用户知道。
+     */
+    private static reportDroppedProtectedAreas(dropped: Array<{ id: string; file?: string }>): void {
+        const unique = [...new Set(dropped.map(entry => entry.id))];
+        logger.warn('[CodeGenerationService] 保护区代码丢失: ' + unique.join(', '));
+        dropped.forEach(entry => {
+            logger.warn(`[CodeGenerationService] 保护区 "${entry.id}"${entry.file ? ` (${entry.file})` : ''} 在生成结果中不存在，其中的手写代码已丢失`);
+        });
+        void vscode.window.showWarningMessage(
+            vscode.l10n.t('Hand-written code for {0} was dropped because its component or event no longer exists: {1}',
+                unique.length, unique.join(', ')),
+        );
+    }
+
     public static async promptOrphanCleanup(projectRoot: string, orphanedDesigns: string[]): Promise<void> {
         const srcDir = ProjectUtils.getSrcDir(projectRoot);
         const nameList = orphanedDesigns.join(', ');
