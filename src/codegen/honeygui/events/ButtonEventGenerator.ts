@@ -6,6 +6,7 @@
 import { Component } from '../../../hml/types';
 import { DefaultEventGenerator } from './DefaultEventGenerator';
 import { EVENT_TYPE_TO_GUI_EVENT, getMessageCallbackName } from './EventCodeGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class ButtonEventGenerator extends DefaultEventGenerator {
 
@@ -32,7 +33,7 @@ export class ButtonEventGenerator extends DefaultEventGenerator {
       if (eventConfig.type === 'onMessage' && eventConfig.message) {
         const callbackName = eventConfig.handler || getMessageCallbackName(component, eventConfig, msgIndex);
         msgIndex++;
-        code += `${indentStr}gui_msg_subscribe((gui_obj_t *)${component.id}, "${eventConfig.message}", ${callbackName});\n`;
+        code += `${indentStr}gui_msg_subscribe((gui_obj_t *)${component.id}, ${cLiteral(eventConfig.message)}, ${callbackName});\n`;
         return;
       }
 

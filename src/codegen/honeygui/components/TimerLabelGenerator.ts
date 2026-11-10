@@ -13,6 +13,7 @@
 import { Component } from '../../../hml/types';
 import { GeneratorContext } from './ComponentGenerator';
 import { LabelGenerator } from './LabelGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class TimerLabelGenerator extends LabelGenerator {
 
@@ -27,7 +28,7 @@ export class TimerLabelGenerator extends LabelGenerator {
     // Select API based on scrolling
     const createFunction = enableScroll ? 'gui_scroll_text_create' : 'gui_text_create';
 
-    return `${indentStr}${component.id} = ${createFunction}(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = ${createFunction}(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

@@ -8,6 +8,7 @@ import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import * as path from 'path';
 import * as fs from 'fs';
+import { cLiteral } from '../../cLiteral';
 
 export class ButtonGenerator implements ComponentCodeGenerator {
 
@@ -27,9 +28,9 @@ export class ButtonGenerator implements ComponentCodeGenerator {
       const binOn = this.convertToBinPath(imageOn);
       const binOff = this.convertToBinPath(imageOff);
 
-      let code = `${indentStr}${component.id} = (gui_obj_t *)gui_img_create_from_fs(${parentRef}, "${component.name}", "${binOff}", ${x}, ${y}, ${width}, ${height});\n`;
+      let code = `${indentStr}${component.id} = (gui_obj_t *)gui_img_create_from_fs(${parentRef}, ${cLiteral(component.name)}, ${cLiteral(binOff)}, ${x}, ${y}, ${width}, ${height});\n`;
       code += `${indentStr}if (${component.id}_state) {\n`;
-      code += `${indentStr}    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);\n`;
+      code += `${indentStr}    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)${cLiteral(binOn)}, IMG_SRC_FILESYS);\n`;
       code += `${indentStr}}\n`;
       return code;
     }
@@ -42,7 +43,7 @@ export class ButtonGenerator implements ComponentCodeGenerator {
       return `${indentStr}// Button ${component.id}: no image configured\n`;
     }
 
-    return `${indentStr}${component.id} = (gui_obj_t *)gui_img_create_from_fs(${parentRef}, "${component.name}", "${binOff}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = (gui_obj_t *)gui_img_create_from_fs(${parentRef}, ${cLiteral(component.name)}, ${cLiteral(binOff)}, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, context: GeneratorContext): string {
@@ -195,9 +196,9 @@ void ${component.id}_toggle_cb(void *obj, gui_event_t *e)
     
     // Switch image based on state and call corresponding callback
     if (${component.id}_state) {
-        gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);
+        gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)${cLiteral(binOn)}, IMG_SRC_FILESYS);
 ${onCallLinedefine}${onCallLine}    } else {
-        gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOff}", IMG_SRC_FILESYS);
+        gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)${cLiteral(binOff)}, IMG_SRC_FILESYS);
 ${onCallLinedefine}${offCallLine}    }
     gui_fb_change();
 ${extraCode}}
@@ -215,9 +216,9 @@ void ${component.id}_set_state(bool state)
         ${component.id}_state = state;
         
         if (state) {
-            gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);
+            gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)${cLiteral(binOn)}, IMG_SRC_FILESYS);
 ${onCallLinedefine}${onCallLineNull}        } else {
-            gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOff}", IMG_SRC_FILESYS);
+            gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)${cLiteral(binOff)}, IMG_SRC_FILESYS);
 ${onCallLinedefine}${offCallLineNull}        }
     }
 }
@@ -263,7 +264,7 @@ void ${component.id}_press_cb(void *obj, gui_event_t *e)
 {
     GUI_UNUSED(obj);
     GUI_UNUSED(e);
-    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOn}", IMG_SRC_FILESYS);
+    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)${cLiteral(binOn)}, IMG_SRC_FILESYS);
     gui_fb_change();
 }
 
@@ -272,7 +273,7 @@ void ${component.id}_release_cb(void *obj, gui_event_t *e)
 {
     GUI_UNUSED(obj);
     GUI_UNUSED(e);
-    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)"${binOff}", IMG_SRC_FILESYS);
+    gui_img_set_src((gui_img_t *)${component.id}, (const uint8_t *)${cLiteral(binOff)}, IMG_SRC_FILESYS);
     gui_fb_change();
 ${clickCallCode}${extraCode}}
 `;
@@ -291,7 +292,7 @@ ${clickCallCode}${extraCode}}
         const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
         code += `    gui_view_switch_direct(gui_view_get_current(), "${action.target}", ${switchOutStyle}, ${switchInStyle});\n`;
       } else if (action.type === 'sendMessage' && action.message) {
-        code += `    gui_msg_publish("${action.message}", NULL, 0);\n`;
+        code += `    gui_msg_publish(${cLiteral(action.message)}, NULL, 0);\n`;
       }
     });
     return code;

@@ -6,6 +6,7 @@ import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor } from '../utils';
 import { escapeCString } from '../../cString';
+import { cLiteral } from '../../cLiteral';
 
 export class InputGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -18,7 +19,7 @@ export class InputGenerator implements ComponentCodeGenerator {
     const escapedPlaceholder = this.escapeCString(placeholder);
     
     // Create text component using gui_text_create
-    let code = `${indentStr}${component.id} = gui_text_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height});\n`;
+    let code = `${indentStr}${component.id} = gui_text_create(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height});\n`;
     
     // Set placeholder text
     code += `${indentStr}gui_text_set(${component.id}, (void *)"${escapedPlaceholder}", GUI_FONT_SRC_TTF, APP_COLOR_GRAY, strlen("${escapedPlaceholder}"), ${component.style?.fontSize || 16});\n`;

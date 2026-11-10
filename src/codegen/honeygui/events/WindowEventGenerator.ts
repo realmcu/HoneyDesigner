@@ -10,6 +10,7 @@
 import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, generateMessageCallbackImpl, generateControlTimerCallbackImpl, generateKeyEventCallbackImpl, getMessageCallbackName, generateEventCallbackName } from './EventCodeGenerator';
 import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
+import { cLiteral } from '../../cLiteral';
 
 export class WindowEventGenerator implements EventCodeGenerator {
 
@@ -26,14 +27,14 @@ export class WindowEventGenerator implements EventCodeGenerator {
       if (eventConfig.type === 'onMessage' && eventConfig.message) {
         // Use handler property directly if available
         if (eventConfig.handler) {
-          code += `${indentStr}gui_msg_subscribe((gui_obj_t *)GUI_BASE(${component.id}), "${eventConfig.message}", ${eventConfig.handler});\n`;
+          code += `${indentStr}gui_msg_subscribe((gui_obj_t *)GUI_BASE(${component.id}), ${cLiteral(eventConfig.message)}, ${eventConfig.handler});\n`;
         } else {
           // All other cases: use auto-generated callback name (which wraps the actual actions)
           const msgIndex = Array.from(component.eventConfigs || [])
             .filter(e => e.type === 'onMessage')
             .indexOf(eventConfig);
           const callbackName = getMessageCallbackName(component, eventConfig, msgIndex);
-          code += `${indentStr}gui_msg_subscribe((gui_obj_t *)GUI_BASE(${component.id}), "${eventConfig.message}", ${callbackName});\n`;
+          code += `${indentStr}gui_msg_subscribe((gui_obj_t *)GUI_BASE(${component.id}), ${cLiteral(eventConfig.message)}, ${callbackName});\n`;
         }
         return;
       }
@@ -232,7 +233,7 @@ ${callbackBody}}`);
       code += `${indent}gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
     } else if (action.type === 'sendMessage' && action.message) {
       // Send message
-      code += `${indent}gui_msg_publish("${action.message}", NULL, 0);\n`;
+      code += `${indent}gui_msg_publish(${cLiteral(action.message)}, NULL, 0);\n`;
     } else if (action.type === 'controlTimer' && action.timerTargets && action.timerTargets.length > 0) {
       // Control timer
       action.timerTargets.forEach((target: any) => {

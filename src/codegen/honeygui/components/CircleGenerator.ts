@@ -5,6 +5,7 @@ import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor, convertColorWithOpacity, convertColorToRgba } from '../utils';
 import { resolveGlow, resolveShadow, SHADOW_DIRECTION_ENUMS } from '../../../shared/geometryEffects';
+import { cLiteral } from '../../cLiteral';
 
 export class CircleGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -44,7 +45,7 @@ export class CircleGenerator implements ComponentCodeGenerator {
     const centerX = x + width / 2;
     const centerY = y + height / 2;
 
-    return `${indentStr}${component.id} = gui_circle_create(${parentRef}, "${component.name}", ${centerX}, ${centerY}, ${radius}, ${color});\n`;
+    return `${indentStr}${component.id} = gui_circle_create(${parentRef}, ${cLiteral(component.name)}, ${centerX}, ${centerY}, ${radius}, ${color});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

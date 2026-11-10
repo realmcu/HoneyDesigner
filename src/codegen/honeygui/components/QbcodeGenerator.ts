@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class QbcodeGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -14,7 +15,7 @@ export class QbcodeGenerator implements ComponentCodeGenerator {
     const displayType = this.getDisplayType(component);
     const encodeType = this.getEncodeType(component);
 
-    return `${indentStr}${component.id} = gui_qbcode_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height}, ${displayType}, ${encodeType});\n`;
+    return `${indentStr}${component.id} = gui_qbcode_create(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height}, ${displayType}, ${encodeType});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

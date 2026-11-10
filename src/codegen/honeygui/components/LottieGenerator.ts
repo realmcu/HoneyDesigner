@@ -3,6 +3,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class LottieGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -12,7 +13,7 @@ export class LottieGenerator implements ComponentCodeGenerator {
     
     const src = component.data?.src || '';
 
-    return `${indentStr}${component.id} = gui_lottie_create_from_file(${parentRef}, "${component.name}", "${src}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = gui_lottie_create_from_file(${parentRef}, ${cLiteral(component.name)}, "${src}", ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

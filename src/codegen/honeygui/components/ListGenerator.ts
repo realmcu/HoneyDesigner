@@ -7,6 +7,7 @@ import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { ComponentGeneratorFactory } from './index';
 import { EventGeneratorFactory } from '../events';
 import { timerReloadArg } from '../PresetTimerModel';
+import { cLiteral } from '../../cLiteral';
 
 export class ListGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -72,7 +73,7 @@ export class ListGenerator implements ComponentCodeGenerator {
       const noteNum = component.data?.noteNum ?? 5;
 
       // Generate creation code using position and size values
-      let code = `${indentStr}${component.id} = gui_list_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height}, ${noteLength}, ${space}, ${dirEnum}, ${noteDesignCallback}, NULL, ${createBar ? 'true' : 'false'});\n`;
+      let code = `${indentStr}${component.id} = gui_list_create(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height}, ${noteLength}, ${space}, ${dirEnum}, ${noteDesignCallback}, NULL, ${createBar ? 'true' : 'false'});\n`;
       
       // Set style and count immediately (must be set right after creation or some styles won't work)
       code += `${indentStr}gui_list_set_style(${component.id}, ${style});\n`;

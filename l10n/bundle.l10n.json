@@ -654,5 +654,7 @@
   "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping",
   "Reload": "Reload",
   "Keep My Changes": "Keep My Changes",
-  "{0} was changed outside the designer. Reloading will discard your unsaved design changes.": "{0} was changed outside the designer. Reloading will discard your unsaved design changes."
+  "{0} was changed outside the designer. Reloading will discard your unsaved design changes.": "{0} was changed outside the designer. Reloading will discard your unsaved design changes.",
+  "Project validation found {0} error(s) and {1} warning(s)": "Project validation found {0} error(s) and {1} warning(s)",
+  "Project validation found {0} error(s); generated C may not compile": "Project validation found {0} error(s); generated C may not compile"
 }

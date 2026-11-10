@@ -15,6 +15,7 @@ import {
   normalizeTimerConfigSegments,
   presetTimerStateNames,
 } from '../PresetTimerModel';
+import { cLiteral } from '../../cLiteral';
 
 /** Name of the generated file-local helper used for segment entry detection. */
 const BOUNDARY_HELPER_NAME = 'preset_anim_boundary_crossed';
@@ -1000,7 +1001,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
         imagePath = imagePath.replace(/\.[^.]+$/, '.bin');
       }
       code += `    // Change image: ${imagePath}\n`;
-      code += `    gui_img_set_src((gui_img_t *)target, (const uint8_t *)"${imagePath}", IMG_SRC_FILESYS);\n`;
+      code += `    gui_img_set_src((gui_img_t *)target, (const uint8_t *)${cLiteral(imagePath)}, IMG_SRC_FILESYS);\n`;
       code += `    gui_img_refresh_size((gui_img_t *)target);\n`;
       code += `\n`;
     } else if (action.type === 'imageSequence') {
@@ -1022,7 +1023,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
         code += `    // Image sequence animation: ${processedPaths.length} images\n`;
         code += `    const void *img_data_array[${processedPaths.length}] = {\n`;
         processedPaths.forEach((path: string, idx: number) => {
-          code += `        "${path}"${idx < processedPaths.length - 1 ? ',' : ''}\n`;
+          code += `        ${cLiteral(path)}${idx < processedPaths.length - 1 ? ',' : ''}\n`;
         });
         code += `    };\n`;
         code += `    uint16_t index = (uint16_t)((${processedPaths.length} - 1) * ${progressExpr});\n`;
@@ -1324,7 +1325,7 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
       code += `    }\n`;
       code += `\n`;
       code += `    // Update time string\n`;
-      code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_hour, t->tm_min);\n`;
+      code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, t->tm_hour, t->tm_min);\n`;
       code += `\n`;
       code += `    // Update hour component (first 2 characters)\n`;
       code += `    if (${componentId}_hour) {\n`;
@@ -1349,19 +1350,19 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
 
       // Generate different snprintf calls based on format
       if (timeFormat === 'HH:mm:ss') {
-        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_hour, t->tm_min, t->tm_sec);\n`;
+        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, t->tm_hour, t->tm_min, t->tm_sec);\n`;
       } else if (timeFormat === 'HH:mm') {
-        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_hour, t->tm_min);\n`;
+        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, t->tm_hour, t->tm_min);\n`;
       } else if (timeFormat === 'HH') {
-        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_hour);\n`;
+        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, t->tm_hour);\n`;
       } else if (timeFormat === 'mm') {
-        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_min);\n`;
+        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, t->tm_min);\n`;
       } else if (timeFormat === 'YYYY-MM-DD') {
-        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", (t->tm_year + 1900) % 10000, t->tm_mon + 1, t->tm_mday);\n`;
+        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, (t->tm_year + 1900) % 10000, t->tm_mon + 1, t->tm_mday);\n`;
       } else if (timeFormat === 'YYYY-MM-DD HH:mm:ss') {
-        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", (t->tm_year + 1900) % 10000, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);\n`;
+        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, (t->tm_year + 1900) % 10000, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);\n`;
       } else if (timeFormat === 'MM-DD HH:mm') {
-        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), "${formatStr}", t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min);\n`;
+        code += `    snprintf(${componentId}_time_str, sizeof(${componentId}_time_str), ${cLiteral(formatStr)}, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min);\n`;
       }
 
       code += `\n`;
@@ -1386,32 +1387,32 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     switch (timerFormat) {
       case 'HH:MM:SS':
         formatStr = '%02u:%02u:%02u';
-        formatLogic = `sprintf(${componentId}_timer_str, "${formatStr}", 
+        formatLogic = `sprintf(${componentId}_timer_str, ${cLiteral(formatStr)}, 
            (${componentId}_timer_value / 3600000),
            (${componentId}_timer_value % 3600000) / 60000,
            (${componentId}_timer_value % 60000) / 1000);`;
         break;
       case 'MM:SS':
         formatStr = '%02u:%02u';
-        formatLogic = `sprintf(${componentId}_timer_str, "${formatStr}", 
+        formatLogic = `sprintf(${componentId}_timer_str, ${cLiteral(formatStr)}, 
            (${componentId}_timer_value / 60000),
            (${componentId}_timer_value % 60000) / 1000);`;
         break;
       case 'MM:SS:MS':
         formatStr = '%02u:%02u:%02u';
-        formatLogic = `sprintf(${componentId}_timer_str, "${formatStr}", 
+        formatLogic = `sprintf(${componentId}_timer_str, ${cLiteral(formatStr)}, 
            (${componentId}_timer_value / 60000),
            (${componentId}_timer_value % 60000) / 1000,
            (${componentId}_timer_value % 1000) / 10);`;
         break;
       case 'SS':
         formatStr = '%02u';
-        formatLogic = `sprintf(${componentId}_timer_str, "${formatStr}", 
+        formatLogic = `sprintf(${componentId}_timer_str, ${cLiteral(formatStr)}, 
            (${componentId}_timer_value / 1000));`;
         break;
       default:
         formatStr = '%02u:%02u:%02u';
-        formatLogic = `sprintf(${componentId}_timer_str, "${formatStr}", 
+        formatLogic = `sprintf(${componentId}_timer_str, ${cLiteral(formatStr)}, 
            (${componentId}_timer_value / 3600000),
            (${componentId}_timer_value % 3600000) / 60000,
            (${componentId}_timer_value % 60000) / 1000);`;

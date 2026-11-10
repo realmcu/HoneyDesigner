@@ -4,6 +4,7 @@
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { HoneyGuiApiMapper } from '../HoneyGuiApiMapper';
+import { cLiteral } from '../../cLiteral';
 
 export class DefaultGenerator implements ComponentCodeGenerator {
   private apiMapper = new HoneyGuiApiMapper();
@@ -18,7 +19,7 @@ export class DefaultGenerator implements ComponentCodeGenerator {
       return `${indentStr}// Warning: no API mapping found for ${component.type}\n`;
     }
 
-    return `${indentStr}${component.id} = ${mapping.createFunction}(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = ${mapping.createFunction}(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, context: GeneratorContext): string {

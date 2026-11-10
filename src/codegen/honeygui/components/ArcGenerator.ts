@@ -5,6 +5,7 @@
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor, convertColorWithOpacity, convertColorToRgba } from '../utils';
+import { cLiteral } from '../../cLiteral';
 
 /**
  * Arc group information
@@ -76,7 +77,7 @@ export class ArcGenerator implements ComponentCodeGenerator {
     const groupVarName = `arc_group_${groupInfo.name}`;
     
     let code = `${indentStr}// Arc Group: ${groupInfo.name}\n`;
-    code += `${indentStr}gui_arc_group_t *${groupVarName} = gui_arc_group_create(${parentRef}, "${groupInfo.name}", ${Math.floor(x)}, ${Math.floor(y)}, ${Math.ceil(width)}, ${Math.ceil(height)});\n`;
+    code += `${indentStr}gui_arc_group_t *${groupVarName} = gui_arc_group_create(${parentRef}, ${cLiteral(groupInfo.name)}, ${Math.floor(x)}, ${Math.floor(y)}, ${Math.ceil(width)}, ${Math.ceil(height)});\n`;
     
     // Calculate relative coordinates within group
     const groupCenterX = width / 2;
@@ -132,7 +133,7 @@ export class ArcGenerator implements ComponentCodeGenerator {
     const centerX = x + width / 2;
     const centerY = y + height / 2;
 
-    return `${indentStr}${component.id} = gui_arc_create(${parentRef}, "${component.name}", ${centerX}, ${centerY}, ${radius}, ${startAngle}, ${endAngle}, ${strokeWidth}, ${color});\n`;
+    return `${indentStr}${component.id} = gui_arc_create(${parentRef}, ${cLiteral(component.name)}, ${centerX}, ${centerY}, ${radius}, ${startAngle}, ${endAngle}, ${strokeWidth}, ${color});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

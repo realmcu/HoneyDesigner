@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class GifGenerator implements ComponentCodeGenerator {
 
@@ -22,7 +23,7 @@ export class GifGenerator implements ComponentCodeGenerator {
       binPath = '/' + binPath;
     }
 
-    return `${indentStr}${component.id} = gui_gif_create_from_fs(${parentRef}, "${component.name}", "${binPath}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = gui_gif_create_from_fs(${parentRef}, ${cLiteral(component.name)}, ${cLiteral(binPath)}, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, context: GeneratorContext): string {

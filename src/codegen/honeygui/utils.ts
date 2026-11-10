@@ -53,6 +53,44 @@ export function findProjectRoot(startPath: string): string {
 }
 
 /**
+ * 解析 `#RGB` / `#RGBA` / `#RRGGBB` / `#RRGGBBAA` 为 RGB 三元组。
+ *
+ * 以前 HoneyGUI 侧三处实现都只取前 6 位，三字符缩写（#F00）会得到 NaN，
+ * LVGL 侧另有四份实现且行为不同。这里按 HML 规范支持全部长度，
+ * 非 # 开头或无法识别的输入返回 undefined，由调用方决定默认值。
+ */
+export function parseHexRgb(color: string | undefined): { r: number; g: number; b: number; a: number } | undefined {
+  if (!color || !color.startsWith('#')) {
+    return undefined;
+  }
+  const hex = color.slice(1).trim();
+  const expand = (ch: string) => parseInt(ch + ch, 16);
+  if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+    return { r: expand(hex[0]), g: expand(hex[1]), b: expand(hex[2]), a: 255 };
+  }
+  if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+    return { r: expand(hex[0]), g: expand(hex[1]), b: expand(hex[2]), a: expand(hex[3]) };
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+      a: 255,
+    };
+  }
+  if (/^[0-9a-fA-F]{8}$/.test(hex)) {
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+      a: parseInt(hex.slice(6, 8), 16),
+    };
+  }
+  return undefined;
+}
+
+/**
  * 将颜色值转换为 gui_rgb() C 代码格式
  * @param color 颜色值（如 "#FF0000" 或 "APP_COLOR_WHITE"）
  * @param defaultColor 未提供颜色时的默认值
@@ -61,12 +99,9 @@ export function findProjectRoot(startPath: string): string {
 export function convertColor(color?: string, defaultColor: string = 'APP_COLOR_WHITE'): string {
   if (!color) return defaultColor;
 
-  if (color.startsWith('#')) {
-    const hex = color.substring(1);
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `gui_rgb(${r}, ${g}, ${b})`;
+  const rgb = parseHexRgb(color);
+  if (rgb) {
+    return `gui_rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
   }
 
   return color;
@@ -79,16 +114,9 @@ export function convertColor(color?: string, defaultColor: string = 'APP_COLOR_W
  * @returns C 代码中的颜色调用字符串
  */
 export function convertColorWithOpacity(color: string | undefined, opacity: number): string {
-  if (!color) {
-    return `gui_rgba(255, 255, 255, ${opacity})`;
-  }
-
-  if (color.startsWith('#')) {
-    const hex = color.substring(1);
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `gui_rgba(${r}, ${g}, ${b}, ${opacity})`;
+  const rgb = parseHexRgb(color);
+  if (rgb) {
+    return `gui_rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
   }
 
   return `gui_rgba(255, 255, 255, ${opacity})`;
@@ -100,12 +128,9 @@ export function convertColorWithOpacity(color: string | undefined, opacity: numb
  * @returns C 代码中的颜色调用字符串
  */
 export function convertColorToRgba(color: string): string {
-  if (color.startsWith('#')) {
-    const hex = color.substring(1);
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `gui_rgba(${r}, ${g}, ${b}, 255)`;
+  const rgb = parseHexRgb(color);
+  if (rgb) {
+    return `gui_rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 255)`;
   }
 
   return `gui_rgba(255, 255, 255, 255)`;

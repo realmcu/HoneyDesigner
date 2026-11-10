@@ -654,5 +654,7 @@
   "Hint: simulator output and program logs are shown in the Debug Console and stay available after stopping": "提示：仿真器输出和程序日志显示在「调试控制台」，停止后仍可查看",
   "Reload": "重新加载",
   "Keep My Changes": "保留我的修改",
-  "{0} was changed outside the designer. Reloading will discard your unsaved design changes.": "{0} 已在设计器外被修改。重新加载将丢弃设计器中未保存的修改。"
+  "{0} was changed outside the designer. Reloading will discard your unsaved design changes.": "{0} 已在设计器外被修改。重新加载将丢弃设计器中未保存的修改。",
+  "Project validation found {0} error(s) and {1} warning(s)": "工程校验发现 {0} 个错误、{1} 个警告",
+  "Project validation found {0} error(s); generated C may not compile": "工程校验发现 {0} 个错误，生成的 C 可能无法编译"
 }

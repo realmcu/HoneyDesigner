@@ -3,6 +3,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class CanvasGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -10,7 +11,7 @@ export class CanvasGenerator implements ComponentCodeGenerator {
     const parentRef = context.getParentRef(component);
     const { x, y, width, height } = component.position;
 
-    return `${indentStr}${component.id} = gui_canvas_create(${parentRef}, "${component.name}", NULL, ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = gui_canvas_create(${parentRef}, ${cLiteral(component.name)}, NULL, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

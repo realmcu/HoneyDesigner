@@ -3,6 +3,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 const CODEC_MAP: Record<string, string> = {
   jpeg:    'GUI_STREAM_CODEC_JPEG',
@@ -31,7 +32,7 @@ export class StreamingGenerator implements ComponentCodeGenerator {
     const codecMacro = CODEC_MAP[codec] || 'GUI_STREAM_CODEC_JPEG';
     const dropMacro  = DROP_MAP[dropMode] || 'GUI_STREAM_DROP_NONE';
 
-    let code = `${indentStr}${component.id} = gui_stream_create(${parentRef}, "${component.name}", ${codecMacro}, ${transporter}, ${x}, ${y}, ${width}, ${height});\n`;
+    let code = `${indentStr}${component.id} = gui_stream_create(${parentRef}, ${cLiteral(component.name)}, ${codecMacro}, ${transporter}, ${x}, ${y}, ${width}, ${height});\n`;
 
     if (interval !== 40) {
       code += `${indentStr}gui_stream_set_update_interval((gui_stream_t *)${component.id}, ${interval});\n`;

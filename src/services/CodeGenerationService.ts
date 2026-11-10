@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { CodeGenerator } from './CodeGenerator';
 import { ProjectUtils } from '../utils/ProjectUtils';
+import { ProjectValidationReporter } from './ProjectValidationReporter';
+import { logger } from '../utils/Logger';
 
 export class CodeGenerationService {
     /**
@@ -38,6 +40,22 @@ export class CodeGenerationService {
                 cancellable: false
             },
             async (progress) => {
+                // 生成前先做整工程校验：跨文件 ID 冲突、非法文件名、保留字这些
+                // 只有把工程放在一起看才发现的问题，写进问题面板。
+                // 不阻塞生成。以前需要新建、用完就 dispose 的轻量诊断集合，
+                // 所以这里不是长驻对象。
+                const reporter = new ProjectValidationReporter();
+                try {
+                    const { errors } = await reporter.validateAndReport(projectRoot);
+                    if (errors > 0) {
+                        logger.warn(vscode.l10n.t('Project validation found {0} error(s); generated C may not compile', errors));
+                    }
+                } catch (error) {
+                    logger.warn(`[CodeGenerationService] 工程校验失败: ${error}`);
+                } finally {
+                    reporter.dispose();
+                }
+
                 const result = await codeGenerator.generate(projectRoot, (prog) => {
                     progress.report({
                         increment: 100 / prog.total,

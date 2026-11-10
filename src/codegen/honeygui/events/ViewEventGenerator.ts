@@ -4,6 +4,7 @@
 import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, generateMessageCallbackImpl, generateControlTimerCallbackImpl, generateKeyEventCallbackImpl, getMessageCallbackName, generateEventCallbackName } from './EventCodeGenerator';
 import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
+import { cLiteral } from '../../cLiteral';
 
 export class ViewEventGenerator implements EventCodeGenerator {
 
@@ -55,14 +56,14 @@ export class ViewEventGenerator implements EventCodeGenerator {
       if (eventConfig.type === 'onMessage' && eventConfig.message) {
         // Use handler property directly if available
         if (eventConfig.handler) {
-          code += `${indentStr}gui_msg_subscribe(${targetRef}, "${eventConfig.message}", ${eventConfig.handler});\n`;
+          code += `${indentStr}gui_msg_subscribe(${targetRef}, ${cLiteral(eventConfig.message)}, ${eventConfig.handler});\n`;
         } else {
           // All other cases: use auto-generated callback name (which wraps the actual actions)
           const msgIndex = Array.from(component.eventConfigs || [])
             .filter(e => e.type === 'onMessage')
             .indexOf(eventConfig);
           const callbackName = getMessageCallbackName(component, eventConfig, msgIndex);
-          code += `${indentStr}gui_msg_subscribe(${targetRef}, "${eventConfig.message}", ${callbackName});\n`;
+          code += `${indentStr}gui_msg_subscribe(${targetRef}, ${cLiteral(eventConfig.message)}, ${callbackName});\n`;
         }
         return;
       }

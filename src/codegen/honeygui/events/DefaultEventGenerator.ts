@@ -4,6 +4,7 @@
 import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, EVENT_TYPE_TO_CALLBACK_SUFFIX, generateMessageCallbackImpl, getMessageCallbackName } from './EventCodeGenerator';
 import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
+import { cLiteral } from '../../cLiteral';
 
 export class DefaultEventGenerator implements EventCodeGenerator {
 
@@ -23,7 +24,7 @@ export class DefaultEventGenerator implements EventCodeGenerator {
         // Prefer handler property
         const callbackName = eventConfig.handler || getMessageCallbackName(component, eventConfig, msgIndex);
         msgIndex++;
-        code += `${indentStr}gui_msg_subscribe((gui_obj_t *)${component.id}, "${eventConfig.message}", ${callbackName});\n`;
+        code += `${indentStr}gui_msg_subscribe((gui_obj_t *)${component.id}, ${cLiteral(eventConfig.message)}, ${callbackName});\n`;
         return;
       }
 
@@ -106,9 +107,9 @@ export class DefaultEventGenerator implements EventCodeGenerator {
           
           if (isFirst) {
             callbackBody += `    // Check key name\n`;
-            callbackBody += `    if (strcmp(e->indev_name, "${keyName}") == 0)\n    {\n`;
+            callbackBody += `    if (strcmp(e->indev_name, ${cLiteral(keyName)}) == 0)\n    {\n`;
           } else {
-            callbackBody += `    else if (strcmp(e->indev_name, "${keyName}") == 0)\n    {\n`;
+            callbackBody += `    else if (strcmp(e->indev_name, ${cLiteral(keyName)}) == 0)\n    {\n`;
           }
           
           // Generate action code (a key may have multiple actions)
@@ -185,7 +186,7 @@ ${callbackBody}}`);
       code += `${indent}gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
     } else if (action.type === 'sendMessage' && action.message) {
       // Send message
-      code += `${indent}gui_msg_publish("${action.message}", NULL, 0);\n`;
+      code += `${indent}gui_msg_publish(${cLiteral(action.message)}, NULL, 0);\n`;
     } else if (action.type === 'controlTimer' && action.timerTargets && action.timerTargets.length > 0) {
       // Control timer
       action.timerTargets.forEach((target: any) => {

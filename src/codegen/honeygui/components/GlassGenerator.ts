@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class GlassGenerator implements ComponentCodeGenerator {
 
@@ -23,7 +24,7 @@ export class GlassGenerator implements ComponentCodeGenerator {
     }
 
     // gui_glass_create_from_fs(parent, "name", "file_path", x, y, 0, 0)
-    return `${indentStr}${component.id} = gui_glass_create_from_fs(${parentRef}, "${component.name}", "${binSrc}", ${x}, ${y}, 0, 0);\n`;
+    return `${indentStr}${component.id} = gui_glass_create_from_fs(${parentRef}, ${cLiteral(component.name)}, ${cLiteral(binSrc)}, ${x}, ${y}, 0, 0);\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, context: GeneratorContext): string {

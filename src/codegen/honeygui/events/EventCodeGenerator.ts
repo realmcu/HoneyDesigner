@@ -4,6 +4,7 @@
 import { Component } from '../../../hml/types';
 import { EventConfig } from '../../../hml/eventTypes';
 import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
+import { cLiteral } from '../../cLiteral';
 
 export interface EventCodeGenerator {
   /**
@@ -216,7 +217,7 @@ export function generateMessageCallbackImpl(component: Component, componentMap: 
           const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
           body += `    gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
         } else if (action.type === 'sendMessage' && action.message) {
-          body += `    gui_msg_publish("${action.message}", data, len);\n`;
+          body += `    gui_msg_publish(${cLiteral(action.message)}, data, len);\n`;
         } else if (action.type === 'controlTimer' && action.timerTargets && action.timerTargets.length > 0) {
           // Control animation timer
           action.timerTargets.forEach(target => {
@@ -308,9 +309,9 @@ export function generateKeyEventCallbackImpl(component: Component, componentMap:
       // Generate condition check
       if (isFirst) {
         callbackBody += `    // Check key name\n`;
-        callbackBody += `    if (strcmp(e->indev_name, "${eventConfig.keyName}") == 0)\n    {\n`;
+        callbackBody += `    if (strcmp(e->indev_name, ${cLiteral(eventConfig.keyName)}) == 0)\n    {\n`;
       } else {
-        callbackBody += `    else if (strcmp(e->indev_name, "${eventConfig.keyName}") == 0)\n    {\n`;
+        callbackBody += `    else if (strcmp(e->indev_name, ${cLiteral(eventConfig.keyName)}) == 0)\n    {\n`;
       }
 
       // Generate action code
@@ -325,7 +326,7 @@ export function generateKeyEventCallbackImpl(component: Component, componentMap:
             const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
             callbackBody += `        gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
           } else if (action.type === 'sendMessage' && action.message) {
-            callbackBody += `        gui_msg_publish("${action.message}", NULL, 0);\n`;
+            callbackBody += `        gui_msg_publish(${cLiteral(action.message)}, NULL, 0);\n`;
           } else if (action.type === 'controlTimer' && action.timerTargets && action.timerTargets.length > 0) {
             // Control animation timer
             action.timerTargets.forEach(target => {

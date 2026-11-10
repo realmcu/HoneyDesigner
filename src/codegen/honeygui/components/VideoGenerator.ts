@@ -5,6 +5,7 @@ import * as path from 'path';
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { ConversionConfigService, VideoFormat } from '../../../services/ConversionConfigService';
+import { cLiteral } from '../../cLiteral';
 
 export class VideoGenerator implements ComponentCodeGenerator {
 
@@ -107,7 +108,7 @@ export class VideoGenerator implements ComponentCodeGenerator {
     let code: string;
     if (useMsv1) {
       // Lite Video API (auto-detects MSV1 or Cinepak codec from AVI header)
-      code = `${indentStr}${component.id} = gui_lite_video_create_from_fs(${parentRef}, "${component.name}", "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
+      code = `${indentStr}${component.id} = gui_lite_video_create_from_fs(${parentRef}, ${cLiteral(component.name)}, "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
       code += `${indentStr}gui_lite_video_set_frame_rate((gui_lite_video_t *)${component.id}, ${frameRate}.f);\n`;
 
       if (loop) {
@@ -121,7 +122,7 @@ export class VideoGenerator implements ComponentCodeGenerator {
       }
     } else {
       // Standard video API
-      code = `${indentStr}${component.id} = gui_video_create_from_fs(${parentRef}, "${component.name}", "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
+      code = `${indentStr}${component.id} = gui_video_create_from_fs(${parentRef}, ${cLiteral(component.name)}, "${videoSrc}", ${x}, ${y}, ${width}, ${height});\n`;
       code += `${indentStr}gui_video_set_frame_rate((gui_video_t *)${component.id}, ${frameRate}.f);\n`;
 
       if (loop) {

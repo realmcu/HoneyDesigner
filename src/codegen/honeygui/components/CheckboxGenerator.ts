@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class CheckboxGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -12,7 +13,7 @@ export class CheckboxGenerator implements ComponentCodeGenerator {
     const { x, y, width, height } = component.position;
 
     // TODO: Implement checkbox creation logic
-    return `${indentStr}// TODO: ${component.id} = gui_checkbox_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}// TODO: ${component.id} = gui_checkbox_create(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

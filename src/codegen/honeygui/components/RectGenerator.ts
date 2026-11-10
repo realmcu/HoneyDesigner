@@ -5,6 +5,7 @@ import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor, convertColorWithOpacity, convertColorToRgba } from '../utils';
 import { resolveGlow, resolveShadow, SHADOW_DIRECTION_ENUMS } from '../../../shared/geometryEffects';
+import { cLiteral } from '../../cLiteral';
 
 export class RectGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -44,7 +45,7 @@ export class RectGenerator implements ComponentCodeGenerator {
         : convertColor(component.style?.fillColor);
     }
 
-    return `${indentStr}${component.id} = gui_rect_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height}, ${borderRadius}, ${fillColor});\n`;
+    return `${indentStr}${component.id} = gui_rect_create(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height}, ${borderRadius}, ${fillColor});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

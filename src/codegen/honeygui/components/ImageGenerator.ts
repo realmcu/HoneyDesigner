@@ -5,6 +5,7 @@ import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import * as path from 'path';
 import * as fs from 'fs';
+import { cLiteral } from '../../cLiteral';
 
 export class ImageGenerator implements ComponentCodeGenerator {
 
@@ -23,7 +24,7 @@ export class ImageGenerator implements ComponentCodeGenerator {
       binSrc = '/' + binSrc;
     }
 
-    return `${indentStr}${component.id} = gui_img_create_from_fs(${parentRef}, "${component.name}", "${binSrc}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = gui_img_create_from_fs(${parentRef}, ${cLiteral(component.name)}, ${cLiteral(binSrc)}, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, context: GeneratorContext): string {

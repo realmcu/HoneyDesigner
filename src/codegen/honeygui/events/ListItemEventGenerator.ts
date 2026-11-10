@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, generateMessageCallbackImpl, generateControlTimerCallbackImpl, generateEventCallbackName } from './EventCodeGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class ListItemEventGenerator implements EventCodeGenerator {
   generateEventBindings(component: Component, indent: number, componentMap: Map<string, Component>): string {
@@ -24,7 +25,7 @@ export class ListItemEventGenerator implements EventCodeGenerator {
         if (eventConfig.message) {
           const callbackName = eventConfig.handler || `${component.id}_msg_cb_${msgIndex}`;
           msgIndex++;
-          code += `${indentStr}gui_msg_subscribe((gui_obj_t *)${component.id}, "${eventConfig.message}", ${callbackName});\n`;
+          code += `${indentStr}gui_msg_subscribe((gui_obj_t *)${component.id}, ${cLiteral(eventConfig.message)}, ${callbackName});\n`;
         }
       } else {
         // Standard touch/swipe events

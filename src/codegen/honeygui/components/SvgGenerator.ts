@@ -3,6 +3,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class SvgGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -19,7 +20,7 @@ export class SvgGenerator implements ComponentCodeGenerator {
     }
 
     // Create SVG using gui_svg_create_from_file
-    return `${indentStr}${component.id} = gui_svg_create_from_file(${parentRef}, "${component.name}", "${src}", ${x}, ${y});\n`;
+    return `${indentStr}${component.id} = gui_svg_create_from_file(${parentRef}, ${cLiteral(component.name)}, "${src}", ${x}, ${y});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {

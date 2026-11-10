@@ -3,6 +3,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { cLiteral } from '../../cLiteral';
 
 export class ParticleGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -11,7 +12,7 @@ export class ParticleGenerator implements ComponentCodeGenerator {
     const { x, y, width, height } = component.position;
     const effectType = component.data?.particleEffect || 'snow';
 
-    return `${indentStr}${component.id} = effect_${effectType}_create(${parentRef}, "${component.name}", ${x}, ${y}, ${width}, ${height});\n`;
+    return `${indentStr}${component.id} = effect_${effectType}_create(${parentRef}, ${cLiteral(component.name)}, ${x}, ${y}, ${width}, ${height});\n`;
   }
 
   generatePropertySetters(component: Component, indent: number, _context: GeneratorContext): string {
