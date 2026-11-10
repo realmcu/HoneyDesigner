@@ -548,23 +548,19 @@ export class NavEditService {
 
     /**
      * round-trip 预检：检测序列化器已知的"解析即丢"内容类。
-     * - 注释：HmlParser/HmlSerializer 全程不保留（约束 9）。
-     * - view 子树未知标签：非 hg_/custom_ 且非结构标签（events/event/action）
-     *   解析即删（HmlParser._parseChildrenOrdered 的 isValidComponent 过滤）。
+     * - 注释、view 子树未知标签、meta 的未知子元素与 title 等文本元素：
+     *   现在都由 HmlParser 保留、HmlSerializer 原样写回（types.ts RawHmlChild），
+     *   不再丢失，不触发确认。
      * - view 子树组件的 name 属性：序列化器不回写 name（"统一使用 id"），
      *   而 name 可能被其他文件的 switchView 以 name 为 target 引用，丢失
      *   属于语义破坏，必须告知。
-     * meta 子树的规范化（如 <title> 不回写）是设计器既有保存行为，视为预期
-     * 规范化，不触发确认。
      */
     private _detectRoundTripLoss(original: string): { reasons: NavEditConfirmReason[]; detail?: string } {
         const reasons: NavEditConfirmReason[] = [];
         const details: string[] = [];
 
-        if (/<!--[\s\S]*?-->/.test(original)) {
-            reasons.push('comments');
-        }
-
+        // 注释、未知标签现在都由解析器保留、序列化器原样写回（见 types.ts RawHmlChild），
+        // 不再构成往返丢失，也就无需让用户确认。
         const start = original.search(/<view[\s>]/);
         const end = original.lastIndexOf('</view>');
         if (start >= 0 && end > start) {
@@ -573,22 +569,15 @@ export class NavEditService {
             // 漏检其后的 name 属性——与 validateViewIds 共用 scanOpenTags
             const viewXml = original.slice(start, end).replace(/<!--[\s\S]*?-->/g, '');
             const structural = new Set(['view', 'events', 'event', 'action']);
-            const unknown = new Set<string>();
             const namedTags = new Set<string>();
             for (const openTag of scanOpenTags(viewXml)) {
                 const tag = openTag.name;
                 if (structural.has(tag)) {
                     continue;
                 }
-                if (!ComponentRegistry.isValidComponent(tag)) {
-                    unknown.add(tag);
-                } else if (/\sname\s*=\s*["']/.test(openTag.attrsText)) {
+                if (ComponentRegistry.isValidComponent(tag) && /\sname\s*=\s*["']/.test(openTag.attrsText)) {
                     namedTags.add(tag);
                 }
-            }
-            if (unknown.size > 0) {
-                reasons.push('unknownTags');
-                details.push(`unknown: ${[...unknown].join(', ')}`);
             }
             if (namedTags.size > 0) {
                 reasons.push('nameAttributes');

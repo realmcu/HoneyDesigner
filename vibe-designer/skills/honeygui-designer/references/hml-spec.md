@@ -118,9 +118,10 @@ Every HML file is a UTF-8 encoded XML document with the following skeleton:
 | Item | Requirement |
 |------|-------------|
 | Root element | `<hml>` — mandatory |
-| Children | Exactly two children: `<meta>` then `<view>`, in order |
+| Children | `<meta>` and `<view>` are mandatory, in that order; comments and unknown elements beside them are preserved verbatim |
 | Encoding | UTF-8 |
 | Tag prefix | All component tags must start with `hg_` or `custom_` |
+| Round-trip fidelity | Comments, arbitrary `<meta>` children (including text elements such as `<title>` and unknown tags), unknown tags inside `<view>` and components, and `on*` handler attributes are written back unchanged; the designer does not interpret them |
 
 ### Tag Conventions
 
@@ -158,6 +159,13 @@ The `<meta>` node holds project-level configuration:
 | `name` | string | Author name |
 | `email` | string | Author email |
 
+### Other `<meta>` children
+
+`<meta>` children other than `<project>` and `<author>` — for example
+`<title>My page</title>`, `<description>` or custom tags — are not interpreted by the
+designer, but they are preserved together with their order and written back on save.
+Comments inside `<meta>` are preserved as well.
+
 ---
 
 ## 3. View Section
@@ -176,6 +184,19 @@ The `<view>` node contains the UI component tree. Top-level children are typical
 ```
 
 Components within `<view>` are ordered by `zIndex` during serialization.
+
+### XML the designer does not manage
+
+The designer interprets components, `<events>` and the `project`/`author` children of
+`<meta>`. Everything below is written back unchanged, so a single save in the designer
+does not drop it:
+
+| Content | Location |
+|---------|----------|
+| XML comments | Inside `<hml>`, `<meta>`, `<view>`, and any component's children |
+| Unknown tags | Anything other than `hg_`/`custom_` components and structural tags (`events`/`event`/`action`) |
+| Unknown attributes | Unknown component attributes are kept as data properties; `on*` attributes are kept as legacy event handlers |
+| Meta children | See "Other `<meta>` children" above |
 
 ---
 

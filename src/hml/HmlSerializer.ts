@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Document as HmlDocument, Component } from './types';
+import { Document as HmlDocument, Component, RawHmlChild } from './types';
 import { HmlParser } from './HmlParser';
 
 /**
@@ -140,6 +140,9 @@ export class HmlSerializer {
         // 序列化view部分
         hmlContent += this._serializeView(document.view);
 
+        // hml 根元素下的注释 / 未知元素
+        hmlContent += this._serializeRawChildren(document.rawChildren, 1);
+
         hmlContent += '</hml>';
 
         return hmlContent;
@@ -157,24 +160,54 @@ export class HmlSerializer {
 
         let metaContent = '    <meta>' + '\n';
 
-        // 序列化project信息（如果有）
-        if (meta.project) {
+        // 注释原样写回
+        const comments: string[] | undefined = meta._comments;
+        if (Array.isArray(comments)) {
+            comments.forEach(comment => {
+                metaContent += '        <!--' + comment + '-->' + '\n';
+            });
+        }
+
+        // 解析时记录了子元素的原始顺序；按该顺序写回，未知元素用解析出的原文，
+        // project / author 用当前对象（设计器可能改过）
+        const knownOrder: Array<{ tag: string; xml: string }> | undefined = meta._children;
+        const written = new Set<string>();
+        if (Array.isArray(knownOrder)) {
+            knownOrder.forEach(({ tag, xml }) => {
+                written.add(tag);
+                const value = meta[tag];
+                if (tag === 'project' && !value) {
+                    return;
+                }
+                if (tag === 'author' && !value) {
+                    return;
+                }
+                if (tag === 'project' || tag === 'author') {
+                    metaContent += this._serializeElement(tag, value, 2);
+                } else if (value === undefined || value === null || value === '') {
+                    // 设计器不会删除 meta 字段，这里只是防御
+                    metaContent += '        ' + xml + '\n';
+                } else {
+                    metaContent += '        ' + xml + '\n';
+                }
+            });
+        }
+
+        // 没有原始顺序记录时（例如新建文档）：project、author 优先，其余照旧
+        const skipKeys = ['_children', '_comments', 'project', 'author', 'components', 'title', 'width', 'height'];
+        if (!written.has('project') && meta.project) {
             metaContent += this._serializeElement('project', meta.project, 2);
         }
-
-        // 序列化author信息（如果有）
-        if (meta.author) {
+        if (!written.has('author') && meta.author) {
             metaContent += this._serializeElement('author', meta.author, 2);
         }
-
-        // 序列化其他顶层meta信息（排除已处理的project和author）
-        const specialKeys = ['project', 'author', 'components', 'title', 'width', 'height'];
         Object.keys(meta).forEach(key => {
-            if (!specialKeys.includes(key)) {
-                const value = meta[key];
-                if (value !== undefined && value !== null && value !== '') {
-                    metaContent += this._serializeElement(key, value, 2);
-                }
+            if (skipKeys.includes(key) || written.has(key)) {
+                return;
+            }
+            const value = meta[key];
+            if (value !== undefined && value !== null && value !== '') {
+                metaContent += this._serializeElement(key, value, 2);
             }
         });
 
@@ -187,7 +220,7 @@ export class HmlSerializer {
      * @param view view对象，包含components数组
      * @returns 序列化后的view XML字符串
      */
-    private _serializeView(view: { components?: Component[] }): string {
+    private _serializeView(view: { components?: Component[]; rawChildren?: RawHmlChild[] }): string {
         let viewContent = '    <view>' + '\n';
 
         // 序列化组件树（从顶层组件开始）
@@ -206,6 +239,8 @@ export class HmlSerializer {
                 viewContent += this._serializeComponent(component, 2, index);
             });
         }
+
+        viewContent += this._serializeRawChildren(view.rawChildren, 2);
 
         viewContent += '    </view>' + '\n';
         return viewContent;
@@ -299,14 +334,23 @@ export class HmlSerializer {
             attributesStr += ' showOverflow="true"';
         }
 
-        // 注意: component.events (旧的事件处理器对象) 已废弃，不再序列化
-        // 新的事件系统使用 component.eventConfigs
+        // 旧式 on* 事件处理器（onClick="func" 这类属性）：设计器不编辑但手写和
+        // AI 生成的内容会用到，原样写回，不参与代码生成
+        if (component.events) {
+            Object.keys(component.events).forEach(eventName => {
+                const handler = component.events![eventName];
+                if (handler !== undefined && handler !== null && handler !== '') {
+                    attributesStr += ' ' + eventName + '="' + this._escapeXmlValue(this._convertToString(handler)) + '"';
+                }
+            });
+        }
 
-        // 检查是否有子组件或事件配置
+        // 检查是否有子组件、事件配置或需要原样写回的内容
         const hasChildren = component.children && component.children.length > 0;
         const hasEventConfigs = component.eventConfigs && component.eventConfigs.length > 0;
+        const hasRawChildren = component.rawChildren && component.rawChildren.length > 0;
 
-        if (hasChildren || hasEventConfigs) {
+        if (hasChildren || hasEventConfigs || hasRawChildren) {
             componentContent += indent + '<' + component.type + attributesStr + '>' + '\n';
 
             // 序列化事件配置 (Event-Action)
@@ -401,12 +445,27 @@ export class HmlSerializer {
                 });
             }
 
+            // 注释 / 未知子标签原样写回
+            componentContent += this._serializeRawChildren(component.rawChildren, indentLevel + 1);
+
             componentContent += indent + '</' + component.type + '>' + '\n';
         } else {
             componentContent += indent + '<' + component.type + attributesStr + ' />' + '\n';
         }
 
         return componentContent;
+    }
+
+    /**
+     * 写回解析时保留下来的原始片段（注释 / 设计器不认识的标签）。
+     * 按所在层级缩进，内容本身是解析器重建的原文，不再二次转义。
+     */
+    private _serializeRawChildren(children: RawHmlChild[] | undefined, indentLevel: number): string {
+        if (!children || children.length === 0) {
+            return '';
+        }
+        const indent = ' '.repeat(indentLevel * 4);
+        return children.map(child => indent + child.xml + '\n').join('');
     }
 
     /**

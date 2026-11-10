@@ -4,7 +4,7 @@
  */
 
 import { XMLParser } from 'fast-xml-parser';
-import { Component, Meta, View, Document, ComponentPosition } from './types';
+import { Component, Meta, View, Document, ComponentPosition, RawHmlChild } from './types';
 import type { EventConfig, Action, EventType, ActionType } from './eventTypes';
 import { logger } from '../utils/Logger';
 import { convertAttributeValue } from '../shared/componentPropertyTypes';
@@ -89,12 +89,17 @@ export class HmlParser {
       parseAttributeValue: false,
       trimValues: false,  // 关闭全局 trim，由 attributeValueProcessor 精确控制
       attributeValueProcessor,
-      preserveOrder: true  // 保持 XML 元素的原始顺序
+      preserveOrder: true,  // 保持 XML 元素的原始顺序
+      // 注释不丢弃：设计器不管理的内容要原样写回，见 types.ts RawHmlChild
+      commentPropName: '#comment',
     });
   }
 
   // 当前 HML 文件路径（用于加载相对路径的 SVG 文件）
   private currentHmlPath: string = '';
+
+  /** 本次解析的原始内容 */
+  private _rawSource = '';
 
   /**
    * 解析HML内容
@@ -109,6 +114,7 @@ export class HmlParser {
     try {
       // 保存当前 HML 路径
       this.currentHmlPath = hmlFilePath || '';
+      this._rawSource = content;
 
       // 重置确定性 id 生成状态，确保同一实例多次 parse 互不影响，
       // 且同一文件内容反复解析得到完全相同的 id 序列
@@ -126,42 +132,189 @@ export class HmlParser {
         throw new Error('Invalid HML: missing <hml> root element');
       }
 
-      const meta = this._parseMeta(parsed.hml.meta || {});
-      
-      // 使用保持顺序的解析器解析 view
+      // 使用保持顺序的解析器解析 view（meta 也从这份结果取，才能保留未知子元素与注释）
       const parsedOrdered = this.xmlParserOrdered.parse(content);
+      const hmlChildren = this._getOrderedChildren(parsedOrdered, 'hml');
+      const metaElement = hmlChildren.find((item: any) => item.meta);
+      const meta = this._parseMetaOrdered(metaElement?.meta || []);
+
       const view = this._parseViewOrdered(parsedOrdered, meta);
 
-      return { meta, view };
+      // hml 根元素下 meta / view 之外的注释与未知元素
+      const rawChildren = hmlChildren
+        .filter((item: any) => !item.meta && !item.view)
+        .map((item: any) => this._rawChildFromOrdered(item))
+        .filter((child: RawHmlChild | undefined): child is RawHmlChild => child !== undefined);
+
+      return rawChildren.length > 0 ? { meta, view, rawChildren } : { meta, view };
     } catch (error) {
       throw new Error(`HML parsing failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
-   * 解析元数据
+   * 解析元数据（preserveOrder 结果）。
+   *
+   * 设计器真正使用的只有 project / author；其余子元素（title、description 这类
+   * 纯文本元素和未知标签）按原文保存到 meta 的索引签名与 `_children` 顺序里，
+   * 序列化时原样写回。只存字符串或普通对象，不参与任何逻辑，避免 title 之类的
+   * 文本元素被当成对象处理。
    */
-  private _parseMeta(metaElement: any): Meta {
-    const meta: Meta = {};
+  private _parseMetaOrdered(metaChildren: any[]): Meta {
+    const meta: Meta = {} as Meta;
+    const ordered: Array<{ tag: string; xml: string }> = [];
+    const comments: string[] = [];
 
-    // 基本属性
-    if (metaElement.title) meta.title = String(metaElement.title);
-    if (metaElement.description) meta.description = String(metaElement.description);
-
-    // 项目信息
-    if (metaElement.project) {
-      meta.project = { ...metaElement.project };
+    for (const item of Array.isArray(metaChildren) ? metaChildren : []) {
+      const tagName = this._orderedTagName(item);
+      if (!tagName) {
+        continue;
+      }
+      if (tagName === '#comment') {
+        comments.push(this._orderedText(item));
+        continue;
+      }
+      const value = this._orderedElementToObject(item, tagName);
+      if (!(tagName in meta)) {
+        (meta as any)[tagName] = value;
+      }
+      ordered.push({ tag: tagName, xml: this._serializeOrderedElement(item, tagName) });
     }
 
-    // 作者信息
-    if (metaElement.author) {
-      meta.author = { ...metaElement.author };
+    if (ordered.length > 0) {
+      (meta as any)._children = ordered;
     }
-
-    // 默认值
-    if (!meta.title) meta.title = '未命名页面';
-
+    if (comments.length > 0) {
+      (meta as any)._comments = comments;
+    }
     return meta;
+  }
+
+  /**
+   * preserveOrder 节点的标签名（排除 ':@' 属性对象；注释节点返回 '#comment'）。
+   * 纯文本节点（标签之间的缩进 / 换行）返回 undefined——它们不是元素，
+   * 否则会被当成未知标签逐个写回，产生 <_text /> 垃圾。
+   */
+  private _orderedTagName(item: any): string | undefined {
+    if (!item || typeof item !== 'object') {
+      return undefined;
+    }
+    if (Array.isArray(item['#comment'])) {
+      return '#comment';
+    }
+    if (typeof item._text === 'string') {
+      return undefined;
+    }
+    return Object.keys(item).find(key => key !== ':@');
+  }
+
+  /** 注释节点（或文本容器）的文本内容 */
+  private _orderedText(item: any): string {
+    const children = item?.['#comment'];
+    if (!Array.isArray(children)) {
+      return '';
+    }
+    return children
+      .map((child: any) => (child && typeof child._text === 'string' ? child._text : ''))
+      .join('');
+  }
+
+  /**
+   * preserveOrder 元素转成普通对象（与旧的非 preserveOrder 结构一致）。
+   * 纯文本元素（如 <title>abc</title>）返回字符串，带属性/子元素的返回对象。
+   */
+  private _orderedElementToObject(item: any, tagName: string): any {
+    const attributes = this._normalizeAttributes(item[':@'] || {});
+    const children = item[tagName];
+    const result: Record<string, any> = { ...attributes };
+
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        if (child && typeof child._text === 'string') {
+          if (Object.keys(result).length === 0) {
+            return child._text;
+          }
+          result._text = child._text;
+          continue;
+        }
+        const childTag = this._orderedTagName(child);
+        if (!childTag || childTag === '#comment') {
+          continue;
+        }
+        const value = this._orderedElementToObject(child, childTag);
+        if (!(childTag in result)) {
+          result[childTag] = value;
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * 把 preserveOrder 元素重新序列化为原文。
+   * 未知元素设计器不解释其结构，按解析结果忠实重建（属性、子元素、文本、注释），
+   * 与源文件的语义一致，格式上按设计器的缩进规则输出。
+   */
+  private _serializeOrderedElement(item: any, tagName: string): string {
+    if (tagName === '#comment') {
+      return `<!--${this._orderedText(item)}-->`;
+    }
+    const attributes = item[':@'] || {};
+    const attrText = Object.keys(attributes)
+      .filter(key => !key.startsWith('@_#text'))
+      .map(key => ` ${key.replace(/^@_/, '')}="${this._escapeAttribute(String(attributes[key]))}"`)
+      .join('');
+    const children = item[tagName];
+    if (!Array.isArray(children) || children.length === 0) {
+      return `<${tagName}${attrText} />`;
+    }
+    if (children.length === 1 && typeof children[0]?._text === 'string') {
+      return `<${tagName}${attrText}>${this._escapeText(children[0]._text)}</${tagName}>`;
+    }
+    const inner = children
+      .map((child: any) => {
+        if (child && typeof child._text === 'string') {
+          return this._escapeText(child._text);
+        }
+        const childTag = this._orderedTagName(child);
+        return childTag ? this._serializeOrderedElement(child, childTag) : '';
+      })
+      .join('');
+    return `<${tagName}${attrText}>${inner}</${tagName}>`;
+  }
+
+  private _escapeAttribute(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  private _escapeText(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  /** preserveOrder 节点 → 待写回的原始片段（注释 / 未知元素） */
+  private _rawChildFromOrdered(item: any): RawHmlChild | undefined {
+    const tagName = this._orderedTagName(item);
+    if (!tagName) {
+      return undefined;
+    }
+    const xml = this._serializeOrderedElement(item, tagName);
+    return tagName === '#comment' ? { kind: 'comment', xml } : { kind: 'element', xml };
+  }
+
+  /** 取 element 下 preserveOrder 的子节点数组 */
+  private _getOrderedChildren(parsedOrdered: any[], tagName: string): any[] {
+    if (!Array.isArray(parsedOrdered)) {
+      return [];
+    }
+    const holder = parsedOrdered.find((item: any) => item && item[tagName]);
+    const children = holder?.[tagName];
+    return Array.isArray(children) ? children : [];
   }
 
   /**
@@ -193,9 +346,11 @@ export class HmlParser {
     // 按层级排序组件（同级组件按 zIndex 排序）
     const sortedComponents = this._sortComponentsByZIndex(Array.from(componentMap.values()));
 
-    return {
-      components: sortedComponents
-    };
+    const rawChildren = this._collectRawChildren(viewElement.view);
+
+    return rawChildren.length > 0
+      ? { components: sortedComponents, rawChildren }
+      : { components: sortedComponents };
   }
 
   /**
@@ -295,7 +450,8 @@ export class HmlParser {
   private _parseChildrenOrdered(
     elements: any[],
     componentMap: Map<string, Component>,
-    parentId: string | undefined
+    parentId: string | undefined,
+    rawChildren?: RawHmlChild[]
   ): string[] {
     const childIds: string[] = [];
     let listItemIndex = 0;
@@ -306,11 +462,20 @@ export class HmlParser {
 
     elements.forEach((element: any) => {
       // 获取标签名（排除 :@ 属性对象）
-      const tagName = Object.keys(element).find(key => key !== ':@');
+      const tagName = this._orderedTagName(element);
       if (!tagName) return;
 
+      // 注释与未知标签：原样保留，序列化时写回（events 等结构性节点由事件配置处理）
+      if (tagName === '#comment' || (!ComponentRegistry.isValidComponent(tagName) && tagName !== 'events')) {
+        const raw = this._rawChildFromOrdered(element);
+        if (raw && rawChildren) {
+          rawChildren.push(raw);
+        }
+        return;
+      }
+
       // 跳过非组件元素
-      if (!ComponentRegistry.isValidComponent(tagName)) {
+      if (!ComponentRegistry.isValidComponent(tagName) || tagName === 'events') {
         return;
       }
 
@@ -402,8 +567,12 @@ export class HmlParser {
     // 添加到映射
     componentMap.set(componentId, component);
 
-    // 递归解析子组件（保持顺序）
-    component.children = this._parseChildrenOrdered(children, componentMap, componentId);
+    // 递归解析子组件（保持顺序）；子标签里的注释与未知标签原样保留
+    const rawChildren: RawHmlChild[] = [];
+    component.children = this._parseChildrenOrdered(children, componentMap, componentId, rawChildren);
+    if (rawChildren.length > 0) {
+      component.rawChildren = rawChildren;
+    }
 
     // 对于 hg_list 组件，按 y/x 坐标排序子组件（hg_list_item），并修正位置
     if (tagName === 'hg_list' && component.children && component.children.length > 0) {
@@ -463,6 +632,27 @@ export class HmlParser {
     }
 
     return component;
+  }
+
+  /** 收集元素列表中的注释与未知标签（保持原顺序） */
+  private _collectRawChildren(elements: any[]): RawHmlChild[] {
+    const rawChildren: RawHmlChild[] = [];
+    if (!Array.isArray(elements)) {
+      return rawChildren;
+    }
+    for (const element of elements) {
+      const tagName = this._orderedTagName(element);
+      if (!tagName) {
+        continue;
+      }
+      if (tagName === '#comment' || !ComponentRegistry.isValidComponent(tagName)) {
+        const raw = this._rawChildFromOrdered(element);
+        if (raw) {
+          rawChildren.push(raw);
+        }
+      }
+    }
+    return rawChildren;
   }
 
   /**

@@ -217,10 +217,28 @@ export interface Component {
   locked: boolean;
   showOverflow?: boolean;  // 在设计器中显示溢出内容
   zIndex: number;
+  /**
+   * 设计器不认识的子元素（注释、未知标签），按原顺序保留，序列化时写回。
+   * 只保存原文，不参与布局与代码生成。
+   */
+  rawChildren?: RawHmlChild[];
+}
+
+/** 序列化时原样写回的 HML 片段 */
+export interface RawHmlChild {
+  /** 'comment' 为注释，'element' 为未知标签（连子元素一起保存原文） */
+  kind: 'comment' | 'element';
+  /** 原始 XML 文本（含缩进前的正文，序列化时按所在层级补齐缩进） */
+  xml: string;
 }
 
 /**
  * 元数据类型
+ *
+ * 除已知字段外，解析器还会保留：
+ * - 未知的 meta 子元素，原样放在索引签名里（序列化时写回）
+ * - `_children`：meta 子元素的原始顺序（含未知元素名），保证写回顺序不变
+ * - `_comments`：meta 里的注释
  */
 export interface Meta {
   title?: string;
@@ -238,6 +256,8 @@ export interface Meta {
     email?: string;
     [key: string]: any;
   };
+  /** 未识别的 meta 子元素，按标签名保存，序列化时原样写回 */
+  [key: string]: any;
 }
 
 /**
@@ -246,6 +266,8 @@ export interface Meta {
 export interface View {
   id?: string;
   components?: Component[];
+  /** view 下不属于任何组件的未知标签 / 注释，原样写回 */
+  rawChildren?: RawHmlChild[];
 }
 
 /**
@@ -254,4 +276,6 @@ export interface View {
 export interface Document {
   meta: Meta;
   view: View;
+  /** hml 根元素下的注释、view 之外的未知元素，原样写回 */
+  rawChildren?: RawHmlChild[];
 }

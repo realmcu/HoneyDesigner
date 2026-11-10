@@ -375,7 +375,7 @@ describe('NavEditService.applyNavEdit', () => {
     expect(result.errorCode).toBe('locateFailed');
   });
 
-  it('needsConfirm on a file containing comments; confirmed=true proceeds and applies the edit', async () => {
+  it('keeps comments in a file containing them without asking for confirmation', async () => {
     fs.writeFileSync(filePath, COMMENTED_CONTENT, 'utf-8');
     const service = new NavEditService(noOpHooks());
     const baseRequest: NavEditRequest = {
@@ -392,16 +392,13 @@ describe('NavEditService.applyNavEdit', () => {
       },
     };
 
-    const firstAttempt = await service.applyNavEdit(baseRequest, projectRoot);
-    expect(firstAttempt.success).toBe(false);
-    expect(firstAttempt.needsConfirm).toBe(true);
-    expect(firstAttempt.confirmReasons).toContain('comments');
-    expect(fs.readFileSync(filePath, 'utf-8')).toBe(COMMENTED_CONTENT); // 未确认前磁盘不动
-
-    const confirmed = await service.applyNavEdit({ ...baseRequest, confirmed: true }, projectRoot);
-    expect(confirmed.success).toBe(true);
+    // 注释由解析器保留、序列化器原样写回，不再是往返丢失，不需要确认
+    const result = await service.applyNavEdit(baseRequest, projectRoot);
+    expect(result.needsConfirm).toBeFalsy();
+    expect(result.success).toBe(true);
     const written = fs.readFileSync(filePath, 'utf-8');
     expect(written).toMatch(/target="view_a"/);
+    expect(written).toContain('<!-- a human-authored note that the round-trip precheck must catch -->');
   });
 
   it('rolls back to the exact original content when the disk write step fails', async () => {
