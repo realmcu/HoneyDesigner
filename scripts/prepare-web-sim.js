@@ -10,7 +10,7 @@
  *
  * 示例工程的预编译产物（sim/prebuilt/）随后由 scripts/prebuild-web-examples.js 生成。
  *
- * 引擎来自 HoneyGUI 的 simulator/web（.config_engine + -DWEB_SIM_MAIN_MODULE=ON），由
+ * 引擎来自 HoneyGUI 的 simulator/web（.config + -DWEB_SIM_MAIN_MODULE=ON），由
  * scripts/build-web-engine.js 构建到 lib/web-sim/。路径也可以用环境变量指定：
  *
  *   HONEYGUI_WEB_ENGINE   含 gui.js、gui.wasm、web_sim.js 的目录

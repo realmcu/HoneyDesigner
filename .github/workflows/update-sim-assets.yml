@@ -379,7 +379,7 @@ jobs:
           SDK_EPOCH=$(git -C /tmp/HoneyGUI log -1 --format=%ct)
           echo "SOURCE_DATE_EPOCH=$SDK_EPOCH" >> "$GITHUB_ENV"
           echo "SOURCE_DATE_EPOCH=$SDK_EPOCH （$(date -u -d "@$SDK_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')）"
-          # 引擎的构建规则（install 规则、HML 接口、.config_engine）要和 SDK 一起才能装出可用引擎。
+          # 引擎的构建规则（install 规则、HML 接口、引擎配置 .config）要和 SDK 一起才能装出可用引擎。
           # 上游还没有这些改动时，后面的步骤全部跳过，不必先下载 emsdk（build-web-engine.js 也会再检查一次）
           if ! grep -q 'install(FILES' /tmp/HoneyGUI/simulator/web/CMakeLists.txt; then
             echo "::notice::$SDK_MESSAGE 尚未包含浏览器仿真引擎的构建规则；跳过，等待上游合入"

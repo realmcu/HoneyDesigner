@@ -9,7 +9,7 @@
  *
  * 用法：node scripts/build-web-engine.js <HoneyGUI SDK 目录>
  * 需要已激活的 emsdk（emcmake / emcc 在 PATH 中，或设置 EMSDK）、CMake 与 Ninja。
- * 构建配置固定为 SDK 的 simulator/web/.config_engine + WEB_SIM_MAIN_MODULE=ON。
+ * 构建配置用 SDK 的 simulator/web/.config，并开启 WEB_SIM_MAIN_MODULE。
  */
 const fs = require('fs');
 const path = require('path');
@@ -76,6 +76,11 @@ function main() {
     if (!fs.readFileSync(path.join(webSim, 'CMakeLists.txt'), 'utf8').includes('install(FILES')) {
         fail(`${sdk} has no engine install rules in simulator/web/CMakeLists.txt: the HoneyGUI commit with the web simulator engine is not upstream yet`);
     }
+    // 配置文件决定引擎包含哪些控件与 HML 运行时，缺了它 CMake 直接失败
+    const config = path.join(webSim, '.config');
+    if (!fs.existsSync(config)) {
+        fail(`${sdk} has no simulator/web/.config: the SDK predates the web simulator engine config`);
+    }
     const emDir = emscriptenDir();
     // Windows 上 emsdk 提供 .exe 启动器
     const tool = name => {
@@ -100,7 +105,7 @@ function main() {
     fs.rmSync(buildDir, { recursive: true, force: true });
     run(emcmake, [
         'cmake', '-S', webSim, '-B', buildDir, '-G', 'Ninja',
-        `-DWEB_SIM_CONFIG=${path.join(webSim, '.config_engine')}`, '-DWEB_SIM_MAIN_MODULE=ON',
+        `-DWEB_SIM_CONFIG=${config}`, '-DWEB_SIM_MAIN_MODULE=ON',
         // 去掉产物里的 SDK 检出路径：同一份源码在不同目录构建出相同引擎，lib/web-sim 才比较得出「有没有变化」
         `-DWEB_SIM_SOURCE_PREFIX_MAP=${sdk}`,
     ], { env: buildEnv });
@@ -112,7 +117,7 @@ function main() {
     const engineJs = path.join(installDir, 'engine', 'gui.js');
     if (!fs.existsSync(engineJs) || !fs.readFileSync(engineJs, 'utf8').includes('_web_sim_load_hml')) {
         fs.rmSync(buildDir, { recursive: true, force: true });
-        fail(`${sdk} gave no engine with the HML runtime (web_sim_load_hml): its simulator/web predates the install rules, or .config_engine turns CONFIG_REALTEK_BUILD_XML_LOADER off`);
+        fail(`${sdk} gave no engine with the HML runtime (web_sim_load_hml): its simulator/web predates the install rules, or the engine config turns CONFIG_REALTEK_BUILD_XML_LOADER off`);
     }
 
     fs.rmSync(out, { recursive: true, force: true });
