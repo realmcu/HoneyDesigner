@@ -6,7 +6,7 @@ interface PanelConfig {
   maxWidth: number;
 }
 
-interface PanelState {
+export interface PanelState {
   width: number;
   isResizing: boolean;
   isCollapsed: boolean;

@@ -47,7 +47,8 @@ Do not send the initial `loadHml` before the webview is ready.
 ### Webview
 
 - `src/webview/index.tsx`: React entry point.
-- `src/webview/App.tsx`: application layout and host-message dispatch.
+- `src/webview/App.tsx`: application layout, drag-and-drop, and component creation.
+- `src/webview/hooks/useHostMessages.ts`: ready handshake, host-message dispatch, and global error forwarding.
 - `src/webview/store.ts`: assembles the Zustand state slices under `src/webview/store/`, including component operations, dirty tracking, navigation state, and project i18n.
 - `src/webview/components/DesignerCanvas.tsx`: DOM-based component canvas with zoom, pan, drag, resize, and selection.
 - `src/webview/components/widgets/`: component previews.
