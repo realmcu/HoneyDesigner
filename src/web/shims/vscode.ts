@@ -672,8 +672,35 @@ export const extensions = {
     getExtension: () => undefined,
 };
 
+// ---------------------------------------------------------------------------
+// 诊断：浏览器版没有问题面板，工程校验结果只走消息提示，这里保留空实现
+// ---------------------------------------------------------------------------
+
+export enum DiagnosticSeverity {
+    Error = 0,
+    Warning = 1,
+    Information = 2,
+    Hint = 3,
+}
+
+export class Diagnostic {
+    constructor(readonly range: Range, readonly message: string, readonly severity = DiagnosticSeverity.Error) {}
+}
+
+export const languages = {
+    createDiagnosticCollection(name?: string) {
+        return {
+            name: name ?? '',
+            set(): void { /* noop */ },
+            delete(): void { /* noop */ },
+            clear(): void { /* noop */ },
+            dispose(): void { /* noop */ },
+        };
+    },
+};
+
 export default {
     Disposable, EventEmitter, Uri, Position, Range, Selection, RelativePattern, ProgressLocation,
     TextEditorRevealType, ViewColumn, FileType, CancellationTokenSource, TextDocument, WorkspaceEdit,
-    l10n, window, workspace, commands, env, extensions,
+    l10n, window, workspace, commands, env, extensions, DiagnosticSeverity, Diagnostic, languages,
 };

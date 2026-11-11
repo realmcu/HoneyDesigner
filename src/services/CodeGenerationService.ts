@@ -4,6 +4,7 @@ import { ProjectUtils } from '../utils/ProjectUtils';
 import { ProjectValidationReporter } from './ProjectValidationReporter';
 import { logger } from '../utils/Logger';
 import { takeDroppedProtectedAreas } from '../codegen/protectedAreaReport';
+import type { ProjectIssue } from '../codegen/projectValidation';
 
 export class CodeGenerationService {
     /**
@@ -51,15 +52,11 @@ export class CodeGenerationService {
                     });
                 });
 
-                // 校验在 CodeGenerator 内部完成（三条生成路径共用），这里只负责展示
-                if (result.validationIssues && result.validationIssues.length > 0) {
-                    const reporter = new ProjectValidationReporter();
-                    try {
-                        reporter.publish(projectRoot, result.validationIssues);
-                    } finally {
-                        reporter.dispose();
-                    }
-                }
+                // 校验在 CodeGenerator 内部完成（三条生成路径共用），这里只负责展示。
+                // Generate Code 不拦截：用户可能就是想先看到生成的代码
+                const issues = result.validationIssues ?? [];
+                ProjectValidationReporter.shared.publish(projectRoot, issues);
+                this.notifyValidationErrors(projectRoot, issues);
 
                 // 保护区代码丢失（组件改名或删掉了对应的回调）。以前只写日志，
                 // 用户在界面上看不到，手写代码就静默消失了
@@ -92,13 +89,40 @@ export class CodeGenerationService {
         );
     }
 
+    /** 每个工程上一次提示过的错误集合；保存后自动生成也走这里，错误没变就不重复弹 */
+    private static lastNotifiedErrors = new Map<string, string>();
+
     /**
-     * 提示用户清理孤立的生成文件
+     * 校验有 error 时弹提示，带跳转问题面板的按钮；只有 warning 时不打扰
      */
+    private static notifyValidationErrors(projectRoot: string, issues: ProjectIssue[]): void {
+        const errorIssues = issues.filter(issue => issue.severity === 'error');
+        const errors = errorIssues.length;
+        const signature = errorIssues.map(issue => `${issue.file}|${issue.message}`).join('\n');
+        if (this.lastNotifiedErrors.get(projectRoot) === signature) {
+            return;
+        }
+        this.lastNotifiedErrors.set(projectRoot, signature);
+        if (errors === 0) {
+            return;
+        }
+        logger.warn(vscode.l10n.t('Project validation found {0} error(s) and {1} warning(s)',
+            errors, issues.length - errors));
+        const showProblems = vscode.l10n.t('Show Problems');
+        void vscode.window.showWarningMessage(
+            vscode.l10n.t('Project validation found {0} error(s); generated C may not compile', errors),
+            showProblems,
+        ).then(selection => {
+            if (selection === showProblems) {
+                void vscode.commands.executeCommand('workbench.actions.view.problems');
+            }
+        });
+    }
+
     /**
      * 保护区代码丢失：写进输出通道并提示用户。这类丢失不可恢复，必须让用户知道。
      */
-    private static reportDroppedProtectedAreas(dropped: Array<{ id: string; file?: string }>): void {
+    public static reportDroppedProtectedAreas(dropped: Array<{ id: string; file?: string }>): void {
         const unique = [...new Set(dropped.map(entry => entry.id))];
         logger.warn('[CodeGenerationService] 保护区代码丢失: ' + unique.join(', '));
         dropped.forEach(entry => {
@@ -110,6 +134,9 @@ export class CodeGenerationService {
         );
     }
 
+    /**
+     * 提示用户清理孤立的生成文件
+     */
     public static async promptOrphanCleanup(projectRoot: string, orphanedDesigns: string[]): Promise<void> {
         const srcDir = ProjectUtils.getSrcDir(projectRoot);
         const nameList = orphanedDesigns.join(', ');

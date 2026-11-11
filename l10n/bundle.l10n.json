@@ -658,5 +658,8 @@
   "Project validation found {0} error(s) and {1} warning(s)": "Project validation found {0} error(s) and {1} warning(s)",
   "Project validation found {0} error(s); generated C may not compile": "Project validation found {0} error(s); generated C may not compile",
   "Hand-written code for {0} was dropped because its component or event no longer exists: {1}": "Hand-written code for {0} was dropped because its component or event no longer exists: {1}",
-  "Project validation found {0} problem(s):": "Project validation found {0} problem(s):"
+  "Project validation found {0} problem(s):": "Project validation found {0} problem(s):",
+  "Show Problems": "Show Problems",
+  "Hand-written code dropped: {0}": "Hand-written code dropped: {0}",
+  "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel."
 }

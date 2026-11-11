@@ -911,8 +911,7 @@ export class MessageHandler {
 
         if (modifiedCount > 0) {
             logger.info(`[MessageHandler] Cleared entry in ${modifiedCount} other HML file(s)`);
-            // 其他面板的刷新由 DesignerPanel 订阅 onDidWriteOtherPanels 完成
-
+            this._fileManager.notifyOtherPanelsWritten(writtenFiles);
         }
     }
 

@@ -658,5 +658,8 @@
   "Project validation found {0} error(s) and {1} warning(s)": "工程校验发现 {0} 个错误、{1} 个警告",
   "Project validation found {0} error(s); generated C may not compile": "工程校验发现 {0} 个错误，生成的 C 可能无法编译",
   "Hand-written code for {0} was dropped because its component or event no longer exists: {1}": "{0} 处手写代码因对应组件或事件已不存在而未写回，原代码已丢失：{1}",
-  "Project validation found {0} problem(s):": "工程校验发现 {0} 个问题："
+  "Project validation found {0} problem(s):": "工程校验发现 {0} 个问题：",
+  "Show Problems": "查看问题",
+  "Hand-written code dropped: {0}": "手写代码已丢失：{0}",
+  "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "已停止构建：工程校验发现 {0} 个会导致编译失败的错误，详见“问题”面板。"
 }

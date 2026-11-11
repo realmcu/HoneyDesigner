@@ -309,9 +309,7 @@ export class FileManager {
 
         // 写盘对各面板的 watcher 回灌已被登记表抑制，改由这里显式刷新：
         // 打开这些文件的其它面板重新加载，否则它们的内存态与磁盘不一致
-        if (writtenFiles.length > 0) {
-            this._onDidWriteOtherPanels.fire(writtenFiles);
-        }
+        this.notifyOtherPanelsWritten(writtenFiles);
     }
 
     /**
@@ -610,14 +608,9 @@ export class FileManager {
     }
 
     /**
-     * 通过 VSCode TextDocument API 写入文件
-     * 使用 WorkspaceEdit + document.save() 替代直接 fs.writeFileSync()
-     * 防止 TextDocument 版本与磁盘文件不同步导致的 "content is newer" 冲突
-     */
-    /**
      * 写入一份不是本面板编辑产生的 HML（如其他面板改了分辨率后同步视图尺寸）。
      * 同一个通道：登记预期写入再写盘，各面板 watcher 才不会把它当成外部改动回灌。
-     * 调用方负责通知相关面板刷新。
+     * 写完一批后调用方要调 notifyOtherPanelsWritten()，让打开这些文件的面板重新加载。
      */
     public writeOtherPanelHml(filePath: string, content: string): void {
         PendingWriteRegistry.getInstance().register(filePath, PendingWriteRegistry.hashContent(content));
@@ -629,6 +622,18 @@ export class FileManager {
         }
     }
 
+    /** 通知打开了这些文件的其他面板从磁盘重新加载 */
+    public notifyOtherPanelsWritten(filePaths: string[]): void {
+        if (filePaths.length > 0) {
+            this._onDidWriteOtherPanels.fire(filePaths);
+        }
+    }
+
+    /**
+     * 通过 VSCode TextDocument API 写入文件
+     * 使用 WorkspaceEdit + document.save() 替代直接 fs.writeFileSync()
+     * 防止 TextDocument 版本与磁盘文件不同步导致的 "content is newer" 冲突
+     */
     private async _writeViaTextDocument(filePath: string, content: string): Promise<void> {
         const transactionId = this._saveManager.beginTransaction(filePath, content);
         PendingWriteRegistry.getInstance().register(filePath, PendingWriteRegistry.hashContent(content));

@@ -4,6 +4,7 @@ import { CommandManager } from './CommandManager';
 import { HmlEditorProvider } from '../hml/HmlEditorProvider';
 import { EnvironmentViewProvider } from '../ui/EnvironmentViewProvider';
 import { StatusBarManager } from '../ui/StatusBarManager';
+import { ProjectValidationReporter } from '../services/ProjectValidationReporter';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -809,6 +810,7 @@ curl -X POST http://localhost:38912/api/validate-hml \\
         
         this.commandManager.dispose();
         this.disposables.forEach(disposable => disposable.dispose());
+        ProjectValidationReporter.disposeShared();
         
         logger.info('HoneyDesigner 扩展已清理完成');
     }

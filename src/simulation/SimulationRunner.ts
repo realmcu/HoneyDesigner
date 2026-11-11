@@ -6,6 +6,9 @@ import { RunnerStatus, RunnerListener } from '../common/RunnerStatus';
 import { EnvironmentChecker } from './EnvironmentChecker';
 import { BuildManager } from './BuildManager';
 import { CodeGenerator } from '../services/CodeGenerator';
+import { CodeGenerationService } from '../services/CodeGenerationService';
+import { ProjectValidationReporter } from '../services/ProjectValidationReporter';
+import { takeDroppedProtectedAreas } from '../codegen/protectedAreaReport';
 import { HmlController } from '../hml/HmlController';
 import { ProjectUtils } from '../utils/ProjectUtils';
 
@@ -321,14 +324,25 @@ export class SimulationRunner {
 
         // 使用统一的代码生成器
         const codeGenerator = new CodeGenerator();
+        takeDroppedProtectedAreas();
         const result = await codeGenerator.generate(this.projectRoot);
 
-        // 整工程校验问题（跨文件 id 冲突、非法 C 标识符等）写进输出日志：
-        // 仿真链路不经过 CodeGenerationService，问题面板不会更新，这里必须自己报，
+        // 保护区手写代码丢失不可恢复，仿真链路也要提示
+        const dropped = takeDroppedProtectedAreas();
+        if (dropped.length > 0) {
+            CodeGenerationService.reportDroppedProtectedAreas(dropped);
+            for (const entry of dropped) {
+                this.log(vscode.l10n.t('Hand-written code dropped: {0}', `${entry.id}${entry.file ? ` (${entry.file})` : ''}`));
+            }
+        }
+
+        // 整工程校验问题（跨文件 id 冲突、非法 C 标识符等）写进输出日志与问题面板，
         // 否则用户只能等到链接阶段看到一堆 multiple definition
-        if (result.validationIssues && result.validationIssues.length > 0) {
-            this.log(vscode.l10n.t('Project validation found {0} problem(s):', result.validationIssues.length));
-            for (const issue of result.validationIssues) {
+        const issues = result.validationIssues ?? [];
+        ProjectValidationReporter.shared.publish(this.projectRoot, issues);
+        if (issues.length > 0) {
+            this.log(vscode.l10n.t('Project validation found {0} problem(s):', issues.length));
+            for (const issue of issues) {
                 this.log(`  [${issue.severity}] ${issue.file}${issue.componentId ? ` (${issue.componentId})` : ''}: ${issue.message}`);
             }
         }
@@ -339,9 +353,17 @@ export class SimulationRunner {
 
         this.log(vscode.l10n.t('Code generation completed: {0} files', result.totalFiles));
 
+        // 校验 error 都是必然编译/链接失败的问题。代码已经写出来供查看，
+        // 但不再做耗时的资源转换和编译
+        const errorCount = issues.filter(issue => issue.severity === 'error').length;
+        if (errorCount > 0) {
+            throw new Error(vscode.l10n.t(
+                'Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.',
+                errorCount));
+        }
+
         // 检测并提示清理孤立文件
         if (result.orphanedDesigns && result.orphanedDesigns.length > 0) {
-            const { CodeGenerationService } = await import('../services/CodeGenerationService');
             await CodeGenerationService.promptOrphanCleanup(this.projectRoot, result.orphanedDesigns);
         }
     }

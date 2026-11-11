@@ -13,8 +13,8 @@
  */
 import type { Component } from '../hml/types';
 
-/** 会被生成成 C 全局变量或函数名的保留字（C89 + C99 + C11 + 常见 C++ 关键字） */
-const RESERVED_WORDS = new Set([
+/** 会被生成成 C 全局变量或函数名时一定编译失败的名字（C89 + C99 + C11 + stdbool + main） */
+const C_RESERVED_WORDS = new Set([
   // C89
   'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do', 'double',
   'else', 'enum', 'extern', 'float', 'for', 'goto', 'if', 'int', 'long', 'register',
@@ -23,14 +23,25 @@ const RESERVED_WORDS = new Set([
   // C99 / C11
   'inline', 'restrict', '_Bool', '_Complex', '_Imaginary', '_Alignas', '_Alignof',
   '_Atomic', '_Generic', '_Noreturn', '_Static_assert', '_Thread_local',
-  // C++ 关键字（工程里可能混编 C++，且 main/bool 等实际会撞名）
-  'bool', 'true', 'false', 'class', 'namespace', 'template', 'typename', 'public',
-  'private', 'protected', 'virtual', 'new', 'delete', 'this', 'operator', 'friend',
-  'try', 'catch', 'throw', 'using', 'nullptr', 'constexpr', 'noexcept', 'override',
-  'explicit', 'mutable', 'asm', 'wchar_t', 'char16_t', 'char32_t',
+  // stdbool.h 的宏，生成代码会包含它
+  'bool', 'true', 'false',
   // 工程自身会生成的符号
   'main',
 ]);
+
+/**
+ * 只在 C++ 里是关键字的名字。生成代码按 C 编译时没问题，只有用户把它们混进
+ * C++ 源文件才会出错，所以只给警告——报成错误会让 Simulate 误拦一个能编过的工程。
+ */
+const CPP_ONLY_KEYWORDS = new Set([
+  'class', 'namespace', 'template', 'typename', 'public', 'private', 'protected',
+  'virtual', 'new', 'delete', 'this', 'operator', 'friend', 'try', 'catch', 'throw',
+  'using', 'nullptr', 'constexpr', 'noexcept', 'override', 'explicit', 'mutable',
+  'asm', 'wchar_t', 'char16_t', 'char32_t',
+]);
+
+/** 聚合消息里最多列出的 id 个数，其余用数量概括 */
+const MAX_LISTED_IDS = 8;
 
 const C_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -65,21 +76,37 @@ export interface ProjectValidationResult {
   hasErrors: boolean;
 }
 
+export interface IdentifierProblem {
+  severity: ProjectIssueSeverity;
+  message: string;
+}
+
 /**
  * C 标识符合法性：会作为 C 变量名 / 函数名使用的组件 id 与设计名。
  * 返回 undefined 表示合法。
  */
-export function cIdentifierProblem(name: string): string | undefined {
+export function cIdentifierProblem(name: string): IdentifierProblem | undefined {
   if (!name) {
-    return 'name is empty';
+    return { severity: 'error', message: 'name is empty' };
   }
   if (!C_IDENTIFIER.test(name)) {
-    return `"${name}" is not a valid C identifier (use letters, digits and underscores, starting with a letter or underscore)`;
+    return {
+      severity: 'error',
+      message: `"${name}" is not a valid C identifier (use letters, digits and underscores, starting with a letter or underscore)`,
+    };
   }
-  if (RESERVED_WORDS.has(name)) {
-    return `"${name}" is a reserved word in C/C++`;
+  if (C_RESERVED_WORDS.has(name)) {
+    return { severity: 'error', message: `"${name}" is a reserved word in C` };
+  }
+  if (CPP_ONLY_KEYWORDS.has(name)) {
+    return { severity: 'warning', message: `"${name}" is a C++ keyword; it only compiles as C` };
   }
   return undefined;
+}
+
+function listIds(ids: string[]): string {
+  const shown = ids.slice(0, MAX_LISTED_IDS).join(', ');
+  return ids.length > MAX_LISTED_IDS ? `${shown} and ${ids.length - MAX_LISTED_IDS} more` : shown;
 }
 
 /**
@@ -99,9 +126,9 @@ export function validateProject(
     const designProblem = cIdentifierProblem(design.designName);
     if (designProblem) {
       issues.push({
-        severity: 'error',
+        severity: designProblem.severity,
         file: design.file,
-        message: `File name becomes a C identifier: ${designProblem}`,
+        message: `File name becomes a C identifier: ${designProblem.message}`,
       });
     }
     const existingDesign = designOwners.get(design.designName);
@@ -115,14 +142,20 @@ export function validateProject(
       designOwners.set(design.designName, design.file);
     }
 
+    /**
+     * 与之前文件冲突的 id，按冲突对象分组。复制一个 HML 时几十个 id 会一起撞，
+     * 逐个报会刷屏，按“这个文件和哪个文件撞了哪些 id”合并成一条
+     */
+    const clashesByOwner = new Map<string, string[]>();
+
     for (const component of design.components) {
       const idProblem = cIdentifierProblem(component.id);
       if (idProblem) {
         issues.push({
-          severity: 'error',
+          severity: idProblem.severity,
           file: design.file,
           componentId: component.id,
-          message: `Component id becomes a C identifier: ${idProblem}`,
+          message: `Component id becomes a C identifier: ${idProblem.message}`,
         });
       }
 
@@ -130,12 +163,9 @@ export function validateProject(
       if (owner === undefined) {
         idOwners.set(component.id, design.file);
       } else if (owner !== design.file) {
-        issues.push({
-          severity: 'error',
-          file: design.file,
-          componentId: component.id,
-          message: `Component id "${component.id}" is also declared in ${owner}; generated C globals would clash at link time`,
-        });
+        const ids = clashesByOwner.get(owner) || [];
+        ids.push(component.id);
+        clashesByOwner.set(owner, ids);
       }
 
       if (options.unsupportedTypes?.has(component.type)) {
@@ -146,6 +176,17 @@ export function validateProject(
           message: `"${component.type}" is not supported by the ${options.targetEngine} engine; this component is generated as a placeholder`,
         });
       }
+    }
+
+    for (const [owner, ids] of clashesByOwner) {
+      issues.push({
+        severity: 'error',
+        file: design.file,
+        componentId: ids.length === 1 ? ids[0] : undefined,
+        message: ids.length === 1
+          ? `Component id "${ids[0]}" is also declared in ${owner}; generated C globals would clash at link time`
+          : `${ids.length} component ids are also declared in ${owner}; generated C globals would clash at link time: ${listIds(ids)}`,
+      });
     }
   }
 

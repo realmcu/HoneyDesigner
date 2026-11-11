@@ -1,7 +1,5 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { ProjectUtils } from '../utils/ProjectUtils';
-import { logger } from '../utils/Logger';
 import type { ProjectIssue } from '../codegen/projectValidation';
 
 /**
@@ -9,43 +7,38 @@ import type { ProjectIssue } from '../codegen/projectValidation';
  *
  * 与单文件的 HmlValidationService 互补：这里只查跨文件 / 引擎层面的问题，
  * 也就是会让生成的 C 编译或链接失败、但单文件看不出来的那几类。
- * 不阻塞生成——用户可能只想先看到代码，但问题面板会把原因列清楚。
+ *
+ * 全局单例：诊断集合 dispose 后问题面板里的条目会一起消失，所以不能按次创建。
+ * 扩展停用时由 ExtensionManager 调 disposeShared()。
  */
 export class ProjectValidationReporter {
+    private static _shared: ProjectValidationReporter | undefined;
+
     private readonly _diagnostics: vscode.DiagnosticCollection;
     /** 每个工程根目录上一次写进去的文件，下一次先清掉，避免陈旧问题累积 */
     private readonly _filesByProject = new Map<string, vscode.Uri[]>();
 
-    constructor() {
+    private constructor() {
         this._diagnostics = vscode.languages.createDiagnosticCollection('honeygui-project');
+    }
+
+    public static get shared(): ProjectValidationReporter {
+        if (!this._shared) {
+            this._shared = new ProjectValidationReporter();
+        }
+        return this._shared;
+    }
+
+    public static disposeShared(): void {
+        this._shared?._diagnostics.dispose();
+        this._shared = undefined;
     }
 
     /**
      * 把 CodeGenerator 已经算好的校验结果发布到问题面板。
-     * 校验本身在 CodeGenerator 内部完成（Simulate / Generate Code / 自动生成三条
-     * 路径共用），这里只负责桌面版的展示。
+     * 空列表也要调用：用来清掉上一次生成留下的问题。
      */
     public publish(projectRoot: string, issues: ProjectIssue[]): void {
-        this._publish(projectRoot, issues);
-        const errors = issues.filter(issue => issue.severity === 'error').length;
-        if (issues.length > 0) {
-            logger.info(vscode.l10n.t('Project validation found {0} error(s) and {1} warning(s)',
-                errors, issues.length - errors));
-        }
-    }
-
-    /** 清掉某个工程的诊断（例如工程关闭时） */
-    public clear(projectRoot: string): void {
-        const files = this._filesByProject.get(projectRoot);
-        files?.forEach(uri => this._diagnostics.delete(uri));
-        this._filesByProject.delete(projectRoot);
-    }
-
-    public dispose(): void {
-        this._diagnostics.dispose();
-    }
-
-    private _publish(projectRoot: string, issues: ProjectIssue[]): void {
         this.clear(projectRoot);
 
         const byFile = new Map<string, vscode.Diagnostic[]>();
@@ -70,5 +63,12 @@ export class ProjectValidationReporter {
             uris.push(uri);
         }
         this._filesByProject.set(projectRoot, uris);
+    }
+
+    /** 清掉某个工程的诊断 */
+    public clear(projectRoot: string): void {
+        const files = this._filesByProject.get(projectRoot);
+        files?.forEach(uri => this._diagnostics.delete(uri));
+        this._filesByProject.delete(projectRoot);
     }
 }
