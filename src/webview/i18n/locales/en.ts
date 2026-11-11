@@ -1030,6 +1030,7 @@ const en = {
   'deploymentExternalBin': 'External binary (loaded from romfs)',
   'deploymentInherit': 'Inherit',
   'deploymentHint': 'LVGL only. C array is linked into firmware; external binary is packed into romfs.bin and loaded at runtime.',
+  'lvglArgb8565Warning': 'ARGB8565 can only be drawn by PPE hardware acceleration. The LVGL software renderer (including PC simulation) does not display it; use RGB565, RGB888 or ARGB8888 instead.',
   'YUV Parameters': 'YUV Parameters',
   'Sampling': 'Sampling',
   'Blur': 'Blur',

@@ -351,7 +351,7 @@ export class LvglImageConverter {
 
   /**
    * Map conversion.json format to LVGLImage.py color format
-   * LVGLImage.py supports: RGB565, RGB888, ARGB8888, XRGB8888, A8, A4, A2, A1,
+   * LVGLImage.py supports: RGB565, RGB888, ARGB8565, ARGB8888, XRGB8888, A8, A4, A2, A1,
    *                       I8 (palette-indexed; I4/I2/I1 not yet wired here)
    */
   private mapToLvglColorFormat(format?: string): string {
@@ -359,12 +359,13 @@ export class LvglImageConverter {
       return 'ARGB8888'; // default
     }
     const normalized = format.trim().toUpperCase();
-    // LVGLImage.py supports these formats natively
-    const supported = ['RGB565', 'RGB888', 'ARGB8888', 'XRGB8888', 'A8', 'A4', 'A2', 'A1', 'I8'];
+    // ARGB8565 is kept as requested even though the LVGL SW renderer cannot
+    // blend it (only PPE hardware can); the UI warns about this instead.
+    const supported = ['RGB565', 'RGB888', 'ARGB8565', 'ARGB8888', 'XRGB8888', 'A8', 'A4', 'A2', 'A1', 'I8'];
     if (supported.includes(normalized)) {
       return normalized;
     }
-    // Unsupported formats (e.g., ARGB8565, adaptive*, RGB565_SWAPPED) fallback to ARGB8888
+    // Unsupported formats (e.g., adaptive*, RGB565_SWAPPED) fallback to ARGB8888
     console.warn(`[LvglImageConverter] Unsupported format for LVGLImage.py: ${format}, using ARGB8888`);
     return 'ARGB8888';
   }

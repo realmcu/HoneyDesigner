@@ -106,18 +106,16 @@ const COMPRESSION_OPTIONS_HONEYGUI: { value: CompressionMethod; label: string }[
 ];
 
 // 压缩方式选项 - LVGL c-array 模式（文件夹用，含继承）
-// LVGLImage.py 支持的压缩方式
+// c-array 不压缩：仿真库与目标端均未启用 LV_USE_RLE，LVGLImage.py 的 RLE 数据无法解码
 const FOLDER_COMPRESSION_OPTIONS_LVGL_CARRAY: { value: CompressionMethod; label: string }[] = [
   { value: 'inherit', label: 'compressionInherit' },
   { value: 'none', label: 'compressionNone' },
-  { value: 'rle', label: 'compressionRLE' },
 ];
 
 // 压缩方式选项 - LVGL c-array 模式（图片用，含继承）
 const COMPRESSION_OPTIONS_LVGL_CARRAY: { value: CompressionMethod; label: string }[] = [
   { value: 'inherit', label: 'compressionInherit' },
   { value: 'none', label: 'compressionNone' },
-  { value: 'rle', label: 'compressionRLE' },
 ];
 
 // 压缩方式选项 - LVGL external-bin 模式（文件夹用）
@@ -670,6 +668,7 @@ const ConversionConfigPanel: React.FC = () => {
   const currentVideoFormat = currentSettings.videoFormat || (isFolder ? 'MJPEG' : 'inherit');
   const currentCompression = currentSettings.compression || 'inherit';
   const currentDeployment: DeploymentMode = currentSettings.deployment || (isFolder ? 'c-array' : 'inherit');
+  const effectiveFormat = currentFormat === 'inherit' ? effectiveSettings.settings.format : currentFormat;
 
   // 处理格式变更
   const handleFormatChange = useCallback(
@@ -837,6 +836,12 @@ const ConversionConfigPanel: React.FC = () => {
               && !LVGL_BIN_RLE_SUPPORTED_FORMATS.includes(fmtAfter as TargetFormat)) {
             newSettings.format = 'inherit';
           }
+        }
+      } else if (newDeployment === 'c-array') {
+        // LVGL c-array 不支持压缩，残留的 RLE 等设置重置为 'none'
+        const currentComp = currentSettings.compression || 'inherit';
+        if (currentComp !== 'inherit' && currentComp !== 'none') {
+          newSettings.compression = 'none';
         }
       }
 
@@ -1135,7 +1140,7 @@ const ConversionConfigPanel: React.FC = () => {
 
   // 根据目标引擎和部署模式选择压缩选项
   // - HoneyGUI 项目：支持所有压缩方式
-  // - LVGL c-array 模式：支持 none, rle（LVGLImage.py 支持）
+  // - LVGL c-array 模式：仅 none（不压缩）
   // - LVGL external-bin 模式：支持 none, rle（仅 RLE 在 LVGL 实机可解析）
   const compressionOptions = useMemo(() => {
     if (!isLvglProject) {
@@ -1153,7 +1158,7 @@ const ConversionConfigPanel: React.FC = () => {
       // LVGL external-bin 模式：仅支持 none, rle
       return isFolder ? FOLDER_COMPRESSION_OPTIONS_LVGL_BIN : COMPRESSION_OPTIONS_LVGL_BIN;
     }
-    // LVGL c-array 模式：支持 none, rle
+    // LVGL c-array 模式：仅 none
     return isFolder ? FOLDER_COMPRESSION_OPTIONS_LVGL_CARRAY : COMPRESSION_OPTIONS_LVGL_CARRAY;
   }, [isLvglProject, isFolder, currentDeployment, effectiveSettings.settings.deployment]);
 
@@ -1246,6 +1251,9 @@ const ConversionConfigPanel: React.FC = () => {
               {getFormatLabel(effectiveSettings.settings.format || 'RGB565')})
             </span>
           </div>
+        )}
+        {isLvglProject && effectiveFormat === 'ARGB8565' && (
+          <div className="config-hint config-warning">⚠️ {t('lvglArgb8565Warning')}</div>
         )}
       </div>
       <div className="config-item">

@@ -1028,6 +1028,7 @@ const zhCN = {
   'deploymentExternalBin': '外部二进制（从 romfs 加载）',
   'deploymentInherit': '继承',
   'deploymentHint': '仅 LVGL 项目使用。C 数组会链接进固件；外部二进制打包到 romfs.bin 并在运行时加载。',
+  'lvglArgb8565Warning': 'ARGB8565 仅 PPE 硬件加速可绘制，LVGL 软件渲染（含 PC 仿真）不显示该格式；如需在软件渲染下显示，请改用 RGB565、RGB888 或 ARGB8888。',
   'YUV Parameters': 'YUV 参数',
   'Sampling': '采样方式',
   'Blur': '模糊程度',

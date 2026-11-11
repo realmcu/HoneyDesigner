@@ -391,6 +391,10 @@
   color: var(--vscode-editorWarning-foreground, #cca700);
 }
 
+.config-hint.config-warning {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
 .jpeg-size-control {
   display: flex;
   align-items: center;
