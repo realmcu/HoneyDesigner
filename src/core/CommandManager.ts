@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import { StatusBarManager } from '../ui/StatusBarManager';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { HmlTemplateManager } from '../hml/HmlTemplateManager';
+import { scanHmlFilesRecursive } from '../designer/navGraphScanner';
 
 /**
  * HoneyGUI命令管理器
@@ -292,6 +293,14 @@ export class CommandManager {
                         }
                         const targetFile = path.join(uiDir, `${value}.hml`);
                         if (fs.existsSync(targetFile)) return vscode.l10n.t('Design file already exists');
+                        // 子目录里的同名设计也会生成同名 C 文件
+                        const lower = value.toLowerCase();
+                        const sameName = scanHmlFilesRecursive(uiDir, projectRoot)
+                            .find(file => path.basename(file.name, '.hml').toLowerCase() === lower);
+                        if (sameName) {
+                            return vscode.l10n.t('A design with this name already exists: {0}',
+                                sameName.relativePath.split(path.sep).join('/'));
+                        }
                         return null;
                     }
                 });

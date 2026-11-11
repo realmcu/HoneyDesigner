@@ -13,7 +13,7 @@ import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
-import { scanAllViews, scanAllHmlFiles, scanProjectHml, normalizeHmlFilePath, buildComponentIndex } from './navGraphScanner';
+import { scanAllViews, scanAllHmlFiles, scanProjectHml, normalizeHmlFilePath, buildComponentIndex, scanHmlFilesRecursive } from './navGraphScanner';
 import type { ProjectConfig } from '../common/ProjectConfig';
 import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
 import { measurePerformance } from './HmlLoadPerformance';
@@ -123,6 +123,8 @@ export class FileManager {
     private readonly _onDidSaveDesign = new vscode.EventEmitter<{ written: boolean; viewsChanged: boolean }>();
     /** 设计器保存完成：written 表示确实写了盘，viewsChanged 表示本文件的 hg_view 列表有变化 */
     public readonly onDidSaveDesign = this._onDidSaveDesign.event;
+    /** 上次提示过的同名 HML 集合；自动保存很频繁，冲突没变就不重复弹 */
+    private _lastDesignNameConflict: string | undefined;
 
     // project.json 文件监听器
     private _projectConfigWatcher: vscode.FileSystemWatcher | undefined;
@@ -507,6 +509,7 @@ export class FileManager {
                     vscode.window.setStatusBarMessage(
                         vscode.l10n.t('Design saved to {0}', path.basename(this._filePath)), 3000);
                 }
+                this.warnDuplicateDesignName(pending.explicit);
             } else {
                 // webview 发 save 时已乐观复位本地 isDirty，必须回执让它置回
                 this._postToWebview({ command: 'hmlSaveFailed' });
@@ -522,6 +525,47 @@ export class FileManager {
             logger.error(`[FileManager] 写出设计器保存失败: ${error}`);
             this._postToWebview({ command: 'hmlSaveFailed' });
         }
+    }
+
+    /**
+     * 检查 ui/ 下是否有同名 HML（不同子目录）。设计名是生成的 C 文件名前缀，
+     * 同名文件会互相覆盖 *_ui.c / *_callbacks.c，编译时才暴露太晚，打开和保存时就提示。
+     * Windows 文件名不区分大小写，Home.hml 与 home.hml 也会写到同一个文件。
+     *
+     * @param force 为 true 时冲突没变也提示（打开文件、显式保存）；自动保存只在冲突变化时提示
+     */
+    public warnDuplicateDesignName(force: boolean): void {
+        if (!this._filePath || this._disposed) {
+            return;
+        }
+        const projectRoot = ProjectUtils.findProjectRoot(this._filePath);
+        if (!projectRoot) {
+            return;
+        }
+        let conflicts: string[];
+        try {
+            const designName = path.basename(this._filePath, '.hml').toLowerCase();
+            const currentNorm = normalizeHmlFilePath(this._filePath);
+            conflicts = scanHmlFilesRecursive(ProjectUtils.getUiDir(projectRoot), projectRoot)
+                .filter(file => path.basename(file.name, '.hml').toLowerCase() === designName
+                    && normalizeHmlFilePath(file.path) !== currentNorm)
+                .map(file => file.relativePath.split(path.sep).join('/'));
+        } catch (error) {
+            logger.warn(`[FileManager] 检查同名 HML 失败: ${error}`);
+            return;
+        }
+
+        const signature = conflicts.join('\n');
+        if (!force && signature === this._lastDesignNameConflict) {
+            return;
+        }
+        this._lastDesignNameConflict = signature;
+        if (conflicts.length === 0) {
+            return;
+        }
+        void vscode.window.showWarningMessage(vscode.l10n.t(
+            'Another design file has the same name as {0}: {1}. Both would generate the same C files; rename one of them.',
+            path.basename(this._filePath), conflicts.join(', ')));
     }
 
     /**

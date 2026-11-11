@@ -131,7 +131,9 @@ export function validateProject(
         message: `File name becomes a C identifier: ${designProblem.message}`,
       });
     }
-    const existingDesign = designOwners.get(design.designName);
+    // 按小写比较：Windows 文件名不区分大小写，Home 与 home 会写到同一个 .c 文件
+    const designKey = design.designName.toLowerCase();
+    const existingDesign = designOwners.get(designKey);
     if (existingDesign) {
       issues.push({
         severity: 'error',
@@ -139,7 +141,7 @@ export function validateProject(
         message: `Design name "${design.designName}" is already used by ${existingDesign}; both would generate the same C files`,
       });
     } else {
-      designOwners.set(design.designName, design.file);
+      designOwners.set(designKey, design.file);
     }
 
     /**

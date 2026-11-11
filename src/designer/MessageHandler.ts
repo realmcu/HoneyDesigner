@@ -134,6 +134,7 @@ export class MessageHandler {
                     this._handleLoadProjectConfigs();
 
                     await this._fileManager.reloadCurrentDocument(projectConfig);
+                    this._fileManager.warnDuplicateDesignName(true);
                 } catch (error) {
                     logger.error(`[MessageHandler] reloadCurrentDocument失败: ${error}`);
                 }

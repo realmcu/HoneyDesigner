@@ -661,5 +661,7 @@
   "Project validation found {0} problem(s):": "Project validation found {0} problem(s):",
   "Show Problems": "Show Problems",
   "Hand-written code dropped: {0}": "Hand-written code dropped: {0}",
-  "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel."
+  "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.",
+  "Another design file has the same name as {0}: {1}. Both would generate the same C files; rename one of them.": "Another design file has the same name as {0}: {1}. Both would generate the same C files; rename one of them.",
+  "A design with this name already exists: {0}": "A design with this name already exists: {0}"
 }

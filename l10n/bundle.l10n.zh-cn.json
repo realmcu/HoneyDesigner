@@ -661,5 +661,7 @@
   "Project validation found {0} problem(s):": "工程校验发现 {0} 个问题：",
   "Show Problems": "查看问题",
   "Hand-written code dropped: {0}": "手写代码已丢失：{0}",
-  "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "已停止构建：工程校验发现 {0} 个会导致编译失败的错误，详见“问题”面板。"
+  "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "已停止构建：工程校验发现 {0} 个会导致编译失败的错误，详见“问题”面板。",
+  "Another design file has the same name as {0}: {1}. Both would generate the same C files; rename one of them.": "存在与 {0} 同名的设计文件：{1}。两者会生成同名的 C 文件并互相覆盖，请重命名其中一个。",
+  "A design with this name already exists: {0}": "已存在同名设计文件：{0}"
 }
