@@ -229,23 +229,30 @@ export class CodeGenerator {
             hmlFiles.map(f => path.basename(f, '.hml'))
         );
 
-        const uiDir = path.join(srcDir, 'ui');
-        if (!fs.existsSync(uiDir)) {
-            return [];
-        }
-
-        // 从 src/ui/ 目录中提取已生成的 designName
+        // 从 src/ui/ 与 src/callbacks/ 中提取已生成的 designName。只看 ui 不够：
+        // ui 文件已不在而 callbacks 残留时，残留的 callbacks.c 仍会参与编译，
+        // 并因为 include 的 *_ui.h 不存在而编译失败。
+        // user/ 归用户所有，不作为判定依据（清理时仍随设计一起列出）
         const existingDesignNames = new Set<string>();
-        try {
-            const files = fs.readdirSync(uiDir);
-            for (const file of files) {
-                const match = file.match(/^(.+)_ui\.c$/);
-                if (match) {
-                    existingDesignNames.add(match[1]);
-                }
+        const generatedPatterns: Array<[string, RegExp]> = [
+            ['ui', /^(.+)_ui\.[ch]$/],
+            ['callbacks', /^(.+)_callbacks\.[ch]$/],
+        ];
+        for (const [subDir, pattern] of generatedPatterns) {
+            const dir = path.join(srcDir, subDir);
+            if (!fs.existsSync(dir)) {
+                continue;
             }
-        } catch {
-            return [];
+            try {
+                for (const file of fs.readdirSync(dir)) {
+                    const match = file.match(pattern);
+                    if (match) {
+                        existingDesignNames.add(match[1]);
+                    }
+                }
+            } catch {
+                // 目录读取失败时跳过，不影响另一个目录的判断
+            }
         }
 
         // 差集：已生成但无对应 HML 的 designName
