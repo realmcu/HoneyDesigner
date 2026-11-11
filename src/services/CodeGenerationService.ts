@@ -41,22 +41,6 @@ export class CodeGenerationService {
                 cancellable: false
             },
             async (progress) => {
-                // 生成前先做整工程校验：跨文件 ID 冲突、非法文件名、保留字这些
-                // 只有把工程放在一起看才发现的问题，写进问题面板。
-                // 不阻塞生成。以前需要新建、用完就 dispose 的轻量诊断集合，
-                // 所以这里不是长驻对象。
-                const reporter = new ProjectValidationReporter();
-                try {
-                    const { errors } = await reporter.validateAndReport(projectRoot);
-                    if (errors > 0) {
-                        logger.warn(vscode.l10n.t('Project validation found {0} error(s); generated C may not compile', errors));
-                    }
-                } catch (error) {
-                    logger.warn(`[CodeGenerationService] 工程校验失败: ${error}`);
-                } finally {
-                    reporter.dispose();
-                }
-
                 // 生成前清空缓冲，保证这里拿到的都是本次生成产生的
                 takeDroppedProtectedAreas();
 
@@ -66,6 +50,16 @@ export class CodeGenerationService {
                         message: `${prog.designName} (${prog.current}/${prog.total})...`
                     });
                 });
+
+                // 校验在 CodeGenerator 内部完成（三条生成路径共用），这里只负责展示
+                if (result.validationIssues && result.validationIssues.length > 0) {
+                    const reporter = new ProjectValidationReporter();
+                    try {
+                        reporter.publish(projectRoot, result.validationIssues);
+                    } finally {
+                        reporter.dispose();
+                    }
+                }
 
                 // 保护区代码丢失（组件改名或删掉了对应的回调）。以前只写日志，
                 // 用户在界面上看不到，手写代码就静默消失了

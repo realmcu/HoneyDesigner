@@ -657,5 +657,6 @@
   "{0} was changed outside the designer. Reloading will discard your unsaved design changes.": "{0} 已在设计器外被修改。重新加载将丢弃设计器中未保存的修改。",
   "Project validation found {0} error(s) and {1} warning(s)": "工程校验发现 {0} 个错误、{1} 个警告",
   "Project validation found {0} error(s); generated C may not compile": "工程校验发现 {0} 个错误，生成的 C 可能无法编译",
-  "Hand-written code for {0} was dropped because its component or event no longer exists: {1}": "{0} 处手写代码因对应组件或事件已不存在而未写回，原代码已丢失：{1}"
+  "Hand-written code for {0} was dropped because its component or event no longer exists: {1}": "{0} 处手写代码因对应组件或事件已不存在而未写回，原代码已丢失：{1}",
+  "Project validation found {0} problem(s):": "工程校验发现 {0} 个问题："
 }

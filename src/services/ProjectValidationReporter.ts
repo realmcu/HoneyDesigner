@@ -1,12 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { HmlController } from '../hml/HmlController';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { logger } from '../utils/Logger';
-import { validateProject, ProjectDesign, ProjectIssue } from '../codegen/projectValidation';
-import { COMPONENT_ENGINE_SUPPORT } from '../codegen/engineSupport';
-import type { TargetEngine } from '../codegen/CodeGeneratorFactory';
-import type { Component } from '../hml/types';
+import type { ProjectIssue } from '../codegen/projectValidation';
 
 /**
  * 代码生成前的整工程校验，结果写进 VS Code 问题面板。
@@ -25,42 +21,17 @@ export class ProjectValidationReporter {
     }
 
     /**
-     * 校验工程并刷新问题面板。
-     * @returns 发现的 error 数量（0 表示生成结果应当能编译）
+     * 把 CodeGenerator 已经算好的校验结果发布到问题面板。
+     * 校验本身在 CodeGenerator 内部完成（Simulate / Generate Code / 自动生成三条
+     * 路径共用），这里只负责桌面版的展示。
      */
-    public async validateAndReport(projectRoot: string): Promise<{ errors: number; warnings: number }> {
-        const config = ProjectUtils.loadProjectConfig(projectRoot);
-        const targetEngine: TargetEngine = config.targetEngine || 'honeygui';
-
-        const designs: ProjectDesign[] = [];
-        const hmlFiles = await new CodeGeneratorFiles().scan(projectRoot);
-        for (const hmlFile of hmlFiles) {
-            try {
-                const controller = new HmlController();
-                await controller.loadFile(hmlFile);
-                designs.push({
-                    file: path.relative(projectRoot, hmlFile).split(path.sep).join('/'),
-                    designName: path.basename(hmlFile, '.hml'),
-                    components: (controller.currentDocument?.view.components || []) as Component[],
-                });
-            } catch (error) {
-                logger.warn(`[ProjectValidation] 跳过无法解析的 HML: ${hmlFile}: ${error}`);
-            }
+    public publish(projectRoot: string, issues: ProjectIssue[]): void {
+        this._publish(projectRoot, issues);
+        const errors = issues.filter(issue => issue.severity === 'error').length;
+        if (issues.length > 0) {
+            logger.info(vscode.l10n.t('Project validation found {0} error(s) and {1} warning(s)',
+                errors, issues.length - errors));
         }
-
-        const result = validateProject(designs, {
-            targetEngine,
-            unsupportedTypes: COMPONENT_ENGINE_SUPPORT[targetEngine],
-        });
-
-        this._publish(projectRoot, result.issues);
-
-        const errors = result.issues.filter(issue => issue.severity === 'error').length;
-        const warnings = result.issues.length - errors;
-        if (errors > 0 || warnings > 0) {
-            logger.info(vscode.l10n.t('Project validation found {0} error(s) and {1} warning(s)', errors, warnings));
-        }
-        return { errors, warnings };
     }
 
     /** 清掉某个工程的诊断（例如工程关闭时） */
@@ -99,29 +70,5 @@ export class ProjectValidationReporter {
             uris.push(uri);
         }
         this._filesByProject.set(projectRoot, uris);
-    }
-}
-
-/** 扫描 ui/ 下所有 HML（与 CodeGenerator.scanHmlFiles 同规则） */
-class CodeGeneratorFiles {
-    public async scan(projectRoot: string): Promise<string[]> {
-        const uiDir = ProjectUtils.getUiDir(projectRoot);
-        const fs = await import('fs');
-        const files: string[] = [];
-        const walk = (dir: string) => {
-            if (!fs.existsSync(dir)) {
-                return;
-            }
-            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-                const full = path.join(dir, entry.name);
-                if (entry.isDirectory()) {
-                    walk(full);
-                } else if (entry.isFile() && entry.name.endsWith('.hml')) {
-                    files.push(full);
-                }
-            }
-        };
-        walk(uiDir);
-        return files.sort();
     }
 }

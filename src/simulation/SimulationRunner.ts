@@ -323,6 +323,16 @@ export class SimulationRunner {
         const codeGenerator = new CodeGenerator();
         const result = await codeGenerator.generate(this.projectRoot);
 
+        // 整工程校验问题（跨文件 id 冲突、非法 C 标识符等）写进输出日志：
+        // 仿真链路不经过 CodeGenerationService，问题面板不会更新，这里必须自己报，
+        // 否则用户只能等到链接阶段看到一堆 multiple definition
+        if (result.validationIssues && result.validationIssues.length > 0) {
+            this.log(vscode.l10n.t('Project validation found {0} problem(s):', result.validationIssues.length));
+            for (const issue of result.validationIssues) {
+                this.log(`  [${issue.severity}] ${issue.file}${issue.componentId ? ` (${issue.componentId})` : ''}: ${issue.message}`);
+            }
+        }
+
         if (!result.success) {
             throw new Error(result.errors?.[0]?.error || vscode.l10n.t('Code generation failed'));
         }

@@ -11,6 +11,8 @@ import { LvglResourceManager } from '../codegen/lvgl/LvglResourceManager';
 import { Component } from '../hml/types';
 import { logger } from '../utils/Logger';
 import { loadProjectI18nCatalog } from '../project-i18n/files';
+import { validateProject, ProjectIssue, ProjectDesign } from '../codegen/projectValidation';
+import { COMPONENT_ENGINE_SUPPORT } from '../codegen/engineSupport';
 
 export interface GenerationResult {
     success: boolean;
@@ -18,6 +20,12 @@ export interface GenerationResult {
     totalFiles: number;
     errors: Array<{ designName: string; error: string }>;
     orphanedDesigns?: string[];
+    /**
+     * 整工程校验发现的问题（跨文件 id 冲突、非法 C 标识符、引擎不支持的组件）。
+     * 只在这里收集，不发布：浏览器版没有 vscode 的问题面板，由桌面版调用方决定怎么展示。
+     * 生成本身不受影响——有问题也照常生成，让用户先看到代码和具体原因。
+     */
+    validationIssues?: ProjectIssue[];
 }
 
 export interface GenerationProgress {
@@ -56,6 +64,34 @@ export class CodeGenerator {
     }
 
     /**
+     * 收集整工程校验问题。解析失败的文件跳过——它们会在生成阶段各自报错。
+     */
+    private async collectValidationIssues(
+        projectRoot: string,
+        hmlFiles: string[],
+        targetEngine: TargetEngine,
+    ): Promise<ProjectIssue[]> {
+        const designs: ProjectDesign[] = [];
+        for (const hmlFile of hmlFiles) {
+            try {
+                const hmlController = new HmlController();
+                await hmlController.loadFile(hmlFile);
+                designs.push({
+                    file: path.relative(projectRoot, hmlFile).split(path.sep).join('/'),
+                    designName: path.basename(hmlFile, '.hml'),
+                    components: (hmlController.currentDocument?.view.components || []) as Component[],
+                });
+            } catch (error) {
+                logger.warn(`[CodeGenerator] Skipping unparsable HML during validation: ${hmlFile}: ${error}`);
+            }
+        }
+        return validateProject(designs, {
+            targetEngine,
+            unsupportedTypes: COMPONENT_ENGINE_SUPPORT[targetEngine],
+        }).issues;
+    }
+
+    /**
      * 生成代码
      */
     public async generate(
@@ -69,7 +105,8 @@ export class CodeGenerator {
                 success: true,
                 successCount: 0,
                 totalFiles: 0,
-                errors: []
+                errors: [],
+                validationIssues: []
             };
         }
 
@@ -77,6 +114,11 @@ export class CodeGenerator {
         const srcDir = ProjectUtils.getSrcDir(projectRoot);
         const targetEngine: TargetEngine = config.targetEngine || 'honeygui';
         let generatedBindingFileCount = 0;
+
+        // 整工程校验（纯函数，不依赖 vscode，浏览器版同样能跑）。
+        // 放在这里而不是调用方，是因为 Simulate、Generate Code、保存后的自动生成
+        // 三条路径都经过本方法；挂在调用方会漏掉其中两条。
+        const validationIssues = await this.collectValidationIssues(projectRoot, hmlFiles, targetEngine);
 
         // 生成项目入口文件（仅 HoneyGUI 引擎需要）
         if (targetEngine === 'honeygui') {
@@ -174,7 +216,8 @@ export class CodeGenerator {
             successCount,
             totalFiles,
             errors,
-            orphanedDesigns: this.detectOrphanedDesigns(srcDir, hmlFiles)
+            orphanedDesigns: this.detectOrphanedDesigns(srcDir, hmlFiles),
+            validationIssues
         };
     }
 
