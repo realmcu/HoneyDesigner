@@ -195,18 +195,47 @@ function BrandMark() {
 }
 
 /**
+ * 预览代码块。内容取自真实生成结果（gui_img_create_from_fs 系列），不展示虚构的构建输出。
+ * hl 的数字是高亮行的出场序号，决定它与左侧按钮辉光的联动时序。
+ */
+const PREVIEW_CODE: ReadonlyArray<{ text: string; hl?: number; caret?: boolean }> = [
+    { text: 'gui_view_create(' },
+    { text: '  gui_obj_get_root(),' },
+    { text: '  "dashboardMainView",' },
+    { text: '  0, 0, 0, 0);' },
+    { text: 'start_engine = gui_rect_create(', hl: 0 },
+    { text: '  view, "start_engine",', hl: 1 },
+    { text: '  24, 132, 84, 26,', hl: 2, caret: true },
+    { text: '  13, gui_rgba(245,179,36,36));' },
+    { text: 'gui_rect_set_stroke(start_engine,' },
+    { text: '  1.5f, gui_rgb(245, 179, 36));' },
+    { text: 'gui_rect_set_glow(start_engine,' },
+    { text: '  gui_rgba(245,179,36,90), 12);' },
+];
+
+/** 首行高亮接在按钮辉光之后亮起，其余每行间隔一段时间依次跟上 */
+const HL_BASE_DELAY = 0.3;
+const HL_STEP_DELAY = 0.3;
+
+/**
  * 设计与代码对应预览。
- * 代码行取自真实生成结果（gui_img_create_from_fs 系列），不展示虚构的构建输出。
+ * 动画时序全部在 web.css 里，这里只做重播：鼠标进入时重建预览体让 CSS 动画从头播放。
+ * 静态样式就是最终态，所以 prefers-reduced-motion 下无需额外兜底，直接退化成静态对照图。
  */
 function DesignCodePreview() {
+    const [run, setRun] = useState(0);
     return (
-        <div className="hg-preview" aria-label={t('Design and code side by side')}>
+        <div
+            className="hg-preview"
+            aria-label={t('Design and code side by side')}
+            onMouseEnter={() => setRun(value => value + 1)}
+        >
             <div className="hg-preview-head">
                 <span className="hg-preview-dots" aria-hidden="true"><i /><i /><i /></span>
                 <span className="hg-preview-file">src/ui/dashboardMain.c</span>
                 <span className="hg-preview-engine">HONEYGUI</span>
             </div>
-            <div className="hg-preview-body">
+            <div className="hg-preview-body" key={run}>
                 <div className="hg-preview-canvas">
                     <div className="hg-device">
                         <div className="hg-device-clock">14:51</div>
@@ -224,18 +253,22 @@ function DesignCodePreview() {
                 </div>
                 <div className="hg-preview-code">
                     <div className="hg-code-caption">{t('Button in code')}</div>
-                    <div className="hg-code-line">gui_view_create(</div>
-                    <div className="hg-code-line">{'  gui_obj_get_root(),'}</div>
-                    <div className="hg-code-line">{'  "dashboardMainView",'}</div>
-                    <div className="hg-code-line">{'  0, 0, 0, 0);'}</div>
-                    <div className="hg-code-line hg-code-line--hl"><span className="hg-code-mark" />start_engine = gui_rect_create(</div>
-                    <div className="hg-code-line hg-code-line--hl"><span className="hg-code-mark" />{'  view, "start_engine",'}</div>
-                    <div className="hg-code-line hg-code-line--hl"><span className="hg-code-mark" />{'  24, 132, 84, 26,'}</div>
-                    <div className="hg-code-line">{'  13, gui_rgba(245,179,36,36));'}</div>
-                    <div className="hg-code-line">gui_rect_set_stroke(start_engine,</div>
-                    <div className="hg-code-line">{'  1.5f, gui_rgb(245, 179, 36));'}</div>
-                    <div className="hg-code-line">gui_rect_set_glow(start_engine,</div>
-                    <div className="hg-code-line">{'  gui_rgba(245,179,36,90), 12);'}</div>
+                    {PREVIEW_CODE.map(line => {
+                        const highlighted = line.hl !== undefined;
+                        return (
+                            <div
+                                key={line.text}
+                                className={`hg-code-line${highlighted ? ' hg-code-line--hl' : ''}`}
+                                style={highlighted
+                                    ? { '--hl-delay': `${HL_BASE_DELAY + line.hl! * HL_STEP_DELAY}s` } as React.CSSProperties
+                                    : undefined}
+                            >
+                                {highlighted && <span className="hg-code-mark" />}
+                                {line.text}
+                                {line.caret && <span className="hg-code-caret" aria-hidden="true" />}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
