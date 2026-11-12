@@ -745,6 +745,7 @@ const en = {
   'Animation Step': 'Animation Step',
   'Snapshot Cache': 'Snapshot Cache',
   'Snapshot Cache Tooltip': 'Enable snapshot cache to make view transitions smoother, at the cost of additional memory usage.',
+  'Snapshot Cache Hint': 'Transitions draw a full-screen screenshot instead of every widget, which is smoother for complex views. Each screenshot uses about {0} KB of RAM; the current view and the snapshot views it can switch to directly are cached at the same time.',
   'hg_view size is determined by project resolution and cannot be modified': 'hg_view size is determined by project resolution and cannot be modified',
 
   // HgWindowProperties

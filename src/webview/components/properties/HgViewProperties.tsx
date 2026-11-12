@@ -49,6 +49,9 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
   // 计算默认动画步长（屏幕高度的 1/10）
   const defaultAnimateStep = Math.round(component.position.height / 10);
 
+  // 快照固定按 16 位色深分配一整屏（HoneyGUI gui_view_cache_snapshot_data）
+  const snapshotSizeKB = Math.round(component.position.width * component.position.height * 2 / 1024);
+
   // 计算页面复杂度
   const complexity = useMemo(
     () => calculateViewComplexity(component, components ?? []),
@@ -144,6 +147,9 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
                     value={component.data?.snapShot === true || component.data?.snapShot === 'true'}
                     onChange={(value) => handleDataChange('snapShot', value)}
                   />
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
+                  {t('Snapshot Cache Hint', snapshotSizeKB)}
                 </div>
               </div>
               <div className="property-item">

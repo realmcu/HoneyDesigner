@@ -745,6 +745,7 @@ const zhCN = {
   'Animation Step': '动画步长',
   'Snapshot Cache': '快照缓存',
   'Snapshot Cache Tooltip': '启用快照缓存可使页面切换更流畅，代价是增加内存消耗。',
+  'Snapshot Cache Hint': '切换动画时用整屏截图代替逐个绘制控件，页面复杂时更流畅。每张截图约占 {0} KB RAM；停留在某页时，该页及其可直接跳转到的快照页会同时缓存。',
   'hg_view size is determined by project resolution and cannot be modified': 'hg_view 的宽高由项目分辨率决定，不可修改',
 
   // HgWindowProperties
