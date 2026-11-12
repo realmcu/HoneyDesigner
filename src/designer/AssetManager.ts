@@ -10,6 +10,7 @@ import { ConversionConfigService } from '../services/ConversionConfigService';
 import { parseFontCmap } from '../utils/fontCmapParser';
 import { CharsetProcessor } from '../../tools/font-converter/src/charset-processor';
 import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
+import { findUnusedAssets, formatBytes } from './unusedAssets';
 
 /**
  * 资源管理器 - 处理资源文件的扫描、添加、删除等操作
@@ -465,6 +466,83 @@ export class AssetManager extends EventEmitter {
             logger.error(`删除资源文件失败: ${error}`);
             vscode.window.showErrorMessage(vscode.l10n.t('Failed to delete asset file'));
         }
+    }
+
+    /**
+     * 检测未被 HML / C 源码引用、也未标记强制转换的资源，结果发给 webview
+     */
+    public handleFindUnusedAssets(currentFilePath: string | undefined): void {
+        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        if (!projectRoot) {
+            return;
+        }
+        try {
+            const result = findUnusedAssets(projectRoot);
+            this._panel.webview.postMessage({
+                command: 'unusedAssetsFound',
+                paths: result.files.map(f => f.path),
+                totalSize: result.totalSize
+            });
+        } catch (error) {
+            logger.error(`[AssetManager] Failed to find unused assets: ${error}`);
+            vscode.window.showErrorMessage(vscode.l10n.t('Failed to detect unused assets: {0}', String(error)));
+        }
+    }
+
+    /**
+     * 确认后删除全部未使用资源。删除前重新检测，只删仍未被引用的文件。
+     */
+    public async handleDeleteUnusedAssets(currentFilePath: string | undefined): Promise<void> {
+        const projectRoot = currentFilePath ? ProjectUtils.findProjectRoot(currentFilePath) : undefined;
+        if (!projectRoot) {
+            return;
+        }
+        const { files, totalSize } = findUnusedAssets(projectRoot);
+        if (files.length === 0) {
+            vscode.window.showInformationMessage(vscode.l10n.t('No unused assets found'));
+            this.handleFindUnusedAssets(currentFilePath);
+            return;
+        }
+        const preview = files.slice(0, 15).map(f => f.path);
+        if (files.length > preview.length) {
+            preview.push(vscode.l10n.t('... and {0} more', files.length - preview.length));
+        }
+        const deleteBtn = vscode.l10n.t('Delete');
+        const choice = await vscode.window.showWarningMessage(
+            vscode.l10n.t('Delete {0} unused assets ({1})?', files.length, formatBytes(totalSize)),
+            {
+                modal: true,
+                detail: preview.join('\n') + '\n\n' + vscode.l10n.t('Assets referenced only by paths built at runtime in C code cannot be detected. Check the list before deleting.')
+            },
+            deleteBtn
+        );
+        if (choice !== deleteBtn) {
+            return;
+        }
+
+        const assetsDir = ProjectUtils.getAssetsDir(projectRoot);
+        let deleted = 0;
+        for (const file of files) {
+            for (const rel of [file.path, ...file.sidecars]) {
+                const abs = ProjectUtils.resolveInside(assetsDir, rel);
+                if (!abs || !fs.existsSync(abs)) {
+                    continue;
+                }
+                try {
+                    fs.unlinkSync(abs);
+                    this.removeConversionConfig(projectRoot, rel, false);
+                    if (rel === file.path) {
+                        deleted++;
+                        this._panel.webview.postMessage({ command: 'assetDeleted', assetPath: `assets/${rel}` });
+                    }
+                } catch (error) {
+                    logger.error(`[AssetManager] Failed to delete unused asset ${rel}: ${error}`);
+                }
+            }
+        }
+        vscode.window.showInformationMessage(vscode.l10n.t('Deleted {0} unused assets', deleted));
+        // webview 收到 assetsLoaded 后会重新请求检测
+        await this.handleLoadAssets(currentFilePath);
     }
 
     /**

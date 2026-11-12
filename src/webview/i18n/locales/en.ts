@@ -810,6 +810,11 @@ const en = {
   'This asset will always be converted during build': 'This asset will always be converted during build',
   'Smart packing enabled: only referenced assets are converted': 'Smart packing ON: only assets referenced by HML are converted',
   'Smart packing disabled: all assets are converted': 'Smart packing OFF: all assets are converted (default)',
+  'Show unused assets': 'Show assets not referenced by any HML or C source',
+  'Unused assets summary': '{0} unused assets, {1}',
+  'No unused assets': 'No unused assets',
+  'Delete all unused': 'Delete all',
+  'Unused asset': 'Not referenced by any HML or C source',
 
   // ComponentTree
   'Drag from component library to add': 'Drag from component library to add',

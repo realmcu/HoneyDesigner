@@ -810,6 +810,11 @@ const zhCN = {
   'This asset will always be converted during build': '此资源在编译时将始终被转换',
   'Smart packing enabled: only referenced assets are converted': '灵活打包已开启：仅转换 HML 引用的资源',
   'Smart packing disabled: all assets are converted': '灵活打包已关闭：转换所有资源（默认）',
+  'Show unused assets': '显示未被 HML 或 C 代码引用的资源',
+  'Unused assets summary': '{0} 个未使用资源，共 {1}',
+  'No unused assets': '没有未使用的资源',
+  'Delete all unused': '全部删除',
+  'Unused asset': '未被 HML 或 C 代码引用',
 
   // ComponentTree
   'Drag from component library to add': '从组件库拖拽添加组件',

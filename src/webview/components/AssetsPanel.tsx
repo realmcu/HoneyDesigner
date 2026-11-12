@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Edit2, Upload, FolderUp, FolderPlus, Zap, PackageCheck } from 'lucide-react';
+import { Trash2, Edit2, Upload, FolderUp, FolderPlus, Zap, PackageCheck, SearchX } from 'lucide-react';
 import { AssetFile } from '../types';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
@@ -20,6 +20,12 @@ const GLASS_EXTS = ['glass'];  // 玻璃效果文件
 const LOTTIE_EXTS = ['json', 'lottie']; // Lottie 动画文件
 const TRMAP_EXTS = ['trmap']; // 纹理映射文件
 const MODEL_DEP_EXTS = ['mtl', 'bin'];  // 3D 模型依赖文件（材质文件、二进制数据）
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
 
 type AssetCategory = 'all' | 'images' | 'svgs' | 'videos' | 'models' | 'fonts' | 'glass' | 'lottie' | 'trmap';
 
@@ -456,6 +462,10 @@ const AssetsPanel: React.FC = () => {
   const [alwaysConvertAssets, setAlwaysConvertAssets] = useState<Set<string>>(new Set());  // 强制转换的资源集合
   const [smartPacking, setSmartPacking] = useState(false);  // 灵活打包模式
   const [showUploadMenu, setShowUploadMenu] = useState(false);  // 上传方式下拉菜单
+  const [showUnused, setShowUnused] = useState(false);  // 只显示未使用资源
+  const [unusedAssets, setUnusedAssets] = useState<{ paths: Set<string>; totalSize: number } | null>(null);
+  const showUnusedRef = useRef(false);
+  showUnusedRef.current = showUnused;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const uploadMenuRef = useRef<HTMLDivElement>(null);
@@ -583,6 +593,11 @@ const AssetsPanel: React.FC = () => {
       const message = event.data;
       if (message.command === 'assetsLoaded') {
         setAssets(message.assets || []);
+        if (showUnusedRef.current) {
+          window.vscodeAPI?.postMessage({ command: 'findUnusedAssets' });
+        }
+      } else if (message.command === 'unusedAssetsFound') {
+        setUnusedAssets({ paths: new Set<string>(message.paths || []), totalSize: message.totalSize || 0 });
       } else if (message.command === 'alwaysConvertUpdated') {
         // 更新强制转换资源列表
         const alwaysConvert = message.alwaysConvert || { images: [], videos: [], models: [], fonts: [] };
@@ -709,7 +724,8 @@ const AssetsPanel: React.FC = () => {
     return (
       <div 
         key={asset.path} 
-        className={`asset-grid-item${isSelected ? ' selected' : ''}${smartPacking && isMarkedAlwaysConvert ? ' always-convert' : ''}`}
+        className={`asset-grid-item${isSelected ? ' selected' : ''}${smartPacking && isMarkedAlwaysConvert ? ' always-convert' : ''}${showUnused ? ' unused' : ''}`}
+        title={showUnused ? `${asset.relativePath} - ${t('Unused asset')}` : undefined}
         draggable
         onClick={(e) => handleAssetClick(asset, e)}
         onDragStart={(e) => {
@@ -1008,9 +1024,30 @@ const AssetsPanel: React.FC = () => {
     if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
-  const currentAssets = categorizedAssets[activeCategory];
-  const { folders } = getCurrentFolderContent;
-  const emptyMessage = activeCategory === 'all' ? t('No assets') : 
+  const toggleShowUnused = () => {
+    const next = !showUnused;
+    setShowUnused(next);
+    if (next) {
+      setUnusedAssets(null);
+      window.vscodeAPI?.postMessage({ command: 'findUnusedAssets' });
+    }
+  };
+
+  // 未使用模式：跨文件夹平铺显示，仍按当前分类过滤
+  const unusedList = React.useMemo(() => {
+    if (!showUnused || !unusedAssets) return [];
+    const pool = activeCategory === 'all'
+      ? (Object.keys(categorizedAssets) as AssetCategory[])
+          .filter(c => c !== 'all' && c !== 'models')
+          .flatMap(c => categorizedAssets[c])
+          .concat(categorizedAssets.models.filter(a => !isModelDependency(a.name)))
+      : categorizedAssets[activeCategory];
+    return pool.filter(a => a.relativePath && unusedAssets.paths.has(a.relativePath));
+  }, [showUnused, unusedAssets, categorizedAssets, activeCategory]);
+
+  const currentAssets = showUnused ? unusedList : categorizedAssets[activeCategory];
+  const folders = showUnused ? [] : getCurrentFolderContent.folders;
+  const emptyMessage = showUnused ? t('No unused assets') : activeCategory === 'all' ? t('No assets') : 
     activeCategory === 'images' ? t('No images') :
     activeCategory === 'svgs' ? t('No SVGs') :
     activeCategory === 'videos' ? t('No videos') : 
@@ -1099,6 +1136,13 @@ const AssetsPanel: React.FC = () => {
         >
           <PackageCheck size={16} />
         </button>
+        <button
+          className={`upload-btn unused-assets-btn${showUnused ? ' active' : ''}`}
+          onClick={toggleShowUnused}
+          title={t('Show unused assets')}
+        >
+          <SearchX size={16} />
+        </button>
 
         <input
           ref={fileInputRef}
@@ -1119,7 +1163,25 @@ const AssetsPanel: React.FC = () => {
       </div>
       
       {/* 面包屑导航 - 仅在"全部"分类时显示 */}
-      {activeCategory === 'all' && (
+      {showUnused && (
+        <div className="unused-assets-bar">
+          <span>
+            {unusedAssets
+              ? t('Unused assets summary', unusedAssets.paths.size, formatBytes(unusedAssets.totalSize))
+              : '...'}
+          </span>
+          <button
+            className="unused-delete-btn"
+            disabled={!unusedAssets || unusedAssets.paths.size === 0}
+            onClick={() => window.vscodeAPI?.postMessage({ command: 'deleteUnusedAssets' })}
+          >
+            <Trash2 size={12} />
+            <span>{t('Delete all unused')}</span>
+          </button>
+        </div>
+      )}
+
+      {activeCategory === 'all' && !showUnused && (
         <div className="breadcrumb">
           <span 
             className="breadcrumb-item" 

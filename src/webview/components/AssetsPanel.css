@@ -604,3 +604,44 @@
 .asset-grid-item.always-convert .asset-preview {
   border-color: var(--vscode-charts-blue);
 }
+
+/* 未使用资源检测 */
+.unused-assets-btn.active {
+  color: var(--vscode-charts-orange);
+  border-color: var(--vscode-charts-orange);
+  background: rgba(255, 152, 0, 0.15);
+}
+
+.unused-assets-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+  flex-shrink: 0;
+}
+
+.unused-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--vscode-errorForeground);
+  background: transparent;
+  border: 1px solid var(--vscode-errorForeground);
+  border-radius: 3px;
+}
+
+.unused-delete-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.asset-grid-item.unused .asset-preview {
+  border: 1px dashed var(--vscode-charts-orange);
+}

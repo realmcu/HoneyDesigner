@@ -77,6 +77,8 @@ export class MessageHandler {
         'executeCommand',
         'generateCode',
         'gotoSlot',
+        'findUnusedAssets',
+        'deleteUnusedAssets',
         'switchFile',
         'setEntryView',
         'switchProjectConfig',
@@ -264,6 +266,14 @@ export class MessageHandler {
 
             case 'deleteAsset':
                 this._assetManager.handleDeleteAsset(message.fileName, this._fileManager.currentFilePath);
+                break;
+
+            case 'findUnusedAssets':
+                this._assetManager.handleFindUnusedAssets(this._fileManager.currentFilePath);
+                break;
+
+            case 'deleteUnusedAssets':
+                await this._assetManager.handleDeleteUnusedAssets(this._fileManager.currentFilePath);
                 break;
 
             case 'renameAsset':
