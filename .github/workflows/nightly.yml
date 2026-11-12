@@ -63,9 +63,6 @@ jobs:
           - name: rotary
             repo: honeygui-template-rotary
             engine: honeygui
-          - name: settings
-            repo: honeygui-template-settings
-            engine: honeygui
           - name: ebadge
             repo: honeygui-template-EBadge
             engine: honeygui
@@ -132,9 +129,6 @@ jobs:
             engine: honeygui
           - name: rotary
             repo: honeygui-template-rotary
-            engine: honeygui
-          - name: settings
-            repo: honeygui-template-settings
             engine: honeygui
           - name: ebadge
             repo: honeygui-template-EBadge

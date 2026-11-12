@@ -7,7 +7,7 @@
  * 两种状态共用同一套入口按钮，顺序固定：新建工程 / 打开本地文件夹 / 导入 ZIP。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Folder, Clock, ChevronRight, ChevronDown, ArrowUpRight, ArrowRight, Plus, Github, X } from 'lucide-react';
+import { Folder, Clock, ChevronRight, ChevronDown, ArrowUpRight, ArrowRight, Plus, Github, X, Image as ImageIcon } from 'lucide-react';
 import {
     StoredProject,
     ProjectSummary,
@@ -29,7 +29,7 @@ import { GitHubImportDialog, GitHubImportResult } from './GitHubImportDialog';
 import { isDirectoryAccessSupported, getWebLocale, setWebLocale, WebLocale } from '../host/webEnvironment';
 import { DEFAULT_ROMFS_BASE_ADDR } from '../../common/ProjectConfig';
 import { t, setLocale } from '../../webview/i18n';
-import { WEB_EXAMPLES, exampleSourceKey } from '../host/exampleProjects';
+import { WEB_EXAMPLES, WebExample, exampleSourceKey } from '../host/exampleProjects';
 
 const RESOLUTIONS = ['410X502', '480X272', '800X480', '1024X600', '1280X720'];
 const MIN_SDKS = ['API 2: HoneyGUI V1.1.0', 'API 3: HoneyGUI V1.2.0', 'API 4: HoneyGUI V2.0.0'];
@@ -243,14 +243,24 @@ function DesignCodePreview() {
 }
 
 function SampleCard({ example, busy, onOpen }: {
-    example: typeof WEB_EXAMPLES[number];
+    example: WebExample;
     busy: boolean;
     onOpen(): void;
 }) {
+    const [thumbMissing, setThumbMissing] = useState(false);
     return (
         <button className="hg-sample" type="button" disabled={busy} onClick={onOpen}>
             <span className="hg-sample-thumb">
-                <img src={new URL(example.thumbnail, document.baseURI).toString()} alt="" />
+                {thumbMissing ? (
+                    <ImageIcon className="hg-sample-thumb-empty" size={28} strokeWidth={1.2} aria-hidden="true" />
+                ) : (
+                    <img
+                        src={new URL(example.thumbnail, document.baseURI).toString()}
+                        alt=""
+                        loading="lazy"
+                        onError={() => setThumbMissing(true)}
+                    />
+                )}
             </span>
             <span className="hg-sample-info">
                 <span className="hg-sample-info-top">
@@ -259,8 +269,10 @@ function SampleCard({ example, busy, onOpen }: {
                 </span>
                 <span className="hg-sample-desc">{t(example.descriptionKey)}</span>
                 <span className="hg-sample-open">
-                    {busy ? t('Loading...') : t('Open Example')}
-                    {!busy && <ArrowRight size={13} strokeWidth={1.6} aria-hidden="true" />}
+                    {busy ? t('Loading...') : t(example.archive ? 'Open Example' : 'Download from GitHub')}
+                    {!busy && (example.archive
+                        ? <ArrowRight size={13} strokeWidth={1.6} aria-hidden="true" />
+                        : <Github size={13} strokeWidth={1.6} aria-hidden="true" />)}
                 </span>
             </span>
         </button>
@@ -275,6 +287,8 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
     const [locale, setLocaleState] = useState<WebLocale>(getWebLocale());
     const [loadingExample, setLoadingExample] = useState<string | null>(null);
     const [importingFromGitHub, setImportingFromGitHub] = useState(false);
+    /** 从示例卡片进入 GitHub 弹框时预填的模板地址 */
+    const [githubInitialUrl, setGithubInitialUrl] = useState<string | undefined>();
     const zipInputRef = useRef<HTMLInputElement>(null);
 
     const loadSummaries = (list: StoredProject[]) => {
@@ -349,9 +363,15 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
         }
     };
 
-    const openExample = async (example: typeof WEB_EXAMPLES[number]) => {
+    const openExample = async (example: WebExample) => {
         if (loadingExample) return;
         setError(undefined);
+        // 没有内置包的模板走 GitHub 下载流程（已下载过时弹框会提示直接打开）
+        if (!example.archive) {
+            setGithubInitialUrl(example.url);
+            setImportingFromGitHub(true);
+            return;
+        }
         setLoadingExample(example.id);
         try {
             const response = await fetch(new URL(example.archive, document.baseURI));
@@ -455,7 +475,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                 {t('Or import a ZIP project')}
             </button>
             {/* 次级入口：与 ZIP 导入同级的文字链接，不与「新建工程」争主按钮 */}
-            <button className="hg-link-import" type="button" onClick={() => setImportingFromGitHub(true)}>
+            <button className="hg-link-import" type="button" onClick={() => { setGithubInitialUrl(undefined); setImportingFromGitHub(true); }}>
                 {t('Or open a GitHub repository')}
             </button>
             <input
@@ -598,6 +618,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                     <NewProjectForm onCreate={createProject} onCancel={() => setCreating(false)} />
                 ) : importingFromGitHub ? (
                     <GitHubImportDialog
+                        initialUrl={githubInitialUrl}
                         onCancel={() => setImportingFromGitHub(false)}
                         onImport={importFromGitHub}
                         findExisting={findGitHubCopy}

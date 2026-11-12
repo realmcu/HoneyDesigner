@@ -358,7 +358,6 @@
   "template.dashboard.description": "Car dashboard interface with UI resources",
   "template.chatbot.description": "Chat bot interface (lightweight)",
   "template.rotary.description": "Rotary knob control interface (lightweight)",
-  "template.settings.description": "Settings interface (lightweight)",
   "template.ebadge.description": "Electronic badge interface with Bluetooth connectivity, menu, share pages, and animated video resources",
 
   "Not a HoneyGUI project. Please create a project first.": "Not a HoneyGUI project. Please create a project first.",

@@ -47,14 +47,6 @@ export const AVAILABLE_TEMPLATES: TemplateInfo[] = [
         size: '20 MB'
     },
     {
-        id: 'settings',
-        name: 'Settings',
-        description: '设置界面（轻量级）',
-        descriptionKey: 'template.settings.description',
-        repo: 'https://gitee.com/realmcu/honeygui-template-settings.git',
-        size: '20 MB'
-    },
-    {
         id: 'ebadge',
         name: 'E-Badge',
         description: '电子胸牌界面，包含蓝牙连接、菜单、分享页面及动画视频资源',

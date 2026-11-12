@@ -1223,7 +1223,7 @@
 
 .hg-sample-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
 }
 
@@ -1269,6 +1269,8 @@
   height: auto;
   object-fit: contain;
 }
+
+.hg-sample-thumb-empty { color: var(--hg-text-2); opacity: 0.5; }
 
 .hg-sample-info {
   display: flex;
@@ -1503,6 +1505,7 @@
 }
 
 @media (max-width: 900px) {
+  .hg-sample-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hg-preview-body { grid-template-columns: minmax(0, 1fr) 300px; }
   .hg-block-desc { display: none; }
 }

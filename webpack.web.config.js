@@ -54,7 +54,8 @@ class CopyExampleFilesPlugin {
           if (!fs.existsSync(dir)) {
             return;
           }
-          for (const name of ['chatbot.zip', 'chatbot.png', 'dashboard.zip', 'dashboard.png']) {
+          // 内置工程包与全部示例缩略图（缩略图按模板 id 命名，见 exampleProjects.ts）
+          for (const name of fs.readdirSync(dir).filter(name => /\.(zip|png)$/i.test(name))) {
             const from = path.join(dir, name);
             compilation.fileDependencies.add(from);
             compilation.emitAsset(`examples/${name}`, new webpack.sources.RawSource(fs.readFileSync(from)));

@@ -81,6 +81,8 @@ interface GitHubImportDialogProps {
     findExisting(sourceKey: string): Promise<StoredProject | undefined>;
     /** 直接打开已有副本，不下载 */
     onOpenExisting(project: StoredProject): void;
+    /** 预填的仓库地址；给出时打开弹框就开始读取（首页示例卡片用） */
+    initialUrl?: string;
 }
 
 type Step =
@@ -185,8 +187,8 @@ function SourceLink({ source, candidate }: { source: ResolvedSource; candidate: 
     );
 }
 
-export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExisting }: GitHubImportDialogProps) {
-    const [url, setUrl] = useState('');
+export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExisting, initialUrl }: GitHubImportDialogProps) {
+    const [url, setUrl] = useState(initialUrl ?? '');
     const [step, setStep] = useState<Step>({ kind: 'url' });
     const [saving, setSaving] = useState(false);
     const cancelTokenRef = useRef<CancelToken | undefined>(undefined);
@@ -194,6 +196,13 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
 
     // 关掉弹框时中止所有在途请求
     useEffect(() => () => cancelTokenRef.current?.cancel(), []);
+
+    // 预填地址时直接开始读取，省去再点一次「继续」
+    useEffect(() => {
+        if (initialUrl) {
+            void resolveAndImport(initialUrl);
+        }
+    }, []);
 
     // 下拉框的值由地址推出来：地址等于某个模板就选中它，手动改过就回到「自定义地址」
     const selectedTemplate = GITHUB_TEMPLATES.find(template => template.url === url.trim())?.id ?? '';
@@ -280,15 +289,19 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
         }
     };
 
-    const beginImport = async (event: React.FormEvent) => {
+    const beginImport = (event: React.FormEvent) => {
         event.preventDefault();
         if (step.kind === 'loading') {
             return;
         }
+        void resolveAndImport(url);
+    };
+
+    const resolveAndImport = async (targetUrl: string) => {
         rateLimitRef.current = new RateLimitState();
         let location: GitHubLocation;
         try {
-            location = parseGitHubUrl(url);
+            location = parseGitHubUrl(targetUrl);
         } catch (error) {
             setStep({ kind: 'url', error: describeError(error) });
             return;
