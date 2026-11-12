@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, FileJson, FolderOpen, Languages } from 'lucide-react';
+import { ChevronDown, FileJson, FolderOpen, Languages, Palette } from 'lucide-react';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
 import ProjectConfigSelect from './ProjectConfigSelect';
@@ -15,6 +15,8 @@ const ProjectMenu: React.FC = () => {
     guiVersion,
     projectI18nCatalog,
     setProjectI18nManagerOpen,
+    sharedStyles,
+    setSharedStylesManagerOpen,
   } = useDesignerStore();
 
   const [open, setOpen] = useState(false);
@@ -54,6 +56,11 @@ const ProjectMenu: React.FC = () => {
   const openI18nManager = () => {
     setOpen(false);
     setProjectI18nManagerOpen(true);
+  };
+
+  const openSharedStylesManager = () => {
+    setOpen(false);
+    setSharedStylesManagerOpen(true);
   };
 
   const openProjectJson = () => {
@@ -110,6 +117,16 @@ const ProjectMenu: React.FC = () => {
           <button type="button" className="toolbar-menu-item" onClick={openI18nManager}>
             <Languages {...ICON_MENU} />
             <span>{t('I18n Manager')}</span>
+          </button>
+
+          <div className="toolbar-menu-divider" />
+          <div className="toolbar-menu-title">{t('Shared Styles')}</div>
+          <div className="project-menu-row">
+            <span className="project-menu-value">{t('{0} styles', sharedStyles.styles.length)}</span>
+          </div>
+          <button type="button" className="toolbar-menu-item" onClick={openSharedStylesManager}>
+            <Palette {...ICON_MENU} />
+            <span>{t('Shared Styles Manager')}</span>
           </button>
 
           <div className="toolbar-menu-divider" />

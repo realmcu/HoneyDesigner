@@ -210,6 +210,12 @@ export interface Component {
   data?: ComponentData;
   events?: ComponentEvents;
   eventConfigs?: import('./eventTypes').EventConfig[]; // Event-Action 配置
+  /**
+   * 引用的共享样式 id（工程根目录 styles.json）。
+   * 解析时已把样式属性合并进 style / data，这里只保留引用本身：
+   * 改样式后重新解析即可生效，组件自身属性仍然优先。
+   */
+  styleName?: string;
   children?: string[];  // ID引用，避免循环引用
   parent?: string | null;
   visible: boolean;

@@ -30,6 +30,17 @@ export function setSaveProjectI18nCatalogTimer(timer: ReturnType<typeof setTimeo
   saveProjectI18nCatalogTimer = timer;
 }
 
+// 共享样式（styles.json）的防抖落盘句柄，与 i18n catalog 同样的处理方式
+export let saveSharedStylesTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function getSaveSharedStylesTimer(): ReturnType<typeof setTimeout> | null {
+  return saveSharedStylesTimer;
+}
+
+export function setSaveSharedStylesTimer(timer: ReturnType<typeof setTimeout> | null): void {
+  saveSharedStylesTimer = timer;
+}
+
 // 用于缩放/平移时的防抖保存，避免高频操作反复写入 localStorage
 // （原 store.ts create 回调内的 createRafDebouncer() 产物）
 export const debounceSaveViewState = createRafDebouncer();

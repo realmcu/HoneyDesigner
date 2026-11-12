@@ -217,8 +217,38 @@ All components support these base attributes:
 | `locked` | boolean | false | Lock in designer (prevent dragging) |
 | `zIndex` | int | 0 | Stacking order — higher values render on top |
 | `showOverflow` | boolean | false | Show overflow content in designer |
+| `styleName` | string | — | Reference a shared style id from the project-root `styles.json` (see below) |
 
 > **ID naming convention**: Use lowercase with underscores, e.g. `btn_menu`, `lbl_time`, `img_bg`.
+
+### Shared styles (`styleName` / `styles.json`)
+
+The project root may contain `styles.json`, mapping a style id to a set of visual properties:
+
+```json
+{
+  "version": 1,
+  "styles": [
+    { "id": "title_text", "name": "Title text", "props": { "fontSize": "32", "color": "#FFFFFF", "fontFile": "SourceHanSansCN_Medium" } },
+    { "id": "card_bg", "name": "Card background", "props": { "backgroundColor": "#22262B", "borderRadius": 12, "border": "1px solid #3A3F46" } }
+  ]
+}
+```
+
+Components reference a style by id:
+
+```xml
+<hg_label id="lbl_title" styleName="title_text" x="20" y="16" width="200" height="40" text="Hello"/>
+```
+
+Resolution rules:
+
+- Style properties are expanded into the component at parse time. **Attributes already on the tag win**, so a single component can still override locally; editing `styles.json` and re-parsing updates every component that references the style.
+- Only whitelisted visual properties are allowed in a style: colors (`color`, `backgroundColor`, `fillColor`, `strokeColor`), text (`fontFile`, `fontSize`, `fontType`, `renderMode`, `fontWeight`, `hAlign`, `vAlign`, `letterSpacing`, `lineSpacing`, `wordWrap`, `wordBreak`), border and shape (`border`, `borderRadius`, `padding`, `margin`, `overflow`, `radius`, `startAngle`, `endAngle`, `strokeWidth`), `opacity`, gradients (`useGradient`, `gradientType`, `gradientDirection`, `gradientBox`, `gradientStops`), glow and shadow (`glowEnabled`, `glowColor`, `glowOpacity`, `glowBlur`, `shadowEnabled`, `shadowColor`, `shadowOpacity`, `shadowBlur`, `shadowSpread`, `shadowDirection`, `shadowDistance`). Position, size, file references, `text`, timers and events are not allowed: putting them in a style would move or rewrite every component that references it.
+- When writing HML back, properties that still equal the style value are omitted, so a tag does not freeze a private copy of the style. Values the component changed are written and become overrides.
+- A style is not bound to a component type; any component may reference it. Each component uses only the properties it supports and ignores the rest: for example glow/shadow take effect only on `hg_rect` / `hg_circle`, while `color` in the same style applies to labels and arcs.
+- `color` is the primary colour: on `hg_rect` / `hg_circle` it is used as `fillColor`. If the style also sets `fillColor`, `fillColor` wins.
+- If `styles.json` is missing or the id does not exist, `styleName` is kept as-is and the component renders from its own attributes. A broken styles file never blocks opening the project: invalid ids, duplicate ids and non-whitelisted properties are dropped.
 
 ---
 

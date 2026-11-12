@@ -17,6 +17,7 @@ import { createHandlerContext } from './messageHandlers/HandlerContext';
 import { CodeGenHandler } from './messageHandlers/CodeGenHandler';
 import { ProjectConfigHandler } from './messageHandlers/ProjectConfigHandler';
 import { ProjectI18nHandler } from './messageHandlers/ProjectI18nHandler';
+import { SharedStylesHandler } from './messageHandlers/SharedStylesHandler';
 import { NavigationHandler } from './messageHandlers/NavigationHandler';
 import { AssetBrowseHandler } from './messageHandlers/AssetBrowseHandler';
 
@@ -43,6 +44,7 @@ export class MessageHandler {
     private readonly _codeGen: CodeGenHandler;
     private readonly _projectConfig: ProjectConfigHandler;
     private readonly _projectI18n: ProjectI18nHandler;
+    private readonly _sharedStyles: SharedStylesHandler;
     private readonly _navigation: NavigationHandler;
     private readonly _assetBrowse: AssetBrowseHandler;
 
@@ -64,6 +66,7 @@ export class MessageHandler {
         this._codeGen = new CodeGenHandler(ctx, codeGenerator);
         this._projectConfig = new ProjectConfigHandler(ctx, () => this._codeGen.handleGenerateCode());
         this._projectI18n = new ProjectI18nHandler(ctx);
+        this._sharedStyles = new SharedStylesHandler(ctx);
         this._navigation = new NavigationHandler(ctx);
         this._assetBrowse = new AssetBrowseHandler(ctx, assetManager, componentManager, hmlController);
 
@@ -84,6 +87,7 @@ export class MessageHandler {
         'switchProjectConfig',
         'createProjectConfig',
         'deleteProjectConfig',
+        'saveSharedStyles',
         'getProjectI18nIndex',
         'deleteProjectI18nKey',
         'renameProjectI18nKey',
@@ -478,6 +482,10 @@ export class MessageHandler {
 
             case 'saveProjectI18nCatalog':
                 this._projectI18n.handleSaveProjectI18nCatalog(message.catalog);
+                break;
+
+            case 'saveSharedStyles':
+                this._sharedStyles.handleSaveSharedStyles(message.styles);
                 break;
 
             case 'getProjectI18nIndex':

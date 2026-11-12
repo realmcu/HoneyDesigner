@@ -12,6 +12,7 @@ import { SaveManager } from './SaveManager';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
 import { loadProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
+import { loadSharedStyleLibrary } from '../shared/sharedStylesFile';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
 import { scanAllViews, scanAllHmlFiles, scanProjectHml, normalizeHmlFilePath, buildComponentIndex, scanHmlFilesRecursive } from './navGraphScanner';
 import type { ProjectConfig } from '../common/ProjectConfig';
@@ -625,7 +626,7 @@ export class FileManager {
         }
         this.discardPendingSave();
         this.setWebviewDirty(false);
-        this._hmlController.parseContent(content, this._filePath);
+        this._hmlController.parseContent(content, this._filePath, this.loadStyleLibrary());
         this._ownContentHash = undefined;
         await this.reloadCurrentDocument();
     }
@@ -891,8 +892,9 @@ export class FileManager {
             // 解析文档内容（必须传文件路径：无 id 组件的 fallback id 以 basename 为种子，
             // 不传则设计器画布拿到无种子 id（hg_view_auto_0），保存即永久落盘且跨文件撞车，
             // 与 scanAllViews/codegen 对同一文件解析出的带种子 id 不一致）
+            // 同时展开共享样式：标签上只存 styleName 与覆盖值，不传样式库画布就只能画出默认外观
             const parseResult = measurePerformance(() =>
-                this._hmlController.parseContent(content, this._filePath)
+                this._hmlController.parseContent(content, this._filePath, this.loadStyleLibrary())
             );
             const hmlDocument = parseResult.value;
             if (this._performanceContext) {
@@ -1070,6 +1072,30 @@ export class FileManager {
     /**
      * 重新加载当前文档
      */
+    /**
+     * 重新解析当前 HML 并下发。
+     *
+     * 共享样式写盘后调用：组件的 style / data 是解析时展开的结果，只改 styles.json
+     * 不会让内存里的组件对象更新。样式文件与 HML 是两份文件，走不了 HML 的 watcher。
+     */
+    /** 当前文件所在工程的共享样式；找不到工程时为空 */
+    private loadStyleLibrary() {
+        const projectRoot = this._filePath ? ProjectUtils.findProjectRoot(this._filePath) : null;
+        return loadSharedStyleLibrary(projectRoot ?? undefined).library;
+    }
+
+    public async reparseAndReload(): Promise<void> {
+        if (!this._filePath) {
+            return;
+        }
+        try {
+            await this._hmlController.loadFile(this._filePath);
+            await this.reloadCurrentDocument();
+        } catch (error) {
+            logger.error(`[FileManager] 共享样式更新后重新解析失败: ${error}`);
+        }
+    }
+
     public async reloadCurrentDocument(projectConfig?: ProjectConfig | null): Promise<void> {
         try {
             if (!this._filePath) {
@@ -1143,6 +1169,8 @@ export class FileManager {
         const projectI18nCatalog = projectRoot
             ? loadProjectI18nCatalog(projectRoot)
             : createEmptyCatalog('en-US');
+        // 共享样式随工程文件下发；组件属性已在解析时合并过样式，这里只给面板用
+        const sharedStylesInfo = loadSharedStyleLibrary(projectRoot ?? undefined);
         
         const projectScanStartedAt = performance.now();
         const scanMetrics = this._performanceContext?.metrics;
@@ -1190,6 +1218,9 @@ export class FileManager {
             projectConfig: projectConfig,
             projectI18nCatalog: projectI18nCatalog,
             previewLocale: projectI18nCatalog.activeLocale || projectI18nCatalog.defaultLocale,
+            sharedStyles: sharedStylesInfo.library,
+            sharedStylesFileExists: sharedStylesInfo.exists,
+            sharedStylesErrors: sharedStylesInfo.errors,
             designerConfig: designerConfig || { canvasBackgroundColor: '#3c3c3c' },
             projectRoot: projectRoot,
             allViews: allViews,

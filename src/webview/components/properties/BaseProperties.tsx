@@ -7,6 +7,7 @@ import { validateComponentId } from '../../utils/validation';
 import { useDesignerStore } from '../../store';
 import { t } from '../../i18n';
 import { TimerAction, TimerConfig } from '../../../hml/types';
+import { SharedStyleSelector } from './SharedStyleSelector';
 
 interface BasePropertiesProps extends PropertyPanelProps {
   disableSize?: boolean;
@@ -262,6 +263,11 @@ export const BaseProperties: React.FC<BasePropertiesProps> = ({
               ))}
             </select>
           </div>
+        )}
+
+        {/* 共享样式引用：容器类组件由各自面板提供入口 */}
+        {component.type !== 'hg_view' && component.type !== 'hg_window' && (
+          <SharedStyleSelector component={component} onUpdate={onUpdate} />
         )}
       </div>
 

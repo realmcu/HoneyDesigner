@@ -4,6 +4,8 @@ import { Document as HmlDocument, Component } from './types';
 import { HmlSerializer } from './HmlSerializer';
 import { logger } from '../utils/Logger';
 import { ProjectUtils } from '../utils/ProjectUtils';
+import { SharedStyleLibrary } from '../shared/sharedStyles';
+import { loadSharedStyleLibrary } from '../shared/sharedStylesFile';
 
 /**
  * HML控制器类，协调解析器和序列化器的工作
@@ -34,7 +36,10 @@ export class HmlController {
             // 解析文件内容
             // 同步读取文件内容，避免 Promise 相关问题
             const fileContent = fs.readFileSync(filePath, 'utf-8');
-            const document = this.parser.parse(fileContent, filePath);
+            // 共享样式由工程根目录的 styles.json 提供；解析时展开，调用方拿到的属性已合并
+            const document = this.parser.parse(fileContent, filePath, {
+                styleLibrary: loadSharedStyleLibrary(ProjectUtils.findProjectRoot(filePath) ?? undefined).library,
+            });
 
             // 更新当前文档状态
             this._currentDocument = document;
@@ -57,11 +62,14 @@ export class HmlController {
      * @param filePath 可选，HML 文件路径（用于加载相对路径的资源）
      * @returns 解析后的HML文档对象
      */
-    public parseContent(content: string, filePath?: string): HmlDocument {
+    public parseContent(content: string, filePath?: string, styleLibrary?: SharedStyleLibrary): HmlDocument {
         try {
             logger.debug(`[HmlController] parseContent: 准备解析 HML 内容`);
 
-            const document = this.parser.parse(content, filePath || this._currentFilePath || undefined);
+            const resolvedPath = filePath || this._currentFilePath || undefined;
+            // 强调：保存路径也走这里。展开后的样式属性会被序列化写回 HML，
+            // 因此保存时不传 styleLibrary —— 见 saveDocument 的说明。
+            const document = this.parser.parse(content, resolvedPath, { styleLibrary });
 
             // 更新当前文档状态
             this._currentDocument = document;
@@ -82,7 +90,11 @@ export class HmlController {
      */
     public applyRemoteUpdate(content: string): void {
         try {
-            const document = this.parser.parse(content, this._currentFilePath || undefined);
+            const document = this.parser.parse(content, this._currentFilePath || undefined, {
+                styleLibrary: this._currentFilePath
+                    ? loadSharedStyleLibrary(ProjectUtils.findProjectRoot(this._currentFilePath) ?? undefined).library
+                    : undefined,
+            });
             
             // 更新当前文档状态
             this._currentDocument = document;
@@ -117,8 +129,11 @@ export class HmlController {
 
             logger.debug(`[HmlController] 保存路径: ${targetPath}`);
 
-            // 序列化并保存
-            await this.serializer.serializeToFile(this._currentDocument, targetPath);
+            // 序列化并保存；带上样式库，让「来自样式」的属性不写回 HML
+            await this.serializer.serializeToFile(
+                this._currentDocument,
+                targetPath,
+                loadSharedStyleLibrary(ProjectUtils.findProjectRoot(targetPath) ?? undefined).library);
 
             // 更新当前文件路径
             this._currentFilePath = targetPath;

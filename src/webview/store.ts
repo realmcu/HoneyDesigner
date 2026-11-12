@@ -21,6 +21,7 @@ import { createClipboardSlice } from './store/slices/clipboardSlice';
 import { createAlignmentSlice } from './store/slices/alignmentSlice';
 import { createNavSlice } from './store/slices/navSlice';
 import { createI18nSlice } from './store/slices/i18nSlice';
+import { createSharedStylesSlice } from './store/slices/sharedStylesSlice';
 import { createSystemSlice } from './store/slices/systemSlice';
 import { isHistorySuppressed, pushHistory, resetHistoryCoalescing, shouldStartHistoryStep } from './store/history';
 
@@ -32,6 +33,10 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => ({
   components: [],
   projectConfig: null as any, // 项目配置（分辨率等）
   projectI18nCatalog: createEmptyCatalog('en-US'),
+  sharedStyles: { version: 1, styles: [] },
+  sharedStylesFileExists: false,
+  sharedStylesErrors: [],
+  isSharedStylesManagerOpen: false,
   projectI18nIndex: undefined,
   projectI18nIndexErrors: [],
   isProjectI18nManagerOpen: false,
@@ -86,6 +91,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => ({
   ...createAlignmentSlice(set, get, api),
   ...createNavSlice(set, get, api),
   ...createI18nSlice(set, get, api),
+  ...createSharedStylesSlice(set, get, api),
   ...createSystemSlice(set, get, api),
 }) as DesignerStore);
 

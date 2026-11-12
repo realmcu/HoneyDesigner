@@ -208,8 +208,38 @@ HML 是**一种语言，配备两个代码生成后端（引擎）**：`honeygui
 | `locked` | boolean | false | 在设计器中锁定（防止拖动） |
 | `zIndex` | int | 0 | 堆叠顺序 — 值越大渲染越靠上 |
 | `showOverflow` | boolean | false | 在设计器中显示溢出内容 |
+| `styleName` | string | — | 引用工程根目录 `styles.json` 中的共享样式 id，详见下节 |
 
 > **ID 命名约定**：使用小写字母加下划线，例如 `btn_menu`、`lbl_time`、`img_bg`。
+
+### 共享样式（`styleName` / `styles.json`）
+
+工程根目录的 `styles.json` 保存「样式 id → 一组视觉属性」：
+
+```json
+{
+  "version": 1,
+  "styles": [
+    { "id": "title_text", "name": "标题文字", "props": { "fontSize": "32", "color": "#FFFFFF", "fontFile": "SourceHanSansCN_Medium" } },
+    { "id": "card_bg", "name": "卡片背景", "props": { "backgroundColor": "#22262B", "borderRadius": 12, "border": "1px solid #3A3F46" } }
+  ]
+}
+```
+
+组件用 `styleName` 引用：
+
+```xml
+<hg_label id="lbl_title" styleName="title_text" x="20" y="16" width="200" height="40" text="Hello"/>
+```
+
+解析规则：
+
+- 样式属性在解析时展开进组件，**标签上已有的同名属性优先**，因此单个组件可以局部微调；改 `styles.json` 后重新解析即可让所有引用组件一起变。
+- 只有白名单视觉属性允许写进样式：颜色（`color`、`backgroundColor`、`fillColor`、`strokeColor`）、文字（`fontFile`、`fontSize`、`fontType`、`renderMode`、`fontWeight`、`hAlign`、`vAlign`、`letterSpacing`、`lineSpacing`、`wordWrap`、`wordBreak`）、边框与形状（`border`、`borderRadius`、`padding`、`margin`、`overflow`、`radius`、`startAngle`、`endAngle`、`strokeWidth`）、`opacity`、渐变（`useGradient`、`gradientType`、`gradientDirection`、`gradientBox`、`gradientStops`）、发光与阴影（`glowEnabled`、`glowColor`、`glowOpacity`、`glowBlur`、`shadowEnabled`、`shadowColor`、`shadowOpacity`、`shadowBlur`、`shadowSpread`、`shadowDirection`、`shadowDistance`）。位置尺寸、图片/字体路径之外的文件引用、`text`、定时器、事件不允许进入样式——这些写进样式后改一条样式会连带改动所有引用它的组件。
+- 保存 HML 时，仍等于样式值的属性不会写回（否则标签里会固化一份副本，之后改样式对它们不再生效）；组件自己改过的值照常写回，成为覆盖值。
+- 样式不绑定组件类型，任何组件都可以引用。组件只使用自己支持的属性，其余忽略：例如发光/阴影只对 `hg_rect` / `hg_circle` 生效，同一条样式里的 `color` 对文字、圆弧生效。
+- `color` 是「主色」：用在 `hg_rect` / `hg_circle` 上时作为 `fillColor`；样式同时写了 `fillColor` 时以 `fillColor` 为准。
+- `styles.json` 缺失或某条样式不存在时，`styleName` 原样保留，组件按标签上的属性渲染。样式文件损坏不会让工程打不开：非法 id、重复 id、白名单之外的属性会被丢弃。
 
 ---
 

@@ -53,6 +53,16 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
       }
       break;
 
+    case 'sharedStylesSaved':
+      // 样式写盘回执：宿主重新解析后仍会下发 loadHml，这里只更新样式列表本身
+      if (message.styles) {
+        useDesignerStore.getState().setSharedStyles(message.styles, {
+          exists: true,
+          errors: message.errors || [],
+        });
+      }
+      break;
+
     case 'setLocale':
       // Set locale from extension
       if (message.locale) {
@@ -139,6 +149,12 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
           const batchUpdate: any = {
             currentFilePath: message.currentFilePath,
           };
+
+          if (message.sharedStyles) {
+            batchUpdate.sharedStyles = message.sharedStyles;
+            batchUpdate.sharedStylesFileExists = message.sharedStylesFileExists === true;
+            batchUpdate.sharedStylesErrors = message.sharedStylesErrors || [];
+          }
 
           if (message.projectI18nCatalog) {
             const savedPreviewLocale = window.vscodeAPI?.getState?.()?.projectPreviewLocale;

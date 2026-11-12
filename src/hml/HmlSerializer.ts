@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Document as HmlDocument, Component, RawHmlChild } from './types';
 import { HmlParser } from './HmlParser';
+import { SharedStyleLibrary, findSharedStyle, matchesStyleValue, resolveSharedStyle } from '../shared/sharedStyles';
 
 /**
  * HML序列化器类
@@ -10,6 +11,8 @@ import { HmlParser } from './HmlParser';
 export class HmlSerializer {
     // 存储所有组件的ID到组件的映射，用于递归序列化时查找子组件
     private componentMap = new Map<string, Component>();
+    /** 本次序列化的共享样式库；用于识别「来自样式」的属性，不写回 HML */
+    private styleLibrary?: SharedStyleLibrary;
     // 当前 HML 文件路径（用于生成 SVG 文件路径）
     private currentHmlPath: string = '';
 
@@ -19,7 +22,7 @@ export class HmlSerializer {
      * @param filePath 目标文件路径
      * @returns Promise
      */
-    public async serializeToFile(document: HmlDocument, filePath: string): Promise<void> {
+    public async serializeToFile(document: HmlDocument, filePath: string, styleLibrary?: SharedStyleLibrary): Promise<void> {
         try {
             // 保存当前 HML 路径，用于生成 SVG 文件路径
             this.currentHmlPath = filePath;
@@ -27,7 +30,7 @@ export class HmlSerializer {
             // 先保存所有 Canvas 的 SVG 文件
             this._saveCanvasSvgFiles(document, filePath);
 
-            const content = this.serialize(document);
+            const content = this.serialize(document, styleLibrary);
 
             // 1) 生成临时路径
             const dir = path.dirname(filePath);
@@ -107,8 +110,9 @@ export class HmlSerializer {
      * @param document HML文档对象
      * @returns 序列化后的HML字符串
      */
-    public serialize(document: HmlDocument): string {
+    public serialize(document: HmlDocument, styleLibrary?: SharedStyleLibrary): string {
         try {
+            this.styleLibrary = styleLibrary;
             return this._serializeStandardFormat(document);
         } catch (error) {
             if (error instanceof Error) {
@@ -260,6 +264,11 @@ export class HmlSerializer {
         // 构建组件的属性字符串
         let attributesStr = ' id="' + component.id + '"';
 
+        // 共享样式引用（工程根目录 styles.json）；样式属性已在解析时合并，不写回
+        if (component.styleName) {
+            attributesStr += ' styleName="' + this._escapeXmlValue(component.styleName) + '"';
+        }
+
         // 序列化位置属性（position.x/y/width/height）
         if (component.position) {
             attributesStr += ' x="' + component.position.x + '"';
@@ -269,16 +278,24 @@ export class HmlSerializer {
         }
 
         // 序列化样式属性（style对象）
+        // 来自共享样式且未被组件覆盖的属性不写回：解析时它们是从 styles.json 展开的，
+        // 写回会让 HML 里固化一份副本，之后改样式对这些组件不再生效。
+        const sharedStyle = resolveSharedStyle(findSharedStyle(this.styleLibrary, component.styleName), component.type);
         if (component.style) {
             Object.keys(component.style).forEach(propName => {
                 const value = component.style![propName];
-                if (value !== undefined && value !== null && value !== '') {
-                    attributesStr += ' ' + propName + '="' + this._escapeXmlValue(this._convertToString(value)) + '"';
+                if (value === undefined || value === null || value === '') {
+                    return;
                 }
+                if (matchesStyleValue(sharedStyle, propName, value)) {
+                    return;
+                }
+                attributesStr += ' ' + propName + '="' + this._escapeXmlValue(this._convertToString(value)) + '"';
             });
         }
 
         // 序列化数据属性（data对象），排除特殊字段
+        // 字体类样式属性在 data 里，同样跳过「来自样式且未覆盖」的值
         if (component.data) {
             Object.keys(component.data).forEach(propName => {
                 // 跳过特殊字段，它们会作为子元素单独处理
@@ -310,6 +327,9 @@ export class HmlSerializer {
                 
                 // 保留 list_item 的 index 属性（用于确保顺序正确）
                 const value = component.data![propName];
+                if (matchesStyleValue(sharedStyle, propName, value)) {
+                    return;
+                }
                 if (value !== undefined && value !== null && value !== '') {
                     attributesStr += ' ' + propName + '="' + this._escapeXmlValue(this._convertToString(value)) + '"';
                 }

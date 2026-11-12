@@ -6,21 +6,17 @@
   "Activation failed: {0}": "激活失败: {0}",
   "Unknown error": "未知错误",
   "Failed to open main design file: {0}": "打开主设计文件失败: {0}",
-
   "No workspace opened": "没有打开的工作区",
   "Workspace root: {0}": "工作区根目录: {0}",
   "Project config detected: {0}": "检测到项目配置: {0}",
   "No project config file detected": "未检测到项目配置文件",
   "Environment check failed: {0}": "环境检查失败: {0}",
-
   "HoneyDesigner started! Use Ctrl+Shift+P and search \"HoneyDesigner\" to create a project.": "HoneyDesigner 已启动！使用 Ctrl+Shift+P 搜索 \"HoneyDesigner\" 开始创建项目。",
   "Create Project": "创建项目",
   "View Documentation": "查看文档",
-
   "Start Project": "启动项目",
   "Stop Project": "停止项目",
   "Restart Project": "重启项目",
-
   "Python": "Python",
   "SCons": "SCons",
   "GCC": "GCC",
@@ -30,34 +26,27 @@
   "Not Installed": "未安装",
   "Checking...": "检查中...",
   "Click to view installation instructions": "点击查看安装方法",
-
   "Install {0}: {1}": "安装 {0}: {1}",
   "Copy Command": "复制命令",
   "Open Download Page": "打开下载页面",
   "Copied to clipboard": "已复制到剪贴板",
-
   "Python is not installed. Please download from https://www.python.org/": "Python 未安装。请从 https://www.python.org/ 下载安装",
   "SCons is not installed. Please run: pip install scons": "SCons 未安装。请运行: pip install scons",
   "{0} is not installed. Please install C compiler.": "{0} 未安装。请安装 C 编译器。",
   "SDL2 is not installed. Please run: sudo apt-get install libsdl2-dev": "SDL2 未安装。请运行: sudo apt-get install libsdl2-dev",
   "FFmpeg is not installed. Video conversion will not be available.": "FFmpeg 未安装。视频转换功能将不可用。",
-
   "Starting compilation...": "开始编译...",
   "Compilation completed": "编译完成",
   "Compilation failed: {0}": "编译失败: {0}",
-
   "Starting simulation...": "启动仿真...",
   "Simulation stopped": "仿真已停止",
-
   "Environment check started...": "环境检查开始...",
   "Environment check passed": "环境检查通过",
   "Environment check failed": "环境检查失败",
-
   "Code generation completed": "代码生成完成",
   "Code generation failed: {0}": "代码生成失败: {0}",
   "Code generated successfully, {0} files written": "代码生成成功，已写入 {0} 个文件",
   "Code generated with warnings: {0}": "代码生成完成，但有警告: {0}",
-
   "Detected orphaned generated files (HML deleted/renamed): {0}. Clean up?": "检测到孤立的生成文件（HML 已删除/重命名）：{0}。是否清理？",
   "Delete All": "全部删除",
   "Select Items": "逐个选择",
@@ -65,11 +54,9 @@
   "Cleaned {0} orphaned files": "已清理 {0} 个孤立文件",
   "ui + callbacks + user (up to 9 files)": "ui + callbacks + user（最多 9 个文件）",
   "Select designs to clean up": "选择要清理的设计",
-
   "Preview started: {0}": "预览已启动: {0}",
   "Preview failed: {0}": "预览失败: {0}",
   "Preview feature is under development...": "预览功能开发中...",
-
   "Please open an HML file first": "请先打开一个 HML 文件",
   "Cannot find project root (project.json)": "无法找到项目根目录（project.json）",
   "Switch to config \"{0}\"? This overwrites project.json and regenerates code.": "切换到配置「{0}」？这将覆盖 project.json 并重新生成代码。",
@@ -89,27 +76,22 @@
   "Failed to delete config: {0}": "删除配置失败：{0}",
   "Failed to open project.json: {0}": "打开 project.json 失败：{0}",
   "Select HML file to preview": "选择要预览的 HML 文件",
-
   "Saving file...": "正在保存文件...",
   "File saved": "文件已保存",
   "Design saved to {0}": "设计已保存到 {0}",
   "Failed to save file: {0}": "保存文件失败: {0}",
-
   "Preparing build directory...": "准备编译目录...",
   "Build directory ready": "编译目录准备完成",
   "Converting assets...": "转换资源文件...",
   "Assets converted": "资源转换完成",
   "Copying generated code...": "复制生成的代码...",
   "Code copied": "代码复制完成",
-
   "romfs C file generated": "romfs C 文件生成完成",
   "romfs binary file generated (base address: {0})": "romfs 二进制文件生成完成 (基地址: {0})",
   "Failed to generate romfs C file: {0}": "生成 romfs C 文件失败: {0}",
   "Failed to generate romfs binary file: {0}": "生成 romfs 二进制文件失败: {0}",
-
   "Simulator started in terminal": "仿真器已在终端中启动",
   "Simulator terminal closed": "仿真器终端已关闭",
-
   "Select cleanup method": "选择清理方式",
   "Normal Clean": "普通清理",
   "Deep Clean": "深度清理",
@@ -118,10 +100,8 @@
   "Simulation started successfully": "编译仿真已成功启动",
   "Simulation exited abnormally, exit code: {0}": "编译仿真异常退出，退出码: {0}",
   "Select project to compile": "选择要编译的项目",
-
   "Failed to create new document: {0}": "创建新文档失败: {0}",
   "Failed to load HML file: {0}": "加载HML文件失败: {0}",
-
   "Asset file deleted": "资源文件已删除",
   "Confirm delete \"{0}\"?": "确认删除 \"{0}\" 吗？",
   "Confirm delete folder \"{0}\" and all its contents?": "确认删除文件夹 \"{0}\" 及其所有内容吗？",
@@ -146,7 +126,6 @@
   "Folder {0} already exists in assets. Overwrite?": "文件夹 {0} 已存在于 assets 目录中，是否覆盖？",
   "Successfully imported {0} images": "成功导入 {0} 张图片",
   "Failed to select folder": "选择文件夹失败",
-
   "Select File": "选择文件",
   "All Files": "所有文件",
   "File browse failed: {0}": "文件浏览失败: {0}",
@@ -157,7 +136,6 @@
   "The callback file already exists. Do you want to overwrite it?": "回调文件已存在，是否覆盖？",
   "Overwrite": "覆盖",
   "Cancel": "取消",
-
   "romfs.bin does not exist, please compile the project first": "romfs.bin 不存在，请先编译项目",
   "Compile Project": "编译项目",
   "Please select or enter a serial port": "请选择或输入串口",
@@ -165,7 +143,6 @@
   "mpcli tool not found: {0}": "mpcli 工具不存在: {0}",
   "UART download completed": "UART 下载完成",
   "Download failed: {0}": "下载失败: {0}",
-
   "Please fill in all required fields (Project Name, Save Location, APP ID)": "请填写所有必填字段 (项目名称、保存位置、APP ID)",
   "Project name can only contain letters, numbers, underscores, and must start with a letter or underscore": "项目名称只能包含字母、数字、下划线，且必须以字母或下划线开头",
   "Project already exists: \"{0}\"\n\nDirectory \"{1}\" already exists.\n\nPlease choose another name or delete the existing project.": "项目已存在: \"{0}\"\n\n目录 \"{1}\" 已存在。\n\n请选择其他名称或删除现有项目。",
@@ -178,7 +155,6 @@
   "Clone completed!": "克隆完成!",
   "Clone failed (exit code: {0})": "克隆失败 (exit code: {0})",
   "Clone failed: {0}\n\nPlease make sure Git is installed": "克隆失败: {0}\n\n请确保已安装 Git",
-
   "Failed to create project: {0}": "新建项目失败: {0}",
   "Failed to open resource conversion tools: {0}": "打开资源转换工具失败: {0}",
   "HoneyDesigner Welcome": "HoneyDesigner 欢迎",
@@ -225,7 +201,6 @@
   "Successfully joined collaboration: {0}": "成功加入协同: {0}",
   "Failed to join collaboration: {0}": "加入协同失败: {0}",
   "Collaboration session stopped": "已停止协同会话",
-
   "Compile & Simulate: Not Running": "编译仿真: 未运行",
   "Compile & Simulate: Running": "编译仿真: 运行中",
   "Compile & Simulate: Error": "编译仿真: 错误",
@@ -249,7 +224,6 @@
   "Download to board via UART": "通过 UART 下载到开发板",
   "UART Download": "UART下载",
   "UART download romfs.bin to board": "UART 下载 romfs.bin 到开发板",
-
   "Environment check failed, please install the following tools:": "编译仿真环境检查失败，请安装以下工具：",
   "Download URL": "下载地址",
   "Install command": "安装命令",
@@ -260,7 +234,6 @@
   "FFmpeg (optional, for video conversion)": "FFmpeg (可选，用于视频转换)",
   "Built-in library files missing": "内置库文件缺失",
   "Please reinstall the extension": "请重新安装插件",
-
   "Resource Conversion Tool": "资源转换工具",
   "All": "全部",
   "Image": "图片",
@@ -348,20 +321,16 @@
   "{0} characters are missing from the font: {1}": "{0} 个字符在字体中不存在：{1}",
   "... and {0} more": "...等 {0} 个",
   "Reduce the character set range or change the font": "建议缩小字符集范围或更换字体",
-
   "Collaboration service stopped": "协作服务已停止",
   "Disconnected from collaboration": "已断开协作连接",
   "Enable Dither": "启用抖动",
   "ditherHint": "启用抖动以减少低色深下的色带效应",
-
   "template.smartwatch.description": "智能手表界面，包含完整资源（字体、图片、3D模型、视频）",
   "template.dashboard.description": "汽车仪表盘界面，包含仪表盘UI资源",
   "template.chatbot.description": "聊天机器人界面（轻量级）",
   "template.rotary.description": "旋钮控制界面（轻量级）",
   "template.ebadge.description": "电子胸牌界面，包含蓝牙连接、菜单、分享页面及动画视频资源",
-
   "Not a HoneyGUI project. Please create a project first.": "这不是 HoneyGUI 项目，请先创建项目。",
-
   "New Project": "新建项目",
   "New Design": "新建设计",
   "Open Project": "打开项目",
@@ -375,7 +344,6 @@
   "Convert images, fonts, videos and other resources": "转换图片、字体、视频和其他资源",
   "Start a collaboration session as host": "作为主机开启协同会话",
   "Join an existing collaboration session": "加入一个已存在的协同会话",
-
   "Create application": "创建应用",
   "Project name": "项目名称",
   "Save location": "保存位置",
@@ -414,7 +382,6 @@
   "Cleaning up...": "正在清理...",
   "Updating configuration...": "正在更新配置...",
   "Template project created successfully: {0}": "模板项目创建成功: {0}",
-
   "Chip Type": "芯片类型",
   "Baud Rate": "波特率",
   "Serial Port": "串口",
@@ -427,7 +394,6 @@
   "Renamed successfully": "重命名成功",
   "Renamed successfully, updated {0} references": "重命名成功，更新了 {0} 处引用",
   "Folder deleted": "文件夹已删除",
-
   "Checking build environment...": "检查编译环境...",
   "Generating C code (all views)...": "生成 C 代码（所有界面）...",
   "Code generation completed: {0} files": "代码生成完成: {0} 个文件",
@@ -448,10 +414,8 @@
   "Converting image assets...": "转换图片资源...",
   "Copying SVG assets...": "拷贝 SVG 资源...",
   "Checking video assets...": "检查视频资源...",
-
   "File not found": "文件未找到",
   "Invalid OSM XML format": "无效的 OSM XML 格式",
-
   "All dependencies are installed.": "所有依赖均已安装。",
   "Installation started in terminal. Please restart VS Code after it completes, then re-check.": "安装已在终端中开始。完成后请重启 VS Code 并重新检查。",
   "Installation started in terminal. Click refresh to re-check after it completes.": "安装已在终端中开始。完成后请点击刷新重新检查。",
@@ -484,10 +448,8 @@
   "Crop → Scale": "裁剪 → 缩放",
   "Scale → Crop": "缩放 → 裁剪",
   "Original": "原始尺寸",
-
   "HoneyGUI Environment Setup": "HoneyGUI 环境安装",
   "Invalid built-in library path: {0}": "内置库路径无效: {0}",
-
   "Checking generated code...": "检查生成的代码...",
   "Generated code directory does not exist: {0}": "生成的代码目录不存在: {0}",
   "SConscript file does not exist: {0}. Generate code first.": "SConscript 文件不存在: {0}，请先生成代码",
@@ -531,7 +493,6 @@
   "Compilation failed, exit code: {0}": "编译失败，退出码: {0}",
   ".config file generated with {0} entries": ".config 文件已生成，包含 {0} 个配置项",
   "SConstruct file generated": "SConstruct 文件已生成",
-
   "Failed to read HML file: {0} - {1}": "读取 HML 文件失败: {0} - {1}",
   "Failed to scan model textures: {0} - {1}": "扫描模型纹理失败: {0} - {1}",
   "Image file does not exist: {0}": "图片文件不存在: {0}",
@@ -563,7 +524,6 @@
   "Converting glass effect: {0} -> {1} (distortion={2}%, region={3}%)": "转换玻璃效果: {0} -> {1} (distortion={2}%, region={3}%)",
   "✓ Success: {0}": "✓ 成功: {0}",
   "Failed to read Glass component config: {0}": "读取 Glass 组件配置时出错: {0}",
-
   "Target engine: {0}": "目标引擎: {0}",
   "Build environment ready": "编译环境准备完成",
   "Stopping simulator task...": "正在停止仿真器任务...",
@@ -598,7 +558,6 @@
   "Synced romfs.bin to LVGL build directory: {0}": "已同步 romfs.bin 到 LVGL 构建目录: {0}",
   "{0}, exit code: {1}": "{0}，退出码: {1}",
   "Simulator task ended": "仿真器任务已结束",
-
   "Starting deep clean...": "开始深度清理...",
   "Starting build artifact clean...": "开始清理编译产物...",
   "Cleaning build directory: {0}": "清理 build 目录: {0}",
@@ -618,7 +577,6 @@
   "Skipping file: {0} ({1})": "跳过文件: {0} ({1})",
   "Error while removing directory: {0}": "删除目录时出错: {0}",
   "Cannot delete directory {0}\n\nError: {1}\n\nPossible causes:\n1. Files are locked by another process (build process, file browser, antivirus)\n2. Insufficient file permissions\n3. Disk error\n\nSuggestions:\n1. Close programs that may hold the files (such as a file browser)\n2. Temporarily disable antivirus real-time protection\n3. Delete the build directory manually and retry\n4. Restart VS Code": "无法删除目录 {0}\n\n错误: {1}\n\n可能原因：\n1. 文件被其他进程占用（如编译进程、文件浏览器、杀毒软件）\n2. 文件权限不足\n3. 磁盘错误\n\n建议：\n1. 关闭所有可能占用文件的程序（如文件浏览器）\n2. 暂时关闭杀毒软件的实时保护\n3. 手动删除 build 目录后重试\n4. 重启 VS Code",
-
   "UI directory does not exist: {0}": "UI目录不存在: {0}",
   "Entry file: {0}": "入口文件: {0}",
   "Failed to generate entry file: {0}": "生成入口文件失败: {0}",
@@ -628,7 +586,6 @@
   "Delete failed: {0}, {1}": "删除失败: {0}, {1}",
   "Generation failed": "生成失败",
   "Background image does not exist: {0}": "背景图片不存在: {0}",
-
   "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.": "此功能需要本机工具链。请将工程导出为 ZIP，并在安装了 HoneyGUI 插件的 VS Code 中打开。",
   "Opening folders in the system file manager is not available in the browser.": "浏览器中无法在系统文件管理器里打开文件夹。",
   "Progress label font not found: {0}": "进度标签字体文件不存在：{0}",
@@ -667,5 +624,6 @@
   "Hand-written code dropped: {0}": "手写代码已丢失：{0}",
   "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "已停止构建：工程校验发现 {0} 个会导致编译失败的错误，详见“问题”面板。",
   "Another design file has the same name as {0}: {1}. Both would generate the same C files; rename one of them.": "存在与 {0} 同名的设计文件：{1}。两者会生成同名的 C 文件并互相覆盖，请重命名其中一个。",
-  "A design with this name already exists: {0}": "已存在同名设计文件：{0}"
+  "A design with this name already exists: {0}": "已存在同名设计文件：{0}",
+  "Failed to save shared styles: {0}": "保存共享样式失败：{0}"
 }

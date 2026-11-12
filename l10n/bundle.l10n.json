@@ -6,23 +6,19 @@
   "Activation failed: {0}": "Activation failed: {0}",
   "Unknown error": "Unknown error",
   "Failed to open main design file: {0}": "Failed to open main design file: {0}",
-
   "No workspace opened": "No workspace opened",
   "Workspace root: {0}": "Workspace root: {0}",
   "Project config detected: {0}": "Project config detected: {0}",
   "No project config file detected": "No project config file detected",
   "Environment check failed: {0}": "Environment check failed: {0}",
-
   "HoneyDesigner started! Use Ctrl+Shift+P and search \"HoneyDesigner\" to create a project.": "HoneyDesigner started! Use Ctrl+Shift+P and search \"HoneyDesigner\" to create a project.",
   "Create Project": "Create Project",
   "View Documentation": "View Documentation",
-
   "Start Project": "Start Project",
   "Stop Project": "Stop Project",
   "Restart Project": "Restart Project",
-
   "Python": "Python",
-  "SCons": "SCons", 
+  "SCons": "SCons",
   "GCC": "GCC",
   "SDL2": "SDL2",
   "FFmpeg": "FFmpeg",
@@ -30,34 +26,27 @@
   "Not Installed": "Not Installed",
   "Checking...": "Checking...",
   "Click to view installation instructions": "Click to view installation instructions",
-
   "Install {0}: {1}": "Install {0}: {1}",
   "Copy Command": "Copy Command",
   "Open Download Page": "Open Download Page",
   "Copied to clipboard": "Copied to clipboard",
-
   "Python is not installed. Please download from https://www.python.org/": "Python is not installed. Please download from https://www.python.org/",
   "SCons is not installed. Please run: pip install scons": "SCons is not installed. Please run: pip install scons",
   "{0} is not installed. Please install C compiler.": "{0} is not installed. Please install C compiler.",
   "SDL2 is not installed. Please run: sudo apt-get install libsdl2-dev": "SDL2 is not installed. Please run: sudo apt-get install libsdl2-dev",
   "FFmpeg is not installed. Video conversion will not be available.": "FFmpeg is not installed. Video conversion will not be available.",
-
   "Starting compilation...": "Starting compilation...",
   "Compilation completed": "Compilation completed",
   "Compilation failed: {0}": "Compilation failed: {0}",
-
   "Starting simulation...": "Starting simulation...",
   "Simulation stopped": "Simulation stopped",
-
   "Environment check started...": "Environment check started...",
   "Environment check passed": "Environment check passed",
   "Environment check failed": "Environment check failed",
-
   "Code generation completed": "Code generation completed",
   "Code generation failed: {0}": "Code generation failed: {0}",
   "Code generated successfully, {0} files written": "Code generated successfully, {0} files written",
   "Code generated with warnings: {0}": "Code generated with warnings: {0}",
-
   "Detected orphaned generated files (HML deleted/renamed): {0}. Clean up?": "Detected orphaned generated files (HML deleted/renamed): {0}. Clean up?",
   "Delete All": "Delete All",
   "Select Items": "Select Items",
@@ -65,11 +54,9 @@
   "Cleaned {0} orphaned files": "Cleaned {0} orphaned files",
   "ui + callbacks + user (up to 9 files)": "ui + callbacks + user (up to 9 files)",
   "Select designs to clean up": "Select designs to clean up",
-
   "Preview started: {0}": "Preview started: {0}",
   "Preview failed: {0}": "Preview failed: {0}",
   "Preview feature is under development...": "Preview feature is under development...",
-
   "Please open an HML file first": "Please open an HML file first",
   "Cannot find project root (project.json)": "Cannot find project root (project.json)",
   "Switch to config \"{0}\"? This overwrites project.json and regenerates code.": "Switch to config \"{0}\"? This overwrites project.json and regenerates code.",
@@ -89,27 +76,22 @@
   "Failed to delete config: {0}": "Failed to delete config: {0}",
   "Failed to open project.json: {0}": "Failed to open project.json: {0}",
   "Select HML file to preview": "Select HML file to preview",
-
   "Saving file...": "Saving file...",
   "File saved": "File saved",
   "Design saved to {0}": "Design saved to {0}",
   "Failed to save file: {0}": "Failed to save file: {0}",
-
   "Preparing build directory...": "Preparing build directory...",
   "Build directory ready": "Build directory ready",
   "Converting assets...": "Converting assets...",
   "Assets converted": "Assets converted",
   "Copying generated code...": "Copying generated code...",
   "Code copied": "Code copied",
-
   "romfs C file generated": "romfs C file generated",
   "romfs binary file generated (base address: {0})": "romfs binary file generated (base address: {0})",
   "Failed to generate romfs C file: {0}": "Failed to generate romfs C file: {0}",
   "Failed to generate romfs binary file: {0}": "Failed to generate romfs binary file: {0}",
-
   "Simulator started in terminal": "Simulator started in terminal",
   "Simulator terminal closed": "Simulator terminal closed",
-
   "Select cleanup method": "Select cleanup method",
   "Normal Clean": "Normal Clean",
   "Deep Clean": "Deep Clean",
@@ -118,10 +100,8 @@
   "Simulation started successfully": "Simulation started successfully",
   "Simulation exited abnormally, exit code: {0}": "Simulation exited abnormally, exit code: {0}",
   "Select project to compile": "Select project to compile",
-
   "Failed to create new document: {0}": "Failed to create new document: {0}",
   "Failed to load HML file: {0}": "Failed to load HML file: {0}",
-
   "Asset file deleted": "Asset file deleted",
   "Confirm delete \"{0}\"?": "Confirm delete \"{0}\"?",
   "Confirm delete folder \"{0}\" and all its contents?": "Confirm delete folder \"{0}\" and all its contents?",
@@ -146,7 +126,6 @@
   "Folder {0} already exists in assets. Overwrite?": "Folder {0} already exists in assets. Overwrite?",
   "Successfully imported {0} images": "Successfully imported {0} images",
   "Failed to select folder": "Failed to select folder",
-
   "Select File": "Select File",
   "All Files": "All Files",
   "File browse failed: {0}": "File browse failed: {0}",
@@ -157,7 +136,6 @@
   "The callback file already exists. Do you want to overwrite it?": "The callback file already exists. Do you want to overwrite it?",
   "Overwrite": "Overwrite",
   "Cancel": "Cancel",
-
   "romfs.bin does not exist, please compile the project first": "romfs.bin does not exist, please compile the project first",
   "Compile Project": "Compile Project",
   "Please select or enter a serial port": "Please select or enter a serial port",
@@ -165,7 +143,6 @@
   "mpcli tool not found: {0}": "mpcli tool not found: {0}",
   "UART download completed": "UART download completed",
   "Download failed: {0}": "Download failed: {0}",
-
   "Please fill in all required fields (Project Name, Save Location, APP ID)": "Please fill in all required fields (Project Name, Save Location, APP ID)",
   "Project name can only contain letters, numbers, underscores, and must start with a letter or underscore": "Project name can only contain letters, numbers, underscores, and must start with a letter or underscore",
   "Project already exists: \"{0}\"\n\nDirectory \"{1}\" already exists.\n\nPlease choose another name or delete the existing project.": "Project already exists: \"{0}\"\n\nDirectory \"{1}\" already exists.\n\nPlease choose another name or delete the existing project.",
@@ -178,7 +155,6 @@
   "Clone completed!": "Clone completed!",
   "Clone failed (exit code: {0})": "Clone failed (exit code: {0})",
   "Clone failed: {0}\n\nPlease make sure Git is installed": "Clone failed: {0}\n\nPlease make sure Git is installed",
-
   "Failed to create project: {0}": "Failed to create project: {0}",
   "Failed to open resource conversion tools: {0}": "Failed to open resource conversion tools: {0}",
   "HoneyDesigner Welcome": "HoneyDesigner Welcome",
@@ -225,7 +201,6 @@
   "Successfully joined collaboration: {0}": "Successfully joined collaboration: {0}",
   "Failed to join collaboration: {0}": "Failed to join collaboration: {0}",
   "Collaboration session stopped": "Collaboration session stopped",
-
   "Compile & Simulate: Not Running": "Compile & Simulate: Not Running",
   "Compile & Simulate: Running": "Compile & Simulate: Running",
   "Compile & Simulate: Error": "Compile & Simulate: Error",
@@ -249,7 +224,6 @@
   "Download to board via UART": "Download to board via UART",
   "UART Download": "UART Download",
   "UART download romfs.bin to board": "UART download romfs.bin to board",
-
   "Environment check failed, please install the following tools:": "Environment check failed, please install the following tools:",
   "Download URL": "Download URL",
   "Install command": "Install command",
@@ -260,7 +234,6 @@
   "FFmpeg (optional, for video conversion)": "FFmpeg (optional, for video conversion)",
   "Built-in library files missing": "Built-in library files missing",
   "Please reinstall the extension": "Please reinstall the extension",
-
   "Resource Conversion Tool": "Resource Conversion Tool",
   "All": "All",
   "Image": "Image",
@@ -348,20 +321,16 @@
   "{0} characters are missing from the font: {1}": "{0} characters are missing from the font: {1}",
   "... and {0} more": "... and {0} more",
   "Reduce the character set range or change the font": "Reduce the character set range or change the font",
-
   "Collaboration service stopped": "Collaboration service stopped",
   "Disconnected from collaboration": "Disconnected from collaboration",
   "Enable Dither": "Enable Dither",
   "ditherHint": "Enable dithering to reduce color banding in low color depths",
-
   "template.smartwatch.description": "Smart watch interface with complete resources (fonts, images, 3D models, videos)",
   "template.dashboard.description": "Car dashboard interface with UI resources",
   "template.chatbot.description": "Chat bot interface (lightweight)",
   "template.rotary.description": "Rotary knob control interface (lightweight)",
   "template.ebadge.description": "Electronic badge interface with Bluetooth connectivity, menu, share pages, and animated video resources",
-
   "Not a HoneyGUI project. Please create a project first.": "Not a HoneyGUI project. Please create a project first.",
-
   "New Project": "New Project",
   "New Design": "New Design",
   "Open Project": "Open Project",
@@ -375,7 +344,6 @@
   "Convert images, fonts, videos and other resources": "Convert images, fonts, videos and other resources",
   "Start a collaboration session as host": "Start a collaboration session as host",
   "Join an existing collaboration session": "Join an existing collaboration session",
-
   "Create application": "Create application",
   "Project name": "Project name",
   "Save location": "Save location",
@@ -414,7 +382,6 @@
   "Cleaning up...": "Cleaning up...",
   "Updating configuration...": "Updating configuration...",
   "Template project created successfully: {0}": "Template project created successfully: {0}",
-
   "Chip Type": "Chip Type",
   "Baud Rate": "Baud Rate",
   "Serial Port": "Serial Port",
@@ -427,7 +394,6 @@
   "Renamed successfully": "Renamed successfully",
   "Renamed successfully, updated {0} references": "Renamed successfully, updated {0} references",
   "Folder deleted": "Folder deleted",
-
   "Checking build environment...": "Checking build environment...",
   "Generating C code (all views)...": "Generating C code (all views)...",
   "Code generation completed: {0} files": "Code generation completed: {0} files",
@@ -448,10 +414,8 @@
   "Converting image assets...": "Converting image assets...",
   "Copying SVG assets...": "Copying SVG assets...",
   "Checking video assets...": "Checking video assets...",
-
   "File not found": "File not found",
   "Invalid OSM XML format": "Invalid OSM XML format",
-
   "All dependencies are installed.": "All dependencies are installed.",
   "Installation started in terminal. Please restart VS Code after it completes, then re-check.": "Installation started in terminal. Please restart VS Code after it completes, then re-check.",
   "Installation started in terminal. Click refresh to re-check after it completes.": "Installation started in terminal. Click refresh to re-check after it completes.",
@@ -484,10 +448,8 @@
   "Crop → Scale": "Crop → Scale",
   "Scale → Crop": "Scale → Crop",
   "Original": "Original",
-
   "HoneyGUI Environment Setup": "HoneyGUI Environment Setup",
   "Invalid built-in library path: {0}": "Invalid built-in library path: {0}",
-
   "Checking generated code...": "Checking generated code...",
   "Generated code directory does not exist: {0}": "Generated code directory does not exist: {0}",
   "SConscript file does not exist: {0}. Generate code first.": "SConscript file does not exist: {0}. Generate code first.",
@@ -531,7 +493,6 @@
   "Compilation failed, exit code: {0}": "Compilation failed, exit code: {0}",
   ".config file generated with {0} entries": ".config file generated with {0} entries",
   "SConstruct file generated": "SConstruct file generated",
-
   "Failed to read HML file: {0} - {1}": "Failed to read HML file: {0} - {1}",
   "Failed to scan model textures: {0} - {1}": "Failed to scan model textures: {0} - {1}",
   "Image file does not exist: {0}": "Image file does not exist: {0}",
@@ -563,7 +524,6 @@
   "Converting glass effect: {0} -> {1} (distortion={2}%, region={3}%)": "Converting glass effect: {0} -> {1} (distortion={2}%, region={3}%)",
   "✓ Success: {0}": "✓ Success: {0}",
   "Failed to read Glass component config: {0}": "Failed to read Glass component config: {0}",
-
   "Target engine: {0}": "Target engine: {0}",
   "Build environment ready": "Build environment ready",
   "Stopping simulator task...": "Stopping simulator task...",
@@ -598,7 +558,6 @@
   "Synced romfs.bin to LVGL build directory: {0}": "Synced romfs.bin to LVGL build directory: {0}",
   "{0}, exit code: {1}": "{0}, exit code: {1}",
   "Simulator task ended": "Simulator task ended",
-
   "Starting deep clean...": "Starting deep clean...",
   "Starting build artifact clean...": "Starting build artifact clean...",
   "Cleaning build directory: {0}": "Cleaning build directory: {0}",
@@ -618,7 +577,6 @@
   "Skipping file: {0} ({1})": "Skipping file: {0} ({1})",
   "Error while removing directory: {0}": "Error while removing directory: {0}",
   "Cannot delete directory {0}\n\nError: {1}\n\nPossible causes:\n1. Files are locked by another process (build process, file browser, antivirus)\n2. Insufficient file permissions\n3. Disk error\n\nSuggestions:\n1. Close programs that may hold the files (such as a file browser)\n2. Temporarily disable antivirus real-time protection\n3. Delete the build directory manually and retry\n4. Restart VS Code": "Cannot delete directory {0}\n\nError: {1}\n\nPossible causes:\n1. Files are locked by another process (build process, file browser, antivirus)\n2. Insufficient file permissions\n3. Disk error\n\nSuggestions:\n1. Close programs that may hold the files (such as a file browser)\n2. Temporarily disable antivirus real-time protection\n3. Delete the build directory manually and retry\n4. Restart VS Code",
-
   "UI directory does not exist: {0}": "UI directory does not exist: {0}",
   "Entry file: {0}": "Entry file: {0}",
   "Failed to generate entry file: {0}": "Failed to generate entry file: {0}",
@@ -628,7 +586,6 @@
   "Delete failed: {0}, {1}": "Delete failed: {0}, {1}",
   "Generation failed": "Generation failed",
   "Background image does not exist: {0}": "Background image does not exist: {0}",
-
   "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.": "This feature requires the local toolchain. Export the project as ZIP and open it in VS Code with the HoneyGUI extension.",
   "Opening folders in the system file manager is not available in the browser.": "Opening folders in the system file manager is not available in the browser.",
   "Progress label font not found: {0}": "Progress label font not found: {0}",
@@ -667,5 +624,6 @@
   "Hand-written code dropped: {0}": "Hand-written code dropped: {0}",
   "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.": "Build stopped: project validation found {0} error(s) that would fail compilation. See the Problems panel.",
   "Another design file has the same name as {0}: {1}. Both would generate the same C files; rename one of them.": "Another design file has the same name as {0}: {1}. Both would generate the same C files; rename one of them.",
-  "A design with this name already exists: {0}": "A design with this name already exists: {0}"
+  "A design with this name already exists: {0}": "A design with this name already exists: {0}",
+  "Failed to save shared styles: {0}": "Failed to save shared styles: {0}"
 }

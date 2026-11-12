@@ -1,0 +1,237 @@
+.shared-style-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.shared-style-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 92vw);
+  height: min(520px, 86vh);
+  background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+}
+
+.shared-style-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.shared-style-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shared-style-errors {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  color: var(--vscode-inputValidation-warningForeground, #d7ba7d);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.shared-style-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.shared-style-list {
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  border-right: 1px solid var(--vscode-panel-border);
+}
+
+.shared-style-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.shared-style-list-items {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.shared-style-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shared-style-list-item:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.shared-style-list-item.active {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.shared-style-list-name {
+  font-weight: 500;
+}
+
+.shared-style-list-meta {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.shared-style-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  overflow-y: auto;
+}
+
+.shared-style-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shared-style-field label {
+  min-width: 64px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.shared-style-field input,
+.shared-style-field select,
+.shared-style-prop-row input {
+  padding: 4px 6px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 2px;
+}
+
+.shared-style-props {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shared-style-prop-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+.shared-style-prop-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* PropertyEditor 自带上边距，放进表格行会让输入框下沉 */
+.shared-style-prop-row input,
+.shared-style-prop-row select {
+  margin-top: 0 !important;
+}
+
+.shared-style-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.shared-style-icon-button:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.shared-style-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px 8px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-errorForeground, #f48771);
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.shared-style-empty {
+  padding: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.shared-style-error-text {
+  color: var(--vscode-inputValidation-errorForeground, #f44);
+}
+
+.shared-style-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-inputValidation-warningBackground, transparent);
+}
+
+.shared-style-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.shared-style-confirm-actions button,
+.shared-style-footer button {
+  padding: 4px 10px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.shared-style-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.shared-style-hint {
+  color: var(--vscode-descriptionForeground);
+}

@@ -211,7 +211,11 @@ export function toCssBoxShadow(style: StyleBag): string | undefined {
 
   const glow = resolveGlow(style);
   if (glow) {
-    parts.push(`0 0 ${glow.blur}px ${toCssRgba(glow.color, glow.opacity)}`);
+    // SDK 的外发光在轮廓处是满强度、到 blur 半径处衰减为 0；CSS 的 blur 以轮廓为中心向内外
+    // 各模糊 blur，轮廓处只剩一半强度，外圈还有一半被形状本身挡住，看起来比仿真弱很多。
+    // 用 spread 把过渡中心外移半个 blur、blur 减半，过渡带正好落在轮廓到 blur 半径之间。
+    const half = glow.blur / 2;
+    parts.push(`0 0 ${half}px ${half}px ${toCssRgba(glow.color, glow.opacity)}`);
   }
 
   return parts.length > 0 ? parts.join(', ') : undefined;

@@ -10,6 +10,7 @@
 import type { I18nCatalog } from '../project-i18n/types';
 import { resolveLocalizedText } from '../project-i18n/catalog';
 import { scanOpenTags, parseTagAttributes } from '../hml/tagScan';
+import { findSharedStyle, resolveSharedStyle, type SharedStyleLibrary } from '../shared/sharedStyles';
 import {
     PREVIEW_COMPONENTS,
     PREVIEW_FUNCTION_ATTRIBUTES,
@@ -67,6 +68,45 @@ export function localizeHml(content: string, catalog: I18nCatalog | undefined): 
             edits.push({ start, end: attrsStart + textAttr.index + textAttr[0].length, text: replacement });
         } else {
             edits.push({ start: attrsStart, end: attrsStart, text: ` ${replacement}` });
+        }
+    }
+    let result = content;
+    for (const edit of edits.sort((a, b) => b.start - a.start)) {
+        result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+    }
+    return result;
+}
+
+/**
+ * 把 styles.json 里的共享样式展开成标签属性。
+ *
+ * 快速预览由预编译引擎直接读 ui/*.xml，运行时不认识 styleName，也不读 styles.json，
+ * 所以引用样式的组件必须在这里拿到展开后的属性，否则预览里样式全部缺失。
+ * 合并规则与设计器一致：样式打底，标签上已有的属性优先；styleName 本身去掉。
+ */
+export function expandSharedStyles(content: string, library: SharedStyleLibrary | undefined): string {
+    if (!library || library.styles.length === 0) {
+        return content;
+    }
+    const edits: Array<{ start: number; end: number; text: string }> = [];
+    for (const tag of scanOpenTags(blankComments(content))) {
+        const attrs = parseTagAttributes(tag.attrsText);
+        const style = resolveSharedStyle(findSharedStyle(library, attrs.get('styleName')?.trim()), tag.name);
+        if (!style) {
+            continue;
+        }
+        const attrsStart = tag.start + 1 + tag.name.length;
+        const styleNameAttr = /(\s)styleName\s*=\s*("[^"]*"|'[^']*')/.exec(tag.attrsText);
+        if (styleNameAttr) {
+            const from = attrsStart + styleNameAttr.index;
+            edits.push({ start: from, end: from + styleNameAttr[0].length, text: '' });
+        }
+        const inherited = Object.entries(style.props)
+            .filter(([property]) => !attrs.has(property))
+            .map(([property, value]) => ` ${property}="${escapeXmlAttribute(value)}"`)
+            .join('');
+        if (inherited) {
+            edits.push({ start: attrsStart, end: attrsStart, text: inherited });
         }
     }
     let result = content;

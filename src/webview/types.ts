@@ -12,6 +12,7 @@ import type {
 import type { ProjectI18nIndex } from '../project-i18n/projectIndex';
 import type { ComponentIconName } from './components/icons/componentIconNames';
 import type { I18nCatalog, LocaleCode } from '../project-i18n/types';
+import type { SharedStyleLibrary } from '../shared/sharedStyles';
 import type { EventType } from '../hml/eventTypes';
 
 export type ComponentPosition = HmlComponentPosition;
@@ -179,6 +180,16 @@ export interface DesignerState {
   redoStack: Component[][];
   projectConfig?: any; // Project configuration (resolution, etc.)
   projectI18nCatalog: I18nCatalog; // Project text localization catalog
+  /** 工程共享样式（styles.json）；宿主随 loadHml 下发，设计器据此渲染样式下拉 */
+  sharedStyles: SharedStyleLibrary;
+  sharedStylesFileExists: boolean;
+  /** 样式文件解析/校验时发现的问题（不阻塞编辑） */
+  sharedStylesErrors: string[];
+  isSharedStylesManagerOpen: boolean;
+  setSharedStylesManagerOpen: (open: boolean) => void;
+  /** 修改共享样式并落盘 */
+  saveSharedStyles: (library: SharedStyleLibrary, options?: { immediate?: boolean }) => void;
+  setSharedStyles: (library: SharedStyleLibrary, options?: { exists?: boolean; errors?: string[] }) => void;
   projectI18nIndex?: ProjectI18nIndex; // Project-wide localization reference index
   projectI18nIndexErrors?: Array<{ filePath: string; message: string }>;
   isProjectI18nManagerOpen: boolean;

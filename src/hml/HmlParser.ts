@@ -8,6 +8,7 @@ import { Component, Meta, View, Document, ComponentPosition, RawHmlChild } from 
 import type { EventConfig, Action, EventType, ActionType } from './eventTypes';
 import { logger } from '../utils/Logger';
 import { convertAttributeValue } from '../shared/componentPropertyTypes';
+import { SharedStyleLibrary, findSharedStyle, mergeSharedStyle, resolveSharedStyle, sharedStyleBucket } from '../shared/sharedStyles';
 
 /**
  * 组件注册表 - 集中管理所有支持的组件类型
@@ -100,6 +101,8 @@ export class HmlParser {
 
   /** 本次解析的原始内容 */
   private _rawSource = '';
+  /** 本次解析使用的共享样式库；undefined 表示不展开样式 */
+  private _styleLibrary?: SharedStyleLibrary;
 
   /**
    * 解析HML内容
@@ -109,9 +112,12 @@ export class HmlParser {
    * @param options 可选项：
    *   - idSeed：fallback id 种子，显式传入时优先生效（传空字符串可强制无种子）；
    *     缺省时从 hmlFilePath 的 basename 派生；两者都没有则维持无种子行为
+   *   - styleLibrary：工程共享样式（styles.json）。给出时把组件引用的样式属性
+   *     合并进 style / data，组件自身属性优先；不给出时保留 styleName 原样
    */
-  parse(content: string, hmlFilePath?: string, options?: { idSeed?: string }): Document {
+  parse(content: string, hmlFilePath?: string, options?: { idSeed?: string; styleLibrary?: SharedStyleLibrary }): Document {
     try {
+      this._styleLibrary = options?.styleLibrary;
       // 保存当前 HML 路径
       this.currentHmlPath = hmlFilePath || '';
       this._rawSource = content;
@@ -545,14 +551,21 @@ export class HmlParser {
     // 解析事件配置
     const eventConfigs = this._parseEventConfigsOrdered(children);
 
+    // 共享样式：引用保留在组件上，样式属性合并进 style / data（组件自身属性优先）
+    const styleName = typeof attributes.styleName === 'string' ? attributes.styleName.trim() : '';
+    const sharedStyle = resolveSharedStyle(findSharedStyle(this._styleLibrary, styleName), tagName);
+
     // 创建组件
     const component: Component = {
       id: componentId,
       type: tagName,
       name: attributes.name || componentId,
       position,
-      style,
-      data,
+      ...(styleName ? { styleName } : {}),
+      ...(sharedStyle
+        ? mergeSharedStyle({ style, data }, sharedStyle, property =>
+            sharedStyleBucket(property))
+        : { style, data }),
       events,
       eventConfigs,
       children: [],
@@ -761,6 +774,25 @@ export class HmlParser {
     if (data.keepNoteAlive === undefined) data.keepNoteAlive = false;
   }
 
+  /** _categorizeAttributes 判定为 style 的属性清单（共享样式合并时复用） */
+  private static readonly STYLE_PROPERTIES: ReadonlySet<string> = new Set([
+    'color', 'backgroundColor', 'fontWeight',
+    'border', 'borderRadius', 'padding', 'margin',
+    'overflow', 'title', 'titleBarHeight', 'titleBarColor',
+    'radius', 'startAngle', 'endAngle', 'strokeWidth', 'strokeColor',
+    'fillColor',
+    'showBackground',
+    'itemWidth', 'itemHeight', 'direction', 'style', 'space', 'cardStackLocation', 'circleRadius',
+    'transform',
+    'align', 'hAlign', 'vAlign', 'letterSpacing', 'lineSpacing', 'wordWrap', 'wordBreak',
+    'useGradient', 'gradientType', 'gradientDirection', 'gradientBox',
+    'glowEnabled', 'glowColor', 'glowOpacity', 'glowBlur',
+    'shadowEnabled', 'shadowColor', 'shadowOpacity', 'shadowBlur',
+    'shadowSpread', 'shadowDirection', 'shadowDistance',
+    'opacity',
+    'orientation',
+  ]);
+
   /**
    * 分类属性到style、data、events
    */
@@ -773,33 +805,9 @@ export class HmlParser {
     const data: Record<string, any> = {};
     const events: Record<string, any> = {};
 
-    const styleProps = new Set([
-      'color', 'backgroundColor', 'fontWeight',
-      'border', 'borderRadius', 'padding', 'margin',
-      'overflow', 'title', 'titleBarHeight', 'titleBarColor',
-      // 圆弧属性
-      'radius', 'startAngle', 'endAngle', 'strokeWidth', 'strokeColor',
-      // 矩形属性
-      'fillColor',
-      // 窗口属性
-      'showBackground',
-      // 列表属性
-      'itemWidth', 'itemHeight', 'direction', 'style', 'space', 'cardStackLocation', 'circleRadius',
-      // 图像变换属性
-      'transform',
-      // 文本样式属性
-      'align', 'hAlign', 'vAlign', 'letterSpacing', 'lineSpacing', 'wordWrap', 'wordBreak',
-      // 渐变属性
-      'useGradient', 'gradientType', 'gradientDirection', 'gradientBox',
-      // 发光与阴影（hg_rect / hg_circle，仅 HoneyGUI）
-      'glowEnabled', 'glowColor', 'glowOpacity', 'glowBlur',
-      'shadowEnabled', 'shadowColor', 'shadowOpacity', 'shadowBlur',
-      'shadowSpread', 'shadowDirection', 'shadowDistance',
-      // 透明度
-      'opacity',
-      // 进度条属性
-      'orientation'
-    ]);
+    // 与共享样式合并共用同一份清单（STYLE_PROPERTIES），避免两处归类不一致。
+    // 字体属性不在其中：它们由 dataProps 优先接管，手写 HML 与原来行为一致。
+    const styleProps = HmlParser.STYLE_PROPERTIES;
 
     // 需要转换为数字的属性
     const numericProps = new Set([
@@ -852,7 +860,9 @@ export class HmlParser {
     const metaProps = new Set([
       'id', 'name', 'x', 'y', 'width', 'height',
       'visible', 'enabled', 'locked', 'zIndex', 'parent',
-      'showOverflow'
+      'showOverflow',
+      // 共享样式引用由 _parseComponentOrdered 单独处理，不落到 style / data
+      'styleName'
     ]);
 
     Object.keys(attributes).forEach(key => {

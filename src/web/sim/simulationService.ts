@@ -20,7 +20,8 @@ import * as vscode from '../shims/vscode';
 import { CodeGenerator } from '../../services/CodeGenerator';
 import { BuildCore, VideoPlan } from '../../simulation/BuildCore';
 import { ConversionCache } from '../../simulation/ConversionCache';
-import { FontRequirements, PreviewGap, PreviewGapCollector, entryViewDrawnByCode, fontRequirementsOf, localizeHml } from '../../simulation/HmlPreviewPrep';
+import { FontRequirements, PreviewGap, PreviewGapCollector, entryViewDrawnByCode, expandSharedStyles, fontRequirementsOf, localizeHml } from '../../simulation/HmlPreviewPrep';
+import { loadSharedStyleLibrary } from '../../shared/sharedStylesFile';
 import { loadProjectI18nCatalog } from '../../project-i18n/files';
 import { ProjectUtils } from '../../utils/ProjectUtils';
 import { BuildClient } from './buildClient';
@@ -315,6 +316,8 @@ export class SimulationService {
      */
     private prepareHml(projectRoot: string, files: Record<string, Uint8Array>): Record<string, Uint8Array> {
         const catalog = loadProjectI18nCatalog(projectRoot);
+        // 运行时只认展开后的属性：共享样式在这里展开，与设计器看到的取值一致
+        const styleLibrary = loadSharedStyleLibrary(projectRoot).library;
         const decoder = new TextDecoder();
         const encoder = new TextEncoder();
         const out: Record<string, Uint8Array> = {};
@@ -324,8 +327,8 @@ export class SimulationService {
                 continue;
             }
             const text = decoder.decode(data);
-            const localized = localizeHml(text, catalog);
-            out[`ui/${rel.slice(3).split('/').join('__')}`] = localized === text ? data : encoder.encode(localized);
+            const prepared = localizeHml(expandSharedStyles(text, styleLibrary), catalog);
+            out[`ui/${rel.slice(3).split('/').join('__')}`] = prepared === text ? data : encoder.encode(prepared);
         }
         return out;
     }

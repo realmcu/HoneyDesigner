@@ -7,6 +7,7 @@ import ConversionConfigPanel from './components/ConversionConfigPanel';
 import ComponentTree from './components/ComponentTree';
 import Toolbar from './components/Toolbar';
 import ProjectI18nManagerModal from './components/ProjectI18nManagerModal';
+import SharedStylesManagerModal from './components/SharedStylesManagerModal';
 import { Component, ComponentType } from './types';
 import useKeyboardShortcuts from './utils/keyboardShortcuts';
 import { generateComponentId } from './utils/componentNaming';
@@ -1122,6 +1123,9 @@ const App: React.FC = () => {
       </DeferredMount>
 
       <ProjectI18nManagerModal />
+
+      {/* 共享样式管理（styles.json） */}
+      <SharedStylesManagerModal />
 
     </div>
   );
