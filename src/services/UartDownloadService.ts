@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { spawn, exec } from 'child_process';
 import { ProjectUtils } from '../utils/ProjectUtils';
-import { DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig';
+import { DEFAULT_ROMFS_BASE_ADDR, ProjectConfig } from '../common/ProjectConfig';
 import { RomfsConfig } from '../common/RomfsConfig';
 
 export interface UartConfig {
@@ -91,6 +91,54 @@ export class UartDownloadService {
         });
     }
 
+    /** 下载目标：合并版 romfs 或某个分组的独立 bin */
+    private async pickDownloadTarget(
+        projectRoot: string,
+        config: ProjectConfig
+    ): Promise<{ binPath: string; flashAddress: string; label: string } | undefined> {
+        const rootAddr = config.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR;
+        const merged = {
+            binPath: path.join(projectRoot, 'build', RomfsConfig.getBinFileName(rootAddr)),
+            flashAddress: rootAddr,
+            label: vscode.l10n.t('Merged romfs (all resources)'),
+        };
+
+        const groups = Array.isArray(config.resourceGroups) ? config.resourceGroups : [];
+        if (groups.length === 0) {
+            // 没有分组：不打扰用户，直接合并版
+            return merged;
+        }
+
+        const items: Array<vscode.QuickPickItem & { target: typeof merged }> = [
+            {
+                label: merged.label,
+                description: rootAddr,
+                target: merged,
+            },
+            ...groups
+                .filter(g => g && g.name)
+                .map(g => {
+                    const addr = g.baseAddr || rootAddr;
+                    return {
+                        label: vscode.l10n.t('Resource group: {0}', g.name),
+                        description: addr,
+                        detail: g.description,
+                        target: {
+                            binPath: path.join(projectRoot, 'build', 'groups', g.name, `app_${g.name}_romfs_${addr}.bin`),
+                            flashAddress: addr,
+                            label: g.name,
+                        },
+                    };
+                }),
+        ];
+
+        const picked = await vscode.window.showQuickPick(items, {
+            title: vscode.l10n.t('Select download target'),
+            placeHolder: vscode.l10n.t('Merged romfs or a resource group bin'),
+        });
+        return picked?.target;
+    }
+
     /**
      * 显示下载配置对话框 - 使用下拉框方式
      */
@@ -104,9 +152,14 @@ export class UartDownloadService {
         // 读取项目配置（用于定位带基地址后缀的 romfs.bin）
         const config = ProjectUtils.loadProjectConfig(projectRoot);
 
-        // 检查 romfs.bin（文件名带基地址后缀，例如 app_romfs_0x70536400.bin）
-        const romfsPath = path.join(projectRoot, 'build', RomfsConfig.getBinFileName(config.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR));
-        if (!fs.existsSync(romfsPath)) {
+        // 有分组时先选下载目标：合并版 romfs 或某个分组的独立 bin
+        const target = await this.pickDownloadTarget(projectRoot, config);
+        if (!target) {
+            return;
+        }
+
+        // 检查产物是否存在
+        if (!fs.existsSync(target.binPath)) {
             const choice = await vscode.window.showErrorMessage(
                 vscode.l10n.t('romfs.bin does not exist, please compile the project first'),
                 vscode.l10n.t('Compile Project')
@@ -190,10 +243,11 @@ export class UartDownloadService {
                     port: selectedPort,
                     baudRate: parseInt(selectedBaud),
                     chipType: selectedChip,
-                    flashAddress: config.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR
+                    // 分组目标用自己的地址，合并版用项目 romfsBaseAddr
+                    flashAddress: target.flashAddress,
                 };
                 await this.saveUartConfig(uartConfig);
-                await this.download(projectRoot, uartConfig);
+                await this.download(projectRoot, uartConfig, target.binPath);
                 return;
             }
 
@@ -276,15 +330,17 @@ export class UartDownloadService {
 
     /**
      * 执行下载
+     * @param binPathOverride 指定要下载的 bin（分组独立 bin）；缺省用合并版 romfs
      */
-    async download(projectRoot: string, uartConfig: UartConfig): Promise<void> {
+    async download(projectRoot: string, uartConfig: UartConfig, binPathOverride?: string): Promise<void> {
         if (this.isDownloading) {
             vscode.window.showWarningMessage(vscode.l10n.t('Download in progress'));
             return;
         }
 
         // 文件名带基地址后缀（与编译产物一致），例如 app_romfs_0x70536400.bin
-        const romfsPath = path.join(projectRoot, 'build', RomfsConfig.getBinFileName(uartConfig.flashAddress || DEFAULT_ROMFS_BASE_ADDR));
+        const romfsPath = binPathOverride
+            || path.join(projectRoot, 'build', RomfsConfig.getBinFileName(uartConfig.flashAddress || DEFAULT_ROMFS_BASE_ADDR));
         if (!fs.existsSync(romfsPath)) {
             vscode.window.showErrorMessage(vscode.l10n.t('romfs.bin does not exist, please compile the project first'));
             return;

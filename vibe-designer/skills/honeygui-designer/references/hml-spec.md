@@ -60,6 +60,11 @@ Human-label shorthand used in headings:
 - font path (`fontFile`): MUST start with `/` (path relative to the assets folder), e.g. `/NotoSansSC-Medium.ttf`.
   Wrong: `NotoSansSC-Medium.ttf`, `assets/x.ttf`.
 - For images, reference the source file (`.png` / `.gif` / ...); `.bin` is produced at build time — never reference `.bin`.
+- **Resource groups**: a project may declare `resourceGroups` in `project.json`, each being a
+  subdirectory under `assets/` (e.g. `ota`). Paths into such a group are valid and must be kept
+  as-is: `assets/ota/bg.png`. This is NOT a mistake — do not "fix" it back to `assets/bg.png`.
+  A project with resource groups converts ONLY the group directories; files directly under
+  `assets/` are ignored, so new assets belong inside a group directory.
 
 ## write empty user c func in src\user if needed (only for compile ok for gui simulater )
 - example: ``` void func1(void *a, void *b) { (void)a; (void)b; gui_log("func1\n"); } ```

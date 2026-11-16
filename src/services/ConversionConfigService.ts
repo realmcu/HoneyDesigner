@@ -1,5 +1,29 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { ProjectUtils } from '../utils/ProjectUtils';
+
+/** 根资源（无分组时的 <project>/assets）在 listAssetRoots 里的固定 id */
+export const ASSET_ROOT_ID_ROOT = '__root__';
+
+/**
+ * 一个参与资源转换的资源根。
+ *
+ * 没有分组时只有一个根（id 为 ASSET_ROOT_ID_ROOT）；声明了分组后每个分组
+ * 是一个根，根 assets 不再参与转换。
+ */
+export interface AssetRoot {
+  /** 根资源为 '__root__'，分组为其分组名 */
+  id: string;
+  /** 资源根目录的绝对路径 */
+  dir: string;
+  /** 运行时挂载点：根资源 '/', 分组 '/<name>' */
+  mountPoint: string;
+  isGroup: boolean;
+  /** 仅分组：bundle 的烧录地址 */
+  baseAddr?: string;
+  /** 仅分组：说明文字 */
+  description?: string;
+}
 
 /**
  * 目标格式枚举
@@ -270,6 +294,173 @@ export class ConversionConfigService {
    */
   getConfigPath(projectRoot: string): string {
     return path.join(projectRoot, 'assets', 'conversion.json');
+  }
+
+  /**
+   * 获取某个资源根的配置文件路径。
+   *
+   * 与 getConfigPath 的区别：参数是「资源根目录」本身，而不是项目根。
+   * 根资源传 <project>/assets，分组资源传 <project>/assets/<group>。
+   */
+  getConfigPathForRoot(assetsRoot: string): string {
+    return path.join(assetsRoot, 'conversion.json');
+  }
+
+  /**
+   * 加载某个资源根的转换配置。
+   *
+   * 分组的 conversion.json 是新建的，没有历史包袱，因此不跑兼容迁移。
+   *
+   * 但根资源（<project>/assets）必须保留 loadConfig 的兼容迁移：
+   * 老工程可能把 alwaysConvert 放在 project.json、或 items 里残留 'assets/' 前缀的 key。
+   * 无分组工程走的是同一条转换链路（assetRootConfig → loadConfigForRoot），
+   * 这里不迁移就会丢强制转换标记，属静默回归。
+   */
+  loadConfigForRoot(assetsRoot: string): ConversionConfig {
+    const configPath = this.getConfigPathForRoot(assetsRoot);
+    let config: ConversionConfig | undefined;
+
+    try {
+      if (fs.existsSync(configPath)) {
+        const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as ConversionConfig;
+        config = this.validateAndMergeConfig(parsed);
+      }
+    } catch (error) {
+      console.error(`Failed to load conversion config for root ${assetsRoot}:`, error);
+    }
+
+    if (!config) {
+      return { ...DEFAULT_CONFIG, items: {} };
+    }
+
+    // 只有根资源需要跑历史迁移（分组的 conversion.json 是本插件新建的）
+    const projectRoot = path.dirname(assetsRoot);
+    const isProjectRootAssets = path.basename(assetsRoot).toLowerCase() === 'assets'
+      && fs.existsSync(path.join(projectRoot, 'project.json'));
+    if (!isProjectRootAssets) {
+      return config;
+    }
+
+    let changed = false;
+
+    if (!config.alwaysConvert) {
+      const migrated = this.migrateAlwaysConvertFromProject(projectRoot);
+      if (migrated) {
+        config.alwaysConvert = migrated;
+        changed = true;
+      }
+    }
+
+    if (this.migrateLegacyAssetsPrefix(config.items)) {
+      changed = true;
+    }
+
+    if (changed) {
+      try {
+        this.saveConfigForRoot(assetsRoot, config);
+      } catch (e) {
+        console.error('[ConversionConfigService] failed to save migrated config for root:', e);
+      }
+    }
+
+    return config;
+  }
+
+  /** 保存某个资源根的转换配置 */
+  saveConfigForRoot(assetsRoot: string, config: ConversionConfig): void {
+    const configPath = this.getConfigPathForRoot(assetsRoot);
+    const configDir = path.dirname(configPath);
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  }
+
+  /**
+   * 列出参与资源转换的所有资源根。
+   *
+   * 这是全项目「有哪些资源根」的唯一入口，下游不要各算各的。
+   *
+   * 语义（重要）：
+   * - project.json 没有声明任何分组 → 只有一个根资源，即 <project>/assets
+   * - project.json 声明了分组 → 只返回这些分组，根 assets 不参与转换。
+   *   用户需自己把要转换的资源放进分组目录。
+   */
+  listAssetRoots(projectRoot: string): AssetRoot[] {
+    const config = ProjectUtils.loadProjectConfig(projectRoot);
+    const assetsDir = path.join(projectRoot, config.assetsDir || 'assets');
+    const groups = (config.resourceGroups || []).filter(g => g && typeof g.name === 'string' && g.name);
+
+    if (groups.length === 0) {
+      return [{
+        id: ASSET_ROOT_ID_ROOT,
+        dir: assetsDir,
+        mountPoint: '/',
+        isGroup: false,
+      }];
+    }
+
+    return groups.map(g => ({
+      id: g.name,
+      dir: path.join(assetsDir, g.name),
+      mountPoint: `/${g.name}`,
+      isGroup: true,
+      baseAddr: g.baseAddr,
+      description: g.description,
+    }));
+  }
+
+  /**
+   * 项目是否声明了资源分组。
+   * 用于「建分组后根资源不再转换」的防呆提示与转换分支判断。
+   */
+  hasResourceGroups(projectRoot: string): boolean {
+    const config = ProjectUtils.loadProjectConfig(projectRoot);
+    return Array.isArray(config.resourceGroups) && config.resourceGroups.length > 0;
+  }
+
+  /**
+   * 按资源路径找出它所属的资源根，用于把配置写到**正确的那份** conversion.json。
+   *
+   * 面板传来的路径是相对 assets/ 的（如 "ota/bg.png"、"bg.png"）。有分组时
+   * 必须写进组的配置，否则用户的设置会被写进根配置、转换时读不到。
+   *
+   * 判定顺序：
+   * 1. 带分组名前缀 → 该分组
+   * 2. 不带前缀且只有一个分组 → 该分组（分组面板里看到的都是组内路径）
+   * 3. 其余 → 根资源
+   */
+  findAssetRootForPath(projectRoot: string, assetPath: string): AssetRoot | undefined {
+    const roots = this.listAssetRoots(projectRoot);
+    if (roots.length === 0) {
+      return undefined;
+    }
+    const normalized = (assetPath || '').replace(/\\/g, '/').replace(/^\/+/, '')
+      .replace(/^assets\//i, '');
+
+    const groups = roots.filter(r => r.isGroup);
+    if (groups.length === 0) {
+      return roots[0];
+    }
+
+    // 1. 带分组名前缀
+    const byPrefix = groups.find(g => normalized === g.id || normalized.startsWith(`${g.id}/`));
+    if (byPrefix) {
+      return byPrefix;
+    }
+
+    // 2. 只有一个分组：面板展示的就是组内相对路径
+    if (groups.length === 1) {
+      return groups[0];
+    }
+
+    // 3. 多个分组且没前缀：按文件真实位置判定
+    for (const g of groups) {
+      if (fs.existsSync(path.join(g.dir, normalized))) {
+        return g;
+      }
+    }
+    return roots.find(r => !r.isGroup);
   }
 
   /**

@@ -30,6 +30,10 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
       if (message.projectConfig) {
         const store = useDesignerStore.getState();
         store.setProjectConfig(message.projectConfig);
+        // 资源分组随项目配置一起下发，供「转换资源」下拉菜单使用
+        if (Array.isArray(message.projectConfig.resourceGroups)) {
+          store.setResourceGroups(message.projectConfig.resourceGroups);
+        }
 
         // 即时刷新画布：把内存中所有 hg_view 尺寸对齐新分辨率，让用户立即看到变化。
         // 注意：这里【不】落盘。磁盘写入统一由后端 FileManager._syncAllViewSizes 负责

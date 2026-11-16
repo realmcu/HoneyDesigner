@@ -19,6 +19,24 @@ export interface AlwaysConvertConfig {
     fonts?: string[];    // 字体资源路径或 glob 模式，如 "fonts/my.ttf"
 }
 
+/**
+ * 资源分组：assets/ 下一个可独立打包的子目录。
+ *
+ * 分组是完整的资源根——有自己的 conversion.json 与 user/ 目录，转换方式与
+ * 根 assets 完全一致，只是产物额外打一份独立 bin。
+ *
+ * 重要：只要 project.json 声明了任何分组，资源转换就只看分组目录，
+ * assets/ 下的其它内容一律不参与（见 BuildCore.listAssetRoots）。
+ */
+export interface ResourceGroupConfig {
+    /** 分组名 = assets/ 下的文件夹名，需匹配 ^[A-Za-z0-9_.-]+$，不允许嵌套 */
+    name: string;
+    /** 分组 bin 的烧录地址（十六进制，如 "0x70500000"），必填 */
+    baseAddr: string;
+    /** 可选说明，面板与选择列表里展示 */
+    description?: string;
+}
+
 export interface ProjectConfig {
     $schema?: string;         // 项目 schema 标识，固定为 "HoneyGUI"
     type?: string;            // 项目类型，固定为 "Designer"
@@ -41,6 +59,10 @@ export interface ProjectConfig {
     uiDir?: string;          // UI目录，默认 "ui"
     srcDir?: string;         // 源码目录，默认 "src"
     romfsBaseAddr?: string;   // romfs 基地址（十六进制，如 "0x704D1000"），用于嵌入式烧录
+
+    // 资源分组：assets/ 下可独立打包的子目录。
+    // 非空时资源转换只看这些分组目录，assets/ 下其它内容不参与转换。
+    resourceGroups?: ResourceGroupConfig[];
     
     // 屏幕形状配置（与 SDK DRV_LCD_CORNER_RADIUS 对应）
     // 0 = 矩形（默认）, -1 = 圆形, >0 = 圆角半径（像素）

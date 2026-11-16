@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Edit2, Upload, FolderUp, FolderPlus, Zap, PackageCheck, SearchX } from 'lucide-react';
+import { Trash2, Edit2, Upload, FolderUp, FolderMinus, FolderPlus, Zap, PackageCheck, SearchX } from 'lucide-react';
 import { AssetFile } from '../types';
 import { useDesignerStore } from '../store';
 import { t } from '../i18n';
@@ -819,16 +819,19 @@ const AssetsPanel: React.FC = () => {
     const isSelected = selectedAsset?.path === folder.path;
     const folderRelativePath = folder.relativePath || folder.name;
     const isMarkedAlwaysConvert = isAlwaysConvert(folderRelativePath);
-    
+    const isGroup = folder.isResourceGroup === true;
+
     return (
-      <div 
-        key={folder.path} 
-        className={`asset-grid-item folder-item${isSelected ? ' selected' : ''}${smartPacking && isMarkedAlwaysConvert ? ' always-convert' : ''}`}
+      <div
+        key={folder.path}
+        className={`asset-grid-item folder-item${isSelected ? ' selected' : ''}${smartPacking && isMarkedAlwaysConvert ? ' always-convert' : ''}${isGroup ? ' resource-group' : ''}`}
         onClick={(e) => handleFolderClick(folder, e)}
         onDoubleClick={(e) => handleFolderDoubleClick(folder, e)}
+        title={isGroup ? t('Resource group, base address: {0}', folder.groupBaseAddr || '') : undefined}
       >
         <div className="asset-preview folder-preview">
-          <div className="file-icon" style={{ fontSize: '48px' }}>{folder.isUserAsset ? '📦' : '📁'}</div>
+          <div className="file-icon" style={{ fontSize: '48px' }}>{isGroup ? '🗂️' : folder.isUserAsset ? '📦' : '📁'}</div>
+          {isGroup && <div className="resource-group-badge">{t('Resource group badge')}</div>}
         </div>
         <div className="asset-info">
           {editingAsset === folder.path ? (
@@ -871,16 +874,29 @@ const AssetsPanel: React.FC = () => {
             >
               <Edit2 size={12} />
             </button>
-            <button 
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                handleDelete(folder); 
-              }} 
-              title={t('Delete')} 
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(folder);
+              }}
+              title={t('Delete')}
               className="action-btn delete"
             >
               <Trash2 size={12} />
             </button>
+            {isGroup && (
+              // 只摘除 project.json 里的分组声明，不动磁盘文件——与上面的删除文件夹不同
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.vscodeAPI?.postMessage({ command: 'removeResourceGroup', name: folder.name });
+                }}
+                title={t('Remove resource group declaration (keeps files)')}
+                className="action-btn delete"
+              >
+                <FolderMinus size={12} />
+              </button>
+            )}
           </div>
         </div>
       </div>

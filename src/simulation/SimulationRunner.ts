@@ -29,6 +29,11 @@ export interface SimulationFlow {
      *   只能调试引擎以外的代码（项目生成代码 / port 层），引擎预编译库不含调试信息
      */
     runMode?: 'task' | 'debug';
+    /**
+     * 只转换指定的资源分组（分组名）。undefined 表示全部。
+     * 无分组的项目只有根资源，此参数无意义。
+     */
+    convertTargets?: string[];
 }
 
 /**
@@ -81,6 +86,7 @@ export class SimulationRunner {
             codegen: options?.flow?.codegen ?? true,
             simulate: options?.flow?.simulate ?? true,
             runMode: options?.flow?.runMode ?? 'task' as 'task' | 'debug',
+            convertTargets: options?.flow?.convertTargets,
         };
         // 需要准备 build 目录的场景：资源转换（产物输出）或仿真（编译）
         const needBuildDir = flow.convert || flow.simulate;
@@ -133,7 +139,7 @@ export class SimulationRunner {
 
             // 4. 资源转换
             if (flow.convert) {
-                await this.buildManager!.convertAssets();
+                await this.buildManager!.convertAssets({ targets: flow.convertTargets });
                 this.throwIfCancelled();
             } else {
                 if (flow.simulate) {

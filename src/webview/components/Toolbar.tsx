@@ -8,8 +8,10 @@ import {
   ChevronDown,
   Code,
   Download,
+  FolderPlus,
   GitBranch,
   Grid,
+  Layers,
   LoaderCircle,
   Maximize2,
   MoreHorizontal,
@@ -106,16 +108,19 @@ const Toolbar: React.FC = () => {
     setSimulationFlow,
     simulationDebug,
     setSimulationDebug,
+    resourceGroups,
   } = useDesignerStore();
 
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showAlignMenu, setShowAlignMenu] = useState(false);
   const [showSimMenu, setShowSimMenu] = useState(false);
+  const [showConvertMenu, setShowConvertMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showOverflowAlignMenu, setShowOverflowAlignMenu] = useState(false);
   const [overflowedItems, setOverflowedItems] = useState<Set<ToolbarItemId>>(new Set());
 
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const convertMenuRef = useRef<HTMLDivElement>(null);
   const documentActionsRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
   const simulationRef = useRef<HTMLDivElement>(null);
@@ -210,7 +215,7 @@ const Toolbar: React.FC = () => {
   }, [overflowedItems]);
 
   useEffect(() => {
-    const hasOpenMenu = showColorPicker || showAlignMenu || showSimMenu || showMoreMenu;
+    const hasOpenMenu = showColorPicker || showAlignMenu || showSimMenu || showConvertMenu || showMoreMenu;
     if (!hasOpenMenu) {
       return;
     }
@@ -226,6 +231,9 @@ const Toolbar: React.FC = () => {
       if (showSimMenu && simMenuRef.current && !simMenuRef.current.contains(target)) {
         setShowSimMenu(false);
       }
+      if (showConvertMenu && convertMenuRef.current && !convertMenuRef.current.contains(target)) {
+        setShowConvertMenu(false);
+      }
       if (showMoreMenu && moreMenuRef.current && !moreMenuRef.current.contains(target)) {
         setShowMoreMenu(false);
         setShowOverflowAlignMenu(false);
@@ -234,7 +242,7 @@ const Toolbar: React.FC = () => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showColorPicker, showAlignMenu, showSimMenu, showMoreMenu]);
+  }, [showColorPicker, showAlignMenu, showSimMenu, showConvertMenu, showMoreMenu]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -244,6 +252,7 @@ const Toolbar: React.FC = () => {
       setShowColorPicker(false);
       setShowAlignMenu(false);
       setShowSimMenu(false);
+      setShowConvertMenu(false);
       setShowMoreMenu(false);
       setShowOverflowAlignMenu(false);
     };
@@ -279,12 +288,13 @@ const Toolbar: React.FC = () => {
     window.vscodeAPI?.postMessage({ command: 'generateCode', content: {} });
   };
 
-  const handleConvertResource = () => {
+  const handleConvertResource = (targets?: string[]) => {
     if (isBusy) return;
     setOperationInProgress('convert');
     window.vscodeAPI?.postMessage({
       command: 'executeCommand',
       commandId: 'honeygui.convertResource',
+      args: targets ? { targets } : undefined,
     });
   };
 
@@ -559,16 +569,84 @@ const Toolbar: React.FC = () => {
 
       <div className="toolbar-spacer" />
 
-      <div ref={(node) => setItemRef('convert', node)} className={itemClassName('convert')}>
-        <button
-          className={`toolbar-button secondary toolbar-build-button ${operationInProgress === 'convert' ? 'running' : ''}`}
-          onClick={handleConvertResource}
-          title={t('Convert Resource Tooltip')}
-          disabled={isBusy}
-        >
-          {operationInProgress === 'convert' ? <BusySpinner /> : <Package {...ICON} />}
-          <span>{t('Convert Resource')}</span>
-        </button>
+      <div
+        ref={(node) => {
+          setItemRef('convert', node);
+          convertMenuRef.current = node;
+        }}
+        className={itemClassName('convert')}
+      >
+        {(
+          // 始终带下拉：没有分组时，菜单里提供「新建资源分组」入口
+          <div className="toolbar-split-button">
+            <button
+              className={`toolbar-button secondary toolbar-build-button split-main ${operationInProgress === 'convert' ? 'running' : ''}`}
+              onClick={() => handleConvertResource()}
+              title={t('Convert Resource Tooltip')}
+              disabled={isBusy}
+            >
+              {operationInProgress === 'convert' ? <BusySpinner /> : <Package {...ICON} />}
+              <span>{t('Convert Resource')}</span>
+            </button>
+            <button
+              className="toolbar-button secondary split-arrow"
+              onClick={() => setShowConvertMenu(!showConvertMenu)}
+              disabled={isBusy}
+              title={t('Select resource group to convert')}
+              aria-label={t('Select resource group to convert')}
+            >
+              <ChevronDown {...ICON_CARET} />
+            </button>
+            {showConvertMenu && (
+              <div className="sim-dropdown-menu convert-dropdown-menu">
+                <div className="sim-menu-title">{t('Resource Groups')}</div>
+                <button
+                  className="sim-menu-item"
+                  onClick={() => {
+                    setShowConvertMenu(false);
+                    handleConvertResource();
+                  }}
+                  disabled={isBusy}
+                >
+                  <Layers {...ICON_MENU} />
+                  <span>{t('Convert all groups')}</span>
+                </button>
+                <div className="toolbar-menu-divider" />
+                {resourceGroups.length === 0 && (
+                  <div className="sim-menu-hint">{t('No resource groups yet')}</div>
+                )}
+                {resourceGroups.map((group) => (
+                  <button
+                    key={group.name}
+                    className="sim-menu-item"
+                    onClick={() => {
+                      setShowConvertMenu(false);
+                      handleConvertResource([group.name]);
+                    }}
+                    disabled={isBusy}
+                    title={group.description || `${group.name} @ ${group.baseAddr}`}
+                  >
+                    <Package {...ICON_MENU} />
+                    <span>{group.name}</span>
+                    <span className="convert-group-addr">{group.baseAddr}</span>
+                  </button>
+                ))}
+                <div className="toolbar-menu-divider" />
+                <button
+                  className="sim-menu-item"
+                  onClick={() => {
+                    setShowConvertMenu(false);
+                    window.vscodeAPI?.postMessage({ command: 'createResourceGroup' });
+                  }}
+                  disabled={isBusy}
+                >
+                  <FolderPlus {...ICON_MENU} />
+                  <span>{t('New resource group...')}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div ref={(node) => setItemRef('codegen', node)} className={itemClassName('codegen')}>
@@ -807,7 +885,7 @@ const Toolbar: React.FC = () => {
                 <>
                   <div className="toolbar-menu-title">{t('Build Actions')}</div>
                   {isOverflowed('convert') && (
-                    <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(handleConvertResource)} disabled={isBusy}>
+                    <button className="toolbar-menu-item" onClick={() => closeMoreAndRun(() => handleConvertResource())} disabled={isBusy}>
                       <Package {...ICON_MENU} />
                       <span>{operationInProgress === 'convert' ? t('Converting...') : t('Convert Resource')}</span>
                     </button>

@@ -235,6 +235,10 @@ export interface AssetFile {
   size: number;
   children?: AssetFile[]; // 文件夹的子项
   isUserAsset?: boolean;  // user 目录下的资源（不转换，直接打包）
+  /** 该文件夹是 project.json 声明的资源分组（可独立打包成 bin） */
+  isResourceGroup?: boolean;
+  /** 资源分组的烧录地址，仅分组节点有 */
+  groupBaseAddr?: string;
 }
 
 

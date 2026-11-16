@@ -88,6 +88,10 @@ export interface DesignerStore extends DesignerState {
   simulationDebug: boolean;
   setSimulationDebug: (debug: boolean) => void;
 
+  // 资源分组（来自 project.json）：转换资源时可只转指定分组
+  resourceGroups: Array<{ name: string; baseAddr: string; description?: string }>;
+  setResourceGroups: (groups: Array<{ name: string; baseAddr: string; description?: string }>) => void;
+
   // Assets
   setAssetCategory: (category: 'all' | 'images' | 'svgs' | 'videos' | 'models' | 'fonts' | 'glass' | 'lottie' | 'trmap') => void;
 

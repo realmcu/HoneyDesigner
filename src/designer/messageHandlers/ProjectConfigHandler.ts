@@ -5,6 +5,7 @@ import { ProjectUtils } from '../../utils/ProjectUtils';
 import { ConversionConfigService, ConversionConfig } from '../../services/ConversionConfigService';
 import { ProjectConfigLoader } from '../../utils/ProjectConfigLoader';
 import { ProjectConfigManager } from '../../utils/ProjectConfigManager';
+import { ResourceGroupService } from '../../services/ResourceGroupService';
 import { HandlerContext } from './HandlerContext';
 
 /**
@@ -34,10 +35,28 @@ export class ProjectConfigHandler {
             const configService = ConversionConfigService.getInstance();
             const config = configService.loadConfig(projectRoot);
 
+            // 分组的 items 也要一并下发：面板用一个扁平列表展示所有资源，
+            // 只发根配置的话，分组资源的设置会显示为默认值（用户改了也像没生效）。
+            const mergedItems = { ...config.items };
+            for (const root of configService.listAssetRoots(projectRoot)) {
+                if (!root.isGroup) {
+                    continue;
+                }
+                const groupConfig = configService.loadConfigForRoot(root.dir);
+                for (const [key, value] of Object.entries(groupConfig.items || {})) {
+                    // 分组配置里的 key 若已带前缀则原样用，否则补上分组前缀，
+                    // 与面板的 selectedAsset.relativePath 对齐
+                    const flatKey = key.includes('/') && key.startsWith(`${root.id}/`)
+                        ? key
+                        : `${root.id}/${key}`;
+                    mergedItems[flatKey] = value;
+                }
+            }
+
             // 发送配置到 webview
             this._ctx.panel.webview.postMessage({
                 command: 'conversionConfigLoaded',
-                config
+                config: { ...config, items: mergedItems }
             });
 
             logger.debug('[MessageHandler] 转换配置已加载并发送到 webview');
@@ -75,9 +94,28 @@ export class ProjectConfigHandler {
             }
 
             const configService = ConversionConfigService.getInstance();
-            configService.saveConfig(projectRoot, config);
 
-            logger.debug('[MessageHandler] 转换配置已保存');
+            // 有分组时，配置要写进**该资源根自己的** conversion.json。
+            // 否则分组里的设置在转换时读不到（转换按根读各自的配置）。
+            //
+            // items 的 key 一律保持「相对 assets/ 的完整路径」（如 "ota/bg.png"）：
+            // 面板用 selectedAsset.relativePath 作 key，读写两侧必须一致。
+            // 转换时再由 stripGroupPrefix 换算成组内相对路径去查。
+            const root = changedPath
+                ? configService.findAssetRootForPath(projectRoot, changedPath)
+                : undefined;
+
+            if (root?.isGroup) {
+                configService.saveConfigForRoot(root.dir, {
+                    ...configService.loadConfigForRoot(root.dir),
+                    defaultSettings: config.defaultSettings,
+                    items: config.items,
+                });
+                logger.debug(`[MessageHandler] 转换配置已写入分组: ${root.id}`);
+            } else {
+                configService.saveConfig(projectRoot, config);
+                logger.debug('[MessageHandler] 转换配置已保存');
+            }
 
             // 如果是视频格式变更或部署方式变更，自动触发代码生成
             // - videoFormat: 不同格式生成不同的播放器代码
@@ -289,6 +327,152 @@ export class ProjectConfigHandler {
         } catch (error) {
             logger.error(`[MessageHandler] 打开 project.json 失败: ${error}`);
             vscode.window.showErrorMessage(vscode.l10n.t('Failed to open project.json: {0}', error instanceof Error ? error.message : String(error)));
+        }
+    }
+
+    /**
+     * 新建资源分组：收分组名与烧录地址，建目录 + conversion.json + user/，
+     * 并写入 project.json 的 resourceGroups。
+     */
+    public async handleCreateResourceGroup(): Promise<void> {
+        try {
+            const projectRoot = this._ctx.getProjectRoot();
+            if (!projectRoot) {
+                vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+                return;
+            }
+
+            const existing = ResourceGroupService.listGroups(projectRoot);
+            const name = await vscode.window.showInputBox({
+                prompt: vscode.l10n.t('Enter resource group name (also the folder name under assets/)'),
+                placeHolder: 'ota',
+                validateInput: (value) => {
+                    const trimmed = (value || '').trim();
+                    if (!trimmed) {
+                        return vscode.l10n.t('Resource group name is required');
+                    }
+                    if (!ResourceGroupService.isValidGroupName(trimmed)) {
+                        return vscode.l10n.t('Use letters, digits, underscore, dot or dash only');
+                    }
+                    if (existing.some(g => g.name === trimmed)) {
+                        return vscode.l10n.t('Resource group already exists: {0}', trimmed);
+                    }
+                    return null;
+                }
+            });
+            if (!name) {
+                return;
+            }
+
+            const baseAddr = await vscode.window.showInputBox({
+                prompt: vscode.l10n.t('Enter the flash base address for this group (hex, e.g. 0x70500000)'),
+                placeHolder: '0x70500000',
+                validateInput: (value) => {
+                    const trimmed = (value || '').trim();
+                    if (!trimmed) {
+                        return vscode.l10n.t('Base address is required');
+                    }
+                    if (!ResourceGroupService.isValidBaseAddr(trimmed)) {
+                        return vscode.l10n.t('Enter a hexadecimal address, e.g. 0x70500000');
+                    }
+                    return null;
+                }
+            });
+            if (!baseAddr) {
+                return;
+            }
+
+            const group = ResourceGroupService.createGroup(projectRoot, name.trim(), baseAddr.trim());
+            logger.info(`[MessageHandler] 已创建资源分组: ${group.name} @ ${group.baseAddr}`);
+
+            // 有分组后根目录资源不再参与转换，主动提醒用户把资源移进分组
+            const orphaned = ResourceGroupService.countOrphanedRootAssets(
+                projectRoot,
+                ResourceGroupService.listGroups(projectRoot).map(g => g.name)
+            );
+            if (orphaned > 0) {
+                await vscode.window.showWarningMessage(
+                    vscode.l10n.t('Resource group "{0}" created.', group.name),
+                    {
+                        modal: true,
+                        detail: vscode.l10n.t(
+                            'Resource groups are now defined, so assets directly under assets/ are no longer converted ({0} file(s) affected). Move the resources you need into a group directory.',
+                            orphaned
+                        )
+                    }
+                );
+            } else {
+                vscode.window.showInformationMessage(
+                    vscode.l10n.t('Resource group "{0}" created at {1}', group.name, group.baseAddr)
+                );
+            }
+
+            await this._reloadProjectConfig(projectRoot);
+        } catch (error) {
+            logger.error(`[MessageHandler] 创建资源分组失败: ${error}`);
+            vscode.window.showErrorMessage(
+                vscode.l10n.t('Failed to create resource group: {0}', error instanceof Error ? error.message : String(error))
+            );
+        }
+    }
+
+    /** 项目配置有变化：清缓存并把最新的 project.json 推给前端 */
+    private async _reloadProjectConfig(projectRoot: string): Promise<void> {
+        ProjectConfigLoader.clearCache();
+        const freshConfig = ProjectConfigLoader.loadConfig(this._ctx.fileManager.currentFilePath);
+        this._ctx.panel.webview.postMessage({
+            command: 'updateProjectConfig',
+            projectConfig: freshConfig,
+        });
+        await this._generateCode();
+    }
+
+    /**
+     * 删除资源分组：只从 project.json 摘除声明，不删磁盘上的目录与资源。
+     * 资源是用户资产，误删不可恢复，所以必须二次确认并说清后果。
+     */
+    public async handleRemoveResourceGroup(name: string): Promise<void> {
+        try {
+            const projectRoot = this._ctx.getProjectRoot();
+            if (!projectRoot) {
+                vscode.window.showErrorMessage(vscode.l10n.t('Cannot find project root (project.json)'));
+                return;
+            }
+            if (!name) {
+                return;
+            }
+
+            const confirm = await vscode.window.showWarningMessage(
+                vscode.l10n.t('Remove resource group "{0}"?', name),
+                {
+                    modal: true,
+                    detail: vscode.l10n.t(
+                        'This only removes the declaration from project.json. The folder assets/{0}/ and its files are kept on disk.',
+                        name
+                    )
+                },
+                vscode.l10n.t('Remove')
+            );
+            if (confirm !== vscode.l10n.t('Remove')) {
+                return;
+            }
+
+            const removed = ResourceGroupService.removeGroup(projectRoot, name);
+            if (!removed) {
+                vscode.window.showWarningMessage(vscode.l10n.t('Resource group not found: {0}', name));
+                return;
+            }
+
+            logger.info(`[MessageHandler] 已移除资源分组: ${name}`);
+            vscode.window.showInformationMessage(
+                vscode.l10n.t('Resource group "{0}" removed. Its folder was kept.', name)
+            );
+            await this._reloadProjectConfig(projectRoot);
+        } catch (error) {
+            logger.error(`[MessageHandler] 删除资源分组失败: ${error}`);
+            vscode.window.showErrorMessage(
+                vscode.l10n.t('Failed to remove resource group: {0}', error instanceof Error ? error.message : String(error))
+            );
         }
     }
 

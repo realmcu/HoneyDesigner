@@ -60,9 +60,12 @@ export class SimulationService {
         );
 
         // 仅转换资源（独立流程，不生成代码、不编译运行）
+        // 可携带 targets 只转换指定分组；缺省转换全部分组
         this.context.subscriptions.push(
-            vscode.commands.registerCommand('honeygui.convertResource', async () => {
-                await this.startSimulation({ flow: { convert: true, codegen: false, simulate: false } });
+            vscode.commands.registerCommand('honeygui.convertResource', async (options?: { targets?: string[] }) => {
+                await this.startSimulation({
+                    flow: { convert: true, codegen: false, simulate: false, convertTargets: options?.targets },
+                });
             })
         );
 
@@ -102,6 +105,8 @@ export class SimulationService {
             codegen: options?.flow?.codegen ?? true,
             simulate: options?.flow?.simulate ?? true,
             runMode: options?.flow?.runMode ?? 'task' as 'task' | 'debug',
+            // 分组转换目标必须透传，否则「只转某个分组」会退化成转换全部
+            convertTargets: options?.flow?.convertTargets,
         };
         // 不含仿真阶段时，流程结束即完成，不进入"运行中"状态
         const willSimulate = flow.simulate;

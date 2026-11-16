@@ -11,6 +11,7 @@ import { parseFontCmap } from '../utils/fontCmapParser';
 import { CharsetProcessor } from '../../tools/font-converter/src/charset-processor';
 import { CharsetSourceResolver } from '../utils/CharsetSourceResolver';
 import { findUnusedAssets, formatBytes } from './unusedAssets';
+import { ResourceGroupService } from '../services/ResourceGroupService';
 
 /**
  * 资源管理器 - 处理资源文件的扫描、添加、删除等操作
@@ -200,12 +201,32 @@ export class AssetManager extends EventEmitter {
             // Setup file watcher on assets directory
             this.setupAssetsWatcher(assetsDir);
 
-            // 递归扫描assets目录
-            const assets = this.scanAssetsDirectory(assetsDir, assetsDir);
+            // 资源分组（project.json 声明）：顶层目录名 → 烧录地址，供面板打标
+            const groups = new Map<string, string>();
+            for (const g of ResourceGroupService.listGroups(projectRoot)) {
+                if (g && g.name) {
+                    groups.set(g.name, g.baseAddr || '');
+                }
+            }
 
-            // 加载转换配置
+            // 递归扫描assets目录
+            const assets = this.scanAssetsDirectory(assetsDir, assetsDir, false, groups);
+
+            // 加载转换配置：把各分组的 items 也合并进来，
+            // 面板用「相对 assets/ 的完整路径」作 key（如 ota/bg.png）
             const configService = ConversionConfigService.getInstance();
-            const conversionConfig = configService.loadConfig(projectRoot);
+            const baseConfig = configService.loadConfig(projectRoot);
+            const mergedItems = { ...baseConfig.items };
+            for (const root of configService.listAssetRoots(projectRoot)) {
+                if (!root.isGroup) {
+                    continue;
+                }
+                for (const [key, value] of Object.entries(configService.loadConfigForRoot(root.dir).items || {})) {
+                    const flatKey = key.startsWith(`${root.id}/`) ? key : `${root.id}/${key}`;
+                    mergedItems[flatKey] = value;
+                }
+            }
+            const conversionConfig = { ...baseConfig, items: mergedItems };
 
             // 发送资源列表到webview
             this._panel.webview.postMessage({
@@ -239,10 +260,15 @@ export class AssetManager extends EventEmitter {
      * 递归扫描资源目录
      * @param isUserSubtree 是否在 user/ 子目录内（user 目录下的资源不需要转换）
      */
-    private scanAssetsDirectory(dirPath: string, rootPath: string, isUserSubtree: boolean = false): any[] {
+    private scanAssetsDirectory(
+        dirPath: string,
+        rootPath: string,
+        isUserSubtree: boolean = false,
+        groups?: Map<string, string>
+    ): any[] {
         const assets: any[] = [];
         const files = fs.readdirSync(dirPath);
-        
+
         for (const file of files) {
             const filePath = path.join(dirPath, file);
             const stats = fs.statSync(filePath);
@@ -250,13 +276,15 @@ export class AssetManager extends EventEmitter {
 
             // 判断是否在 user/ 子树中
             const isUser = isUserSubtree || relativePath === 'user' || relativePath.startsWith('user/');
-            
+
             if (stats.isDirectory()) {
                 // 递归扫描子目录
-                const children = this.scanAssetsDirectory(filePath, rootPath, isUser);
+                const children = this.scanAssetsDirectory(filePath, rootPath, isUser, groups);
                 // 显示所有目录（含空目录）：空文件夹是用户显式创建的合法资源节点，
                 // 之前仅显示非空目录 + user/ 特例，会导致新建的空文件夹在面板上"不刷新"。
                 const webviewUri = this._panel.webview.asWebviewUri(vscode.Uri.file(filePath));
+                // 只有 assets/ 顶层目录才可能是分组（分组不允许嵌套）
+                const groupAddr = !relativePath.includes('/') ? groups?.get(file) : undefined;
                 assets.push({
                     name: file,
                     path: webviewUri.toString(),
@@ -264,7 +292,8 @@ export class AssetManager extends EventEmitter {
                     type: 'folder',
                     size: 0,
                     children,
-                    ...(isUser && { isUserAsset: true })
+                    ...(isUser && { isUserAsset: true }),
+                    ...(groupAddr && { isResourceGroup: true, groupBaseAddr: groupAddr }),
                 });
             } else if (stats.isFile()) {
                 const ext = path.extname(file).toLowerCase();

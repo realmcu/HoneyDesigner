@@ -43,6 +43,7 @@ export const createSystemSlice: StateCreator<DesignerStore, [], [], Partial<Desi
   setOperationInProgress: (op) => set({ operationInProgress: op }),
   setSimulationFlow: (flow) => set((state) => ({ simulationFlow: { ...state.simulationFlow, ...flow } })),
   setSimulationDebug: (debug) => set({ simulationDebug: debug }),
+  setResourceGroups: (groups) => set({ resourceGroups: groups }),
 
   // Undo/Redo：栈在 webview 内存中（components 快照），回放后照常走保存
   undo: () => {

@@ -288,6 +288,14 @@ export class MessageHandler {
                 this._assetManager.handleCreateAssetFolder(message.parentPath, this._fileManager.currentFilePath);
                 break;
 
+            case 'createResourceGroup':
+                this._projectConfig.handleCreateResourceGroup();
+                break;
+
+            case 'removeResourceGroup':
+                this._projectConfig.handleRemoveResourceGroup(message.name);
+                break;
+
             case 'openAssetsFolder':
                 this._assetManager.handleOpenAssetsFolder(this._fileManager.currentFilePath);
                 break;

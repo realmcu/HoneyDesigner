@@ -8,7 +8,7 @@ import { VideoConverterService, VideoConvertOptions, VideoConvertResult } from '
 import { Model3DConverterService } from '../services/Model3DConverterService';
 import { FontConverterService, FontConvertOptions, CharacterSetItem } from '../services/FontConverterService';
 import { GlassConverterService, GlassConvertOptions, GlassConvertResult } from '../services/GlassConverterService';
-import { ConversionConfigService, VideoFormat, ConversionConfig, YuvBlur, VideoScaleConfig, VideoCropConfig, PreprocessOrder } from '../services/ConversionConfigService';
+import { ConversionConfigService, AssetRoot, ASSET_ROOT_ID_ROOT, VideoFormat, ConversionConfig, YuvBlur, VideoScaleConfig, VideoCropConfig, PreprocessOrder } from '../services/ConversionConfigService';
 import { SamplingFactor } from '../../tools/image-to-jpeg-converter/src/index';
 import { ProjectConfig, DEFAULT_ROMFS_BASE_ADDR } from '../common/ProjectConfig';
 import { RomfsConfig } from '../common/RomfsConfig';
@@ -46,6 +46,11 @@ export interface Logger {
 export interface ConvertAssetsOptions {
     /** 是否打包 romfs（默认是）。浏览器版直接读取 build/assets，不需要 app_romfs.c */
     packRomfs?: boolean;
+    /**
+     * 只转换指定的资源根（分组名）。undefined 表示全部。
+     * 无分组的项目只有根资源，此参数无意义。
+     */
+    targets?: string[];
     /**
      * 设置后逐个转换图片，每张之后调用一次（浏览器版在这里报告进度并让出页面线程，
      * 否则整批转换会让页面卡住数十秒）。未设置时整批并行转换。
@@ -113,6 +118,16 @@ export class BuildCore {
     private compileProcess: ChildProcess | null = null;
     private conversionCache: ConversionCache | undefined;
 
+    /**
+     * 当前正在转换的资源根。convertAssets 按根顺序执行，转换期间非空。
+     *
+     * 转换链路上有十多个方法（scanAssets / addAlwaysConvertAssets /
+     * extractAssetReferences / convertUsedImages / planUsedVideos ...）要读
+     * conversion.json 与 assets 目录。逐个加参数容易漏改，而漏改就是静默读错配置；
+     * 这里用一个字段承载，配合 assetRootDir()/assetRootConfig() 统一取值。
+     */
+    private currentRoot: AssetRoot | undefined;
+
     constructor(projectRoot: string, libSimPath: string, projectConfig: ProjectConfig, logger: Logger) {
         this.projectRoot = projectRoot;
         this.libSimPath = libSimPath;
@@ -123,6 +138,99 @@ export class BuildCore {
 
     getBuildDir(): string {
         return this.buildDir;
+    }
+
+    /** 当前资源根目录（转换期间为分组目录，否则为 <project>/assets） */
+    private assetRootDir(): string {
+        return this.currentRoot?.dir || path.join(this.projectRoot, 'assets');
+    }
+
+    /**
+     * 当前资源根的 conversion.json 内容。
+     *
+     * items 的 key 统一归一成「相对当前资源根」的路径：
+     * 面板/磁盘上可能写成 "ota/bg.png"（相对 assets/），而分组转换时查表用的是
+     * "bg.png"。不归一的话，用户在分组里设的格式在转换时永远匹配不到。
+     */
+    private assetRootConfig(): ConversionConfig {
+        const root = this.currentRoot;
+        const config = ConversionConfigService.getInstance().loadConfigForRoot(this.assetRootDir());
+        return root?.isGroup ? this.normalizeConfigForRoot(config, root.id) : config;
+    }
+
+    /**
+     * 把 conversion.json 里带分组前缀的 items key 归一成「组内相对路径」，
+     * 让转换侧用 bg.png 能查到 ota/bg.png 那条设置。根资源原样返回。
+     */
+    private normalizeConfigForRoot(config: ConversionConfig, rootId: string): ConversionConfig {
+        if (!rootId || rootId === ASSET_ROOT_ID_ROOT) {
+            return config;
+        }
+        const prefix = `${rootId}/`;
+        const normalizedItems: typeof config.items = {};
+        for (const [key, value] of Object.entries(config.items || {})) {
+            const normalizedKey = key.replace(/\\/g, '/').replace(/^\/+/, '');
+            normalizedItems[normalizedKey.startsWith(prefix)
+                ? normalizedKey.substring(prefix.length)
+                : normalizedKey] = value;
+        }
+        return { ...config, items: normalizedItems };
+    }
+
+    /**
+     * 判断该资源路径是否属于当前正在转换的资源根。
+     *
+     * 有分组时，HML 里可能同时引用多个分组的资源（如同时用到 ota/x.png 与
+     * theme/y.png）。转换其中一组时，另一组的资源不在这个目录下，必须跳过，
+     * 否则会报"文件不存在"。
+     *
+     * 无分组时永远返回 true（根资源包含全部）。
+     */
+    private belongsToCurrentRoot(assetPath: string): boolean {
+        const root = this.currentRoot;
+        if (!root?.isGroup) {
+            return true;
+        }
+        const normalized = assetPath.replace(/\\/g, '/').replace(/^\/+/, '');
+
+        // 带别的组名前缀 → 明确属于那个分组，交给它自己那一轮
+        const allGroups = this.listAssetRoots().map(r => r.id);
+        for (const other of allGroups) {
+            if (other !== root.id && normalized.startsWith(`${other}/`)) {
+                return false;
+            }
+        }
+
+        // 否则以「文件是否真的在当前根目录下」为准：
+        // 带本组前缀（ota/x.png）剥掉后存在；不带前缀（x.png，分组自己
+        // conversion.json 里的写法）也存在。两种写法都能正确归类。
+        const relative = this.stripGroupPrefix(normalized);
+        return fs.existsSync(path.join(root.dir, relative));
+    }
+
+    /**
+     * HML / alwaysConvert 里的资源路径是相对 assets/ 的（可能带 "ota/" 前缀），
+     * 而分组转换时工作目录已经是 assets/ota。这里把分组前缀剥掉，
+     * 让两者能对上。
+     */
+    private stripGroupPrefix(assetPath: string): string {
+        const root = this.currentRoot;
+        if (!root?.isGroup) {
+            return assetPath;
+        }
+        const normalized = assetPath.replace(/\\/g, '/').replace(/^\/+/, '');
+        const prefix = `${root.id}/`;
+        return normalized.startsWith(prefix) ? normalized.substring(prefix.length) : normalized;
+    }
+
+    /** 项目声明资源分组后，根 assets 不再参与转换 */
+    public hasResourceGroups(): boolean {
+        return ConversionConfigService.getInstance().hasResourceGroups(this.projectRoot);
+    }
+
+    /** 参与转换的资源根，分组名即资源根 id */
+    public listAssetRoots(): AssetRoot[] {
+        return ConversionConfigService.getInstance().listAssetRoots(this.projectRoot);
     }
 
     /** 浏览器版在多次仿真之间复用图片与字体的转换结果；桌面版不设置 */
@@ -240,13 +348,105 @@ Return('objs')
     }
 
     async convertAssets(options: ConvertAssetsOptions = {}): Promise<void> {
-        const assetsDir = path.join(this.projectRoot, 'assets');
-        const outputDir = path.join(this.buildDir, 'assets');
+        const roots = this.listAssetRoots();
+        const selected = options.targets && options.targets.length > 0
+            ? roots.filter(r => options.targets!.includes(r.id))
+            : roots;
 
-        // 确保 build/assets 目录存在
+        if (selected.length === 0) {
+            this.logger.log(vscode.l10n.t('No matching resource group to convert, skipped'), true);
+            return;
+        }
+
+        // 有分组时根 assets 被排除，提示用户把资源放进分组目录
+        if (this.hasResourceGroups()) {
+            this.logger.log(vscode.l10n.t('Resource groups are defined: only group directories are converted. Files directly under assets/ are ignored.'));
+            this.warnIfRootAssetsIgnored();
+        }
+
+        // 产物统一落到 build/assets：分组产物保留 <group>/ 层级，
+        // 这样模拟器 POSIX 挂载与合并版 app_romfs.c 都天然可用（C4）。
+        const outputDir = path.join(this.buildDir, 'assets');
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
+
+        for (const root of selected) {
+            this.currentRoot = root;
+            try {
+                const rootOutputDir = root.isGroup ? path.join(outputDir, root.id) : outputDir;
+                if (!fs.existsSync(rootOutputDir)) {
+                    fs.mkdirSync(rootOutputDir, { recursive: true });
+                }
+                const label = root.isGroup ? `group "${root.id}"` : 'assets';
+                this.logger.log(vscode.l10n.t('Converting resource root: {0}', label));
+                await this.convertAssetsForRoot(root.dir, rootOutputDir, options);
+            } finally {
+                this.currentRoot = undefined;
+            }
+        }
+
+        // 清理非运行时文件（规则见 ROMFS_CLEANUP_PATTERNS）
+        this.cleanupNonRuntimeFiles(outputDir);
+
+        if (options.packRomfs !== false) {
+            await this.packRomfs(selected);
+        }
+    }
+
+    /**
+     * 有分组时，提醒用户 assets/ 根目录下的资源不会被转换。
+     * 只警告不报错：用户可能故意留着旧资源。
+     */
+    private warnIfRootAssetsIgnored(): void {
+        const assetsDir = path.join(this.projectRoot, 'assets');
+        if (!fs.existsSync(assetsDir)) { return; }
+
+        const convertibleExts = new Set([
+            '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg',
+            '.mp4', '.avi', '.mov', '.mkv', '.webm',
+            '.gltf', '.glb', '.obj', '.ttf', '.otf', '.woff', '.woff2',
+        ]);
+        const groupNames = new Set(this.listAssetRoots().map(r => r.id));
+
+        let count = 0;
+        const walk = (dir: string, depth: number) => {
+            let entries: fs.Dirent[];
+            try {
+                entries = fs.readdirSync(dir, { withFileTypes: true });
+            } catch { return; }
+            for (const entry of entries) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    // 不进分组目录，也不进 user/（user 目录本身随根打包）
+                    if (depth === 0 && groupNames.has(entry.name)) { continue; }
+                    if (entry.name === 'user') { continue; }
+                    walk(full, depth + 1);
+                } else if (convertibleExts.has(path.extname(entry.name).toLowerCase())) {
+                    count++;
+                }
+            }
+        };
+        walk(assetsDir, 0);
+
+        if (count > 0) {
+            this.logger.log(
+                vscode.l10n.t('{0} file(s) under assets/ are ignored because resource groups are defined. Move them into a group directory to convert them.', count),
+                false,
+                true
+            );
+        }
+    }
+
+    /**
+     * 转换单个资源根。assetsDir/outputDir 由调用方按根传入，
+     * 其余逻辑与原实现在根资源上完全一致（C3）。
+     */
+    private async convertAssetsForRoot(
+        assetsDir: string,
+        outputDir: string,
+        options: ConvertAssetsOptions
+    ): Promise<void> {
 
         const usedAssets = await this.scanAssets();
         this.logger.log(vscode.l10n.t('Found {0} images, {1} videos, {2} 3D models', usedAssets.images.size, usedAssets.videos.size, usedAssets.models.size));
@@ -375,28 +575,22 @@ Return('objs')
         }
         this.logger.log(vscode.l10n.t('Glass effects converted: {0}', glassResults.filter(r => r.success).length));
 
-        // 拷贝 ui 目录到 build/assets
-        const uiSrcDir = path.join(this.projectRoot, 'ui');
-        const uiDestDir = path.join(outputDir, 'ui');
-        if (fs.existsSync(uiSrcDir)) {
-            this.copyDirectory(uiSrcDir, uiDestDir);
-            this.logger.log(vscode.l10n.t('UI directory copied to assets'));
-        }
+        // ui/ 与 project.json 只属于合并视图的根部：分组子目录里再放一份
+        // 会被打进分组 bin，运行时多出无意义的 /ota/ui、/ota/project.json。
+        if (!this.currentRoot?.isGroup) {
+            const uiSrcDir = path.join(this.projectRoot, 'ui');
+            const uiDestDir = path.join(outputDir, 'ui');
+            if (fs.existsSync(uiSrcDir)) {
+                this.copyDirectory(uiSrcDir, uiDestDir);
+                this.logger.log(vscode.l10n.t('UI directory copied to assets'));
+            }
 
-        // 拷贝 project.json 到 build/assets
-        const projectJsonSrc = path.join(this.projectRoot, 'project.json');
-        const projectJsonDest = path.join(outputDir, 'project.json');
-        if (fs.existsSync(projectJsonSrc)) {
-            fs.copyFileSync(projectJsonSrc, projectJsonDest);
-            this.logger.log(vscode.l10n.t('project.json copied to assets'));
-        }
-
-        // 清理非运行时文件（规则见 ROMFS_CLEANUP_PATTERNS）
-        this.cleanupNonRuntimeFiles(outputDir);
-
-        // 打包 romfs
-        if (options.packRomfs !== false) {
-            await this.packRomfs();
+            const projectJsonSrc = path.join(this.projectRoot, 'project.json');
+            const projectJsonDest = path.join(outputDir, 'project.json');
+            if (fs.existsSync(projectJsonSrc)) {
+                fs.copyFileSync(projectJsonSrc, projectJsonDest);
+                this.logger.log(vscode.l10n.t('project.json copied to assets'));
+            }
         }
     }
 
@@ -436,56 +630,123 @@ Return('objs')
             return undefined;
         }
 
-        const assetsDir = ProjectUtils.getAssetsDir(this.projectRoot);
-        const outputDir = path.join(this.buildDir, 'assets');
-        const romfsPath = path.join(this.buildDir, RomfsConfig.getFileName());
-        const romfsTime = fs.existsSync(romfsPath) ? fs.statSync(romfsPath).mtimeMs : 0;
-        const manifest = loadFontManifest(this.buildDir);
-        const conversionConfig = ConversionConfigService.getInstance().loadConfig(this.projectRoot);
         const projectI18nCatalog = loadProjectI18nCatalog(this.projectRoot);
+        const manifest = loadFontManifest(this.buildDir);
+        const combinedOutputDir = path.join(this.buildDir, 'assets');
+        const roots = this.listAssetRoots();
+        const groupIds = roots.filter(r => r.isGroup).map(r => r.id);
+        const fontGroups = this.groupLabelConfigsByFont(configs);
 
-        for (const group of this.groupLabelConfigsByFont(configs)) {
-            const fontRelativePath = group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
-            const sourcePath = path.join(assetsDir, fontRelativePath);
+        // 与 convertAssets 一样按资源根逐组检查：字体属于哪个分组，就只在那个
+        // 分组的目录里判断新鲜度。用根 assets 去拼分组字体会得到不存在的路径，
+        // 每轮都判为"已过期"，用户就永远卡在「字体资源准备失败」。
+        for (const root of roots) {
+            const assetsDir = root.dir;
+            const outputDir = root.isGroup ? path.join(combinedOutputDir, root.id) : combinedOutputDir;
 
-            // 直接拷贝的字体产物是原文件名（不是转换后的 .bin），只要求拷贝结果不早于源文件
-            if (conversionConfig.items[group.fontFile.replace(/\\/g, '/')]?.fontCopyOnly) {
-                const fontDir = path.dirname(fontRelativePath);
-                const fontOutputDir = fontDir === '.' ? outputDir : path.join(outputDir, fontDir);
-                const copiedPath = path.join(fontOutputDir, path.basename(sourcePath));
-                const sourceTime = fs.existsSync(sourcePath) ? fs.statSync(sourcePath).mtimeMs : 0;
-                const copiedTime = fs.existsSync(copiedPath) ? fs.statSync(copiedPath).mtimeMs : 0;
-                if (!sourceTime || !copiedTime || copiedTime < sourceTime) {
-                    return copiedPath;
+            // 该根产物的 romfs 修改时间：分组看分组 bin，根看合并版
+            const romfsPath = root.isGroup
+                ? path.join(this.buildDir, 'groups', root.id, `app_${root.id}_romfs_${root.baseAddr || this.projectConfig.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR}.bin`)
+                : path.join(this.buildDir, RomfsConfig.getFileName());
+            const romfsTime = fs.existsSync(romfsPath) ? fs.statSync(romfsPath).mtimeMs : 0;
+
+            const conversionConfig = this.normalizeConfigForRoot(
+                ConversionConfigService.getInstance().loadConfigForRoot(assetsDir),
+                root.id
+            );
+
+            // 只保留落在本根目录里的字体：其它分组的字体由那一轮负责，
+            // 根 assets 的字体在无分组时才存在。
+            const candidates = fontGroups
+                .map(group => ({ group, fontRelativePath: this.fontPathInRoot(group.fontFile, root.id, groupIds, root.dir) }))
+                .filter((c): c is { group: typeof c.group; fontRelativePath: string } => c.fontRelativePath !== undefined);
+
+            for (const { group, fontRelativePath } of candidates) {
+                const sourcePath = path.join(assetsDir, fontRelativePath);
+
+                // 查表用「相对本资源根」的路径：分组配置的 key 可能带分组前缀
+                // （ota/x.ttf），归一后才能命中。无分组时与原实现完全一致。
+                if (conversionConfig.items[fontRelativePath]?.fontCopyOnly) {
+                    const fontDir = path.dirname(fontRelativePath);
+                    const fontOutputDir = fontDir === '.' ? outputDir : path.join(outputDir, fontDir);
+                    const copiedPath = path.join(fontOutputDir, path.basename(sourcePath));
+                    const sourceTime = fs.existsSync(sourcePath) ? fs.statSync(sourcePath).mtimeMs : 0;
+                    const copiedTime = fs.existsSync(copiedPath) ? fs.statSync(copiedPath).mtimeMs : 0;
+                    if (!sourceTime || !copiedTime || copiedTime < sourceTime) {
+                        return copiedPath;
+                    }
+                    continue;
                 }
-                continue;
-            }
 
-            const outputPath = this.fontGroupOutputPath(group, outputDir);
-            const outputTime = fs.existsSync(outputPath) ? fs.statSync(outputPath).mtimeMs : 0;
-            if (!outputTime || romfsTime < outputTime) {
-                return outputPath;
-            }
-
-            const key = this.fontGroupManifestKey(group);
-            let fresh: boolean;
-            try {
-                fresh = manifestCovers(
-                    manifest,
-                    key,
-                    this.fontGroupFingerprint(group, assetsDir),
-                    this.fontGroupCharacters(group, projectI18nCatalog),
-                    group.fontType === 'vector' ? group.fontSize : 0,
+                // 与转换链路同一套路径：group 传「相对本资源根」的形式
+                const outputPath = this.fontGroupOutputPath(
+                    { ...group, fontFile: fontRelativePath },
+                    outputDir
                 );
-            } catch {
-                // 字符集本身无法解析时交给转换流程报错，这里不判定为新鲜
-                return outputPath;
-            }
-            if (!fresh) {
-                return outputPath;
+                const outputTime = fs.existsSync(outputPath) ? fs.statSync(outputPath).mtimeMs : 0;
+                if (!outputTime || romfsTime < outputTime) {
+                    return outputPath;
+                }
+
+                const key = this.fontGroupManifestKey(group);
+                let fresh: boolean;
+                try {
+                    // 指纹与产物路径都按「相对本资源根」的路径计算：
+                    // fontFile 在根里是 "ota/x.ttf"，在分组里要变成 "x.ttf"
+                    fresh = manifestCovers(
+                        manifest,
+                        key,
+                        this.fontGroupFingerprint(
+                            { ...group, fontFile: fontRelativePath } as never,
+                            assetsDir
+                        ),
+                        this.fontGroupCharacters(group, projectI18nCatalog),
+                        group.fontType === 'vector' ? group.fontSize : 0,
+                    );
+                } catch {
+                    // 字符集本身无法解析时交给转换流程报错，这里不判定为新鲜
+                    return outputPath;
+                }
+                if (!fresh) {
+                    return outputPath;
+                }
             }
         }
         return undefined;
+    }
+
+    /**
+     * 把 fontsFile 换算成「相对该资源根」的路径；不属于该根时返回 undefined。
+     *
+     * fontFile 有两种写法：
+     * - 带分组前缀（HML 里写 /ota/x.ttf，相对 assets/）→ 只有 ota 根接收，返回 x.ttf
+     * - 不带前缀（分组自己 conversion.json 里写 x.ttf）→ 谁目录里真有这个文件就归谁
+     */
+    private fontPathInRoot(
+        fontFile: string,
+        rootId: string,
+        groupIds: string[],
+        rootDir: string,
+    ): string | undefined {
+        const normalized = fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
+
+        // 带别的分组前缀：明确不属于本根
+        const otherPrefix = groupIds.find(id => id !== rootId && normalized.startsWith(`${id}/`));
+        if (otherPrefix) {
+            return undefined;
+        }
+
+        // 带本根前缀：剥掉
+        if (rootId !== ASSET_ROOT_ID_ROOT && normalized.startsWith(`${rootId}/`)) {
+            return normalized.substring(rootId.length + 1);
+        }
+
+        // 不带前缀：以文件真实位置为准。根资源接收全部，
+        // 分组只在文件确实位于自己目录下时才接收。
+        if (rootId === ASSET_ROOT_ID_ROOT) {
+            return normalized;
+        }
+        return fs.existsSync(path.join(rootDir, normalized)) ? normalized : undefined;
     }
 
     /**
@@ -514,7 +775,13 @@ Return('objs')
             : `${group.fontFile}|${group.fontSize}|bitmap|${group.renderMode}`;
     }
 
-    /** 字体组的产物路径，与 convertFontsWithLabelConfig 的命名规则一致 */
+    /**
+     * 字体组的产物路径，与 convertFontsWithLabelConfig 的命名规则一致。
+     *
+     * 传入的 group.fontFile 必须已是「相对当前资源根」的路径（见 groupInRoot）。
+     * 这里刻意不调用 stripGroupPrefix：它依赖 currentRoot，而本函数在
+     * findStaleFontAsset 里被调用时 currentRoot 是空的，两边会算出不同路径。
+     */
     private fontGroupOutputPath(
         group: { fontFile: string; fontSize: number; fontType: 'bitmap' | 'vector'; renderMode: number },
         outputDir: string,
@@ -644,7 +911,18 @@ Return('objs')
         return generateRomfsC(files, romfsRootName(outputFileName));
     }
 
-    private async packRomfs(): Promise<void> {
+    /**
+     * 打包 romfs。
+     *
+     * 两种产物：
+     * - 合并版 app_romfs.c / .bin：build/assets 整棵（含各分组目录层级），
+     *   模拟器与合并固件用，挂载在 "/"。
+     * - 分组独立版 groups/<name>/app_<name>_romfs.bin：只含该分组内容，
+     *   且**剥掉分组目录层级**（已确认不带前缀），挂载在 "/<name>"。
+     *
+     * 两者对同一资源的运行时路径一致，例如 assets/ota/bg.png 都是 /ota/bg.bin。
+     */
+    private async packRomfs(roots?: AssetRoot[]): Promise<void> {
         this.logger.log(vscode.l10n.t('Packing romfs...'));
 
         const assetsDir = path.join(this.buildDir, 'assets');
@@ -695,6 +973,143 @@ Return('objs')
             this.logger.log(vscode.l10n.t('romfs binary file generated (base address: {0})', baseAddr));
         } catch (error) {
             throw new Error(vscode.l10n.t('Failed to generate romfs binary file: {0}', String(error)));
+        }
+
+        // 分组独立 bin（真机 OTA 用）。浏览器版没有 Python，跳过。
+        const groups = (roots || []).filter(r => r.isGroup);
+        for (const group of groups) {
+            await this.packGroupRomfs(group, pythonCmd, mkromfsScript);
+        }
+
+        if (groups.length > 0) {
+            this.checkFlashOverlap(groups);
+        }
+    }
+
+    /**
+     * 检查各 romfs 的 flash 地址区间是否重叠。
+     *
+     * 只提示不阻断：地址是否可用还取决于实际分区表，插件不掌握该信息，
+     * 因此只把计算结果和重叠风险报给用户，由用户判断。
+     *
+     * 注意：合并版 app_romfs 与各分组 bin 是**包含**关系，不是并列关系——
+     * 合并版本来就含全部分组内容，只是为模拟器/合并固件额外打的一份。
+     * 所以「合并版区间盖住了分组地址」是正常布局，不算冲突。
+     * 真正要避免的只有**分组之间**互相重叠。
+     */
+    private checkFlashOverlap(groups: AssetRoot[]): void {
+        type Region = { name: string; start: number; end: number; size: number };
+        const regions: Region[] = [];
+
+        const addRegion = (name: string, addr: string | undefined, binPath: string) => {
+            if (!addr) { return; }
+            const start = Number(addr);
+            if (!Number.isFinite(start) || start <= 0) {
+                this.logger.log(vscode.l10n.t('Invalid flash base address for {0}: {1}', name, String(addr)), false, true);
+                return;
+            }
+            if (!fs.existsSync(binPath)) { return; }
+            const size = fs.statSync(binPath).size;
+            regions.push({ name, start, end: start + size - 1, size });
+        };
+
+        const rootAddr = this.projectConfig.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR;
+        // 合并版只单独报告，不参与重叠判定（见上面的包含关系说明）
+        const mergedBin = path.join(this.buildDir, RomfsConfig.getBinFileName(rootAddr));
+        if (fs.existsSync(mergedBin)) {
+            const mergedSize = fs.statSync(mergedBin).size;
+            this.logger.log(vscode.l10n.t(
+                'Flash layout: {0} @ 0x{1} - 0x{2} ({3} bytes)',
+                'app_romfs (merged)',
+                Number(rootAddr).toString(16).toUpperCase(),
+                (Number(rootAddr) + mergedSize - 1).toString(16).toUpperCase(),
+                mergedSize
+            ));
+        }
+
+        for (const group of groups) {
+            const addr = group.baseAddr || rootAddr;
+            addRegion(
+                group.id,
+                addr,
+                path.join(this.buildDir, 'groups', group.id, `app_${group.id}_romfs_${addr}.bin`)
+            );
+        }
+
+        // 按起始地址排序后检查相邻区间是否交叠
+        regions.sort((a, b) => a.start - b.start);
+        const overlaps: string[] = [];
+        for (let i = 0; i < regions.length; i++) {
+            const cur = regions[i];
+            this.logger.log(vscode.l10n.t(
+                'Flash layout: {0} @ 0x{1} - 0x{2} ({3} bytes)',
+                cur.name,
+                cur.start.toString(16).toUpperCase(),
+                cur.end.toString(16).toUpperCase(),
+                cur.size
+            ));
+            for (let j = i + 1; j < regions.length; j++) {
+                const next = regions[j];
+                if (next.start <= cur.end) {
+                    overlaps.push(`${cur.name} / ${next.name}`);
+                }
+            }
+        }
+
+        if (overlaps.length > 0) {
+            this.logger.log(vscode.l10n.t(
+                'Flash address overlap detected: {0}. Adjust romfsBaseAddr or the group base addresses before flashing.',
+                overlaps.join(', ')
+            ), false, true);
+        }
+    }
+
+    /**
+     * 打一个分组的独立 romfs。
+     *
+     * 输入是 build/assets/<name>（已转换产物），但打包时内容位于 romfs 根，
+     * 不带 <name> 层级——运行时由 mount_romfs("/<name>", baseAddr, 0) 拼回完整路径。
+     */
+    private async packGroupRomfs(
+        group: AssetRoot,
+        pythonCmd: string,
+        mkromfsScript: string
+    ): Promise<void> {
+        const sourceDir = path.join(this.buildDir, 'assets', group.id);
+        if (!fs.existsSync(sourceDir)) {
+            this.logger.log(vscode.l10n.t('Group "{0}" has no converted assets, skipped', group.id), false, true);
+            return;
+        }
+
+        const baseAddr = group.baseAddr || this.projectConfig.romfsBaseAddr || DEFAULT_ROMFS_BASE_ADDR;
+        const outDir = path.join(this.buildDir, 'groups', group.id);
+        if (!fs.existsSync(outDir)) {
+            fs.mkdirSync(outDir, { recursive: true });
+        }
+
+        const cOutput = path.join(outDir, `app_${group.id}_romfs.c`);
+        const binOutput = path.join(outDir, `app_${group.id}_romfs_${baseAddr}.bin`);
+        const { execSync } = require('child_process');
+
+        try {
+            execSync(`${pythonCmd} "${mkromfsScript}" -i "${sourceDir}" -o "${cOutput}" -a ${baseAddr}`, {
+                stdio: 'pipe',
+                windowsHide: true
+            });
+            execSync(`${pythonCmd} "${mkromfsScript}" -i "${sourceDir}" -o "${binOutput}" -a ${baseAddr} -b`, {
+                stdio: 'pipe',
+                windowsHide: true
+            });
+            const size = fs.statSync(binOutput).size;
+            this.logger.log(vscode.l10n.t(
+                'Group "{0}" romfs generated: {1} ({2} bytes, base address: {3})',
+                group.id,
+                path.basename(binOutput),
+                size,
+                baseAddr
+            ));
+        } catch (error) {
+            throw new Error(vscode.l10n.t('Failed to generate romfs for group "{0}": {1}', group.id, String(error)));
         }
     }
 
@@ -910,7 +1325,7 @@ Return('objs')
         fonts: Set<string>;
         mapFonts: Set<string>;
     }> {
-        const conversionConfig = ConversionConfigService.getInstance().loadConfig(this.projectRoot);
+        const conversionConfig = this.assetRootConfig();
         if (conversionConfig.smartPacking === true) {
             this.logger.log(vscode.l10n.t('Scanning asset references in HML files...'));
             return this.scanUsedAssets();
@@ -962,7 +1377,7 @@ Return('objs')
         this.addAlwaysConvertAssets(images, videos, models, fonts);
 
         // 扫描 3D 模型中引用的纹理图片
-        const assetsDir = path.join(this.projectRoot, 'assets');
+        const assetsDir = this.assetRootDir();
         if (fs.existsSync(assetsDir)) {
             this.scanModelTextures(assetsDir, models, images);
         }
@@ -992,10 +1407,9 @@ Return('objs')
         // 字体不在全量扫描中收集，只转换 HML 中 Label 引用的字体
 
         // 预加载 conversion.json 用于 GIF 分类决策
-        const conversionConfigService = ConversionConfigService.getInstance();
-        const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
+        const conversionConfig = this.assetRootConfig();
 
-        const assetsDir = path.join(this.projectRoot, 'assets');
+        const assetsDir = this.assetRootDir();
         if (fs.existsSync(assetsDir)) {
             const scanDir = (dir: string) => {
                 const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -1073,14 +1487,13 @@ Return('objs')
         fonts: Set<string>
     ): void {
         // 从 conversion.json 读取 alwaysConvert 配置
-        const configService = ConversionConfigService.getInstance();
-        const conversionConfig = configService.loadConfig(this.projectRoot);
+        const conversionConfig = this.assetRootConfig();
         const alwaysConvert = conversionConfig.alwaysConvert;
         if (!alwaysConvert) {
             return;
         }
 
-        const assetsDir = path.join(this.projectRoot, 'assets');
+        const assetsDir = this.assetRootDir();
         if (!fs.existsSync(assetsDir)) {
             return;
         }
@@ -1107,14 +1520,19 @@ Return('objs')
         const fontExts  = new Set(['.ttf', '.otf', '.woff', '.woff2']);
 
         const matchFiles = (pattern: string, extFilter: Set<string>, target: Set<string>) => {
-            if (allFiles.includes(pattern)) {
+            // alwaysConvert 存的是相对于**它自己那份 conversion.json 所在资源根**的路径：
+            // 根资源里写 "ota/bg.png"，分组里写 "bg.png"。两者都要能对上，
+            // 所以先剥前缀，再用「文件是否真的在当前根里」判定归属——
+            // 比靠前缀猜更可靠，也自然排除了其它分组的条目。
+            const normalized = this.stripGroupPrefix(pattern);
+            if (allFiles.includes(normalized)) {
                 // 精确路径：仍按扩展名过滤，避免误分类
-                if (extFilter.has(path.extname(pattern).toLowerCase())) {
-                    target.add(pattern);
+                if (extFilter.has(path.extname(normalized).toLowerCase())) {
+                    target.add(normalized);
                 }
             } else {
                 for (const file of allFiles) {
-                    if (minimatch(file, pattern) && extFilter.has(path.extname(file).toLowerCase())) {
+                    if (minimatch(file, normalized) && extFilter.has(path.extname(file).toLowerCase())) {
                         target.add(file);
                     }
                 }
@@ -1171,14 +1589,15 @@ Return('objs')
             if (assetPath.startsWith('assets/')) {
                 assetPath = assetPath.substring(7);
             }
+            // 分组转换时再剥掉分组目录前缀（assets/ota/x.png -> x.png）
+            assetPath = this.stripGroupPrefix(assetPath);
 
             // 根据扩展名分类
             const ext = path.extname(assetPath).toLowerCase();
             
             if (ext === '.gif') {
                 // GIF: 根据 conversion.json 的 gifAsVideo 标志决定分类
-                const conversionConfigService = ConversionConfigService.getInstance();
-                const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
+                const conversionConfig = this.assetRootConfig();
                 const gifSettings = conversionConfig.items[assetPath];
                 if (gifSettings?.gifAsVideo) {
                     videos.add(assetPath);
@@ -1308,12 +1727,8 @@ Return('objs')
             return [];
         }
 
-        // 获取项目根目录
-        const projectRoot = path.dirname(assetsDir);
-        
-        // 加载 conversion.json 配置
-        const configService = ConversionConfigService.getInstance();
-        const config = configService.loadConfig(projectRoot);
+        // 加载当前资源根自己的 conversion.json（分组用自己的那份）
+        const config = this.assetRootConfig();
 
         const imageConverter = new ImageConverterService();
         const items: Array<{ input: string; output: string; options?: ImageConvertOptions }> = [];
@@ -1396,7 +1811,12 @@ Return('objs')
      */
     async planVideos(): Promise<VideoPlan[]> {
         const usedAssets = await this.scanAssets();
-        return this.planUsedVideos(path.join(this.projectRoot, 'assets'), path.join(this.buildDir, 'assets'), usedAssets.videos);
+        const root = this.currentRoot;
+        const assetsDir = root?.dir || path.join(this.projectRoot, 'assets');
+        const outputDir = root?.isGroup
+            ? path.join(this.buildDir, 'assets', root.id)
+            : path.join(this.buildDir, 'assets');
+        return this.planUsedVideos(assetsDir, outputDir, usedAssets.videos);
     }
 
     /**
@@ -1463,8 +1883,7 @@ Return('objs')
         const videoComponentConfigs = await this.getVideoComponentConfigs();
 
         // 加载 conversion.json 配置
-        const conversionConfigService = ConversionConfigService.getInstance();
-        const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
+        const conversionConfig = this.assetRootConfig();
 
         const plans: VideoPlan[] = [];
 
@@ -1777,9 +2196,8 @@ Return('objs')
         const videoComponentConfigs = await this.getVideoComponentConfigs();
         
         // 加载 conversion.json 配置
-        const conversionConfigService = ConversionConfigService.getInstance();
-        const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
-        
+        const conversionConfig = this.assetRootConfig();
+
         // 支持的视频格式
         const videoExts = [
             '.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv',
@@ -2335,11 +2753,13 @@ Return('objs')
         }
 
         // 加载 conversion.json 以获取每个字体的 fontCopyOnly 设置
-        const conversionConfigService = ConversionConfigService.getInstance();
-        const conversionConfig = conversionConfigService.loadConfig(this.projectRoot);
+        const conversionConfig = this.assetRootConfig();
 
-        // 按字体文件+配置分组，合并相同配置的字符集
-        const fontGroups = this.groupLabelConfigsByFont(labelConfigs);
+        // 按字体文件+配置分组，合并相同配置的字符集。
+        // 有分组时只保留属于当前资源根的字体：HML 可能同时引用多个分组的字体，
+        // 转换 A 组时 B 组的字体不在这个目录下，交给 B 组自己的转换轮次处理。
+        const fontGroups = this.groupLabelConfigsByFont(labelConfigs)
+            .filter(group => this.belongsToCurrentRoot(group.fontFile));
         const progressFontPaths = new Set(labelConfigs
             .filter(config => config.isProgressLabel)
             .map(config => `${config.fontFile}|${config.fontType}`));
@@ -2355,9 +2775,17 @@ Return('objs')
         const manifestGroups: Record<string, FontManifestGroup> = {};
 
         for (const group of fontGroups) {
-            const fontRelativePath = group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '');
+            // fontFile 是相对 assets/ 的 VFS 路径（如 /ota/MiSans.ttf）。分组转换时
+            // assetsDir 已经是 assets/ota，必须剥掉分组前缀，否则拼成 assets/ota/ota/...
+            const fontRelativePath = this.stripGroupPrefix(
+                group.fontFile.replace(/\\/g, '/').replace(/^\/+/, '')
+            );
             const fontPath = path.join(assetsDir, fontRelativePath);
             const isProgressFont = progressFontPaths.has(`${group.fontFile}|${group.fontType}`);
+            // 指纹与产物路径统一按「相对当前资源根」的路径计算。
+            // 必须与 findStaleFontAsset 用同一套路径，否则两边算出的指纹不同，
+            // 转换刚成功也会被判为"已过期"（详见 findStaleFontAsset 的注释）。
+            const groupInRoot = { ...group, fontFile: fontRelativePath } as typeof group;
             
             // 检查字体文件是否存在
             if (!fs.existsSync(fontPath)) {
@@ -2409,7 +2837,7 @@ Return('objs')
                     covered = manifestCovers(
                         manifest,
                         manifestKey,
-                        this.fontGroupFingerprint(group, assetsDir),
+                        this.fontGroupFingerprint(groupInRoot, assetsDir),
                         this.requestedCharacters(mergedCharacterSets),
                         group.fontType === 'vector' ? group.fontSize : 0,
                     );
@@ -2418,7 +2846,7 @@ Return('objs')
                 }
             }
             if (covered) {
-                const existingPath = this.fontGroupOutputPath(group, outputDir);
+                const existingPath = this.fontGroupOutputPath(groupInRoot, outputDir);
                 if (fs.existsSync(existingPath)) {
                     manifestGroups[manifestKey] = existingGroup;
                     results.push({ success: true, inputPath: fontPath, outputPath: fontOutputDir });
@@ -2446,6 +2874,13 @@ Return('objs')
                 ? `${fontFileKey}|${JSON.stringify(options)}`
                 : undefined;
             if (cacheKey && this.conversionCache!.isFresh(outputPath, cacheKey)) {
+                // 缓存命中也算"本次已就绪"，必须写入清单，否则 findStaleFontAsset
+                // 在清单里找不到该组，会一直判过期。
+                manifestGroups[manifestKey] = {
+                    fingerprint: this.fontGroupFingerprint(groupInRoot, assetsDir),
+                    chars: this.codepointsToString(this.requestedCharacters(mergedCharacterSets)),
+                    precision: group.fontType === 'vector' ? group.fontSize : 0,
+                };
                 results.push({ success: true, inputPath: fontPath, outputPath: fontOutputDir });
                 continue;
             }
@@ -2466,9 +2901,10 @@ Return('objs')
                 }
                 
                 if (result.success) {
-                    // 记下本次实际覆盖的范围，下次同样需求即可跳过转换
+                    // 记下本次实际覆盖的范围，下次同样需求即可跳过转换。
+                    // 指纹必须用「相对当前资源根」的路径计算，与 findStaleFontAsset 一致。
                     manifestGroups[this.fontGroupManifestKey(group)] = {
-                        fingerprint: this.fontGroupFingerprint(group, assetsDir),
+                        fingerprint: this.fontGroupFingerprint(groupInRoot, assetsDir),
                         chars: this.codepointsToString(this.requestedCharacters(mergedCharacterSets)),
                         precision: group.fontType === 'vector' ? group.fontSize : 0,
                     };
@@ -2575,8 +3011,17 @@ Return('objs')
             }
         }
 
-        // 只记录本次成功转换的组；转换失败的组不进清单，下次仍会重转
-        saveFontManifest(this.buildDir, { version: 1, groups: manifestGroups });
+        // 只记录本次成功转换的组；转换失败的组不进清单，下次仍会重转。
+        //
+        // 清单是全项目共用的一份：convertAssets 按资源根逐个调用到这里，
+        // 直接整体覆盖会把前一个根刚写好的条目冲掉（转完 general 再转 ota，
+        // general 的指纹就没了，检查阶段立刻判它过期）。所以这里读回磁盘上的
+        // 现有内容再合并，只覆盖本根这次真正转换过的 key。
+        const onDisk = loadFontManifest(this.buildDir);
+        saveFontManifest(this.buildDir, {
+            version: 1,
+            groups: { ...onDisk.groups, ...manifestGroups },
+        });
 
         return results;
     }

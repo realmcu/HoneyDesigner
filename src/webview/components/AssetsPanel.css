@@ -400,9 +400,31 @@
 }
 
 .folder-preview {
+  position: relative; /* 承载 .resource-group-badge 的绝对定位 */
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 资源分组：可独立打包成 bin 的文件夹，需要与普通文件夹明显区分 */
+.folder-item.resource-group {
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  background-color: rgba(0, 127, 212, 0.08);
+}
+
+.resource-group-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 1px 5px;
+  font-size: 9px;
+  line-height: 1.4;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--vscode-badge-foreground, #ffffff);
+  background-color: var(--vscode-badge-background, #007acc);
+  border-radius: 3px;
+  pointer-events: none;
 }
 
 .asset-grid-item .asset-preview {

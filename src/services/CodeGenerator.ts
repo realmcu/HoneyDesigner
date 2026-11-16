@@ -141,7 +141,13 @@ export class CodeGenerator {
             try {
                 // 从 HML 文件中查找 entry view 的 ID
                 const entryViewId = await this.findEntryViewId(hmlFiles);
-                const entryFile = EntryFileGenerator.generate(srcDir, config.name || 'HoneyGUI', entryViewId, config.romfsBaseAddr);
+                const entryFile = EntryFileGenerator.generate(
+                    srcDir,
+                    config.name || 'HoneyGUI',
+                    entryViewId,
+                    config.romfsBaseAddr,
+                    config.resourceGroups
+                );
                 logger.info(vscode.l10n.t('Entry file: {0}', path.basename(entryFile)));
             } catch (error) {
                 logger.error(vscode.l10n.t('Failed to generate entry file: {0}', String(error)));
