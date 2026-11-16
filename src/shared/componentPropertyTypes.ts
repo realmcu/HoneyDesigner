@@ -93,6 +93,10 @@ const COMPONENT_PROPERTY_TYPES: Record<string, Record<string, PropertyType>> = {
     entry: 'boolean',
     borderRadius: 'number',
     padding: 'number',
+    entranceDuration: 'number',
+    entranceStagger: 'number',
+    entranceBounce: 'number',
+    entranceFade: 'boolean',
   },
   hg_window: {
     showBackground: 'boolean',

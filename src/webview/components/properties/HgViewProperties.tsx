@@ -6,6 +6,8 @@ import { EventsPanel } from './EventsPanel';
 import { CollapsibleGroup } from './CollapsibleGroup';
 import { t } from '../../i18n';
 import { calculateViewComplexity } from '../../utils/viewComplexity';
+import { playEntrancePreview, stopEntrancePreview } from '../../utils/entrancePreview';
+import { ENTRANCE_DEFAULTS, readEntranceOptions } from '../../../shared/entranceAnimation';
 
 export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUpdate, components }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
@@ -57,6 +59,12 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
     () => calculateViewComplexity(component, components ?? []),
     [component, components]
   );
+
+  const entranceOptions = readEntranceOptions(component.data);
+  const entranceEnabled = entranceOptions !== null;
+
+  // 切换页面或关闭入场动画时停掉画布上残留的预览
+  useEffect(() => stopEntrancePreview, [component.id]);
 
   const handleStyleChange = (property: string, value: any) => {
     onUpdate({
@@ -115,6 +123,80 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
                   onChange={(value) => handleStyleChange('backgroundColor', value)}
                 />
               </div>
+            </CollapsibleGroup>
+
+            {/* 页面入场动画 */}
+            <CollapsibleGroup title={t('Entrance Animation')} cacheKey="view-entrance" defaultCollapsed={!entranceEnabled}>
+              <div className="property-item">
+                <label>{t('Entrance Direction')}</label>
+                <select
+                  value={entranceEnabled ? component.data?.entranceAnim : 'none'}
+                  onChange={(e) => handleDataChange('entranceAnim', e.target.value === 'none' ? undefined : e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{ width: '100%' }}
+                >
+                  <option value="none">{t('None')}</option>
+                  <option value="fromBottom">{t('Bounce in from bottom')}</option>
+                  <option value="fromTop">{t('Bounce in from top')}</option>
+                  <option value="fromLeft">{t('Bounce in from left')}</option>
+                  <option value="fromRight">{t('Bounce in from right')}</option>
+                </select>
+              </div>
+              {entranceEnabled && (
+                <>
+                  <div className="property-item" title={t('Entrance Duration Tooltip')}>
+                    <label>{t('Duration (ms)')}</label>
+                    <PropertyEditor
+                      type="number"
+                      value={component.data?.entranceDuration ?? ENTRANCE_DEFAULTS.duration}
+                      onChange={(value) => handleDataChange('entranceDuration', value)}
+                      min={200}
+                      max={3000}
+                    />
+                  </div>
+                  <div className="property-item" title={t('Entrance Stagger Tooltip')}>
+                    <label>{t('Stagger (ms)')}</label>
+                    <PropertyEditor
+                      type="number"
+                      value={component.data?.entranceStagger ?? ENTRANCE_DEFAULTS.stagger}
+                      onChange={(value) => handleDataChange('entranceStagger', value)}
+                      min={0}
+                      max={500}
+                    />
+                  </div>
+                  <div className="property-item" title={t('Entrance Bounce Tooltip')}>
+                    <label>{t('Bounce (0-100)')}</label>
+                    <PropertyEditor
+                      type="number"
+                      value={component.data?.entranceBounce ?? ENTRANCE_DEFAULTS.bounce}
+                      onChange={(value) => handleDataChange('entranceBounce', value)}
+                      min={0}
+                      max={100}
+                    />
+                  </div>
+                  <div className="property-item">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label>{t('Fade In')}</label>
+                      <PropertyEditor
+                        type="boolean"
+                        value={entranceOptions?.fade ?? ENTRANCE_DEFAULTS.fade}
+                        onChange={(value) => handleDataChange('entranceFade', value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="property-item">
+                    <button
+                      onClick={() => playEntrancePreview(component, components ?? [])}
+                      style={{ width: '100%' }}
+                    >
+                      {t('Preview Entrance')}
+                    </button>
+                    <div style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
+                      {t('Entrance Animation Hint')}
+                    </div>
+                  </div>
+                </>
+              )}
             </CollapsibleGroup>
 
             {/* Advanced Properties */}

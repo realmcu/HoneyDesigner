@@ -21,6 +21,7 @@ import { ListGenerator } from './components/ListGenerator';
 import { LabelGenerator } from './components/LabelGenerator';
 import { ArcGenerator } from './components/ArcGenerator';
 import { ProgressGenerator } from './components/ProgressGenerator';
+import { computeHoneyGuiViewEntrance } from './components/ViewEntranceGenerator';
 import { isIndeterminateProgressMode, progressConfig } from '../../shared/progressConfig';
 import { CallbackFileGenerator, UserFileGenerator, ProtectedAreaMerger } from './files';
 import { timerReloadArg } from './PresetTimerModel';
@@ -177,6 +178,16 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
 
     if (hasWindow || componentTypes.includes('hg_progress')) {
       code += `#include "gui_win.h"\n`;
+    }
+    // Page entrance animation times itself with gui_ms_get()
+    const hasEntrance = this.components.some(c => c.type === 'hg_view' && computeHoneyGuiViewEntrance(c, this.componentMap) !== null);
+    const hasIndeterminateProgress = this.components.some(c => c.type === 'hg_progress' && isIndeterminateProgressMode(progressConfig(c.data, c.style).mode));
+    if (hasEntrance && !hasIndeterminateProgress) {
+      code += `#include "gui_api_os.h"\n`;
+    }
+    if (hasEntrance) {
+      // Entrance tilts and scales each card through its matrix and requests redraws
+      code += `#include "gui_fb.h"\n#include "gui_matrix.h"\n`;
     }
     if (componentTypes.includes('hg_progress')) {
       code += `#include "gui_rect.h"\n#include <stdint.h>\n`;

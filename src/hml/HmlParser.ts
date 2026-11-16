@@ -832,6 +832,8 @@ export class HmlParser {
       'fontType', 'renderMode', 'fontSize', 'characterSets',
       // hg_view 特有属性
       'residentMemory', 'animateStep',
+      // hg_view 页面入场动画
+      'entranceAnim', 'entranceDuration', 'entranceStagger', 'entranceBounce', 'entranceFade',
       // 双态按钮属性
       'toggleMode', 'imageOn', 'imageOff', 'initialState', 'onCallback', 'offCallback',
       // hg_glass 特有属性

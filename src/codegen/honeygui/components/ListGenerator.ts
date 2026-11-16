@@ -8,6 +8,7 @@ import { ComponentGeneratorFactory } from './index';
 import { EventGeneratorFactory } from '../events';
 import { timerReloadArg } from '../PresetTimerModel';
 import { cLiteral } from '../../cLiteral';
+import { honeyGuiNoteEntranceHook } from './ViewEntranceGenerator';
 
 export class ListGenerator implements ComponentCodeGenerator {
   generateCreation(component: Component, indent: number, context: GeneratorContext): string {
@@ -221,9 +222,16 @@ export class ListGenerator implements ComponentCodeGenerator {
         return code;
       }
 
+      // 页面入场动画：note 创建完交给页面的入场回调（定义在页面代码里，这里先声明）
+      const entranceHook = honeyGuiNoteEntranceHook(component, context.componentMap);
+
       // Generate callback function declaration
       code += `// note_design callback function declaration\n`;
-      code += `static void ${callbackName}(gui_obj_t *obj, void *param);\n\n`;
+      code += `static void ${callbackName}(gui_obj_t *obj, void *param);\n`;
+      if (entranceHook) {
+        code += `static void ${entranceHook}(gui_obj_t *obj);\n`;
+      }
+      code += `\n`;
 
       // Generate callback function implementation
       code += `// note_design callback function implementation\n`;
@@ -308,6 +316,9 @@ export class ListGenerator implements ComponentCodeGenerator {
       code += `    default:\n`;
       code += `        break;\n`;
       code += `    }\n`;
+      if (entranceHook) {
+        code += `    ${entranceHook}(obj);\n`;
+      }
 
       code += `}\n\n`;
 

@@ -6,6 +6,7 @@ import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor } from '../utils';
 import { timerReloadArg } from '../PresetTimerModel';
+import { generateHoneyGuiViewEntrance } from './ViewEntranceGenerator';
 
 // Event type to GUI_EVENT mapping (for view switch events)
 // Note: Key events (onKeyShortPress, onKeyLongPress) should use gui_obj_add_event_cb, not gui_view_switch_on_event
@@ -45,7 +46,13 @@ export class ViewGenerator implements ComponentCodeGenerator {
     const opacity = opacityValue !== undefined ? Number(opacityValue) : 255;
 
     let code = '';
-    
+
+    // Page entrance animation: static tables + timer callback go before switch_in
+    const entrance = generateHoneyGuiViewEntrance(component, context.componentMap, indentStr);
+    if (entrance) {
+      code += entrance.helpers;
+    }
+
     // Generate switch_out callback
     const switchOutFunc = component.data?.switchOutFunctionName as string | undefined;
     code += `${indentStr}static void ${name}_switch_out(gui_view_t *view)\n`;
@@ -148,6 +155,11 @@ export class ViewGenerator implements ComponentCodeGenerator {
 
     if (switchInFunc) {
       code += `\n${indentStr}    ${switchInFunc}(view);\n`;
+    }
+
+    // After the user callback, so visibility changes made there are respected
+    if (entrance) {
+      code += entrance.setup;
     }
 
     code += `${indentStr}}\n`;
