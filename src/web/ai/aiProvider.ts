@@ -44,8 +44,10 @@ export interface AiProfiles {
     profiles: AiSettings[];
 }
 
+export type ChatImageType = 'image/png' | 'image/jpeg' | 'image/webp';
+
 export interface ChatImage {
-    mediaType: 'image/png';
+    mediaType: ChatImageType;
     base64: string;
 }
 

@@ -7,7 +7,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import * as path from 'path';
-import { Sparkles, Settings, Send, Square, RotateCcw, Plus, X, Trash2 } from 'lucide-react';
+import { Sparkles, Settings, Send, Square, RotateCcw, Plus, X, Trash2, ImagePlus } from 'lucide-react';
 import { useDesignerStore } from '../../webview/store';
 import { t } from '../../webview/i18n';
 import type { DesignerPanel } from '../../designer/DesignerPanel';
@@ -42,6 +42,7 @@ import {
     summarizeReply,
     validateGeneratedHml,
 } from './aiContext';
+import { MAX_ATTACHED_IMAGES, toChatImage, clipboardImages } from './aiImages';
 
 /** 校验失败后让模型自行修正的最多轮数 */
 const MAX_REPAIR_ROUNDS = 2;
@@ -60,6 +61,8 @@ interface ChatEntry {
     note?: string;
     errors?: string[];
     edit?: AppliedEdit;
+    /** 本轮的图片附件，按 data URL 列表显示缩略图 */
+    images?: string[];
 }
 
 interface AiPanelProps {
@@ -307,6 +310,10 @@ export function AiPanel({ designer, projectRoot, onClose }: AiPanelProps) {
     const [entries, setEntries] = useState<ChatEntry[]>([]);
     const [input, setInput] = useState('');
     const [attachScreenshot, setAttachScreenshot] = useState(false);
+    /** 粘贴或选择的图片附件 */
+    const [attached, setAttached] = useState<ChatImage[]>([]);
+    const [attachError, setAttachError] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [busy, setBusy] = useState(false);
     const abortRef = useRef<AbortController | undefined>(undefined);
     /** 发给模型的历史：只有需求与回复摘要，不含旧版 HML */
@@ -358,6 +365,44 @@ export function AiPanel({ designer, projectRoot, onClose }: AiPanelProps) {
         }
     };
 
+    /** 追加图片附件：超出张数或格式不支持时只保留能用的，并给出提示 */
+    const addImages = async (files: File[]) => {
+        setAttachError('');
+        const room = MAX_ATTACHED_IMAGES - attached.length - (attachScreenshot ? 1 : 0);
+        if (room <= 0) {
+            setAttachError(t('At most {0} images per request', MAX_ATTACHED_IMAGES));
+            return;
+        }
+        const accepted: ChatImage[] = [];
+        let rejected = '';
+        for (const file of files.slice(0, room)) {
+            const { image, error } = await toChatImage(file);
+            if (image) {
+                accepted.push(image);
+            } else if (error) {
+                rejected = t('Unsupported image type: {0}. Use PNG, JPEG or WEBP.', error);
+            }
+        }
+        if (accepted.length > 0) {
+            setAttached(current => [...current, ...accepted]);
+        }
+        if (files.length > room) {
+            setAttachError(t('At most {0} images per request', MAX_ATTACHED_IMAGES));
+        } else if (rejected) {
+            setAttachError(rejected);
+        }
+    };
+
+    const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const files = clipboardImages(event);
+        if (files.length === 0 || busy) {
+            return;
+        }
+        // 有图片时不再把图片的「文件名」之类的文本粘进输入框
+        event.preventDefault();
+        void addImages(files);
+    };
+
     const newConversation = () => {
         abortRef.current?.abort();
         historyRef.current = [];
@@ -372,11 +417,19 @@ export function AiPanel({ designer, projectRoot, onClose }: AiPanelProps) {
         }
         setInput('');
         setBusy(true);
+        setAttachError('');
         const controller = new AbortController();
         abortRef.current = controller;
 
-        const userEntry: ChatEntry = { id: nextEntryId++, role: 'user', text: request };
+        const userEntry: ChatEntry = {
+            id: nextEntryId++,
+            role: 'user',
+            text: request,
+            images: attached.map(image => `data:${image.mediaType};base64,${image.base64}`),
+        };
         const reply: ChatEntry = { id: nextEntryId++, role: 'assistant', text: '', state: 'streaming' };
+        // 图片随请求发出后从输入区清掉，避免下一轮重复带上
+        setAttached([]);
         setEntries(list => [...list, userEntry, reply]);
 
         try {
@@ -386,7 +439,8 @@ export function AiPanel({ designer, projectRoot, onClose }: AiPanelProps) {
             const startRevision = useDesignerStore.getState().docRevision;
             const state = useDesignerStore.getState();
             const engine: TargetEngine = state.projectConfig?.targetEngine === 'lvgl' ? 'lvgl' : 'honeygui';
-            const image = attachScreenshot ? await captureCanvas() : undefined;
+            const screenshot = attachScreenshot ? await captureCanvas() : undefined;
+            const images = [...(screenshot ? [screenshot] : []), ...attached];
 
             const system = buildSystemPrompt(engine);
             const contextMessage = buildContextMessage({
@@ -397,7 +451,7 @@ export function AiPanel({ designer, projectRoot, onClose }: AiPanelProps) {
                 engine,
                 selectedIds: state.selectedComponents,
             }, request);
-            const turns: ChatTurn[] = [...historyRef.current, { role: 'user', text: contextMessage, images: image ? [image] : undefined }];
+            const turns: ChatTurn[] = [...historyRef.current, { role: 'user', text: contextMessage, images: images.length > 0 ? images : undefined }];
 
             let text = '';
             let hml: string | undefined;
@@ -519,6 +573,13 @@ export function AiPanel({ designer, projectRoot, onClose }: AiPanelProps) {
                         )}
                         {entries.map(entry => (
                             <div key={entry.id} className={`web-ai-message web-ai-${entry.role}`}>
+                                {entry.images && entry.images.length > 0 && (
+                                    <div className="web-ai-thumbs">
+                                        {entry.images.map((src, index) => (
+                                            <img key={index} className="web-ai-thumb" src={src} alt={t('Attached image')} />
+                                        ))}
+                                    </div>
+                                )}
                                 <div className="web-ai-text">
                                     {entry.role === 'assistant' ? summarizeReply(entry.text, codeLabel) : entry.text}
                                     {entry.state === 'streaming' && !entry.text && <span className="web-muted">{t('Thinking...')}</span>}
@@ -539,15 +600,53 @@ export function AiPanel({ designer, projectRoot, onClose }: AiPanelProps) {
                         ))}
                     </div>
                     <div className="web-ai-composer">
+                        {(attached.length > 0 || attachError) && (
+                            <div className="web-ai-attachments">
+                                {attached.map((image, index) => (
+                                    <div key={index} className="web-ai-attachment">
+                                        <img className="web-ai-thumb" src={`data:${image.mediaType};base64,${image.base64}`} alt={t('Attached image')} />
+                                        <button
+                                            className="web-ai-attachment-remove"
+                                            title={t('Remove')}
+                                            onClick={() => setAttached(current => current.filter((_, i) => i !== index))}
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {attachError && <span className="web-ai-hint web-ai-status-error">{attachError}</span>}
+                            </div>
+                        )}
                         <textarea
                             className="web-input web-ai-input"
                             value={input}
                             onChange={event => setInput(event.target.value)}
                             onKeyDown={onKeyDown}
+                            onPaste={onPaste}
                             placeholder={t('Describe the change, e.g. "add a back button at the top left"')}
                             rows={3}
                         />
                         <div className="web-ai-composer-row">
+                            <button
+                                className="web-icon-button"
+                                title={t('Attach image')}
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={busy}
+                            >
+                                <ImagePlus size={14} />
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                multiple
+                                hidden
+                                onChange={event => {
+                                    const files = Array.from(event.target.files ?? []);
+                                    event.target.value = '';
+                                    void addImages(files);
+                                }}
+                            />
                             {profiles.profiles.length > 1 && (
                                 <select
                                     className="web-input web-ai-profile-select"
