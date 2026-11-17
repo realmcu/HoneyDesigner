@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useDesignerStore, applyHostComponents, clearDesignerHistory } from '../store';
 import { withoutHistory } from '../store/history';
+import { beginHostContentPush, endHostContentPush, withoutRevisionCommit } from '../store/revision';
 import { Component } from '../types';
 import type { NavEditResultMessage } from '../types';
 import { handleCreateComponentMessage } from '../services/messageHandler';
@@ -98,10 +99,11 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
       // 记录是否已有组件（区分首次加载和保存后刷新）
       const hadComponentsBefore = store.components.length > 0;
 
-      // 首次加载时清空旧组件并显示加载状态，保存后刷新时保持当前状态
+      // 首次加载时清空旧组件并显示加载状态，保存后刷新时保持当前状态。
+      // 这次清空是加载前的占位，不是设计内容的一次提交，不计入 docRevision
       if (!hadComponentsBefore) {
         setIsLoadingFile(true);
-        applyHostComponents(() => useDesignerStore.setState({ components: [] }));
+        withoutRevisionCommit(() => applyHostComponents(() => useDesignerStore.setState({ components: [] })));
       }
 
       // Set locale if provided（同时保存到状态）
@@ -230,7 +232,13 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
 
           // 【关键】一次性更新所有状态，只触发一次渲染
           // （宿主推送的内容，components 变化不记为未保存改动）
-          applyHostComponents(() => useDesignerStore.setState(batchUpdate));
+          // 标记为宿主推送：同样内容回推（如保存后刷新）不产生新版本
+          beginHostContentPush();
+          try {
+            applyHostComponents(() => useDesignerStore.setState(batchUpdate));
+          } finally {
+            endHostContentPush();
+          }
           const storeUpdatedAt = performance.now();
 
           // 应用宿主内容后 store 与磁盘同步，复位脏状态并通知宿主；
@@ -238,6 +246,10 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
           if (message.components) {
             clearDesignerHistory();
             useDesignerStore.getState().resetDirty();
+            // 宿主推送的内容来自磁盘（打开文件、外部修改、保存后刷新），
+            // 因此它天然就是已持久化版本；否则刚打开的文档会显示成「未保存」
+            const afterLoad = useDesignerStore.getState();
+            useDesignerStore.setState({ persistedRevision: afterLoad.docRevision });
           }
 
           // 导航图"打开所在页面"：文件加载完成后选中目标控件
@@ -340,7 +352,12 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
 
           if (message.components) {
             // 宿主推送的内容，components 变化不记为未保存改动
-            applyHostComponents(() => store.setComponents(message.components));
+            beginHostContentPush();
+            try {
+              applyHostComponents(() => store.setComponents(message.components));
+            } finally {
+              endHostContentPush();
+            }
             clearDesignerHistory();
             useDesignerStore.getState().resetDirty();
             // 仅首次加载时自适应居中
@@ -654,6 +671,15 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
       // （markSaveRequested，H4），这里不得再无条件清零——保存窗口内的
       // 新编辑已把 isDirty 置回 true 并上报宿主（seq 递增），此时清零会
       // 让本地漏报后续 dirty。宿主侧缓存由 handleSave 按 dirty 序号清除
+      //
+      // persistedRevision 只认回执带回的「实际写入版本」：保存窗口内若有新编辑，
+      // 当前 docRevision 已大于它，此时不能把当前版本标记为已保存
+      if (typeof message.docRevision === 'number') {
+        const store = useDesignerStore.getState();
+        if (message.docRevision > store.persistedRevision) {
+          useDesignerStore.setState({ persistedRevision: message.docRevision });
+        }
+      }
       break;
 
     case 'hmlSaveFailed':

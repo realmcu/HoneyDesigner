@@ -7,7 +7,7 @@
  * 两种状态共用同一套入口按钮，顺序固定：新建工程 / 打开本地文件夹 / 导入 ZIP。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Folder, Clock, ChevronRight, ChevronDown, ArrowUpRight, ArrowRight, Plus, Github, X, Image as ImageIcon } from 'lucide-react';
+import { Folder, FolderInput, Clock, ChevronRight, ChevronDown, ArrowUpRight, ArrowRight, Plus, Github, X, Image as ImageIcon } from 'lucide-react';
 import {
     StoredProject,
     ProjectSummary,
@@ -17,11 +17,13 @@ import {
     saveProjectRecord,
     discardProject,
     writeBrowserFiles,
+    writeDirectoryFiles,
     replaceBrowserProject,
     createProjectId,
     pickProjectDirectory,
     directoryContainsProject,
     readProjectSummary,
+    readBrowserFiles,
 } from '../host/projectStore';
 import { scaffoldProject, NewProjectOptions, PROJECT_NAME_PATTERN } from '../host/projectScaffold';
 import { importProjectZip } from '../host/projectZip';
@@ -41,7 +43,11 @@ interface ProjectLauncherProps {
     onOpen(project: StoredProject): void;
 }
 
-function NewProjectForm({ onCreate, onCancel }: { onCreate(options: NewProjectOptions): Promise<void>; onCancel(): void }) {
+function NewProjectForm({ onCreate, onCancel, onOpenLocalFolder }: {
+    onCreate(options: NewProjectOptions): Promise<void>;
+    onCancel(): void;
+    onOpenLocalFolder(options: NewProjectOptions): void;
+}) {
     const [name, setName] = useState('NewProject');
     const [appId, setAppId] = useState('com.example.NewProject');
     const [resolution, setResolution] = useState('480X272');
@@ -56,6 +62,21 @@ function NewProjectForm({ onCreate, onCancel }: { onCreate(options: NewProjectOp
 
     const nameValid = PROJECT_NAME_PATTERN.test(name);
     const finalResolution = resolution === 'custom' ? `${customWidth}X${customHeight}` : resolution;
+    // File System Access API 仅在 Chromium 系浏览器可用；不可用时只能建在浏览器存储里
+    const canUseLocalFolder = isDirectoryAccessSupported();
+
+    /** 当前表单值 → 新建选项；两个提交路径（浏览器存储 / 本地文件夹）共用 */
+    const collectOptions = (): NewProjectOptions => ({
+        name,
+        appId: appId.trim(),
+        resolution: finalResolution,
+        cornerRadius,
+        targetEngine,
+        minSdk,
+        pixelMode,
+        romfsBaseAddr: romfsBaseAddr.trim() || undefined,
+        locale: getWebLocale(),
+    });
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,17 +85,7 @@ function NewProjectForm({ onCreate, onCancel }: { onCreate(options: NewProjectOp
         }
         setBusy(true);
         try {
-            await onCreate({
-                name,
-                appId: appId.trim(),
-                resolution: finalResolution,
-                cornerRadius,
-                targetEngine,
-                minSdk,
-                pixelMode,
-                romfsBaseAddr: romfsBaseAddr.trim() || undefined,
-                locale: getWebLocale(),
-            });
+            await onCreate(collectOptions());
         } finally {
             setBusy(false);
         }
@@ -159,6 +170,15 @@ function NewProjectForm({ onCreate, onCancel }: { onCreate(options: NewProjectOp
                 <button type="submit" className="web-button primary" disabled={!nameValid || !appId.trim() || busy}>{t('Create')}</button>
                 <button type="button" className="web-button" onClick={onCancel}>{t('Cancel')}</button>
             </div>
+            {canUseLocalFolder && (
+                <div className="web-modal-hint">
+                    {t('To let AI tools edit this project, create it in a local folder instead — files saved in the browser cannot be reached by external tools.')}
+                    {' '}
+                    <button type="button" className="hg-link-import" onClick={() => onOpenLocalFolder(collectOptions())}>
+                        {t('Create in a local folder')}
+                    </button>
+                </div>
+            )}
         </form>
     );
 }
@@ -442,6 +462,89 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
         return list.find(project => project.mode === 'browser' && project.sourceKey === sourceKey);
     };
 
+    /**
+     * 在用户选定的本地文件夹里新建工程。
+     *
+     * 与 createProject 的区别只在落盘位置：文件直接写进真实目录，而不是 IndexedDB。
+     * 这是让外部 AI 工具能参与网页版工程的前提——浏览器存储里的文件在磁盘上不存在，
+     * 任何外部工具都读不到。
+     */
+    const createProjectInLocalFolder = async (options: NewProjectOptions) => {
+        setError(undefined);
+        try {
+            const handle = await pickProjectDirectory();
+            if (!handle) {
+                return;
+            }
+            if (await directoryContainsProject(handle)) {
+                setError(t('The selected folder already contains a project. Choose an empty folder or open it instead.'));
+                return;
+            }
+            await writeDirectoryFiles(handle, scaffoldProject(options));
+            const project: StoredProject = {
+                id: createProjectId(),
+                name: options.name,
+                mode: 'directory',
+                updatedAt: Date.now(),
+                handle,
+            };
+            try {
+                await saveProjectRecord(project);
+            } catch (err) {
+                // 记录写失败不影响磁盘上的文件：工程已经建好，可再从「打开本地文件夹」进入
+                setError(err instanceof Error ? err.message : String(err));
+                return;
+            }
+            setCreating(false);
+            onOpen(project);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        }
+    };
+
+    /**
+     * 把浏览器存储里的工程迁移到本地文件夹。
+     *
+     * 迁移后文件在真实目录里，外部 AI 工具才能读写；原 IndexedDB 记录随工程记录一起删除，
+     * 避免同一工程出现两份副本、后续编辑进了浏览器而 AI 看不到。磁盘写入成功后才改记录，
+     * 中途失败时浏览器副本保持完好。
+     */
+    const moveToLocalFolder = async (project: StoredProject) => {
+        setError(undefined);
+        try {
+            const handle = await pickProjectDirectory();
+            if (!handle) {
+                return;
+            }
+            if (await directoryContainsProject(handle)) {
+                setError(t('The selected folder already contains a project. Choose an empty folder or open it instead.'));
+                return;
+            }
+            const files = await readBrowserFiles(project);
+            if (files.size === 0) {
+                setError(t('This project has no files to move.'));
+                return;
+            }
+            await writeDirectoryFiles(handle, files);
+            const moved: StoredProject = {
+                id: createProjectId(),
+                name: project.name,
+                mode: 'directory',
+                updatedAt: Date.now(),
+                handle,
+                sourceUrl: project.sourceUrl,
+                sourceKey: project.sourceKey,
+                sourceRevision: project.sourceRevision,
+            };
+            await saveProjectRecord(moved);
+            // 磁盘已有副本，再保留浏览器副本只会让两边分叉
+            await deleteProject(project.id).catch(() => undefined);
+            await refresh();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        }
+    };
+
     const openDirectory = async () => {
         setError(undefined);
         try {
@@ -564,6 +667,17 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                                     <span className="hg-recent-time">{formatRelativeTime(project.updatedAt, locale)}</span>
                                     <ChevronRight className="hg-recent-chev" size={14} strokeWidth={1.6} aria-hidden="true" />
                                 </button>
+                                {project.mode === 'browser' && hasDirectoryAccess && (
+                                    <button
+                                        className="hg-recent-move"
+                                        type="button"
+                                        title={t('Move to a local folder')}
+                                        aria-label={t('Move to a local folder')}
+                                        onClick={() => void moveToLocalFolder(project)}
+                                    >
+                                        <FolderInput size={13} strokeWidth={1.6} aria-hidden="true" />
+                                    </button>
+                                )}
                                 {/* 图标按钮不占行内布局宽度：绝对定位在行尾，悬停或聚焦时才显示，避免层级变大 */}
                                 <button
                                     className="hg-recent-remove"
@@ -648,7 +762,11 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                 {error && <div className="hg-banner hg-banner--error" role="alert">{error}</div>}
 
                 {creating ? (
-                    <NewProjectForm onCreate={createProject} onCancel={() => setCreating(false)} />
+                    <NewProjectForm
+                        onCreate={createProject}
+                        onCancel={() => setCreating(false)}
+                        onOpenLocalFolder={options => void createProjectInLocalFolder(options)}
+                    />
                 ) : importingFromGitHub ? (
                     <GitHubImportDialog
                         initialUrl={githubInitialUrl}

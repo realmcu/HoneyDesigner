@@ -12,6 +12,7 @@ import { HmlTemplateManager } from '../../hml/HmlTemplateManager';
 import {
     StoredProject,
     ProjectSync,
+    DirectoryWatcher,
     SyncState,
     loadProjectIntoVfs,
     hasDirectoryPermission,
@@ -23,6 +24,11 @@ import { entryViewDrawnByCode } from '../../simulation/HmlPreviewPrep';
 import { exportProjectZip, downloadBlob } from '../host/projectZip';
 import { hostUi } from '../host/hostUi';
 import * as fs from '../shims/fs';
+import { Sparkles } from 'lucide-react';
+import { AiPanel } from '../ai/AiPanel';
+
+/** AI 面板开关记在浏览器里，下次打开工程沿用 */
+const AI_PANEL_STORAGE_KEY = 'honeygui.web.ai.panelOpen';
 
 interface WorkbenchProps {
     project: StoredProject;
@@ -56,8 +62,9 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
     const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
     const [syncState, setSyncState] = useState<SyncState>('idle');
     const [attempt, setAttempt] = useState(0);
+    const [aiOpen, setAiOpen] = useState(() => globalThis.localStorage?.getItem(AI_PANEL_STORAGE_KEY) === '1');
     const currentFilePath = useDesignerStore(state => state.currentFilePath);
-    const openedRef = useRef<{ opened?: OpenedDesigner; sync?: ProjectSync; root?: string }>({});
+    const openedRef = useRef<{ opened?: OpenedDesigner; sync?: ProjectSync; watcher?: DirectoryWatcher; root?: string }>({});
 
     useEffect(() => {
         let cancelled = false;
@@ -85,9 +92,22 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                     sync.dispose();
                     return;
                 }
+                // 本地目录工程：轮询磁盘，AI 工具等外部程序改了文件后画布跟着刷新。
+                // project.json / 资源 / i18n 由宿主自己的文件监听处理，这里只需重载当前 HML
+                // （有未保存改动时 updateFromDocument 会先询问用户）
+                let watcher: DirectoryWatcher | undefined;
+                if (project.mode === 'directory' && project.handle) {
+                    watcher = new DirectoryWatcher(project.handle, root, sync, changed => {
+                        const current = opened.designer.currentFilePath;
+                        if (current && changed.includes(fs.vfs.normalize(current))) {
+                            void opened.designer.updateFromDocument();
+                        }
+                    });
+                    void watcher.start();
+                }
                 // App 在挂载时读取 window.vscodeAPI 并发送 ready
                 window.vscodeAPI = opened.panel.createDesignerApi();
-                openedRef.current = { opened, sync, root };
+                openedRef.current = { opened, sync, watcher, root };
                 setPhase({ kind: 'ready', opened, sync });
             } catch (error) {
                 if (!cancelled) {
@@ -99,7 +119,8 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
 
         return () => {
             cancelled = true;
-            const { opened, sync, root } = openedRef.current;
+            const { opened, sync, watcher, root } = openedRef.current;
+            watcher?.dispose();
             opened?.dispose();
             // dispose 会写出设计器排队的最后一次保存，写完再回写存储
             if (sync) {
@@ -308,6 +329,11 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
         onClose();
     };
 
+    const toggleAi = (open: boolean) => {
+        setAiOpen(open);
+        globalThis.localStorage?.setItem(AI_PANEL_STORAGE_KEY, open ? '1' : '0');
+    };
+
     const syncLabel = syncState === 'saving' ? t('Saving...')
         : syncState === 'error' ? t('Save failed')
         : project.mode === 'directory' ? t('Local folder') : t('Browser storage');
@@ -334,12 +360,28 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                     {t('Delete HML File')}
                 </button>
                 <button className="web-button" onClick={showCode} disabled={phase.kind !== 'ready'}>{t('Generated Code')}</button>
+                <button
+                    className={`web-button${aiOpen ? ' web-button-active' : ''}`}
+                    onClick={() => toggleAi(!aiOpen)}
+                    disabled={phase.kind !== 'ready'}
+                    aria-pressed={aiOpen}
+                >
+                    <Sparkles size={13} /> {t('AI Assistant')}
+                </button>
                 <button className="web-button primary" onClick={exportZip} disabled={phase.kind !== 'ready'}>{t('Export ZIP')}</button>
             </div>
             <div className="web-designer-host">
                 {phase.kind === 'ready' && (
                     <div className="web-workspace">
                         <div className="web-workspace-designer"><App key={project.id} /></div>
+                        {aiOpen && (
+                            <AiPanel
+                                key={project.id}
+                                designer={phase.opened.designer}
+                                projectRoot={phase.opened.projectRoot}
+                                onClose={() => toggleAi(false)}
+                            />
+                        )}
                     </div>
                 )}
                 {phase.kind === 'loading' && <div className="web-center web-muted">{t('Loading...')}</div>}

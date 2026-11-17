@@ -88,8 +88,59 @@ class PrecacheManifestPlugin {
   }
 }
 
+/**
+ * 开发服务器的 AI 服务转发（模拟部署方在 Web 服务器上做的同源转发）。
+ *
+ * 读仓库根目录的 ai-config.local.json（不入库），格式同站点的 ai-config.json，
+ * 每个服务可多写一个 proxyTarget：开发服务器把 baseUrl（同源路径，如 /ai/company）
+ * 转发到 proxyTarget，并去掉 proxyTarget 后作为 /ai-config.json 提供给页面。
+ * 浏览器只和同源的开发服务器通信，不受模型服务的跨域白名单限制。
+ */
+function loadDevAiConfig() {
+  const fs = require('fs');
+  const file = path.resolve(__dirname, 'ai-config.local.json');
+  if (!fs.existsSync(file)) {
+    return undefined;
+  }
+  try {
+    const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const profiles = Array.isArray(config.profiles) ? config.profiles : [];
+    const proxy = profiles
+      .filter(profile => typeof profile.proxyTarget === 'string' && typeof profile.baseUrl === 'string' && profile.baseUrl.startsWith('/'))
+      .map(profile => {
+        const context = profile.baseUrl.replace(/\/+$/, '');
+        return {
+          context: [context],
+          target: profile.proxyTarget,
+          changeOrigin: true,
+          secure: false,
+          pathRewrite: { [`^${context}`]: '' },
+          onProxyReq: (proxyReq) => {
+            // 上游按 Origin 做跨域白名单，转发请求不是浏览器跨域，去掉以免被拒
+            proxyReq.removeHeader('origin');
+            proxyReq.removeHeader('referer');
+          },
+          onProxyRes: (proxyRes) => {
+            // 流式回复不能被开发服务器的 gzip 攒包
+            proxyRes.headers['cache-control'] = 'no-cache, no-transform';
+          },
+        };
+      });
+    const publicConfig = {
+      ...config,
+      profiles: profiles.map(({ proxyTarget, ...profile }) => profile),
+    };
+    console.log(`[ai] ai-config.local.json: ${profiles.length} profile(s), ${proxy.length} forwarded`);
+    return { proxy, publicConfig };
+  } catch (error) {
+    console.warn(`[ai] ignoring ai-config.local.json: ${error.message}`);
+    return undefined;
+  }
+}
+
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
+  const devAi = process.env.WEBPACK_SERVE ? loadDevAiConfig() : undefined;
 
   const tsRule = {
     test: /\.tsx?$/,
@@ -171,6 +222,8 @@ module.exports = (env, argv) => {
           test: /\.css$/,
           use: [isProduction ? MiniCssExtractPlugin.loader : 'style-loader', 'css-loader'],
         },
+        // `import spec from './x.md?raw'`：AI 助手把 HML 规范原文作为提示词
+        { resourceQuery: /raw/, type: 'asset/source' },
       ],
     },
     plugins: [
@@ -226,6 +279,17 @@ module.exports = (env, argv) => {
       port: 3100,
       hot: false,
       liveReload: true,
+      proxy: devAi?.proxy ?? [],
+      setupMiddlewares: (middlewares) => {
+        if (devAi) {
+          middlewares.unshift({
+            name: 'ai-config',
+            path: '/ai-config.json',
+            middleware: (req, res) => res.json(devAi.publicConfig),
+          });
+        }
+        return middlewares;
+      },
     },
   };
 

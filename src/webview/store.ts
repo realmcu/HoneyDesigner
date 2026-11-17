@@ -24,6 +24,7 @@ import { createI18nSlice } from './store/slices/i18nSlice';
 import { createSharedStylesSlice } from './store/slices/sharedStylesSlice';
 import { createSystemSlice } from './store/slices/systemSlice';
 import { isHistorySuppressed, pushHistory, resetHistoryCoalescing, shouldStartHistoryStep } from './store/history';
+import { shouldCommitRevision } from './store/revision';
 
 export type { DesignerStore } from './store/types';
 
@@ -52,6 +53,8 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => ({
   navUndoCount: 0, // 可撤销的导航编辑条数
   pendingSelectComponentId: null, // 切文件后待选中的组件（导航图跳转编辑用）
   isDirty: false, // store 内容相对磁盘是否有未保存改动
+  docRevision: 0, // 当前有效设计内容的版本（内容变化时递增，保存不递增）
+  persistedRevision: 0, // 已完成落盘的版本（由保存回执推进）
   allHmlFiles: [] as Array<{path: string, name: string, relativePath: string}>, // 项目中所有 HML 文件
   otherFileComponentIds: [] as string[], // 其他 HML 文件中的组件 ID（跨文件命名去重）
   currentFilePath: '' as string, // 当前打开的文件路径
@@ -114,13 +117,21 @@ export function applyHostComponents<T>(fn: () => T): T {
   }
 }
 
-// 集中订阅 components 引用变化 → 记撤销历史 + 标脏。
+// 集中订阅 components 引用变化 → 记撤销历史 + 标脏 + 递增内容版本。
 // 好处：无需在每个会改动组件的 action 里逐一埋点（现有 20+ 处 set 组件的
 // action，逐一埋点必漏）；宿主推送经 applyHostComponents 包裹不触发。
 // 本订阅内的 set() 会重入，但那次 components 引用未变，不会递归。
+//
+// 版本记账的唯一入口在此：docRevision 只在「有效内容确实变化」时递增。
+// 保存不经过这里，因此保存本身不会产生新版本。
 useDesignerStore.subscribe((state, prevState) => {
-  if (suppressDirtyTracking) return;
   if (state.components === prevState.components) return;
+  // 内容版本：与脏状态/历史抑制无关——宿主加载期间的临时清空由
+  // withoutRevisionCommit 标为非提交，而不是靠 suppressDirtyTracking 跳过
+  if (shouldCommitRevision(state.components, prevState.components)) {
+    useDesignerStore.setState({ docRevision: state.docRevision + 1 });
+  }
+  if (suppressDirtyTracking) return;
   if (!isHistorySuppressed() && shouldStartHistoryStep()) {
     useDesignerStore.setState({
       undoStack: pushHistory(state.undoStack, prevState.components),

@@ -32,6 +32,12 @@ interface PendingDesignSave {
     filePath: string | undefined;
     /** Ctrl+S / 工具栏保存：总是写盘并在状态栏提示 */
     explicit: boolean;
+    /**
+     * webview 发出这次保存时其内容所处的内容版本。
+     * 回执原样带回，webview 据此推进 persistedRevision——回执只能声明
+     * 「这一版被写入」，不能声明「当前版本已保存」。
+     */
+    docRevision: number | undefined;
 }
 
 function viewSignature(components: Component[] | undefined): string {
@@ -402,12 +408,13 @@ export class FileManager {
     }
 
     /** 设计器自动保存：合并到 SAVE_DEBOUNCE_MS 静默期后写盘一次 */
-    public queueDesignSave(components: Component[]): void {
+    public queueDesignSave(components: Component[], docRevision?: number): void {
         this._pendingSave = {
             components,
             dirtySeq: this._webviewDirtySeq,
             filePath: this._filePath,
             explicit: this._pendingSave?.explicit ?? false,
+            docRevision,
         };
         this._clearPendingSaveTimer();
         this._pendingSaveTimer = setTimeout(() => {
@@ -417,15 +424,19 @@ export class FileManager {
     }
 
     /** Ctrl+S / 工具栏保存：立即写盘（有排队内容则写排队内容） */
-    public async saveNow(): Promise<void> {
+    public async saveNow(docRevision?: number): Promise<void> {
         if (this._pendingSave) {
             this._pendingSave.explicit = true;
+            // 不覆盖排队项的 docRevision：它和该排队项的 components 是同一次请求
+            // 产生的，随后要写的就是那份内容。换成这次显式请求的版本会让回执
+            // 声明的版本高于实际写入的内容。
         } else {
             this._pendingSave = {
                 components: undefined,
                 dirtySeq: this._webviewDirtySeq,
                 filePath: this._filePath,
                 explicit: true,
+                docRevision,
             };
         }
         await this.flushPendingSave();
@@ -505,7 +516,9 @@ export class FileManager {
             if (saved) {
                 // 保存期间 webview 又报新改动（seq 变化）时不清 dirty 缓存：新改动不在本次落盘内容中
                 this.clearWebviewDirtyIfUnchanged(pending.dirtySeq);
-                this._postToWebview({ command: 'hmlSaved' });
+                // 回执带回「实际写入的版本」，不是 webview 收到回执时的当前版本。
+                // 保存窗口内的新编辑已使 docRevision 前进，回执若声称当前版本已保存就是误报。
+                this._postToWebview({ command: 'hmlSaved', docRevision: pending.docRevision });
                 if (pending.explicit && this._filePath && !this._disposed) {
                     vscode.window.setStatusBarMessage(
                         vscode.l10n.t('Design saved to {0}', path.basename(this._filePath)), 3000);
@@ -513,7 +526,7 @@ export class FileManager {
                 this.warnDuplicateDesignName(pending.explicit);
             } else {
                 // webview 发 save 时已乐观复位本地 isDirty，必须回执让它置回
-                this._postToWebview({ command: 'hmlSaveFailed' });
+                this._postToWebview({ command: 'hmlSaveFailed', docRevision: pending.docRevision });
             }
 
             const signature = viewSignature(this._hmlController.currentDocument?.view?.components);
@@ -524,7 +537,7 @@ export class FileManager {
             }
         } catch (error) {
             logger.error(`[FileManager] 写出设计器保存失败: ${error}`);
-            this._postToWebview({ command: 'hmlSaveFailed' });
+            this._postToWebview({ command: 'hmlSaveFailed', docRevision: pending.docRevision });
         }
     }
 

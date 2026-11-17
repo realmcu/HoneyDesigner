@@ -278,8 +278,10 @@ const Toolbar: React.FC = () => {
   const itemClassName = (id: ToolbarItemId) => `toolbar-responsive-item ${isOverflowed(id) ? 'toolbar-overflowed' : ''}`;
 
   const handleSave = () => {
-    window.vscodeAPI?.postMessage({ command: 'save', content: {} });
-    useDesignerStore.getState().markSaveRequested();
+    // 显式保存当前文档：携带其内容版本，宿主回执原样带回以推进 persistedRevision
+    const store = useDesignerStore.getState();
+    window.vscodeAPI?.postMessage({ command: 'save', content: {}, docRevision: store.docRevision });
+    store.markSaveRequested();
   };
 
   const handleGenerateAllCode = () => {

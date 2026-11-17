@@ -49,12 +49,15 @@ export const useKeyboardShortcuts = () => {
         case 'S':
           if (isModKey) {
             e.preventDefault();
+            // 显式保存当前文档：携带其内容版本，宿主回执原样带回以推进 persistedRevision
+            const store = useDesignerStore.getState();
             window.vscodeAPI?.postMessage({
               command: 'save',
               content: {},
+              docRevision: store.docRevision,
             });
             // 乐观复位本地脏标记：保存窗口内的新编辑才能再次上报 dirty（H4）
-            useDesignerStore.getState().markSaveRequested();
+            store.markSaveRequested();
           }
           break;
 

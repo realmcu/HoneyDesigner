@@ -215,6 +215,53 @@ export async function writeBrowserFiles(projectId: string, files: Map<string, Ui
 }
 
 /**
+ * 把一组文件（相对路径 → 内容）写入用户授权的本地目录。
+ *
+ * 新建工程时直接用这个落盘，而不是写 IndexedDB：文件在真实磁盘上，
+ * 外部 AI 工具才能直接读写工程，这正是网页版「新建工程后 AI 无法参与」的解法。
+ */
+export async function writeDirectoryFiles(
+    handle: FileSystemDirectoryHandle,
+    files: Map<string, Uint8Array>
+): Promise<void> {
+    for (const [relPath, data] of files) {
+        const dirName = path.posix.dirname(relPath);
+        const baseName = path.posix.basename(relPath);
+        const dir = await resolveDirectory(handle, dirName === '.' ? '' : dirName, true);
+        if (!dir) {
+            throw new Error(`Cannot create directory for ${relPath}`);
+        }
+        const fileHandle = await dir.getFileHandle(baseName, { create: true });
+        const writable = await (fileHandle as unknown as {
+            createWritable(): Promise<{ write(data: BufferSource): Promise<void>; close(): Promise<void> }>;
+        }).createWritable();
+        await writable.write(data as unknown as BufferSource);
+        await writable.close();
+    }
+}
+
+/**
+ * 把浏览器工程（IndexedDB）里的全部文件取出，写成「相对路径 → 内容」。
+ *
+ * 迁移到本地文件夹用：浏览器存储里的文件在磁盘上不存在，外部 AI 工具读不到，
+ * 只有落到真实目录才能参与协作。
+ */
+export async function readBrowserFiles(project: StoredProject): Promise<Map<string, Uint8Array>> {
+    const db = await openDb();
+    const tx = db.transaction('files', 'readonly');
+    const entries = await requestToPromise(
+        tx.objectStore('files').index('projectId').getAll(IDBKeyRange.only(project.id)) as IDBRequest<StoredEntry[]>
+    );
+    const files = new Map<string, Uint8Array>();
+    for (const entry of entries) {
+        if (entry.kind === 'file' && entry.data) {
+            files.set(entry.path, entry.data);
+        }
+    }
+    return files;
+}
+
+/**
  * 用一组新文件整体替换浏览器工程的内容，并更新工程记录（重新下载覆盖已有副本时用）。
  *
  * 删旧文件、写新文件、改记录在同一个 IndexedDB 事务里完成：任一步失败整个事务回滚，
@@ -373,6 +420,9 @@ export async function loadProjectIntoVfs(project: StoredProject): Promise<string
 
 export type SyncState = 'idle' | 'saving' | 'error';
 
+/** 正在把磁盘上的外部改动写入内存文件系统（ProjectSync 据此不回写） */
+let externalApplyDepth = 0;
+
 /**
  * 把内存文件系统中工程目录下的变化回写到持久化后端。
  * 以「路径最终状态」为准：刷新时文件存在就写入，不存在就删除，
@@ -437,6 +487,10 @@ export class ProjectSync {
         }
         // 编译产物（build/ 等）随时可重新生成，打开工程时也不读取，不回写
         if (SKIPPED_DIRECTORIES.has(relative.split('/')[0])) {
+            return;
+        }
+        // 从磁盘读进来的外部改动，磁盘上已经是这份内容，不再写回
+        if (externalApplyDepth > 0) {
             return;
         }
         this.dirtyPaths.add(relative);
@@ -528,4 +582,171 @@ export class ProjectSync {
             }
         }
     }
+}
+
+interface DiskStamp {
+    lastModified: number;
+    size: number;
+}
+
+/** 本地目录轮询间隔：AI 工具改完文件后两秒内画布跟上 */
+const DIRECTORY_POLL_MS = 2000;
+
+/**
+ * 定时轮询本地目录，把外部程序（AI 工具、编辑器、git）对磁盘的改动读回内存文件系统。
+ * File System Access API 没有变更通知，只能比对每个文件的修改时间和大小；
+ * 时间戳变了再读内容，与内存中的内容一致（自己回写产生的）就只更新时间戳。
+ * 有待回写的改动时跳过本轮：此刻磁盘与内存本来就不一致，等回写完成再比。
+ */
+export class DirectoryWatcher {
+    private stamps = new Map<string, DiskStamp>();
+    private timer: ReturnType<typeof setInterval> | undefined;
+    private scanning = false;
+    private disposed = false;
+
+    constructor(
+        private readonly handle: FileSystemDirectoryHandle,
+        private readonly root: string,
+        private readonly sync: ProjectSync,
+        private readonly onExternalChange: (absolutePaths: string[]) => void,
+    ) {}
+
+    async start(): Promise<void> {
+        this.stamps = await this.scan();
+        if (this.disposed) {
+            return;
+        }
+        this.timer = setInterval(() => void this.poll(), DIRECTORY_POLL_MS);
+        globalThis.addEventListener('focus', this.onFocus);
+    }
+
+    dispose(): void {
+        this.disposed = true;
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = undefined;
+        }
+        globalThis.removeEventListener('focus', this.onFocus);
+    }
+
+    /** 切回页面时立即检查一次，不必等下一个周期 */
+    private readonly onFocus = () => void this.poll();
+
+    private async poll(): Promise<void> {
+        if (this.scanning || this.disposed || globalThis.document?.visibilityState === 'hidden' || this.sync.hasPendingChanges) {
+            return;
+        }
+        this.scanning = true;
+        try {
+            const current = await this.scan();
+            if (this.disposed || this.sync.hasPendingChanges) {
+                return;
+            }
+            const changed: string[] = [];
+            for (const [relPath, stamp] of current) {
+                const previous = this.stamps.get(relPath);
+                if (previous && previous.lastModified === stamp.lastModified && previous.size === stamp.size) {
+                    continue;
+                }
+                const absolute = path.posix.join(this.root, relPath);
+                const data = await this.readFile(relPath);
+                // 读盘是异步的，期间设计器可能刚写了新内容：有待回写的改动就不覆盖。
+                // 不更新时间戳，下一轮重新比对；已读回的文件下一轮内容一致会跳过
+                if (this.disposed || this.sync.hasPendingChanges) {
+                    if (changed.length > 0 && !this.disposed) {
+                        this.onExternalChange(changed);
+                    }
+                    return;
+                }
+                if (data && !bytesEqual(data, vfs.readBytes(absolute))) {
+                    this.applyExternal(() => {
+                        fs.mkdirSync(path.posix.dirname(absolute), { recursive: true });
+                        fs.writeFileSync(absolute, data);
+                    });
+                    changed.push(absolute);
+                }
+            }
+            for (const relPath of this.stamps.keys()) {
+                const absolute = path.posix.join(this.root, relPath);
+                if (!current.has(relPath) && vfs.readBytes(absolute)) {
+                    this.applyExternal(() => fs.rmSync(absolute, { force: true }));
+                    changed.push(absolute);
+                }
+            }
+            this.stamps = current;
+            if (changed.length > 0) {
+                this.onExternalChange(changed);
+            }
+        } catch (error) {
+            // 权限被收回、目录被移走等：保留旧时间戳，下一轮再试
+            console.warn('[DirectoryWatcher] poll failed:', error);
+        } finally {
+            this.scanning = false;
+        }
+    }
+
+    private applyExternal(write: () => void): void {
+        externalApplyDepth++;
+        try {
+            write();
+        } finally {
+            externalApplyDepth--;
+        }
+    }
+
+    private async readFile(relPath: string): Promise<Uint8Array | undefined> {
+        const dirName = path.posix.dirname(relPath);
+        try {
+            const dir = await resolveDirectory(this.handle, dirName === '.' ? '' : dirName, false);
+            const file = await (await dir?.getFileHandle(path.posix.basename(relPath)))?.getFile();
+            return file ? new Uint8Array(await file.arrayBuffer()) : undefined;
+        } catch (error) {
+            // 扫描后、读取前文件被删掉（原子写入的临时文件）：下一轮按删除处理
+            if ((error as DOMException)?.name === 'NotFoundError') {
+                return undefined;
+            }
+            throw error;
+        }
+    }
+
+    /** 与打开工程时读取的范围一致：跳过编译产物目录和超大文件 */
+    private async scan(): Promise<Map<string, DiskStamp>> {
+        const out = new Map<string, DiskStamp>();
+        const walk = async (dir: FileSystemDirectoryHandle, prefix: string): Promise<void> => {
+            const entries = (dir as unknown as { values(): AsyncIterable<FileSystemHandle> }).values();
+            for await (const entry of entries) {
+                const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+                if (entry.kind === 'directory') {
+                    if (!SKIPPED_DIRECTORIES.has(entry.name)) {
+                        await walk(entry as FileSystemDirectoryHandle, relPath);
+                    }
+                    continue;
+                }
+                try {
+                    const file = await (entry as FileSystemFileHandle).getFile();
+                    if (file.size <= MAX_FILE_BYTES) {
+                        out.set(relPath, { lastModified: file.lastModified, size: file.size });
+                    }
+                } catch (error) {
+                    if ((error as DOMException)?.name !== 'NotFoundError') {
+                        throw error;
+                    }
+                }
+            }
+        };
+        await walk(this.handle, '');
+        return out;
+    }
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array | undefined): boolean {
+    if (!b || a.length !== b.length) {
+        return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+            return false;
+        }
+    }
+    return true;
 }

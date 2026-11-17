@@ -20,6 +20,8 @@ coverage
 dist
 dist-ssr
 *.local
+# 网页版开发服务器的 AI 服务转发配置，含内部地址
+ai-config.local.json
 out
 .webpack_cache
 

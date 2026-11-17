@@ -577,13 +577,15 @@ export class MessageHandler {
      */
     private async handleSave(message: any): Promise<void> {
         const components = message?.content?.components;
+        // 本次请求要落盘的内容版本，随回执原样带回给 webview 推进 persistedRevision
+        const docRevision = typeof message?.docRevision === 'number' ? message.docRevision : undefined;
         if (Array.isArray(components)) {
             logger.debug(`[MessageHandler] 收到自动保存，组件数量: ${components.length}`);
-            this._fileManager.queueDesignSave(components);
+            this._fileManager.queueDesignSave(components, docRevision);
             return;
         }
         logger.debug('[MessageHandler] 收到显式保存请求');
-        await this._fileManager.saveNow();
+        await this._fileManager.saveNow(docRevision);
     }
 
     /** 写盘后：视图列表变化才重扫，确实写了盘才调度代码生成 */

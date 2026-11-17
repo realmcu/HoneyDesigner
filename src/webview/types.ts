@@ -167,6 +167,8 @@ export interface DesignerState {
   navEditPending: boolean; // 导航写事务进行中（T11：编辑操作互斥）
   navEditResult: NavEditResultMessage | null; // 最近一次 navEditResult 回执（消费后由 modal 清除）
   isDirty: boolean; // store 内容相对磁盘是否有未保存改动（变化时经 dirtyStateChanged 消息同步给宿主）
+  docRevision: number; // 当前有效设计内容的版本；内容变化（编辑/撤销/AI 事务/宿主加载）时递增
+  persistedRevision: number; // 已完成落盘的版本；由保存回执带回的实际写入版本推进，保存本身不递增 docRevision
   selectedComponent: string | null;
   selectedComponents: string[];
   hoveredComponent: string | null;

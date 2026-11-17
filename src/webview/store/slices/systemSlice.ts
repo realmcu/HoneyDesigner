@@ -85,6 +85,9 @@ export const createSystemSlice: StateCreator<DesignerStore, [], [], Partial<Desi
       content: {
         components: state.components,
       },
+      // 本次请求要落盘的内容版本。宿主回执原样带回，用于推进 persistedRevision
+      // ——必须是「发出请求时」的版本，不能由回执到达时的 store 重新读取
+      docRevision: state.docRevision,
     });
     get().markSaveRequested();
   },
