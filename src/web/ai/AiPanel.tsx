@@ -271,6 +271,13 @@ function SettingsForm({ initial, onSave, onCancel }: { initial: AiProfiles; onSa
                 </label>
             )}
 
+            {!draft.managed && (
+                <label className="web-ai-check">
+                    <input type="checkbox" checked={!!draft.credentials} onChange={event => update({ credentials: event.target.checked })} />
+                    {t('Send cookies from this site (SSO)')}
+                </label>
+            )}
+
             {status && <p className={`web-ai-hint web-ai-status-${status.kind}`}>{status.text}</p>}
             <p className="web-muted web-ai-hint">
                 {t('The key is stored only in this browser. Requests go directly from this page to the service. A service that does not accept cross-origin requests from this page must be forwarded through this site by the administrator.')}

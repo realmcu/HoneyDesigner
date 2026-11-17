@@ -1553,6 +1553,7 @@ const zhCN = {
   'Optional for local models': '本地模型可不填',
   'Fetch list': '获取列表',
   'Extra headers': '附加请求头',
+  'Send cookies from this site (SSO)': '携带本站点 Cookie（SSO）',
   'Test connection': '测试连接',
   'Connecting...': '正在连接...',
   'Connection OK': '连接成功',

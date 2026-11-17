@@ -1553,6 +1553,7 @@ const en = {
   'Optional for local models': 'Optional for local models',
   'Fetch list': 'Fetch list',
   'Extra headers': 'Extra headers',
+  'Send cookies from this site (SSO)': 'Send cookies from this site (SSO)',
   'Test connection': 'Test connection',
   'Connecting...': 'Connecting...',
   'Connection OK': 'Connection OK',

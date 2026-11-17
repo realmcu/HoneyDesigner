@@ -29,6 +29,8 @@ export interface AiSettings {
     auth: AiAuthHeader;
     /** 附加请求头，每行一个 `Name: value` */
     extraHeaders: string;
+    /** 带上本站点的 Cookie（网关用 SSO 会话鉴权时） */
+    credentials?: boolean;
     /** 可选模型：部署配置给出，或从服务端拉取 */
     models: string[];
     /** 来自部署配置 ai-config.json */
@@ -112,6 +114,7 @@ function normalizeProfile(raw: unknown): AiSettings | undefined {
         model: text(value.model, defaults.model),
         auth: AUTH_HEADERS.includes(value.auth as AiAuthHeader) ? value.auth as AiAuthHeader : defaults.auth,
         extraHeaders: text(value.extraHeaders, ''),
+        credentials: value.credentials === true || undefined,
         models: stringList(value.models),
         managed: value.managed === true || undefined,
         keyRequired: typeof value.keyRequired === 'boolean' ? value.keyRequired : undefined,
@@ -187,6 +190,7 @@ export async function loadDeployProfiles(): Promise<{ defaultId?: string; profil
                     .map(([name, value]) => `${name}: ${value as string}`)
                     .join('\n'),
                 models,
+                credentials: item.credentials === true ? true : undefined,
                 managed: true,
                 keyRequired: typeof item.keyRequired === 'boolean' ? item.keyRequired : auth !== 'none',
             });
@@ -278,10 +282,14 @@ export class AiRequestError extends Error {
 }
 
 /** fetch 的包装：区分「请求根本没发出去」（跨域被拦、地址不通）与服务端返回的错误 */
-async function aiFetch(url: string, init: RequestInit): Promise<Response> {
+function credentialsOf(settings: AiSettings): RequestCredentials {
+    return settings.credentials ? 'include' : 'same-origin';
+}
+
+async function aiFetch(url: string, init: RequestInit, settings?: AiSettings): Promise<Response> {
     let response: Response;
     try {
-        response = await fetch(url, init);
+        response = await fetch(url, settings ? { ...init, credentials: credentialsOf(settings) } : init);
     } catch (error) {
         if (init.signal?.aborted) {
             throw error;
@@ -377,6 +385,26 @@ function openAiMessages(system: string | undefined, turns: ChatTurn[]) {
     ];
 }
 
+/** 服务端忽略 stream、直接返回整份 JSON 时的兜底 */
+async function wholeJson(response: Response): Promise<unknown> {
+    const text = await response.text();
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new Error(`Unexpected response: ${text.slice(0, 200)}`);
+    }
+}
+
+function anthropicText(body: unknown): string {
+    const content = (body as { content?: Array<{ type?: string; text?: string }> })?.content;
+    return (content ?? []).filter(part => part.type === 'text').map(part => part.text ?? '').join('');
+}
+
+function openAiText(body: unknown): string {
+    const choices = (body as { choices?: Array<{ message?: { content?: string } }> })?.choices;
+    return choices?.[0]?.message?.content ?? '';
+}
+
 async function streamAnthropic(settings: AiSettings, system: string, turns: ChatTurn[], onText: (delta: string) => void, signal: AbortSignal): Promise<void> {
     const response = await aiFetch(endpoint(settings, 'chat'), {
         method: 'POST',
@@ -390,7 +418,16 @@ async function streamAnthropic(settings: AiSettings, system: string, turns: Chat
             system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
             messages: anthropicMessages(turns),
         }),
-    });
+    }, settings);
+    if (!(response.headers.get('content-type') ?? '').includes('text/event-stream')) {
+        const body = await wholeJson(response);
+        const text = anthropicText(body);
+        if (!text) {
+            throw new Error(`Unexpected response: ${JSON.stringify(body).slice(0, 200)}`);
+        }
+        onText(text);
+        return;
+    }
     for await (const data of sseData(response)) {
         const event = JSON.parse(data) as { type: string; delta?: { type: string; text?: string }; error?: { message?: string } };
         if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta' && event.delta.text) {
@@ -411,7 +448,16 @@ async function streamOpenAi(settings: AiSettings, system: string, turns: ChatTur
             stream: true,
             messages: openAiMessages(system, turns),
         }),
-    });
+    }, settings);
+    if (!(response.headers.get('content-type') ?? '').includes('text/event-stream')) {
+        const body = await wholeJson(response);
+        const text = openAiText(body);
+        if (!text) {
+            throw new Error(`Unexpected response: ${JSON.stringify(body).slice(0, 200)}`);
+        }
+        onText(text);
+        return;
+    }
     for await (const data of sseData(response)) {
         if (data === '[DONE]') {
             break;
@@ -452,14 +498,14 @@ export async function testAiConnection(settings: AiSettings, signal?: AbortSigna
         body: JSON.stringify(settings.provider === 'anthropic'
             ? { model: settings.model.trim(), max_tokens: 16, messages: anthropicMessages(turns) }
             : { model: settings.model.trim(), max_tokens: 16, messages: openAiMessages(undefined, turns) }),
-    });
+    }, settings);
 }
 
 /** 从服务端拉取模型列表（两种协议都是 GET .../models，返回 { data: [{ id }] }） */
 export async function fetchAiModels(settings: AiSettings, signal?: AbortSignal): Promise<string[]> {
     const headers = requestHeaders(settings);
     delete headers['content-type'];
-    const response = await aiFetch(endpoint(settings, 'models'), { method: 'GET', signal, headers, cache: 'no-store' });
+    const response = await aiFetch(endpoint(settings, 'models'), { method: 'GET', signal, headers, cache: 'no-store' }, settings);
     const body = await response.json() as { data?: Array<{ id?: unknown }> };
     return [...new Set((body.data ?? []).map(item => item.id).filter((id): id is string => typeof id === 'string'))].sort();
 }
