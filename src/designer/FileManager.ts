@@ -11,9 +11,10 @@ import { ProjectConfigLoader } from '../utils/ProjectConfigLoader';
 import { SaveManager } from './SaveManager';
 import { GuiVersionReader } from '../utils/GuiVersionReader';
 import { createEmptyCatalog } from '../project-i18n/catalog';
-import { loadProjectI18nCatalog, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
+import { loadProjectI18nCatalog, readProjectI18nCatalogFile, PROJECT_I18N_RELATIVE_PATH } from '../project-i18n/files';
 import { loadSharedStyleLibrary } from '../shared/sharedStylesFile';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
+import { ProjectI18nSyncService } from './ProjectI18nSyncService';
 import { scanAllViews, scanAllHmlFiles, scanProjectHml, normalizeHmlFilePath, buildComponentIndex, scanHmlFilesRecursive } from './navGraphScanner';
 import type { ProjectConfig } from '../common/ProjectConfig';
 import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
@@ -251,13 +252,37 @@ export class FileManager {
                 return;
             }
 
-            const catalog = loadProjectI18nCatalog(projectRoot);
+            const read = readProjectI18nCatalogFile(projectRoot);
+            if (read.exists && !read.catalog) {
+                // JSON 非法时绝不能推空 catalog：表格会被清空，随后任何一次表格编辑
+                // 都会把空目录整份写回，用户词条随之丢失。保持上一份并提示。
+                ProjectI18nSyncService.reportInvalidCatalog(projectRoot, read.error, read.contentHash);
+                return;
+            }
+
+            // 文件被删除（如切到没有 i18n 的分支）属于合法外部状态，按空目录下发
+            const catalog = read.catalog ?? createEmptyCatalog('en-US');
             logger.info(`[FileManager] i18n/strings.json 外部变化，推送新 catalog 给前端: ${catalogPath}`);
+            // 外部改动的 key 删除/改名要对账到 HML 的 i18nKey 引用上，否则残留引用
+            // 会以「悬空词条」的形式继续出现在多语言表格里
+            const reconcile = ProjectI18nSyncService.handleExternalCatalogChange(
+                projectRoot, catalog, read.contentHash);
+            if (reconcile) {
+                void reconcile.then((result) => {
+                    if (result.components > 0) {
+                        // HML 改写完成后引用关系已变，让打开着的多语言表格重算索引
+                        const { DesignerPanel } = require('./DesignerPanel') as typeof import('./DesignerPanel');
+                        DesignerPanel.broadcastToProject(projectRoot, { command: 'refreshProjectI18nIndex' });
+                    }
+                });
+            }
+
             // 复用 saveProjectI18nCatalog 保存成功后的回显消息：前端只会 setProjectI18nCatalog（纯本地
             // 状态更新），不会触发二次保存，不会和这次外部改动形成回环。
             this._panel.webview.postMessage({
                 command: 'projectI18nCatalogSaved',
-                projectI18nCatalog: catalog
+                projectI18nCatalog: catalog,
+                projectI18nCatalogRevision: ProjectI18nSyncService.rememberCatalog(projectRoot, catalog),
             });
         };
 
@@ -1182,6 +1207,10 @@ export class FileManager {
         const projectI18nCatalog = projectRoot
             ? loadProjectI18nCatalog(projectRoot)
             : createEmptyCatalog('en-US');
+        // 记入同步缓存：后续外部改动以它为基准做 diff，页面保存时以它做三方合并的 base
+        const projectI18nCatalogRevision = projectRoot
+            ? ProjectI18nSyncService.rememberCatalog(projectRoot, projectI18nCatalog)
+            : undefined;
         // 共享样式随工程文件下发；组件属性已在解析时合并过样式，这里只给面板用
         const sharedStylesInfo = loadSharedStyleLibrary(projectRoot ?? undefined);
         
@@ -1230,6 +1259,7 @@ export class FileManager {
             components: frontendComponents,
             projectConfig: projectConfig,
             projectI18nCatalog: projectI18nCatalog,
+            projectI18nCatalogRevision,
             previewLocale: projectI18nCatalog.activeLocale || projectI18nCatalog.defaultLocale,
             sharedStyles: sharedStylesInfo.library,
             sharedStylesFileExists: sharedStylesInfo.exists,

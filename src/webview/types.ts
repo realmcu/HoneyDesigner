@@ -182,6 +182,8 @@ export interface DesignerState {
   redoStack: Component[][];
   projectConfig?: any; // Project configuration (resolution, etc.)
   projectI18nCatalog: I18nCatalog; // Project text localization catalog
+  /** 上次由宿主下发的 catalog 版本（内容 hash）；本地编辑不变，保存时回传给宿主做三方合并 */
+  projectI18nCatalogRevision?: string;
   /** 工程共享样式（styles.json）；宿主随 loadHml 下发，设计器据此渲染样式下拉 */
   sharedStyles: SharedStyleLibrary;
   sharedStylesFileExists: boolean;

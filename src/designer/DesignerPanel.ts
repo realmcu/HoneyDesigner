@@ -115,6 +115,23 @@ export class DesignerPanel {
     }
 
     /**
+     * 让同项目所有面板把排队中的自动保存写出去。
+     *
+     * 宿主按磁盘内容批量改写 HML（如外部词条改动后同步 i18nKey）前必须调用：
+     * 否则面板随后落盘的旧快照会把刚写好的引用改回去。
+     */
+    public static async flushPendingSavesForProject(projectRoot: string): Promise<void> {
+        const panels = filterPanelsByProject(
+            DesignerPanel.panelRegistry.values(),
+            panel => panel.currentFilePath,
+            projectRoot
+        );
+        await Promise.all(panels.map(panel =>
+            panel.flushPendingSave().catch(error =>
+                logger.warn(`[DesignerPanel] 刷新排队保存失败: ${error}`))));
+    }
+
+    /**
      * 导航写事务（T10）第 8 步的面板钩子。撤销历史已移到 webview 按文件在内存维护，
      * 写事务随后的 reloadAfterNavEdit → loadHml 会清空该历史；导航边编辑的回退
      * 由 NavEditService 自身的导航撤销栈负责，这里无需记录快照。

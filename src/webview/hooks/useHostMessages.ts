@@ -165,6 +165,7 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
           if (message.projectI18nCatalog) {
             const savedPreviewLocale = window.vscodeAPI?.getState?.()?.projectPreviewLocale;
             batchUpdate.projectI18nCatalog = message.projectI18nCatalog;
+            batchUpdate.projectI18nCatalogRevision = message.projectI18nCatalogRevision;
             batchUpdate.previewLocale = message.projectI18nCatalog.locales?.includes(savedPreviewLocale)
               ? savedPreviewLocale
               : (message.previewLocale || message.projectI18nCatalog.defaultLocale);
@@ -324,6 +325,7 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
             const savedPreviewLocale = window.vscodeAPI?.getState?.()?.projectPreviewLocale;
             useDesignerStore.setState({
               projectI18nCatalog: message.projectI18nCatalog,
+              projectI18nCatalogRevision: message.projectI18nCatalogRevision,
               previewLocale: message.projectI18nCatalog.locales?.includes(savedPreviewLocale)
                 ? savedPreviewLocale
                 : (message.previewLocale || message.projectI18nCatalog.defaultLocale),
@@ -376,7 +378,17 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
       if (message.projectI18nCatalog) {
         // 不调用 setPreviewLocale：它会再次触发保存，和这条"保存已完成"的回显消息形成死循环。
         // setProjectI18nCatalog 已经会从 catalog.activeLocale 同步 previewLocale。
-        useDesignerStore.getState().setProjectI18nCatalog(message.projectI18nCatalog);
+        useDesignerStore.getState().setProjectI18nCatalog(
+          message.projectI18nCatalog,
+          message.projectI18nCatalogRevision,
+        );
+      }
+      break;
+
+    case 'refreshProjectI18nIndex':
+      // 宿主按外部词条变化改写了 HML 引用，表格里的悬空引用需要重算
+      if (useDesignerStore.getState().isProjectI18nManagerOpen) {
+        useDesignerStore.getState().loadProjectI18nIndex();
       }
       break;
 
@@ -385,6 +397,12 @@ function dispatchHostMessage(message: any, ui: HostMessageUi): void {
       const errors = message.error
         ? [{ filePath: '', message: message.error }]
         : (message.errors || []);
+      // 宿主读不到合法 catalog（例如 strings.json 正在被手改成非法 JSON）时只带 error、
+      // 不带 index：保留上一次的表格，避免用空索引覆盖掉用户的视图。
+      if (message.error && !message.index) {
+        useDesignerStore.setState({ projectI18nIndexErrors: errors });
+        break;
+      }
       state.setProjectI18nIndex(message.index, errors);
       break;
     }

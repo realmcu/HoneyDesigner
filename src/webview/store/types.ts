@@ -122,7 +122,7 @@ export interface DesignerStore extends DesignerState {
   // clearWebviewDirtyIfUnchanged 因 seq 不等而不清缓存）。所有发 save 消息的
   // 入口（saveToFile / Ctrl+S / 工具栏）都必须调用
   markSaveRequested: () => void;
-  setProjectI18nCatalog: (catalog: I18nCatalog) => void;
+  setProjectI18nCatalog: (catalog: I18nCatalog, baseRevision?: string) => void;
   setPreviewLocale: (locale: LocaleCode) => void;
   setProjectI18nIndex: (index?: ProjectI18nIndex, errors?: Array<{ filePath: string; message: string }>) => void;
   setProjectI18nManagerOpen: (open: boolean) => void;

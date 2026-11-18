@@ -464,6 +464,8 @@
   "Failed to delete i18n key: {0}": "Failed to delete i18n key: {0}",
   "I18n key \"{0}\" already exists": "I18n key \"{0}\" already exists",
   "Failed to rename i18n key: {0}": "Failed to rename i18n key: {0}",
+  "i18n/strings.json changed {0} keys at once, skipped syncing HML i18n keys automatically.": "i18n/strings.json changed {0} keys at once, skipped syncing HML i18n keys automatically.",
+  "i18n/strings.json is not valid JSON, the previous i18n catalog is kept: {0}": "i18n/strings.json is not valid JSON, the previous i18n catalog is kept: {0}",
   "Failed to toggle always convert: {0}": "Failed to toggle always convert: {0}",
   "Build directory incomplete, cleaning for fresh setup...": "Build directory incomplete, cleaning for fresh setup...",
   "Contains project.json": "Contains project.json",

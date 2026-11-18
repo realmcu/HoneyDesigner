@@ -464,6 +464,8 @@
   "Failed to delete i18n key: {0}": "删除多语言 key 失败：{0}",
   "I18n key \"{0}\" already exists": "多语言 key \"{0}\" 已存在",
   "Failed to rename i18n key: {0}": "重命名多语言 key 失败：{0}",
+  "i18n/strings.json changed {0} keys at once, skipped syncing HML i18n keys automatically.": "i18n/strings.json 一次性变化了 {0} 个词条，已跳过自动同步 HML 词条引用。",
+  "i18n/strings.json is not valid JSON, the previous i18n catalog is kept: {0}": "i18n/strings.json 不是合法的 JSON，已保留上一次的多语言目录：{0}",
   "Failed to toggle always convert: {0}": "切换强制转换失败：{0}",
   "Build directory incomplete, cleaning for fresh setup...": "编译目录不完整，正在清理以重新准备...",
   "Contains project.json": "包含 project.json",

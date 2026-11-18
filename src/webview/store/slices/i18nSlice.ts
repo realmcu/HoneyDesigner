@@ -10,7 +10,7 @@ import { getVscodeAPI, getSaveProjectI18nCatalogTimer, setSaveProjectI18nCatalog
 import type { DesignerStore } from '../types';
 
 export const createI18nSlice: StateCreator<DesignerStore, [], [], Partial<DesignerStore>> = (set, get) => ({
-  setProjectI18nCatalog: (catalog) => {
+  setProjectI18nCatalog: (catalog, baseRevision) => {
     // catalog.activeLocale 是持久化的权威"当前语言"来源，优先采用；
     // 缺失/非法时保留当前 previewLocale（仍合法则不跳变），否则回退 defaultLocale。
     const currentPreviewLocale = get().previewLocale;
@@ -23,6 +23,8 @@ export const createI18nSlice: StateCreator<DesignerStore, [], [], Partial<Design
     set({
       projectI18nCatalog: catalog,
       previewLocale,
+      // 本地编辑传入的 catalog 不带版本：保留上次宿主下发的版本作为保存时的合并基准
+      projectI18nCatalogRevision: baseRevision ?? get().projectI18nCatalogRevision,
     });
   },
 
@@ -106,6 +108,8 @@ export const createI18nSlice: StateCreator<DesignerStore, [], [], Partial<Design
       getVscodeAPI()!.postMessage({
         command: 'saveProjectI18nCatalog',
         catalog: catalogToSave,
+        // 宿主据此判断磁盘在这份快照之后是否被外部改过，必要时做三方合并
+        baseRevision: get().projectI18nCatalogRevision,
       });
     };
 

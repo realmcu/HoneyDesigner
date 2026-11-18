@@ -489,7 +489,7 @@ export class MessageHandler {
                 break;
 
             case 'saveProjectI18nCatalog':
-                this._projectI18n.handleSaveProjectI18nCatalog(message.catalog);
+                this._projectI18n.handleSaveProjectI18nCatalog(message.catalog, message.baseRevision);
                 break;
 
             case 'saveSharedStyles':

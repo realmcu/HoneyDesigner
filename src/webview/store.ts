@@ -34,6 +34,7 @@ export const useDesignerStore = create<DesignerStore>((set, get, api) => ({
   components: [],
   projectConfig: null as any, // 项目配置（分辨率等）
   projectI18nCatalog: createEmptyCatalog('en-US'),
+  projectI18nCatalogRevision: undefined,
   sharedStyles: { version: 1, styles: [] },
   sharedStylesFileExists: false,
   sharedStylesErrors: [],
