@@ -401,6 +401,39 @@ describe('NavEditService.applyNavEdit', () => {
     expect(written).toContain('<!-- a human-authored note that the round-trip precheck must catch -->');
   });
 
+  it('keeps an unrecognized tag in the view subtree without asking for confirmation', async () => {
+    // 未知标签与注释一样由解析器保留、序列化器原样写回，故不再走 needsConfirm；
+    // 这条用例把「保留」本身钉住——若解析器将来开始丢弃未知子元素，这里会红。
+    const content = CLEAN_CONTENT.replace(
+      '<hg_view id="view_b" x="0" y="0" w="240" h="240">',
+      '<hg_view id="view_b" x="0" y="0" w="240" h="240">\n      <hg_future_widget id="fut" x="1" y="2" w="3" h="4" />'
+    );
+    fs.writeFileSync(filePath, content, 'utf-8');
+
+    const service = new NavEditService(noOpHooks());
+    const result = await service.applyNavEdit({
+      op: 'retarget',
+      newTarget: 'view_a',
+      edge: {
+        sourceViewKey: `${relPath}#view_a`,
+        sourceControlId: 'btn_a',
+        eventType: 'onClick',
+        eventConfigIndex: 0,
+        actionIndex: 0,
+        target: 'view_b',
+        sourceFileHash: sha1(content),
+      },
+    }, projectRoot);
+
+    expect(result.needsConfirm).toBeFalsy();
+    expect(result.success).toBe(true);
+    const written = fs.readFileSync(filePath, 'utf-8');
+    expect(written).toMatch(/target="view_a"/);
+    // 未知标签原样保留（属性会被序列化器按组件规则补全，这里只钉住「没被丢掉」）
+    expect(written).toMatch(/<hg_future_widget\b/);
+    expect(written).toContain('id="fut"');
+  });
+
   it('rolls back to the exact original content when the disk write step fails', async () => {
     const service = new NavEditService(noOpHooks());
     // 模拟第 7 步写盘失败：先把磁盘写成垃圾内容，再抛错，验证第 9 步回滚
@@ -912,5 +945,129 @@ describe('NavEditService multi-file transactions & undo stack (I9)', () => {
     // 文件停在「第 1 次编辑的结果 view_t1」，而非原始 view_b（最旧条目已丢）
     expect(fs.readFileSync(absA(), 'utf-8')).toMatch(/target="view_t1"/);
     expect(fs.readFileSync(absA(), 'utf-8')).not.toMatch(/target="view_b"/);
+  });
+});
+
+/**
+ * viewKey（relPath#viewId）→ 绝对路径的路径遍历防护（评审 advisory 补漏）。
+ *
+ * viewKey 由 webview 传入，其 relPath 部分是外部输入，必须在拼绝对路径后校验仍
+ * 落在项目根内。这些用例把「本来存在的项目外 .hml」放在原地，证明拒绝原因确实是
+ * 路径校验而不是 fileNotFound。
+ */
+describe('NavEditService viewKey path traversal guard', () => {
+  let projectRoot: string;
+  const relPath = 'ui/home.hml';
+  const absHome = () => path.join(projectRoot, relPath);
+  const outsideRoot = () => path.dirname(projectRoot);
+
+  /** 把绝对路径转成 viewKey 里的 relPath 写法（分隔符统一成 '/'，与扫描器一致） */
+  const toViewKeyPath = (absPath: string): string => absPath.split(path.sep).join('/');
+
+  const retargetWithViewKey = (viewKey: string): NavEditRequest => ({
+    op: 'retarget',
+    newTarget: 'view_a',
+    edge: {
+      sourceViewKey: viewKey,
+      sourceControlId: 'btn_a',
+      eventType: 'onClick',
+      eventConfigIndex: 0,
+      actionIndex: 0,
+      target: 'view_b',
+    },
+  });
+
+  beforeEach(() => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-escape-test-'));
+    fs.mkdirSync(path.join(projectRoot, 'ui'), { recursive: true });
+    fs.writeFileSync(absHome(), CLEAN_CONTENT, 'utf-8');
+    NavEditService.clearUndoStackForTest();
+  });
+
+  afterEach(() => {
+    PendingWriteRegistry.getInstance().unregister(absHome());
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+    NavEditService.clearUndoStackForTest();
+    jest.restoreAllMocks();
+  });
+
+  it('rejects a relative viewKey that climbs out of the project root', async () => {
+    const outside = path.join(outsideRoot(), `${path.basename(projectRoot)}-outside.hml`);
+    fs.writeFileSync(outside, CLEAN_CONTENT, 'utf-8');
+    try {
+      const service = new NavEditService(noOpHooks());
+      const result = await service.applyNavEdit(
+        retargetWithViewKey(`../${path.basename(outside)}#view_a`), projectRoot
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('invalidRequest');
+      expect(result.errorDetail).toContain('不在项目内');
+      expect(fs.readFileSync(outside, 'utf-8')).toBe(CLEAN_CONTENT); // 项目外文件未被改写
+    } finally {
+      fs.rmSync(outside, { force: true });
+    }
+  });
+
+  it('rejects a sibling directory that only shares the project root as a string prefix', async () => {
+    // 前缀式校验（startsWith(root) 而非 root + sep）会把 <root>-evil 也放行
+    const siblingRoot = `${projectRoot}-evil`;
+    const siblingFile = path.join(siblingRoot, relPath);
+    fs.mkdirSync(path.join(siblingRoot, 'ui'), { recursive: true });
+    fs.writeFileSync(siblingFile, CLEAN_CONTENT, 'utf-8');
+    try {
+      const service = new NavEditService(noOpHooks());
+      const result = await service.applyNavEdit(
+        retargetWithViewKey(`../${path.basename(siblingRoot)}/${toViewKeyPath(relPath)}#view_a`), projectRoot
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('invalidRequest');
+      expect(result.errorDetail).toContain('不在项目内');
+      expect(fs.readFileSync(siblingFile, 'utf-8')).toBe(CLEAN_CONTENT);
+    } finally {
+      fs.rmSync(siblingRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('absolute paths smuggled in as the viewKey file part collapse into the project and cannot escape', async () => {
+    // fileRelative 先按 '/' 拆段再交给 path.resolve，前导空段与 "C:" 这类无根盘符
+    // 都会被丢弃，绝对路径退化回项目内的相对路径——读不到项目外的同名文件，
+    // 最终以 fileNotFound 收场（而不是 invalidRequest，路径本身没越界）。
+    const outside = path.join(os.tmpdir(), 'nav-escape-absolute.hml');
+    fs.writeFileSync(outside, CLEAN_CONTENT, 'utf-8');
+    try {
+      const service = new NavEditService(noOpHooks());
+      for (const viewKey of ['/nav-escape-rooted.hml#view_a', `${toViewKeyPath(outside)}#view_a`]) {
+        const result = await service.applyNavEdit(retargetWithViewKey(viewKey), projectRoot);
+        expect(result.success).toBe(false);
+        expect(result.errorCode).toBe('fileNotFound');
+      }
+      expect(fs.readFileSync(outside, 'utf-8')).toBe(CLEAN_CONTENT); // 项目外文件未被改写
+    } finally {
+      fs.rmSync(outside, { force: true });
+    }
+  });
+
+  it('does not block a legitimate path nested deeper inside the project', async () => {
+    // 合法路径没被误拦：走到路径校验之后才因文件不存在失败
+    const service = new NavEditService(noOpHooks());
+    const result = await service.applyNavEdit(
+      retargetWithViewKey('ui/sub/missing.hml#view_a'), projectRoot
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('fileNotFound');
+  });
+
+  it('rejects a viewKey without the "#" separator, and one with an empty side', async () => {
+    const service = new NavEditService(noOpHooks());
+    for (const viewKey of ['ui/home.hml', 'ui/home.hml#', '#view_a']) {
+      const result = await service.applyNavEdit(retargetWithViewKey(viewKey), projectRoot);
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('invalidRequest');
+      expect(result.errorDetail).toContain('非法 viewKey');
+    }
+    expect(fs.readFileSync(absHome(), 'utf-8')).toBe(CLEAN_CONTENT); // 一次都没写盘
   });
 });
