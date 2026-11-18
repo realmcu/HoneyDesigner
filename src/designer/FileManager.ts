@@ -656,15 +656,17 @@ export class FileManager {
     /**
      * 用磁盘上的新内容同步本面板（导航写事务 T10 写盘后调用）。
      * 面板 watcher 回灌已被 PendingWriteRegistry 抑制，由写事务显式同步：
-     * 解析新内容 → 推 loadHml；同时更新快照并复位 dirty 缓存
-     * （写事务前置校验已保证本面板无未保存改动，覆盖是安全的）。
+     * 解析新内容 → 推 loadHml；同时更新快照。
+     *
+     * 这里刻意不清 webview dirty 缓存。两个调用方都已保证进入时面板干净，
+     * 清除是 no-op；而重推期间若有新编辑到达（seq 递增），这次清除会抹掉它的
+     * true，使面板看不出未保存改动——不要为了「对称」把它加回来。
      */
     public async reloadFromContent(content: string): Promise<void> {
         if (!this._filePath) {
             return;
         }
         this.discardPendingSave();
-        this.setWebviewDirty(false);
         this._hmlController.parseContent(content, this._filePath, this.loadStyleLibrary());
         this._ownContentHash = undefined;
         await this.reloadCurrentDocument();
