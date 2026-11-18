@@ -11,7 +11,6 @@ import {
   EntranceCollectRules,
   EntranceOptions,
   EntrancePlan,
-  ENTRANCE_FADE_FRAMES,
   ENTRANCE_FIXED_SHIFT,
   ENTRANCE_FPS,
   ENTRANCE_ROT_UNIT,
@@ -160,8 +159,8 @@ export function emitEntranceTables(prefix: string, entrance: ViewEntrance, table
  * 调用处需已定义 uint16_t g、uint32_t t；片段会定义 int32_t v[4]（表的定点单位，
  * 依次是 dx、dy、旋转、缩放），bool done，以及 fade 为 true 时的 uint32_t fade（0~255）。
  */
-export function emitEntranceSample(prefix: string, indent: string, fade: boolean): string {
-  const fadeEnd = ENTRANCE_FADE_FRAMES * 1000;
+export function emitEntranceSample(prefix: string, indent: string, fadeFrames: number): string {
+  const fadeEnd = fadeFrames * 1000;
   let code = '';
   code += `${indent}uint32_t t60 = t * ${ENTRANCE_FPS}U;\n`;
   code += `${indent}uint32_t f = t60 / 1000U;\n`;
@@ -176,7 +175,7 @@ export function emitEntranceSample(prefix: string, indent: string, fade: boolean
   code += `${indent}        v[c] = track[f][c] + (track[f + 1U][c] - track[f][c]) * frac / 1000;\n`;
   code += `${indent}    }\n`;
   code += `${indent}}\n`;
-  if (fade) {
+  if (fadeFrames > 0) {
     code += `${indent}uint32_t fade = (done || t60 >= ${fadeEnd}U) ? 255U : t60 * 255U / ${fadeEnd}U;\n`;
   }
   return code;

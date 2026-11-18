@@ -335,7 +335,7 @@ commit `340bc18`（2026-06-15）从 `engineSupport` 重新生成的快照。
 | `overflow` | enum | auto | `auto` / `hidden` / `scroll` |
 | `residentMemory` | boolean | — | 切换离开时保留在内存中 |
 | `animateStep` | number | height/10 | 动画步进值 |
-| `entranceAnim` | enum | — | 页面入场弹跳动画方向：`fromBottom` / `fromTop` / `fromLeft` / `fromRight` / `fromCenter`（从页面中心一小堆里向四周散开，应用宫格用）；省略则无入场动画。每次进入页面（切换动画结束后）播放，直接子组件按位置分组依次弹入，完全落在较大兄弟元素内的组件随其一起移动 |
+| `entranceAnim` | enum | — | 页面入场动画：`fromBottom` / `fromTop` / `fromLeft` / `fromRight`（从该侧带着倾斜和回弹甩入）、`fromCenter`（从页面中心一小堆里向四周散开，应用宫格用）、`rise`（原地淡入上浮，最克制）、`pop`（原地放大弹入）、`spin`（从离自己最近的一侧旋转滑入）、`cascade`（从页面上方按行落下）；省略则无入场动画。每次进入页面（切换动画结束后）播放，直接子组件按位置分组依次弹入，完全落在较大兄弟元素内的组件随其一起移动 |
 | `entranceDuration` | number | 800 | 入场弹簧的特征时长（ms，200–3000），越大越慢 |
 | `entranceStagger` | number | 52 | 相邻分组的入场间隔（ms，0–500） |
 | `entranceBounce` | number | 60 | 弹性（0–100），0 为无过冲 |

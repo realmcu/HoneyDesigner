@@ -14,9 +14,18 @@
  * 纯函数、无 vscode 依赖，插件代码生成与 webview 预览共用。
  */
 
-export type EntranceDirection = 'fromBottom' | 'fromTop' | 'fromLeft' | 'fromRight' | 'fromCenter';
+/**
+ * 入场风格。前五个带方向（从某一侧甩进来 / 从中心散开），
+ * 后四个是方向无关的风格：淡入上浮、原地弹入、旋转滑入、逐行落下。
+ */
+export type EntranceDirection =
+  | 'fromBottom' | 'fromTop' | 'fromLeft' | 'fromRight' | 'fromCenter'
+  | 'rise' | 'pop' | 'spin' | 'cascade';
 
-export const ENTRANCE_DIRECTIONS: readonly EntranceDirection[] = ['fromBottom', 'fromTop', 'fromLeft', 'fromRight', 'fromCenter'];
+export const ENTRANCE_DIRECTIONS: readonly EntranceDirection[] = [
+  'fromBottom', 'fromTop', 'fromLeft', 'fromRight', 'fromCenter',
+  'rise', 'pop', 'spin', 'cascade',
+];
 
 /** 采样帧率：查表按 60 fps 排布 */
 export const ENTRANCE_FPS = 60;
@@ -79,6 +88,8 @@ export interface EntrancePlan {
   groups: EntranceGroup[];
   /** 整个入场持续时间（毫秒，含最后一组的延时） */
   totalMs: number;
+  /** 淡入占用的帧数，随风格变化 */
+  fadeFrames: number;
 }
 
 const BASE_DURATION = 800;
@@ -114,6 +125,36 @@ const BURST_LEAD = 0.5;
 const BURST_ROT_K = 190;
 /** 出手延时 = 离中心的距离（像素）× 这个系数 */
 const BURST_DELAY_PER_PX = 0.75;
+
+/*
+ * rise / pop / spin / cascade：方向无关的四种风格，复用同一套位移、旋转、缩放通道。
+ * rise 从下往上淡入上浮（不旋转、不回弹），pop 在原位放大，
+ * spin 从最近的一侧拧进来，cascade 从页面上方按行落下。
+ */
+const RISE_OFFSET = 18;
+const RISE_LEAD = 0.2;
+const RISE_K = 180;
+const POP_SCALE_FROM = 0.36;
+const POP_TILT = 2.5;
+const POP_K = 240;
+const SPIN_ANGLE = 25;
+const SPIN_SCALE_FROM = 0.94;
+const SPIN_PULL = 0.55;
+const SPIN_OUTSIDE = 0.15;
+const SPIN_K = 190;
+/** 落下的起点：卡片底边停在页面上方这么远 */
+const CASCADE_LIFT = 8;
+const CASCADE_LEAD = 0.35;
+const CASCADE_K = 205;
+/** cascade 行判定容差（页面高度的比例） */
+const CASCADE_ROW_TOL = 0.045;
+
+/** 每种风格的淡入帧数：位移越大，淡入占的时间越长 */
+const FADE_FRAMES_BY_DIRECTION: Partial<Record<EntranceDirection, number>> = {
+  rise: 12,
+  pop: 8,
+  spin: 6,
+};
 
 interface Channel {
   from: number;
@@ -367,6 +408,8 @@ export function planEntrance(
 ): EntrancePlan {
   const { direction } = options;
   const burst = direction === 'fromCenter';
+  const vertical = direction === 'fromBottom' || direction === 'fromTop' ||
+    direction === 'rise' || direction === 'cascade';
   const groups = groupEntrancePieces(pieces, direction);
 
   const origin: [number, number] = (() => {
@@ -374,61 +417,155 @@ export function planEntrance(
       case 'fromTop': return [viewWidth / 2, -viewHeight * ORIGIN_OUTSIDE];
       case 'fromLeft': return [-viewWidth * ORIGIN_OUTSIDE, viewHeight / 2];
       case 'fromRight': return [viewWidth * (1 + ORIGIN_OUTSIDE), viewHeight / 2];
-      case 'fromCenter': return [viewWidth / 2, viewHeight / 2];
-      case 'fromBottom':
       default: return [viewWidth / 2, viewHeight * (1 + ORIGIN_OUTSIDE)];
     }
   })();
-  const vertical = direction === 'fromBottom' || direction === 'fromTop';
-  const pull = burst ? BURST_PULL : PULL;
 
   // 时长 → 刚度：弹簧周期与 1/sqrt(k) 成正比
   const speed = BASE_DURATION / options.duration;
-  const k = (burst ? BURST_K : BASE_K) * speed * speed;
-  // 回弹强度 → 阻尼比：0 为临界阻尼（不过冲），100 为 0.45
-  const z = burst
-    ? Math.max(0.28, Math.min(1, BURST_Z + (TILT_REFERENCE_BOUNCE - options.bounce) / 100 * 0.6))
-    : 1 - (options.bounce / 100) * 0.55;
   const maxFrames = Math.min(360, Math.ceil(options.duration * 2.5 * ENTRANCE_FPS / 1000));
+  // 回弹强度 → 阻尼比：0 为临界阻尼（不过冲），100 为 0.45
+  const bounceZ = 1 - (options.bounce / 100) * 0.55;
   // 倾斜：3~6 度、阻尼 0.45；回弹越强倾斜越大、晃得越久
   const tiltGain = Math.min(1.5, options.bounce / TILT_REFERENCE_BOUNCE);
-  const tiltMin = burst ? BURST_TILT_MIN : TILT_MIN;
-  const tiltMax = burst ? BURST_TILT_MAX : TILT_MAX;
-  const rotZ = Math.max(0.3, Math.min(1, z - 0.23));
-  const scaleZ = Math.max(0.4, Math.min(1, z - 0.06));
-  const scaleFrom = burst ? BURST_SCALE_FROM : SCALE_FROM;
-  const lead = burst ? BURST_LEAD : LEAD;
+
+  // cascade 先分好行：同一行的卡片同时落下
+  const rows = direction === 'cascade'
+    ? cascadeRows(groups, Math.max(16, viewHeight * CASCADE_ROW_TOL))
+    : [];
 
   let totalMs = 0;
   const planned = groups.map((members, i) => {
     const card = members[0];
     const cx = card.x + card.width / 2;
     const cy = card.y + card.height / 2;
-    const offX = (origin[0] - cx) * pull;
-    const offY = (origin[1] - cy) * pull;
+
+    // 每种风格只决定起点：位移、倾斜、缩放、弹簧参数、启动延时
+    let offX = 0;
+    let offY = 0;
+    let tilt = 0;
+    let scaleFrom = 1;
+    let k = BASE_K * speed * speed;
+    const z = bounceZ;
+    let lead = LEAD;
+    let rotK = ROT_K * speed * speed;
+    let delay = Math.round(i * options.stagger);
+    let damping = z;
+
+    switch (direction) {
+      case 'fromCenter':
+        offX = (viewWidth / 2 - cx) * BURST_PULL;
+        offY = (viewHeight / 2 - cy) * BURST_PULL;
+        k = BURST_K * speed * speed;
+        rotK = BURST_ROT_K * speed * speed;
+        damping = Math.max(0.28, Math.min(1, BURST_Z + (TILT_REFERENCE_BOUNCE - options.bounce) / 100 * 0.6));
+        lead = BURST_LEAD;
+        scaleFrom = BURST_SCALE_FROM;
+        tilt = tiltFor(Math.abs(offX) > 4 ? Math.sign(offX) : (i % 2 ? 1 : -1), BURST_TILT_MIN, BURST_TILT_MAX, i, tiltGain);
+        // 散开时离中心近的先出手，形成一圈向外扩散的涟漪
+        delay = Math.round(Math.hypot(offX, offY) * BURST_DELAY_PER_PX * (options.stagger / ENTRANCE_DEFAULTS.stagger));
+        break;
+
+      case 'rise':
+        // 从下方十几像素轻轻推上来：不旋转、不回弹
+        offY = Math.round(RISE_OFFSET * viewHeight / 502);
+        k = RISE_K * speed * speed;
+        lead = RISE_LEAD;
+        damping = 1;
+        delay = Math.round(i * options.stagger * 0.6);
+        break;
+
+      case 'pop':
+        // 原地放大：没有方向位移，只过冲一点，中心附近轻晃一下
+        scaleFrom = POP_SCALE_FROM;
+        k = POP_K * speed * speed;
+        lead = 0;
+        damping = Math.max(0.35, z - 0.02);
+        tilt = (i % 2 ? 1 : -1) * POP_TILT * (0.4 + jitter(i, 1)) * tiltGain;
+        delay = Math.round(i * options.stagger * 0.6);
+        break;
+
+      case 'spin':
+        // 从离自己最近的一侧滑入，同时从 ±25° 拧正
+        {
+          const fromLeft = cx < viewWidth / 2;
+          const edge = fromLeft ? -viewWidth * SPIN_OUTSIDE : viewWidth * (1 + SPIN_OUTSIDE);
+          offX = (edge - cx) * SPIN_PULL;
+          scaleFrom = SPIN_SCALE_FROM;
+          k = SPIN_K * speed * speed;
+          lead = LEAD * 1.1;
+          damping = Math.max(0.5, z - 0.08);
+          tilt = (fromLeft ? -1 : 1) * SPIN_ANGLE * (0.75 + jitter(i, 1) * 0.5);
+        }
+        break;
+
+      case 'cascade':
+        // 一开始整张卡片在页面上方之外，按行错峰落下
+        offY = -(cy + card.height / 2 + CASCADE_LIFT);
+        k = CASCADE_K * speed * speed;
+        lead = CASCADE_LEAD;
+        delay = Math.round(rows[i] * options.stagger);
+        break;
+
+      case 'fromBottom':
+      case 'fromTop':
+      case 'fromLeft':
+      case 'fromRight':
+      default: {
+        offX = (origin[0] - cx) * PULL;
+        offY = (origin[1] - cy) * PULL;
+        scaleFrom = SCALE_FROM;
+        // 倾斜方向跟着横向偏移走；正对抛出点的卡片左右交替，看起来像一张张发出来的牌
+        const lateral = vertical ? offX : offY;
+        tilt = tiltFor(Math.abs(lateral) > 4 ? Math.sign(lateral) : (i % 2 ? 1 : -1), TILT_MIN, TILT_MAX, i, tiltGain);
+        break;
+      }
+    }
+
     const softness = 0.92 + jitter(i, 2) * 0.16;
-    // 倾斜方向跟着横向偏移走；正对抛出点的卡片左右交替，看起来像一张张发出来的牌
-    const lateral = burst || vertical ? offX : offY;
-    const side = Math.abs(lateral) > 4 ? Math.sign(lateral) : (i % 2 ? 1 : -1);
-    const tilt = side * (tiltMin + (tiltMax - tiltMin) * jitter(i, 1)) * tiltGain;
     // 主轴软、副轴更硬且阻尼更大，所以卡片走一条微弯的弧线
-    const main = { v: lead, k: k * softness, z, eps: 0.15 };
-    const cross = { v: lead, k: k * 1.45 * softness, z: Math.min(1, z + 0.08), eps: 0.15 };
+    const main = { v: lead, k: k * softness, z: damping, eps: 0.15 };
+    const cross = { v: lead, k: k * 1.45 * softness, z: Math.min(1, damping + 0.08), eps: 0.15 };
+    const rotZ = Math.max(0.3, Math.min(1, damping - 0.23));
+    const scaleZ = Math.max(0.4, Math.min(1, damping - 0.06));
     const [dx, dy, rot, scaleOffset] = simulateSprings([
       { from: offX, ...(burst || !vertical ? cross : main) },
       { from: offY, ...(burst || vertical ? main : cross) },
-      { from: tilt, v: 0, k: (burst ? BURST_ROT_K : ROT_K) * speed * speed, z: rotZ, eps: 0.03 },
+      { from: tilt, v: 0, k: rotK, z: rotZ, eps: 0.03 },
       { from: scaleFrom - 1, v: 0.3, k: k * 1.2, z: scaleZ, eps: 0.0008 },
     ], maxFrames);
-    // 散开时离中心近的先出手，形成一圈向外扩散的涟漪；其余方向按顺序错峰
-    const delay = burst
-      ? Math.round(Math.hypot(offX, offY) * BURST_DELAY_PER_PX * (options.stagger / ENTRANCE_DEFAULTS.stagger))
-      : Math.round(i * options.stagger);
     totalMs = Math.max(totalMs, delay + Math.round((dx.length - 1) * 1000 / ENTRANCE_FPS));
     return { ids: members.map(m => m.id), delay, cx, cy, dx, dy, rot, scale: scaleOffset.map(s => 1 + s) };
   });
 
-  return { groups: planned, totalMs };
+  return { groups: planned, totalMs, fadeFrames: fadeFramesFor(direction) };
+}
+
+/** 出手时的倾斜角：方向由 side 决定，幅度在 min~max 之间按卡片抖动 */
+function tiltFor(side: number, min: number, max: number, index: number, gain: number): number {
+  return side * (min + (max - min) * jitter(index, 1)) * gain;
+}
+
+/** cascade 的行号：按顶边排序，相差超过 tolerance 的算下一行 */
+function cascadeRows(groups: EntrancePiece[][], tolerance: number): number[] {
+  const rows = new Array<number>(groups.length).fill(0);
+  let row = -1;
+  let lastTop = Number.NEGATIVE_INFINITY;
+  const order = groups.map((_, i) => i).sort((a, b) => groups[a][0].y - groups[b][0].y);
+  for (const i of order) {
+    const top = groups[i][0].y;
+    if (top - lastTop > tolerance) {
+      row++;
+      lastTop = top;
+    }
+    rows[i] = Math.max(0, row);
+  }
+  return rows;
+}
+
+/** 某种风格的淡入帧数 */
+export function fadeFramesFor(direction: EntranceDirection): number {
+  return FADE_FRAMES_BY_DIRECTION[direction] ?? ENTRANCE_FADE_FRAMES;
 }
 
 /** 位移转成表里的定点数（1/8 像素） */
@@ -446,7 +583,7 @@ export function toFixedScale(scale: number): number {
   return Math.max(-32768, Math.min(32767, Math.round((scale - 1) * ENTRANCE_SCALE_UNIT)));
 }
 
-/** 淡入：第 frame 帧（可为小数）的不透明度 0~1 */
-export function entranceFadeAt(frame: number): number {
-  return Math.max(0, Math.min(1, frame / ENTRANCE_FADE_FRAMES));
+/** 淡入：第 frame 帧（可为小数）的不透明度 0~1，frames 为淡入占用的总帧数 */
+export function entranceFadeAt(frame: number, frames = ENTRANCE_FADE_FRAMES): number {
+  return Math.max(0, Math.min(1, frame / Math.max(1, frames)));
 }

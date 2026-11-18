@@ -168,6 +168,65 @@ describe('planEntrance', () => {
   });
 });
 
+describe('entrance styles', () => {
+  const pieces = [
+    { id: 'left', x: 20, y: 40, width: 180, height: 120 },
+    { id: 'right', x: 210, y: 40, width: 180, height: 120 },
+  ];
+
+  it('rise fades up in place without tilting or overshooting', () => {
+    const plan = planEntrance(410, 502, pieces, options('rise'));
+    for (const group of plan.groups) {
+      expect(group.dx.every(d => d === 0)).toBe(true);
+      expect(group.dy[0]).toBeGreaterThan(0);
+      expect(Math.min(...group.dy)).toBeGreaterThanOrEqual(0);
+      expect(group.rot.every(r => r === 0)).toBe(true);
+      expect(group.scale.every(s => s === 1)).toBe(true);
+      expect(group.dy[group.dy.length - 1]).toBe(0);
+    }
+    // 位移小、淡入慢一点
+    expect(plan.fadeFrames).toBeGreaterThan(5);
+  });
+
+  it('pop scales up in place from the card centre', () => {
+    const plan = planEntrance(410, 502, pieces, options('pop'));
+    for (const group of plan.groups) {
+      expect(group.dx.every(d => d === 0)).toBe(true);
+      expect(group.dy.every(d => d === 0)).toBe(true);
+      expect(group.scale[0]).toBeCloseTo(0.36);
+      expect(Math.max(...group.scale)).toBeGreaterThan(1);
+      expect(group.scale[group.scale.length - 1]).toBe(1);
+    }
+  });
+
+  it('spin enters from the side each card is closest to', () => {
+    const plan = planEntrance(410, 502, pieces, options('spin'));
+    for (const group of plan.groups) {
+      const fromLeft = group.cx < 205;
+      expect(Math.sign(group.dx[0])).toBe(fromLeft ? -1 : 1);
+      expect(Math.abs(group.rot[0])).toBeGreaterThanOrEqual(18);
+      expect(group.dy.every(d => d === 0)).toBe(true);
+      expect(group.dx[group.dx.length - 1]).toBe(0);
+    }
+  });
+
+  it('cascade drops whole rows from above the page', () => {
+    const rows = [
+      { id: 'a', x: 20, y: 40, width: 170, height: 120 },
+      { id: 'b', x: 220, y: 44, width: 170, height: 120 },
+      { id: 'c', x: 20, y: 300, width: 170, height: 120 },
+    ];
+    const plan = planEntrance(410, 502, rows, options('cascade', { stagger: 100 }));
+    expect(plan.groups.map(g => g.delay)).toEqual([0, 0, 100]);
+    for (const group of plan.groups) {
+      // 起点整张卡片在页面上方之外
+      expect(group.dy[0]).toBeLessThan(-100);
+      expect(group.dx.every(d => d === 0)).toBe(true);
+      expect(group.dy[group.dy.length - 1]).toBe(0);
+    }
+  });
+});
+
 describe('HoneyGUI view entrance', () => {
   it('emits nothing when the entrance is off', () => {
     const { view, componentMap } = makeNotificationView({});

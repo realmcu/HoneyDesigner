@@ -69,7 +69,7 @@ export function generateLvglEntranceHelpers(view: Component, componentMap: Map<s
   code += `    if (i >= ${n})\n    {\n        return;\n    }\n`;
   code += `    uint16_t g = ${p}_obj_group[i];\n`;
   code += `    uint32_t t = (uint32_t)(v < 0 ? 0 : v);\n`;
-  code += emitEntranceSample(p, '    ', fade);
+  code += emitEntranceSample(p, '    ', fade ? entrance.plan.fadeFrames : 0);
   code += `    LV_UNUSED(done);\n`;
   code += fade
     ? `    ${p}_apply(obj, v, (lv_opa_t)(${p}_obj_opacity[i] * fade / 255U));\n`

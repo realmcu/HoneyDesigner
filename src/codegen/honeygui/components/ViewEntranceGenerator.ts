@@ -193,7 +193,7 @@ export function generateHoneyGuiViewEntrance(
   helpers += conceal.replace(/^ {4}/gm, '');
   helpers += `    }\n`;
   helpers += `    uint32_t t = elapsed - ${p}_delays[g];\n`;
-  helpers += emitEntranceSample(p, '    ', fade);
+  helpers += emitEntranceSample(p, '    ', fade ? entrance.plan.fadeFrames : 0);
   helpers += `    if (done)\n    {\n`;
   helpers += `        obj->obj_cb = ${p}_orig_cb[i];\n`;
   helpers += `        obj->has_pre_process_cb = ${p}_orig_pre[i];\n`;

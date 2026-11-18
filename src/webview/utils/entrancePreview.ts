@@ -71,7 +71,7 @@ export function playEntrancePreview(view: Component, components: Component[]): b
           translate: `${tx.toFixed(2)}px ${ty.toFixed(2)}px`,
           rotate: `${group.rot[f].toFixed(3)}deg`,
           scale: s.toFixed(4),
-          ...(options.fade ? { opacity: entranceFadeAt(f) } : {}),
+          ...(options.fade ? { opacity: entranceFadeAt(f, plan.fadeFrames) } : {}),
         };
       });
       element.animate(keyframes, {
