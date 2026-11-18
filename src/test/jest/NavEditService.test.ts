@@ -10,6 +10,7 @@ import {
 } from '../../designer/NavEditService';
 import { HmlSerializer } from '../../hml/HmlSerializer';
 import { PendingWriteRegistry } from '../../designer/PendingWriteRegistry';
+import { asViewKey, makeViewKey, type ViewKey } from '../../shared/navContract';
 
 /**
  * NavEditService 写事务核心测试（对应设计文档 T10）。
@@ -110,7 +111,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -134,7 +135,7 @@ describe('NavEditService.applyNavEdit', () => {
     const request: NavEditRequest = {
       op: 'delete',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -157,7 +158,7 @@ describe('NavEditService.applyNavEdit', () => {
     const request: NavEditRequest = {
       op: 'create',
       create: {
-        sourceViewKey: `${relPath}#view_b`,
+        sourceViewKey: makeViewKey(relPath, 'view_b'),
         sourceControlId: 'view_b', // 屏幕本身手势
         eventType: 'onSwipeLeft',
         target: 'view_a',
@@ -178,7 +179,7 @@ describe('NavEditService.applyNavEdit', () => {
     const request: NavEditRequest = {
       op: 'create',
       create: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick', // 已经配置了 switchView
         target: 'view_a',
@@ -202,7 +203,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -230,7 +231,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -251,7 +252,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -272,7 +273,7 @@ describe('NavEditService.applyNavEdit', () => {
     const request: NavEditRequest = {
       op: 'delete',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -293,7 +294,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -315,7 +316,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'lbl_timer',
         eventType: 'timer',
         eventConfigIndex: 0,
@@ -337,7 +338,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -360,7 +361,7 @@ describe('NavEditService.applyNavEdit', () => {
       newTarget: 'view_a',
       edge: {
         // btn_a 真实属于 view_a，谎称属于 view_b
-        sourceViewKey: `${relPath}#view_b`,
+        sourceViewKey: makeViewKey(relPath, 'view_b'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -382,7 +383,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -415,7 +416,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -449,7 +450,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -481,7 +482,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -509,7 +510,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -536,7 +537,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -564,7 +565,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -597,7 +598,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -618,7 +619,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -640,7 +641,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -669,7 +670,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -695,7 +696,7 @@ describe('NavEditService.applyNavEdit', () => {
       op: 'retarget',
       newTarget: 'view_a',
       edge: {
-        sourceViewKey: `${relPath}#view_a`,
+        sourceViewKey: makeViewKey(relPath, 'view_a'),
         sourceControlId: 'btn_a',
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -724,7 +725,7 @@ describe('NavEditService.undoLast', () => {
     op: 'retarget',
     newTarget: 'view_a',
     edge: {
-      sourceViewKey: `${relPath}#view_a`,
+      sourceViewKey: makeViewKey(relPath, 'view_a'),
       sourceControlId: 'btn_a',
       eventType: 'onClick',
       eventConfigIndex: 0,
@@ -852,7 +853,7 @@ describe('NavEditService multi-file transactions & undo stack (I9)', () => {
       op: 'retarget',
       newTarget: to,
       edge: {
-        sourceViewKey: `${rel}#${viewId}`,
+        sourceViewKey: makeViewKey(rel, viewId),
         sourceControlId: controlId,
         eventType: 'onClick',
         eventConfigIndex: 0,
@@ -964,7 +965,7 @@ describe('NavEditService viewKey path traversal guard', () => {
   /** 把绝对路径转成 viewKey 里的 relPath 写法（分隔符统一成 '/'，与扫描器一致） */
   const toViewKeyPath = (absPath: string): string => absPath.split(path.sep).join('/');
 
-  const retargetWithViewKey = (viewKey: string): NavEditRequest => ({
+  const retargetWithViewKey = (viewKey: ViewKey): NavEditRequest => ({
     op: 'retarget',
     newTarget: 'view_a',
     edge: {
@@ -997,7 +998,7 @@ describe('NavEditService viewKey path traversal guard', () => {
     try {
       const service = new NavEditService(noOpHooks());
       const result = await service.applyNavEdit(
-        retargetWithViewKey(`../${path.basename(outside)}#view_a`), projectRoot
+        retargetWithViewKey(asViewKey(`../${path.basename(outside)}#view_a`)), projectRoot
       );
 
       expect(result.success).toBe(false);
@@ -1018,7 +1019,7 @@ describe('NavEditService viewKey path traversal guard', () => {
     try {
       const service = new NavEditService(noOpHooks());
       const result = await service.applyNavEdit(
-        retargetWithViewKey(`../${path.basename(siblingRoot)}/${toViewKeyPath(relPath)}#view_a`), projectRoot
+        retargetWithViewKey(asViewKey(`../${path.basename(siblingRoot)}/${toViewKeyPath(relPath)}#view_a`)), projectRoot
       );
 
       expect(result.success).toBe(false);
@@ -1038,7 +1039,7 @@ describe('NavEditService viewKey path traversal guard', () => {
     fs.writeFileSync(outside, CLEAN_CONTENT, 'utf-8');
     try {
       const service = new NavEditService(noOpHooks());
-      for (const viewKey of ['/nav-escape-rooted.hml#view_a', `${toViewKeyPath(outside)}#view_a`]) {
+      for (const viewKey of [asViewKey('/nav-escape-rooted.hml#view_a'), makeViewKey(toViewKeyPath(outside), 'view_a')]) {
         const result = await service.applyNavEdit(retargetWithViewKey(viewKey), projectRoot);
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('fileNotFound');
@@ -1053,7 +1054,7 @@ describe('NavEditService viewKey path traversal guard', () => {
     // 合法路径没被误拦：走到路径校验之后才因文件不存在失败
     const service = new NavEditService(noOpHooks());
     const result = await service.applyNavEdit(
-      retargetWithViewKey('ui/sub/missing.hml#view_a'), projectRoot
+      retargetWithViewKey(asViewKey('ui/sub/missing.hml#view_a')), projectRoot
     );
 
     expect(result.success).toBe(false);
@@ -1062,7 +1063,7 @@ describe('NavEditService viewKey path traversal guard', () => {
 
   it('rejects a viewKey without the "#" separator, and one with an empty side', async () => {
     const service = new NavEditService(noOpHooks());
-    for (const viewKey of ['ui/home.hml', 'ui/home.hml#', '#view_a']) {
+    for (const viewKey of [asViewKey('ui/home.hml'), asViewKey('ui/home.hml#'), asViewKey('#view_a')]) {
       const result = await service.applyNavEdit(retargetWithViewKey(viewKey), projectRoot);
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('invalidRequest');

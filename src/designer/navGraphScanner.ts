@@ -14,7 +14,13 @@ import type { Component } from '../hml/types';
 import { forEachLiveTimerSwitchView } from '../hml/timerNav';
 import { HmlController } from '../hml/HmlController';
 import { ProjectUtils } from '../utils/ProjectUtils';
-import type { ViewNavEdge, ControlNavEdge, TimerNavEdge } from '../shared/navContract';
+import {
+    makeViewKey,
+    type ViewKey,
+    type ViewNavEdge,
+    type ControlNavEdge,
+    type TimerNavEdge,
+} from '../shared/navContract';
 
 /**
  * 视图节点（导航图数据模型）
@@ -92,27 +98,27 @@ export function normalizeHmlFilePath(filePath: string): string {
 }
 
 export interface ViewNavNode {
-    id: string;
-    name: string;
+    readonly id: string;
+    readonly name: string;
     /** 旧字段：文件名去 .hml（向后兼容；跨目录可能撞名，新逻辑请用 viewKey） */
-    file: string;
-    edges: ViewNavEdge[];
+    readonly file: string;
+    readonly edges: readonly ViewNavEdge[];
     /** 复合键：relPath#viewId */
-    viewKey?: string;
+    readonly viewKey?: ViewKey;
     /** 所属文件绝对路径 */
-    filePath?: string;
+    readonly filePath?: string;
     /** 所属文件相对项目根路径（正斜杠） */
-    fileRelative?: string;
+    readonly fileRelative?: string;
     /** 扫描时文件 mtime（ms） */
-    fileMtime?: number;
+    readonly fileMtime?: number;
     /** 扫描时文件内容 hash（sha1） */
-    fileHash?: string;
+    readonly fileHash?: string;
     /**
      * 原始 name 属性（未回落为 id）。
      * name 索引只登记显式写了 name 的 view —— `name` 字段为兼容旧行为会回落成 id，
      * 无法据此区分，故单独保留。
      */
-    rawName?: string;
+    readonly rawName?: string;
 }
 
 /** 采集边时的单文件上下文 */
@@ -121,7 +127,7 @@ interface ViewScanFileContext {
     fileRelative: string;
     fileMtime: number;
     fileHash: string;
-    viewKey: string;
+    viewKey: ViewKey;
 }
 
 /**
@@ -214,7 +220,7 @@ function scanSingleHmlFile(
             continue;
         }
 
-        const viewKey = `${fileRelative}#${comp.id}`;
+        const viewKey = makeViewKey(fileRelative, comp.id);
         const fileCtx: ViewScanFileContext = {
             filePath: hmlFile.path,
             fileRelative,
@@ -300,9 +306,8 @@ export async function scanProjectHml(
     // 会被 codegen 映射 id→name，跨文件 target 原样透传——运行时按 name 跳转。
     // 手写 HML 中 name≠id 时，target 写 id 或 name 都可能是用户意图，
     // 命中任一且唯一才算 valid；跨 id/name 命中多个 view 视为歧义
-    const viewKeysById = new Map<string, string[]>();
-    const viewKeysByName = new Map<string, string[]>();
-    const pendingEdges: ViewNavEdge[] = [];
+    const viewKeysById = new Map<string, ViewKey[]>();
+    const viewKeysByName = new Map<string, ViewKey[]>();
 
     for (const hmlFile of hmlFiles) {
         try {
@@ -322,7 +327,6 @@ export async function scanProjectHml(
                 if (view.rawName) {
                     viewKeysByName.set(view.rawName, [...(viewKeysByName.get(view.rawName) || []), viewKey]);
                 }
-                pendingEdges.push(...view.edges);
                 allViews.push(view);
             }
         } catch (err) {
@@ -337,19 +341,28 @@ export async function scanProjectHml(
     // 注册/跳转，target 命中 id 或 name 任一且唯一 → valid；同一 view 的
     // id===name 时两个 map 落到相同复合键，用 Set 去重不算歧义）
     // 注：同文件重复 id 已被 parser 静默合并，采集端无法还原（已知限制）
-    for (const edge of pendingEdges) {
-        const targetKeys = new Set<string>([
+    const resolveTarget = (edge: ViewNavEdge): ViewNavEdge => {
+        const targetKeys = new Set<ViewKey>([
             ...(viewKeysById.get(edge.target) || []),
             ...(viewKeysByName.get(edge.target) || []),
         ]);
-        edge.isValid = targetKeys.size >= 1;
-        edge.targetAmbiguous = targetKeys.size > 1;
-        edge.targetViewKey = targetKeys.size === 1 ? [...targetKeys][0] : undefined;
-    }
+        return {
+            ...edge,
+            isValid: targetKeys.size >= 1,
+            targetAmbiguous: targetKeys.size > 1,
+            targetViewKey: targetKeys.size === 1 ? [...targetKeys][0] : undefined,
+        };
+    };
+    // 边类型全字段 readonly，第二遍解析产出新对象而非就地回填，
+    // 缓存与调用方持有的旧引用因此不会被悄悄改掉。
+    const resolvedViews: ViewNavNode[] = allViews.map(view => ({
+        ...view,
+        edges: view.edges.map(resolveTarget),
+    }));
 
     return {
         hmlFiles,
-        views: allViews,
+        views: resolvedViews,
         componentIdsByFile,
         componentIds: [...idCounts.keys()],
         duplicateIds: [...idCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id),

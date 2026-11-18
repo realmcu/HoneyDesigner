@@ -51,6 +51,7 @@ function viewSignature(components: Component[] | undefined): string {
 // 视图跳转边（导航图数据模型）迁至 src/shared/navContract.ts 并改判别联合
 // （评审 I6：control 可编辑 / timer 只读）。此处 re-export 保持既有 import 路径不变。
 export type { ViewNavEdge } from '../shared/navContract';
+import { splitViewKey, type ViewKey } from '../shared/navContract';
 
 // 导航图扫描（边采集 / 跨文件 target 解析）纯逻辑抽至 ./navGraphScanner（评审 I8：
 // vscode-free，可 jest fixtures 直测）。ViewNavNode 定义随之迁移，此处 re-export 保持既有引用。
@@ -751,7 +752,7 @@ export class FileManager {
      * 复用 T2 scanAllViews 的 id→component / parent→children[] 索引遍历逻辑。
      * 找不到项目根目录 / 文件 / view 时返回 null。
      */
-    public async getViewControls(viewKey: string): Promise<ViewControlInfo[] | null> {
+    public async getViewControls(viewKey: ViewKey): Promise<ViewControlInfo[] | null> {
         if (!this._filePath) {
             return null;
         }
@@ -760,16 +761,12 @@ export class FileManager {
             return null;
         }
 
-        const hashIndex = viewKey.indexOf('#');
-        if (hashIndex < 0) {
-            logger.warn(`[FileManager] getViewControls: 非法 viewKey（缺少 #）: ${viewKey}`);
+        const parts = splitViewKey(viewKey);
+        if (!parts) {
+            logger.warn(`[FileManager] getViewControls: 非法 viewKey（缺少 # 或某侧为空）: ${viewKey}`);
             return null;
         }
-        const fileRelative = viewKey.slice(0, hashIndex);
-        const viewId = viewKey.slice(hashIndex + 1);
-        if (!fileRelative || !viewId) {
-            return null;
-        }
+        const { fileRelative, viewId } = parts;
 
         const absPath = path.join(projectRoot, ...fileRelative.split('/'));
 

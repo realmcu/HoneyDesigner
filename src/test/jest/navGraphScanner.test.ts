@@ -192,9 +192,11 @@ describe('navGraphScanner 扫描缓存', () => {
       .edges.find(e => e.sourceControlId === 'view_home')!;
     const originalValidity = gesture.isValid;
 
-    // 模拟调用方就地篡改（target 解析阶段正是这么写的）
-    gesture.isValid = !originalValidity;
-    gesture.target = 'mutated_by_caller';
+    // 类型层已用 readonly 禁止就地改写，这里强转模拟外部调用方的运行时篡改，
+    // 验证缓存返回的仍是副本
+    const mutable = gesture as unknown as { isValid?: boolean; target: string };
+    mutable.isValid = !originalValidity;
+    mutable.target = 'mutated_by_caller';
 
     const second = await scanProjectHml(ENTRY);
     const sameEdge = second.views

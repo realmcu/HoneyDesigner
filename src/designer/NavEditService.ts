@@ -9,6 +9,7 @@ import type { Document as HmlDocument, Component } from '../hml/types';
 import type { Action, EventConfig, EventType } from '../hml/eventTypes';
 import { getSupportedEvents } from '../hml/eventTypes';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
+import { splitViewKey } from '../shared/navContract';
 import type {
     NavEditOp,
     NavEditErrorCode,
@@ -17,6 +18,7 @@ import type {
     NavEditCreateSpec,
     NavEditRequest,
     NavEditResult,
+    ViewKey,
 } from '../shared/navContract';
 
 // 契约类型已迁至 src/shared/navContract.ts（评审 I4/I5：宿主/webview 单一真相源）。
@@ -158,7 +160,7 @@ export class NavEditService {
         }
 
         // ---- 入参展开与基本校验 ----
-        let viewKey: string;
+        let viewKey: ViewKey;
         let controlId: string;
         let eventType: string;
         let snapshotHash: string | undefined;
@@ -196,12 +198,11 @@ export class NavEditService {
         }
 
         // ---- viewKey → 绝对路径（含路径遍历防护） ----
-        const hashIdx = viewKey.indexOf('#');
-        if (hashIdx <= 0 || hashIdx === viewKey.length - 1) {
+        const viewKeyParts = splitViewKey(viewKey);
+        if (!viewKeyParts) {
             return fail('invalidRequest', `非法 viewKey: ${viewKey}`);
         }
-        const fileRelative = viewKey.slice(0, hashIdx);
-        const viewId = viewKey.slice(hashIdx + 1);
+        const { fileRelative, viewId } = viewKeyParts;
         const absPath = path.resolve(projectRoot, ...fileRelative.split('/'));
         const rootKey = PendingWriteRegistry.normalizePathKey(projectRoot);
         const fileKey = PendingWriteRegistry.normalizePathKey(absPath);

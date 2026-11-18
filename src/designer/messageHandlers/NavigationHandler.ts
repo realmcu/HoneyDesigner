@@ -6,6 +6,7 @@ import { ProjectUtils } from '../../utils/ProjectUtils';
 import { NavLayoutService, NavLayoutMap } from '../../services/NavLayoutService';
 import { NavEditService, NavEditHostHooks, NavEditRequest, NavEditResult } from '../NavEditService';
 import { PendingWriteRegistry } from '../PendingWriteRegistry';
+import { asViewKey } from '../../shared/navContract';
 import { HandlerContext } from './HandlerContext';
 
 /**
@@ -169,16 +170,17 @@ export class NavigationHandler {
      * 控件列表，回推 viewControlsLoaded（T9，新建跳转前置，UI 用在 T11）。
      * 找不到 view / 解析失败一律回推空数组（不阻塞交互），并带 error 供前端提示。
      */
-    public async handleGetViewControls(viewKey: string | undefined): Promise<void> {
-        if (!viewKey) {
+    public async handleGetViewControls(rawViewKey: string | undefined): Promise<void> {
+        if (!rawViewKey) {
             this._ctx.panel.webview.postMessage({
                 command: 'viewControlsLoaded',
-                viewKey,
+                viewKey: rawViewKey,
                 controls: [],
                 error: 'Missing viewKey'
             });
             return;
         }
+        const viewKey = asViewKey(rawViewKey);
         try {
             const controls = await this._ctx.fileManager.getViewControls(viewKey);
             if (!controls) {

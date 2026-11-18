@@ -25,6 +25,8 @@ import { exportProjectZip, downloadBlob } from '../host/projectZip';
 import { hostUi } from '../host/hostUi';
 import * as fs from '../shims/fs';
 import { Sparkles } from 'lucide-react';
+import { makeViewKey, type ViewKey } from '../../shared/navContract';
+import type { ViewInfo } from '../../webview/types';
 import { AiPanel } from '../ai/AiPanel';
 
 /** AI 面板开关记在浏览器里，下次打开工程沿用 */
@@ -255,11 +257,15 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
 
         // 被引用：其它文件里的 switchView 以本文件某个 view 为 target
         const doomed = (sel.allViews || []).filter(v => v.filePath && path.posix.resolve(v.filePath) === path.posix.resolve(target));
-        const doomedKeys = new Set(doomed.map(v => v.viewKey ?? v.id));
+        // 一律用复合键空间比较：viewKey 缺失时按同一规则补出，否则与 edge.targetViewKey
+        // （始终是复合键）不在同一空间，会把引用判漏
+        const viewKeyOf = (v: ViewInfo): ViewKey =>
+            v.viewKey ?? makeViewKey(v.fileRelative ?? v.file, v.id);
+        const doomedKeys = new Set(doomed.map(viewKeyOf));
         const doomedNames = new Set(doomed.map(v => v.id).concat(doomed.map(v => v.name)));
         const inbound = new Set<string>();
         for (const view of sel.allViews || []) {
-            if (doomedKeys.has(view.viewKey ?? view.id)) {
+            if (doomedKeys.has(viewKeyOf(view))) {
                 continue;
             }
             for (const edge of view.edges || []) {
@@ -267,7 +273,7 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                     ? doomedKeys.has(edge.targetViewKey)
                     : doomedNames.has(edge.target);
                 if (hits) {
-                    inbound.add(`${view.fileRelative ?? view.file}#${view.id}`);
+                    inbound.add(viewKeyOf(view));
                 }
             }
         }

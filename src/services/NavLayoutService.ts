@@ -1,17 +1,17 @@
 import * as path from 'path';
 import * as fs from 'fs';
-
 /**
  * 导航图节点单点布局坐标。
  */
 export interface NavLayoutEntry {
-    x: number;
-    y: number;
+    readonly x: number;
+    readonly y: number;
 }
 
 /**
  * 复合键（relPath#viewId）→ 坐标。
- * 与 src/webview/types.ts 的 NavLayoutMap 保持同步。
+ * 与 src/webview/types.ts 的 NavLayoutMap 保持同步。key 为裸 string：该 map 是磁盘
+ * JSON 的键空间，Record 索引签名也不接受 branded 类型。
  */
 export type NavLayoutMap = Record<string, NavLayoutEntry>;
 

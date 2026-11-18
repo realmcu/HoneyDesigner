@@ -87,33 +87,35 @@ export interface PropertyDefinition {
 // 视图跳转边信息：改判别联合并迁至 src/shared/navContract.ts（评审 I6：control 可编辑 /
 // timer 只读，宿主 FileManager 与 webview 共用同一定义，不再手抄同步）。
 // 保留 ViewEdgeInfo 别名，webview 各消费方（ViewRelationModal 等）无需改 import。
-import type { ViewNavEdge } from '../shared/navContract';
-export type { ViewNavEdge, ControlNavEdge, TimerNavEdge } from '../shared/navContract';
+import type { ViewKey, ViewNavEdge } from '../shared/navContract';
+export type { ViewKey, ViewNavEdge, ControlNavEdge, TimerNavEdge } from '../shared/navContract';
 export type ViewEdgeInfo = ViewNavEdge;
 
 // 项目中的视图信息（包含跳转关系）
 // 与 src/designer/FileManager.ts 的 ViewNavNode 保持同步（新字段全部可选，向后兼容）
 export interface ViewInfo {
-  id: string;
-  name: string;
-  file: string;          // 旧字段：文件名去 .hml（向后兼容；新逻辑请用 viewKey）
-  edges: ViewEdgeInfo[]; // 该视图的所有跳转（含控件级 + 定时器边）
+  readonly id: string;
+  readonly name: string;
+  readonly file: string;          // 旧字段：文件名去 .hml（向后兼容；新逻辑请用 viewKey）
+  readonly edges: readonly ViewEdgeInfo[]; // 该视图的所有跳转（含控件级 + 定时器边）
 
   // ---- 导航图新字段（可选）----
-  viewKey?: string;      // 复合键：relPath#viewId
-  filePath?: string;     // 所属文件绝对路径
-  fileRelative?: string; // 所属文件相对项目根路径（正斜杠）
-  fileMtime?: number;    // 扫描时文件 mtime（ms）
-  fileHash?: string;     // 扫描时文件内容 hash（sha1）
+  readonly viewKey?: ViewKey;      // 复合键：relPath#viewId
+  readonly filePath?: string;     // 所属文件绝对路径
+  readonly fileRelative?: string; // 所属文件相对项目根路径（正斜杠）
+  readonly fileMtime?: number;    // 扫描时文件 mtime（ms）
+  readonly fileHash?: string;     // 扫描时文件内容 hash（sha1）
 }
 
 // 导航图节点布局坐标（T7：持久化到 <projectRoot>/.honeygui/nav-layout.json）
 export interface NavLayoutEntry {
-  x: number;
-  y: number;
+  readonly x: number;
+  readonly y: number;
 }
 
-// 复合键（relPath#viewId）→ 坐标
+// 复合键（relPath#viewId）→ 坐标。
+// key 刻意留作 string：Record 的索引签名不接受 branded 类型（会退化成空对象类型），
+// 且该 map 是磁盘 JSON 的键空间，读写两侧都需原样保留字符串。
 export type NavLayoutMap = Record<string, NavLayoutEntry>;
 
 // 单个 view 下可交互控件的枚举描述（T9，用于 T11 新建跳转选择器）
