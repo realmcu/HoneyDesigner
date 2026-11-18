@@ -928,8 +928,6 @@ const zhCN = {
   'Confirm file rewrite': '确认重写文件',
   'Continue': '继续',
   'navEdit.rewriteIntro': '本次修改会以设计器格式规范化重写整个文件，以下内容将丢失：',
-  'navEdit.loss.comments': 'XML 注释',
-  'navEdit.loss.unknownTags': '设计器无法识别的标签',
   'navEdit.loss.nameAttributes': '组件的 name 属性（可能被其他文件作为跳转目标引用）',
   'navEdit.error.fileDirty': '目标文件有未保存的改动，请先保存或放弃更改后重试。',
   'navEdit.error.fileChanged': '文件在扫描后已发生变化，图已刷新，请重试。',

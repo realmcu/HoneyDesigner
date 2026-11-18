@@ -8,12 +8,12 @@
  *
  * 共享方：
  * - HmlValidationService.validateViewIds（hg_view 缺 id 警告，规则 9）
- * - NavEditService._detectRoundTripLoss（round-trip 预检的 unknownTags /
- *   nameAttributes 检测，写盘确认拦截）
+ * - NavEditService._detectRoundTripLoss（round-trip 预检的 nameAttributes
+ *   检测，写盘确认拦截）
  * - HmlPreviewPrep（浏览器快速预览：改写 i18nKey 文本、检查运行时不支持的内容）
  *
- * 注意：调用方需自行剔除 XML 注释（两处调用场景的注释语义不同：一个只
- * 防误报，一个要单独上报 comments 丢失类），本工具不处理 <!-- -->。
+ * 注意：调用方需自行剔除 XML 注释（调用场景的注释语义不同：一个只防误报，
+ * 一个要把注释计入白名单判断），本工具不处理 <!-- -->。
  */
 
 /** 扫描到的一个开标签 */

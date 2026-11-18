@@ -28,7 +28,7 @@ export type NavEditErrorCode =
     | 'rollbackFailed';
 
 /** round-trip 预检检测到的将丢失内容种类 */
-export type NavEditConfirmReason = 'comments' | 'unknownTags' | 'nameAttributes';
+export type NavEditConfirmReason = 'nameAttributes';
 
 /**
  * 边定位字段（retarget/delete 入参）——T2 边数据模型的定位子集全量。

@@ -154,13 +154,7 @@ const animationLabelOf = (e: ViewEdgeInfo): string => {
 
 /** round-trip 预检差异种类 → 可读文案（T11 needsConfirm 确认弹窗） */
 const rewriteReasonLabel = (reason: string): string =>
-  reason === 'comments'
-    ? t('navEdit.loss.comments')
-    : reason === 'unknownTags'
-      ? t('navEdit.loss.unknownTags')
-      : reason === 'nameAttributes'
-        ? t('navEdit.loss.nameAttributes')
-        : reason;
+  reason === 'nameAttributes' ? t('navEdit.loss.nameAttributes') : reason;
 
 // ---------------- 自定义节点：屏卡片 ----------------
 

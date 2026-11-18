@@ -928,8 +928,6 @@ const en = {
   'Confirm file rewrite': 'Confirm file rewrite',
   'Continue': 'Continue',
   'navEdit.rewriteIntro': 'Applying this change will rewrite the whole file in the designer format. The following content will be lost:',
-  'navEdit.loss.comments': 'XML comments',
-  'navEdit.loss.unknownTags': 'Tags not recognized by the designer',
   'navEdit.loss.nameAttributes': 'The "name" attribute on components (it may be referenced by other files as a jump target)',
   'navEdit.error.fileDirty': 'The target file has unsaved changes. Save or discard them first, then retry.',
   'navEdit.error.fileChanged': 'The file has changed since the last scan. The graph has been refreshed; please retry.',
