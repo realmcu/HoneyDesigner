@@ -87,6 +87,11 @@ export interface PressTarget<T extends PressSource> {
   component: T;
   /** 缩放、淡出绕这个点（相对组件自身左上角） */
   pivot: [number, number];
+  /**
+   * 按下时要一起提到最上层的组件 id。第一个是组件自己，后面是完全落在它里面的同层组件
+   * （图标上的文字、角标）——只提背景会把压在它上面的文字盖掉。
+   */
+  raise: string[];
 }
 
 export interface PressCollectRules<T extends PressSource = PressSource> {
@@ -140,6 +145,33 @@ export function collectPressTargets<T extends PressSource>(
     return false;
   };
 
+  // 同层、可见的兄弟组件按文档顺序排好：一起提层时保持原来的相对层叠顺序
+  const siblings = [...byId.values()];
+
+  const raiseGroupOf = (target: T): string[] => {
+    const x = Number(target.position.x) || 0;
+    const y = Number(target.position.y) || 0;
+    const w = Number(target.position.width) || 0;
+    const h = Number(target.position.height) || 0;
+    const inside: string[] = [];
+    for (const other of siblings) {
+      if (other.id === target.id || other.parent !== target.parent || other.visible === false) {
+        continue;
+      }
+      const ox = Number(other.position.x) || 0;
+      const oy = Number(other.position.y) || 0;
+      const ow = Number(other.position.width) || 0;
+      const oh = Number(other.position.height) || 0;
+      if (ow <= 0 || oh <= 0) {
+        continue;
+      }
+      if (ox >= x && oy >= y && ox + ow <= x + w && oy + oh <= y + h) {
+        inside.push(other.id);
+      }
+    }
+    return [target.id, ...inside];
+  };
+
   const targets: Array<PressTarget<T>> = [];
   for (const component of byId.values()) {
     if (!readPressFeedback(component.data) || component.visible === false) {
@@ -157,6 +189,7 @@ export function collectPressTargets<T extends PressSource>(
     targets.push({
       component,
       pivot: [Math.round(Number(component.position.width) / 2), Math.round(Number(component.position.height) / 2)],
+      raise: raiseGroupOf(component),
     });
   }
   return targets;

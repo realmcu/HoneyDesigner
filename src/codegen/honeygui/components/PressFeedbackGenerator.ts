@@ -34,13 +34,14 @@ export interface HoneyGuiPressFeedbackCode {
 export function computeHoneyGuiPressFeedback(
   view: Component,
   componentMap: Map<string, Component>,
-): { options: PressFeedbackOptions; targets: Array<{ id: string; pivot: [number, number]; options: PressFeedbackOptions }> } | null {
+): { options: PressFeedbackOptions; targets: Array<{ id: string; pivot: [number, number]; raise: string[]; options: PressFeedbackOptions }> } | null {
   const targets = collectPressTargets(view, componentMap.values(), {
     skip: isUnsupportedChild,
     skipInsideListItems: true,
   }).map(t => ({
     id: t.component.id,
     pivot: t.pivot,
+    raise: t.raise,
     options: readPressFeedback(t.component.data)!,
   }));
   if (targets.length === 0) {
@@ -62,6 +63,22 @@ export function generateHoneyGuiPressFeedback(
   const { targets } = computed;
   const p = `${entrancePrefix(view.name || view.id)}_press`;
   const n = targets.length;
+  // 每个点击目标按下时要一起提层的组件（自己 + 落在它里面的同层文字/角标），摊平成一维表。
+  // 引擎不支持的组件不会生成句柄，别塞进组里
+  const groups = targets.map(t =>
+    t.raise.filter(id => {
+      const member = componentMap.get(id);
+      return member !== undefined && !isUnsupportedChild(member);
+    }),
+  );
+  const groupStart: number[] = [];
+  const group: string[] = [];
+  for (const members of groups) {
+    groupStart.push(group.length);
+    group.push(...members);
+  }
+  groupStart.push(group.length);
+  const gn = group.length;
 
   let helpers = `/* Press feedback: the tapped object pops out and fades (or sinks) while held.\n`;
   let minDown = Infinity;
@@ -89,21 +106,30 @@ export function generateHoneyGuiPressFeedback(
   helpers += `static uint32_t ${p}_t0[${n}];\n`;
   helpers += `static uint8_t ${p}_opa0[${n}];\n`;
   helpers += `static uint8_t ${p}_faded[${n}];\n`;
-  helpers += `static gui_node_list_t *${p}_raised[${n}];\n\n`;
+  // 提层的成员（自己 + 落在它里面的同层组件）摊平成一维：group_start[i] 到 group_start[i+1]
+  helpers += `static gui_obj_t *${p}_group[${gn}];\n`;
+  helpers += `static const uint16_t ${p}_group_start[${n + 1}] = { ${groupStart.join(', ')} };\n`;
+  helpers += `static gui_node_list_t *${p}_raised[${gn}];\n\n`;
 
-  // 按下时要压住邻居：HoneyGUI 按子节点顺序绘制，把它的 brother_list 挪到队尾
-  // （最后画 = 最上层），抬手再放回原位。只能在触摸事件回调里动链表——事件派发
-  // 在整帧绘制之后（gui_fb.c 末尾），不会打断 gui_list_for_each 的遍历。
-  helpers += `static void ${p}_raise(uint16_t i, gui_obj_t *obj)\n{\n`;
-  helpers += `    if (${p}_raised[i] != NULL || obj->parent == NULL)\n    {\n        return;\n    }\n`;
-  helpers += `    ${p}_raised[i] = obj->brother_list.next;\n`;
-  helpers += `    gui_list_remove(&obj->brother_list);\n`;
-  helpers += `    gui_list_insert_before(&obj->parent->child_list, &obj->brother_list);\n}\n\n`;
-  helpers += `static void ${p}_unraise(uint16_t i, gui_obj_t *obj)\n{\n`;
-  helpers += `    if (${p}_raised[i] == NULL || obj == NULL)\n    {\n        return;\n    }\n`;
-  helpers += `    gui_list_remove(&obj->brother_list);\n`;
-  helpers += `    gui_list_insert_before(${p}_raised[i], &obj->brother_list);\n`;
-  helpers += `    ${p}_raised[i] = NULL;\n}\n\n`;
+  // 按下时要压住邻居：HoneyGUI 按子节点顺序绘制，把一组组件的 brother_list 依次挪到队尾
+  // （最后画 = 最上层），抬手再按原顺序放回原位。整组一起提，压在图标上的文字才不会被
+  // 只提上来的背景盖掉。只能在触摸事件回调里动链表——事件派发在整帧绘制之后
+  // （gui_fb.c 末尾），不会打断 gui_list_for_each 的遍历。
+  helpers += `static void ${p}_raise(uint16_t i)\n{\n`;
+  helpers += `    for (uint16_t k = ${p}_group_start[i]; k < ${p}_group_start[i + 1]; k++)\n    {\n`;
+  helpers += `        gui_obj_t *obj = ${p}_group[k];\n`;
+  helpers += `        if (obj == NULL || obj->parent == NULL || ${p}_raised[k] != NULL)\n        {\n            continue;\n        }\n`;
+  helpers += `        ${p}_raised[k] = obj->brother_list.next;\n`;
+  helpers += `        gui_list_remove(&obj->brother_list);\n`;
+  helpers += `        gui_list_insert_before(&obj->parent->child_list, &obj->brother_list);\n    }\n}\n\n`;
+  helpers += `static void ${p}_unraise(uint16_t i)\n{\n`;
+  // 倒序放回，组内的相对层叠顺序才能还原
+  helpers += `    for (uint16_t k = ${p}_group_start[i + 1]; k > ${p}_group_start[i]; k--)\n    {\n`;
+  helpers += `        gui_obj_t *obj = ${p}_group[k - 1];\n`;
+  helpers += `        if (obj == NULL || ${p}_raised[k - 1] == NULL)\n        {\n            continue;\n        }\n`;
+  helpers += `        gui_list_remove(&obj->brother_list);\n`;
+  helpers += `        gui_list_insert_before(${p}_raised[k - 1], &obj->brother_list);\n`;
+  helpers += `        ${p}_raised[k - 1] = NULL;\n    }\n}\n\n`;
 
 
   // 图形控件（rect/circle/img）把透明度放在自己的字段里，画图时用的是
@@ -131,11 +157,11 @@ export function generateHoneyGuiPressFeedback(
   helpers += `                ${p}_state[i] = 1U;\n`;
   helpers += `                ${p}_released[i] = 0U;\n`;
   helpers += `                ${p}_t0[i] = gui_ms_get();\n`;
-  helpers += `                ${p}_raise(i, (gui_obj_t *)obj);\n`;
+  helpers += `                ${p}_raise(i);\n`;
   helpers += `            }\n        }\n`;
   helpers += `        else if (e->code == GUI_EVENT_TOUCH_RELEASED || e->code == GUI_EVENT_TOUCH_CLICKED)\n        {\n`;
   helpers += `            ${p}_armed[i] = 1U;\n`;
-  helpers += `            ${p}_unraise(i, (gui_obj_t *)obj);\n`;
+  helpers += `            ${p}_unraise(i);\n`;
   helpers += `            if (${p}_state[i] != 0U)\n            {\n                ${p}_released[i] = 1U;\n            }\n        }\n`;
   helpers += `        return;\n    }\n}\n\n`;
 
@@ -146,7 +172,9 @@ export function generateHoneyGuiPressFeedback(
   helpers += `    void (*orig)(gui_obj_t *obj, T_OBJ_CB_TYPE cb_type) = ${p}_orig_cb[i];\n`;
   helpers += `    if (cb_type == OBJ_DESTROY)\n    {\n`;
   helpers += `        ${p}_objs[i] = NULL;\n`;
-  helpers += `        ${p}_raised[i] = NULL;\n`;
+  helpers += `        for (uint16_t k = ${p}_group_start[i]; k < ${p}_group_start[i + 1]; k++)\n        {\n`;
+  helpers += `            ${p}_group[k] = NULL;\n`;
+  helpers += `            ${p}_raised[k] = NULL;\n        }\n`;
   helpers += `        if (${p}_orig_destroy[i] && orig != NULL)\n        {\n            orig(obj, cb_type);\n        }\n`;
   helpers += `        return;\n    }\n`;
   helpers += `    if (cb_type != OBJ_PRE_PROCESS)\n    {\n`;
@@ -197,7 +225,7 @@ export function generateHoneyGuiPressFeedback(
 
   helpers += `static void ${p}_wrap(uint16_t i, gui_obj_t *obj)\n{\n`;
   helpers += `    if (${p}_objs[i] != NULL)\n    {\n`;
-  helpers += `        ${p}_unraise(i, ${p}_objs[i]);\n`;
+  helpers += `        ${p}_unraise(i);\n`;
   helpers += `        if (${p}_faded[i])\n        {\n`;
   helpers += `            ${p}_set_opa(${p}_objs[i], ${p}_opa0[i]);\n`;
   helpers += `            ${p}_faded[i] = 0U;\n        }\n    }\n`;
@@ -221,6 +249,14 @@ export function generateHoneyGuiPressFeedback(
     setup += `${i1}${p}_released[${i}] = 0;\n`;
     setup += `${i1}${p}_armed[${i}] = 1;\n`;
     setup += `${i1}${p}_progress[${i}] = 0;\n`;
+    // 重新进这个页面时旧对象已经销毁，清掉指针再绑，避免 _wrap 去动野指针
+    setup += `${i1}${p}_objs[${i}] = NULL;\n`;
+    setup += `${i1}${p}_faded[${i}] = 0;\n`;
+    groups[i].forEach((memberId, k) => {
+      const slot = groupStart[i] + k;
+      setup += `${i1}${p}_group[${slot}] = GUI_BASE(${memberId});\n`;
+      setup += `${i1}${p}_raised[${slot}] = NULL;\n`;
+    });
     setup += `${i1}${p}_wrap(${i}, ${ref});\n`;
     setup += `${i1}gui_obj_add_event_cb(${ref}, (gui_event_cb_t)${p}_touch_cb, GUI_EVENT_TOUCH_PRESSED, NULL);\n`;
     setup += `${i1}gui_obj_add_event_cb(${ref}, (gui_event_cb_t)${p}_touch_cb, GUI_EVENT_TOUCH_RELEASED, NULL);\n`;

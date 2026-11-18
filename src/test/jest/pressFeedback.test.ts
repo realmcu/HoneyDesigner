@@ -82,6 +82,14 @@ describe('collectPressTargets', () => {
     expect(targets[1].pivot).toEqual([22, 15]);
   });
 
+  it('groups each target with the siblings fully inside it', () => {
+    const { view, componentMap } = makeGrid();
+    const targets = collectPressTargets(view, componentMap.values());
+    // 卡片按下时，压在它上面的图标要一起提层，否则只有背景浮起来
+    expect(targets[0].raise).toEqual(['tile1', 'icon1']);
+    expect(targets[1].raise).toEqual(['icon2']);
+  });
+
   it('skips containers even when they carry the flag', () => {
     const { view, componentMap } = makeGrid({ pressEffect: 'pop' });
     expect(collectPressTargets(view, componentMap.values()).map(t => t.component.id)).toEqual(['tile1', 'icon2']);
@@ -126,7 +134,11 @@ describe('HoneyGUI press feedback', () => {
 
     expect(code.setup).toContain('apps_entrance_press_wrap(0, GUI_BASE(tile1));');
     expect(code.setup).toContain('apps_entrance_press_wrap(1, GUI_BASE(icon2));');
-    expect(code.setup).not.toContain('GUI_BASE(icon1)');
+    // 整组提层：[tile1, icon1] 和 [icon2]
+    expect(code.helpers).toContain('static gui_obj_t *apps_entrance_press_group[3];');
+    expect(code.helpers).toContain('static const uint16_t apps_entrance_press_group_start[3] = { 0, 2, 3 };');
+    expect(code.setup).toContain('apps_entrance_press_group[1] = GUI_BASE(icon1);');
+    expect(code.setup).toContain('apps_entrance_press_group[2] = GUI_BASE(icon2);');
     expect(code.setup).not.toContain('GUI_BASE(tile2)');
     expect(code.setup).not.toContain('GUI_BASE(decor)');
     expect(code.setup).toContain('(gui_event_cb_t)apps_entrance_press_touch_cb, GUI_EVENT_TOUCH_RELEASED, NULL);');
@@ -153,11 +165,12 @@ describe('HoneyGUI press feedback', () => {
     expect(code.helpers).toContain('apps_entrance_press_set_opa(obj, (uint8_t)((float)apps_entrance_press_opa0[i] * opa));');
     // 落回静止时恢复原透明度（通过 wrap 记录）
     expect(code.helpers).toContain('apps_entrance_press_opa0[i] = apps_entrance_press_get_opa(obj);');
-    // 按下时压住邻居：挪到 child_list 队尾（最后画 = 最上层），抬手放回原位
+    // 按下时整组压住邻居：逐个挪到 child_list 队尾（最后画 = 最上层），抬手按原顺序放回
     expect(code.helpers).toContain('gui_list_insert_before(&obj->parent->child_list, &obj->brother_list);');
-    expect(code.helpers).toContain('apps_entrance_press_raise(i, (gui_obj_t *)obj);');
-    expect(code.helpers).toContain('apps_entrance_press_unraise(i, (gui_obj_t *)obj);');
-    expect(code.helpers).toContain('gui_list_insert_before(apps_entrance_press_raised[i], &obj->brother_list);');
+    expect(code.helpers).toContain('for (uint16_t k = apps_entrance_press_group_start[i]; k < apps_entrance_press_group_start[i + 1]; k++)');
+    expect(code.helpers).toContain('apps_entrance_press_raise(i);');
+    expect(code.helpers).toContain('apps_entrance_press_unraise(i);');
+    expect(code.helpers).toContain('gui_list_insert_before(apps_entrance_press_raised[k - 1], &obj->brother_list);');
     // 切页回来时复位，不会留下放大的图标
     expect(code.setup).toContain('apps_entrance_press_state[0] = 0;');
     expect(code.setup).toContain('apps_entrance_press_released[0] = 0;');
