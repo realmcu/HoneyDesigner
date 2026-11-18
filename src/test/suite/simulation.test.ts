@@ -10,6 +10,19 @@ suite('HoneyGUI Extension E2E', function () {
     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
     let targetEngine = 'honeygui';
 
+    /** 仿真链路吞进弹窗的错误/警告，用来在断言失败时给出真正原因 */
+    const extensionMessages: string[] = [];
+
+    /** 轮询等待条件成立，返回是否成立（Windows 落盘可能明显慢于 Linux） */
+    async function waitFor(predicate: () => boolean, timeoutMs = 60000): Promise<boolean> {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            if (predicate()) { return true; }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        return predicate();
+    }
+
     suiteSetup(async () => {
         await new Promise(resolve => setTimeout(resolve, 5000));
         if (workspacePath) {
@@ -62,14 +75,33 @@ suite('HoneyGUI Extension E2E', function () {
     });
 
     test('Simulation command sets up build environment', async function () {
+        // 仿真链路把异常吞进弹窗（SimulationService 的 catch），失败了这里只看到
+        // "SConstruct 不存在"，看不到真正原因。测试期间把弹窗文案截下来，断言失败时
+        // 一并输出，CI 日志里才能定位到是哪一步炸的。
+        const origShowError = vscode.window.showErrorMessage;
+        const origShowWarning = vscode.window.showWarningMessage;
+        (vscode.window as any).showErrorMessage = async (message: string) => {
+            extensionMessages.push(`[error] ${message}`);
+            return undefined;
+        };
+        (vscode.window as any).showWarningMessage = async (message: string) => {
+            extensionMessages.push(`[warn] ${message}`);
+            return undefined;
+        };
+
         try {
             await vscode.commands.executeCommand('honeygui.simulation');
         } catch (err: any) {
             assert.fail(`Simulation command threw: ${err.message}`);
+        } finally {
+            (vscode.window as any).showErrorMessage = origShowError;
+            (vscode.window as any).showWarningMessage = origShowWarning;
         }
 
-        // Wait for async file writes to settle
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        // 命令本身是 await 到底的，这里再兜一层轮询：Windows 上杀毒/索引会拖慢落盘
+        if (targetEngine !== 'lvgl') {
+            await waitFor(() => fs.existsSync(path.join(workspacePath, 'build', 'SConstruct')));
+        }
 
         if (targetEngine === 'lvgl') {
             // LVGL: cmake build runs inside the command; verify codegen output and executable
@@ -93,15 +125,18 @@ suite('HoneyGUI Extension E2E', function () {
         } else {
             // HoneyGUI: codegen generates SCons build environment
             const buildDir = path.join(workspacePath, 'build');
+            const hint = extensionMessages.length > 0
+                ? `\nExtension messages:\n  ${extensionMessages.join('\n  ')}`
+                : '\nExtension reported no error message.';
 
-            assert.ok(fs.existsSync(buildDir), 'Build directory should be created');
+            assert.ok(fs.existsSync(buildDir), `Build directory should be created.${hint}`);
             assert.ok(
                 fs.existsSync(path.join(buildDir, 'SConstruct')),
-                'Build directory should contain SConstruct'
+                `Build directory should contain SConstruct.${hint}`
             );
             assert.ok(
                 fs.existsSync(path.join(buildDir, '.config')),
-                'Build directory should contain .config'
+                `Build directory should contain .config.${hint}`
             );
         }
     });
@@ -131,7 +166,12 @@ suite('HoneyGUI Extension E2E', function () {
 
         // HoneyGUI: compile with scons
         const buildDir = path.join(workspacePath, 'build');
-        assert.ok(fs.existsSync(path.join(buildDir, 'SConstruct')), 'SConstruct must exist');
+        assert.ok(
+            fs.existsSync(path.join(buildDir, 'SConstruct')),
+            `SConstruct must exist.${extensionMessages.length > 0
+                ? `\nExtension messages:\n  ${extensionMessages.join('\n  ')}`
+                : '\nExtension reported no error message.'}`
+        );
 
         try {
             execSync('scons --version', { encoding: 'utf8' });
