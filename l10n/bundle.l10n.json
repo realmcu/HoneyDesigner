@@ -162,6 +162,7 @@
   "All Files": "All Files",
   "File browse failed: {0}": "File browse failed: {0}",
   "Failed to switch file: {0}": "Failed to switch file: {0}",
+  "{0} is already open in another designer panel. Edits made in both panels will overwrite each other.": "{0} is already open in another designer panel. Edits made in both panels will overwrite each other.",
   "Current HML file not found": "Current HML file not found",
   "Function {0} not found, please check if code generation is correct": "Function {0} not found, please check if code generation is correct",
   "Jump failed: {0}": "Jump failed: {0}",

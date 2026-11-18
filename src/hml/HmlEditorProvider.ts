@@ -80,6 +80,19 @@ export class HmlEditorProvider implements vscode.CustomTextEditorProvider {
 
         // 创建设计器面板实例（动态 import：保持扩展激活路径轻量）
         const { DesignerPanel } = await import('../designer/DesignerPanel');
+
+        // 同一文件已有设计器面板时警告：两个面板各持一份内容，宿主写盘只同步
+        // 注册表里的那一个，另一边的编辑会在下次保存时静默覆盖回去（#29）。
+        // 必须在 new DesignerPanel 之前探测——构造函数之后本面板会顶掉注册表条目。
+        const existingPanel = DesignerPanel.getPanel(document.uri.fsPath);
+        if (existingPanel) {
+            logger.warn(`[HmlEditorProvider] 同一文件已在另一个设计器面板打开: ${document.uri.fsPath}`);
+            void vscode.window.showWarningMessage(vscode.l10n.t(
+                '{0} is already open in another designer panel. Edits made in both panels will overwrite each other.',
+                fileName
+            ));
+        }
+
         const designerPanel = new DesignerPanel(webviewPanel, this.context, undefined, performanceContext);
         logger.debug(`[HmlEditorProvider] 创建DesignerPanel实例`);
 

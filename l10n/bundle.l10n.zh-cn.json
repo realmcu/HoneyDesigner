@@ -162,6 +162,7 @@
   "All Files": "所有文件",
   "File browse failed: {0}": "文件浏览失败: {0}",
   "Failed to switch file: {0}": "切换文件失败: {0}",
+  "{0} is already open in another designer panel. Edits made in both panels will overwrite each other.": "{0} 已在另一个设计器面板中打开，两个面板的修改会互相覆盖。",
   "Current HML file not found": "未找到当前HML文件",
   "Function {0} not found, please check if code generation is correct": "未找到函数 {0}，请检查代码生成是否正确",
   "Jump failed: {0}": "跳转失败: {0}",
