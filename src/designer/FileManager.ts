@@ -15,7 +15,7 @@ import { loadProjectI18nCatalog, readProjectI18nCatalogFile, PROJECT_I18N_RELATI
 import { loadSharedStyleLibrary } from '../shared/sharedStylesFile';
 import { PendingWriteRegistry } from './PendingWriteRegistry';
 import { ProjectI18nSyncService } from './ProjectI18nSyncService';
-import { scanAllViews, scanAllHmlFiles, scanProjectHml, normalizeHmlFilePath, buildComponentIndex, scanHmlFilesRecursive } from './navGraphScanner';
+import { scanAllViews, scanAllHmlFiles, scanProjectHml, normalizeHmlFilePath, buildComponentIndex, scanHmlFilesRecursive, forEachDescendantControl } from './navGraphScanner';
 import type { ProjectConfig } from '../common/ProjectConfig';
 import type { HmlLoadPerformanceContext } from './HmlLoadPerformance';
 import { measurePerformance } from './HmlLoadPerformance';
@@ -791,15 +791,9 @@ export class FileManager {
         const result: ViewControlInfo[] = [this._describeControl(viewComp, true)];
 
         // 后代控件，遇嵌套 hg_view 剪枝（子屏控件不属于本屏）
-        const queue: Component[] = [...(childrenOf.get(viewComp.id) || [])];
-        while (queue.length > 0) {
-            const child = queue.shift()!;
-            if (child.type === 'hg_view') {
-                continue;
-            }
+        forEachDescendantControl(viewComp, childrenOf, child => {
             result.push(this._describeControl(child, false));
-            queue.push(...(childrenOf.get(child.id) || []));
-        }
+        });
 
         return result;
     }

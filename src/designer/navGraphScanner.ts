@@ -233,15 +233,9 @@ function scanSingleHmlFile(
         // 1) view 自身（屏手势事件 + 定时器）
         collectComponentSwitchViewEdges(comp, true, fileCtx, edges);
         // 2) 后代控件，遇嵌套 hg_view 剪枝（子屏的边归子屏）
-        const queue: Component[] = [...(childrenOf.get(comp.id) || [])];
-        while (queue.length > 0) {
-            const child = queue.shift()!;
-            if (child.type === 'hg_view') {
-                continue;
-            }
+        forEachDescendantControl(comp, childrenOf, child => {
             collectComponentSwitchViewEdges(child, false, fileCtx, edges);
-            queue.push(...(childrenOf.get(child.id) || []));
-        }
+        });
 
         views.push({
             id: comp.id,
@@ -402,6 +396,29 @@ export function buildComponentIndex(components: Component[]): {
         }
     }
     return { byId, childrenOf };
+}
+
+/**
+ * 遍历某个 view 的后代控件（不含自身），遇嵌套 hg_view 剪枝——
+ * 子屏的控件与边归子屏节点，不属于本屏。
+ *
+ * 导航图边采集与 FileManager.getViewControls 共用这一语义，
+ * 两处不再各写一份队列遍历。
+ */
+export function forEachDescendantControl(
+    viewComponent: Component,
+    childrenOf: Map<string, Component[]>,
+    visit: (component: Component) => void
+): void {
+    const queue: Component[] = [...(childrenOf.get(viewComponent.id) || [])];
+    while (queue.length > 0) {
+        const child = queue.shift()!;
+        if (child.type === 'hg_view') {
+            continue;
+        }
+        visit(child);
+        queue.push(...(childrenOf.get(child.id) || []));
+    }
 }
 
 /**

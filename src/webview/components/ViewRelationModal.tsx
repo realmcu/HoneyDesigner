@@ -808,6 +808,15 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
   }, []);
 
+  /**
+   * 图数据已陈旧（旧数据缺快照字段、边在重扫后消失等）：提示并请求宿主重扫，
+   * 回推的 allViews 到达后图自动刷新。
+   */
+  const reportStaleGraph = useCallback(() => {
+    showStatus('error', t('Graph data is stale, refreshing'));
+    refreshNavGraph();
+  }, [showStatus, refreshNavGraph]);
+
   /** 发起一次写事务：生成 requestId 并记录请求（needsConfirm 重发用） */
   const sendNavEdit = useCallback((message: NavEditRequestBody) => {
     const requestId = `navEdit-${++requestSeqRef.current}-${Date.now()}`;
@@ -926,15 +935,14 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     const src = viewByKey.get(sourceKey);
     if (!src || (!src.fileHash && typeof src.fileMtime !== 'number')) {
       // 旧数据缺快照字段：写事务无法校验，重扫后再试
-      showStatus('error', t('Graph data is stale, refreshing'));
-      refreshNavGraph();
+      reportStaleGraph();
       return;
     }
     setCreateSel({ controlId: null, eventType: null });
     clearViewControls();
     setCreateDraft({ sourceKey, targetKey });
     requestViewControls(sourceKey);
-  }, [navEditPending, viewByKey, showStatus, refreshNavGraph, clearViewControls, requestViewControls]);
+  }, [navEditPending, viewByKey, reportStaleGraph, clearViewControls, requestViewControls]);
 
   /** 改目标：拖边目标端到另一 view 节点 → applyNavEdit(retarget) */
   const onReconnect = useCallback((oldEdge: ViewFlowEdge, connection: Connection) => {
@@ -959,12 +967,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
     const locator = locatorOf(data.raw);
     if (!locator) {
-      showStatus('error', t('Graph data is stale, refreshing'));
-      refreshNavGraph();
+      reportStaleGraph();
       return;
     }
     sendNavEdit({ op: 'retarget', edge: locator, newTarget: bareViewId(asViewKey(connection.target)) });
-  }, [navEditPending, showStatus, refreshNavGraph, sendNavEdit]);
+  }, [navEditPending, showStatus, reportStaleGraph, sendNavEdit]);
 
   /** 删除入口（Delete 键 / 右键菜单共用）：可删则弹确认（约束 10 文案） */
   const requestDeleteEdge = useCallback((edge: ViewFlowEdge) => {
@@ -976,12 +983,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       return;
     }
     if (!edge.data.canDelete) {
-      showStatus('error', t('Graph data is stale, refreshing'));
-      refreshNavGraph();
+      reportStaleGraph();
       return;
     }
     setDeleteConfirm(edge);
-  }, [navEditPending, showStatus, refreshNavGraph]);
+  }, [navEditPending, showStatus, reportStaleGraph]);
 
   /** 删除确认 → applyNavEdit(delete) */
   const confirmDelete = useCallback(() => {
@@ -992,12 +998,11 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
     }
     const locator = locatorOf(edge.data.raw);
     if (!locator) {
-      showStatus('error', t('Graph data is stale, refreshing'));
-      refreshNavGraph();
+      reportStaleGraph();
       return;
     }
     sendNavEdit({ op: 'delete', edge: locator });
-  }, [deleteConfirm, showStatus, refreshNavGraph, sendNavEdit]);
+  }, [deleteConfirm, reportStaleGraph, sendNavEdit]);
 
   /** 新建确认 → applyNavEdit(create)，动画用宿主默认值 */
   const confirmCreate = useCallback(() => {
@@ -1117,8 +1122,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
   /** 在设计器中打开某文件并选中控件（同文件直接选中）；随后关闭弹窗进入编辑 */
   const openPageForEdit = useCallback((filePath: string | undefined, componentId: string) => {
     if (!filePath) {
-      showStatus('error', t('Graph data is stale, refreshing'));
-      refreshNavGraph();
+      reportStaleGraph();
       return;
     }
     if (currentFilePath && normalizePath(filePath) === normalizePath(currentFilePath)) {
@@ -1127,7 +1131,7 @@ export const ViewRelationModal: React.FC<ViewRelationModalProps> = ({ visible, o
       openFileInDesigner(filePath, componentId);
     }
     onClose();
-  }, [currentFilePath, selectComponent, openFileInDesigner, onClose, showStatus, refreshNavGraph]);
+  }, [currentFilePath, selectComponent, openFileInDesigner, onClose, reportStaleGraph]);
 
   // 重扫后选中边可能已消失 → 清空选中
   useEffect(() => {

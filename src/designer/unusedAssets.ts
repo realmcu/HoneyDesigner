@@ -19,7 +19,7 @@ import * as path from 'path';
 import { minimatch } from 'minimatch';
 import { ProjectUtils } from '../utils/ProjectUtils';
 import { ConversionConfigService } from '../services/ConversionConfigService';
-import { scanOpenTags, parseTagAttributes } from '../hml/tagScan';
+import { scanOpenTags, parseTagAttributes, stripXmlComments } from '../hml/tagScan';
 
 export interface UnusedAsset {
     /** 相对 assets/ 的路径（'/' 分隔） */
@@ -169,7 +169,8 @@ export function findUnusedAssets(projectRoot: string): UnusedAssetsResult {
     }
     const assetRef = /assets\/[^"'<>\r\n,\]}]+/g;
     for (const file of hmlFiles) {
-        const content = readText(file)?.replace(/<!--[\s\S]*?-->/g, '');
+        const rawText = readText(file);
+        const content = rawText ? stripXmlComments(rawText) : undefined;
         if (!content) {
             continue;
         }

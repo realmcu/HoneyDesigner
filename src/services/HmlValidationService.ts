@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { HmlParser } from '../hml/HmlParser';
-import { scanOpenTags } from '../hml/tagScan';
+import { scanOpenTags, parseTagAttributes, stripXmlComments } from '../hml/tagScan';
 import { forEachLiveTimerSwitchView } from '../hml/timerNav';
 import { validateComponentId } from '../webview/utils/validation';
 import { Component } from '../hml/types';
@@ -444,19 +444,15 @@ export class HmlValidationService {
      * 依据：HML-Spec.md Section 6.1（hg_view — View Container）
      */
     private validateViewIds(hmlContent: string, warnings: ValidationWarning[]): void {
-        // 先剔除 XML 注释（含未闭合的尾部注释），避免注释掉的 <hg_view> 触发误报
-        const contentWithoutComments = hmlContent
-            .replace(/<!--[\s\S]*?-->/g, '')
-            .replace(/<!--[\s\S]*$/, '');
+        // 先剔除 XML 注释，避免注释掉的 <hg_view> 触发误报
+        const contentWithoutComments = stripXmlComments(hmlContent);
         // 逐个提取 <hg_view ...> 开标签（含自闭合），检查其属性里是否声明了 id。
         // 不能用 /<hg_view\b[^>]*>/ 一把梭：属性值里出现 '>'（如 name="a > b"）是
         // 合法 XML，正则会在首个 '>' 处截断标签导致误报缺 id——必须尊重引号扫描
         // （scanOpenTags，与 NavEditService round-trip 预检共用）
         for (const openTag of scanOpenTags(contentWithoutComments, 'hg_view')) {
-            // 属性形如 ` id="..."` / ` id='...'`（\s 前缀避免误中 grid= / uid= 等属性名后缀）
-            const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(openTag.attrsText);
-            const idValue = idAttr ? (idAttr[1] ?? idAttr[2] ?? '') : '';
-            if (!idAttr || idValue.trim() === '') {
+            const idValue = parseTagAttributes(openTag.attrsText).get('id')?.trim() ?? '';
+            if (idValue === '') {
                 warnings.push({
                     type: 'best-practice',
                     message: 'hg_view is missing an id — switchView targets and navigation edges reference views by id, so this view cannot be reliably targeted for navigation'
@@ -522,14 +518,11 @@ export class HmlValidationService {
                     continue;
                 }
                 try {
-                    const raw = fs.readFileSync(file, 'utf-8')
-                        .replace(/<!--[\s\S]*?-->/g, '')
-                        .replace(/<!--[\s\S]*$/, '');
+                    const raw = stripXmlComments(fs.readFileSync(file, 'utf-8'));
                     for (const tag of scanOpenTags(raw, 'hg_view')) {
-                        const idAttr = /\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag.attrsText);
-                        const nameAttr = /\sname\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag.attrsText);
-                        const id = idAttr ? (idAttr[1] ?? idAttr[2] ?? '').trim() : '';
-                        const name = nameAttr ? (nameAttr[1] ?? nameAttr[2] ?? '').trim() : '';
+                        const attrs = parseTagAttributes(tag.attrsText);
+                        const id = attrs.get('id')?.trim() ?? '';
+                        const name = attrs.get('name')?.trim() ?? '';
                         if (id) {
                             known.add(id);
                         }

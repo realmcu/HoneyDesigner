@@ -12,8 +12,8 @@
  *   检测，写盘确认拦截）
  * - HmlPreviewPrep（浏览器快速预览：改写 i18nKey 文本、检查运行时不支持的内容）
  *
- * 注意：调用方需自行剔除 XML 注释（调用场景的注释语义不同：一个只防误报，
- * 一个要把注释计入白名单判断），本工具不处理 <!-- -->。
+ * 本工具不处理 <!-- -->：调用方需先按自己的语义剔除注释，扫描场景一般
+ * 直接用同文件的 stripXmlComments。
  */
 
 /** 扫描到的一个开标签 */
@@ -73,6 +73,18 @@ export function scanOpenTags(content: string, tagName?: string): ScannedOpenTag[
         startRe.lastIndex = Math.min(i + 1, content.length);
     }
     return tags;
+}
+
+/**
+ * 剔除 XML 注释（含未闭合的尾部注释）。
+ *
+ * 未闭合的 `<!--` 之后一律视为注释：这类输入本身不是合法 XML，
+ * 把其后内容当标签扫描只会产生误报。
+ */
+export function stripXmlComments(content: string): string {
+    return content
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<!--[\s\S]*$/, '');
 }
 
 const XML_ENTITIES: Record<string, string> = { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&' };

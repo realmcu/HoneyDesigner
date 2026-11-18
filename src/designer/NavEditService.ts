@@ -4,7 +4,7 @@ import * as crypto from 'crypto';
 import { logger } from '../utils/Logger';
 import { HmlParser, ComponentRegistry } from '../hml/HmlParser';
 import { HmlSerializer } from '../hml/HmlSerializer';
-import { scanOpenTags } from '../hml/tagScan';
+import { scanOpenTags, parseTagAttributes, stripXmlComments } from '../hml/tagScan';
 import type { Document as HmlDocument, Component } from '../hml/types';
 import type { Action, EventConfig, EventType } from '../hml/eventTypes';
 import { getSupportedEvents } from '../hml/eventTypes';
@@ -568,7 +568,7 @@ export class NavEditService {
             // 剔除注释后再扫标签，避免注释内容误报。标签扫描必须尊重引号：
             // 属性值含 '>'（如 text="a > b"）时 [^>]* 一类正则会截断标签，
             // 漏检其后的 name 属性——与 validateViewIds 共用 scanOpenTags
-            const viewXml = original.slice(start, end).replace(/<!--[\s\S]*?-->/g, '');
+            const viewXml = stripXmlComments(original.slice(start, end));
             const structural = new Set(['view', 'events', 'event', 'action']);
             const namedTags = new Set<string>();
             for (const openTag of scanOpenTags(viewXml)) {
@@ -576,7 +576,7 @@ export class NavEditService {
                 if (structural.has(tag)) {
                     continue;
                 }
-                if (ComponentRegistry.isValidComponent(tag) && /\sname\s*=\s*["']/.test(openTag.attrsText)) {
+                if (ComponentRegistry.isValidComponent(tag) && parseTagAttributes(openTag.attrsText).has('name')) {
                     namedTags.add(tag);
                 }
             }
