@@ -140,6 +140,7 @@ export const HgViewProperties: React.FC<PropertyPanelProps> = ({ component, onUp
                   <option value="fromTop">{t('Bounce in from top')}</option>
                   <option value="fromLeft">{t('Bounce in from left')}</option>
                   <option value="fromRight">{t('Bounce in from right')}</option>
+                  <option value="fromCenter">{t('Burst out from center')}</option>
                 </select>
               </div>
               {entranceEnabled && (

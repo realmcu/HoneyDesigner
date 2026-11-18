@@ -356,7 +356,7 @@ The primary top-level container representing a full screen/page.
 | `overflow` | enum | auto | `auto` / `hidden` / `scroll` |
 | `residentMemory` | boolean | — | Keep in memory when switching away |
 | `animateStep` | number | height/10 | Animation step value |
-| `entranceAnim` | enum | — | Page entrance bounce direction: `fromBottom` / `fromTop` / `fromLeft` / `fromRight`; omit for no entrance animation. Plays each time the view is entered (after the switch transition). Direct children are grouped by position and spring in one after another; a child fully inside a larger sibling moves with that sibling |
+| `entranceAnim` | enum | — | Page entrance bounce direction: `fromBottom` / `fromTop` / `fromLeft` / `fromRight` / `fromCenter` (burst out of a small pile in the middle of the view — for an app grid); omit for no entrance animation. Plays each time the view is entered (after the switch transition). Direct children are grouped by position and spring in one after another; a child fully inside a larger sibling moves with that sibling |
 | `entranceDuration` | number | 800 | Characteristic spring duration in ms (200–3000); larger is slower |
 | `entranceStagger` | number | 52 | Delay between consecutive groups in ms (0–500) |
 | `entranceBounce` | number | 60 | Springiness (0–100); 0 settles without overshoot |

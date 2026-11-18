@@ -761,6 +761,7 @@ const en = {
   'Bounce in from top': 'Bounce in from top',
   'Bounce in from left': 'Bounce in from left',
   'Bounce in from right': 'Bounce in from right',
+  'Burst out from center': 'Burst out from center',
   'Entrance Duration Tooltip': 'How long each element takes to settle; larger values are slower and softer.',
   'Stagger (ms)': 'Stagger (ms)',
   'Entrance Stagger Tooltip': 'Delay between consecutive elements entering.',

@@ -761,6 +761,7 @@ const zhCN = {
   'Bounce in from top': '从上方弹入',
   'Bounce in from left': '从左侧弹入',
   'Bounce in from right': '从右侧弹入',
+  'Burst out from center': '从中心散开',
   'Entrance Duration Tooltip': '每个元素到位所需的时间，越大越慢越柔和。',
   'Stagger (ms)': '错开间隔 (ms)',
   'Entrance Stagger Tooltip': '相邻元素依次入场的间隔时间。',

@@ -140,6 +140,23 @@ describe('planEntrance', () => {
     expect(flat.groups.every(g => g.rot.every(r => r === 0))).toBe(true);
   });
 
+  it('bursts out of the middle of the page, nearest cards first', () => {
+    const plan = planEntrance(480, 480, pieces, options('fromCenter'));
+    const [top, bottom] = plan.groups;
+    // 起点压在中心附近、缩到 0.42，落位时回到原位原大小
+    for (const group of [top, bottom]) {
+      expect(Math.hypot(group.cx + group.dx[0] - 240, group.cy + group.dy[0] - 240))
+        .toBeLessThan(Math.hypot(group.cx - 240, group.cy - 240));
+      expect(group.scale[0]).toBeCloseTo(0.42);
+      expect(group.scale[group.scale.length - 1]).toBe(1);
+    }
+    expect(bottom.delay).toBeLessThan(top.delay);
+    expect(Math.abs(top.rot[0])).toBeGreaterThanOrEqual(5);
+
+    const calm = planEntrance(480, 480, pieces, options('fromCenter', { bounce: 0 }));
+    expect(calm.groups.every(g => g.rot.every(r => r === 0))).toBe(true);
+  });
+
   it('is deterministic', () => {
     expect(planEntrance(410, 502, pieces, options('fromRight'))).toEqual(planEntrance(410, 502, pieces, options('fromRight')));
   });

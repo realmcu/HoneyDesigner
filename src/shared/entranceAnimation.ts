@@ -15,9 +15,9 @@
  * 纯函数、无 vscode 依赖，插件代码生成与 webview 预览共用。
  */
 
-export type EntranceDirection = 'fromBottom' | 'fromTop' | 'fromLeft' | 'fromRight';
+export type EntranceDirection = 'fromBottom' | 'fromTop' | 'fromLeft' | 'fromRight' | 'fromCenter';
 
-export const ENTRANCE_DIRECTIONS: readonly EntranceDirection[] = ['fromBottom', 'fromTop', 'fromLeft', 'fromRight'];
+export const ENTRANCE_DIRECTIONS: readonly EntranceDirection[] = ['fromBottom', 'fromTop', 'fromLeft', 'fromRight', 'fromCenter'];
 
 /** 采样帧率：查表按 60 fps 排布 */
 export const ENTRANCE_FPS = 60;
@@ -100,6 +100,21 @@ const ROT_K = 170;
 const SCALE_FROM = 0.9;
 /** 默认回弹强度对应 triton 原版的倾斜幅度 */
 const TILT_REFERENCE_BOUNCE = 60;
+
+/*
+ * fromCenter：triton 的 burst 档（应用宫格）——卡片从页面正中一小堆里散开，离中心越近越早出手。
+ * 起点不是正中心，而是落在中心与自身之间 PULL 的位置，压成一小堆叠在一起，再向四周弹出去。
+ */
+const BURST_PULL = 0.82;
+const BURST_SCALE_FROM = 0.42;
+const BURST_TILT_MIN = 5;
+const BURST_TILT_MAX = 10;
+const BURST_K = 230;
+const BURST_Z = 0.64;
+const BURST_LEAD = 0.5;
+const BURST_ROT_K = 190;
+/** 出手延时 = 离中心的距离（像素）× 这个系数 */
+const BURST_DELAY_PER_PX = 0.75;
 
 interface Channel {
   from: number;
@@ -352,6 +367,7 @@ export function planEntrance(
   options: EntranceOptions,
 ): EntrancePlan {
   const { direction } = options;
+  const burst = direction === 'fromCenter';
   const groups = groupEntrancePieces(pieces, direction);
 
   const origin: [number, number] = (() => {
@@ -359,45 +375,56 @@ export function planEntrance(
       case 'fromTop': return [viewWidth / 2, -viewHeight * ORIGIN_OUTSIDE];
       case 'fromLeft': return [-viewWidth * ORIGIN_OUTSIDE, viewHeight / 2];
       case 'fromRight': return [viewWidth * (1 + ORIGIN_OUTSIDE), viewHeight / 2];
+      case 'fromCenter': return [viewWidth / 2, viewHeight / 2];
       case 'fromBottom':
       default: return [viewWidth / 2, viewHeight * (1 + ORIGIN_OUTSIDE)];
     }
   })();
   const vertical = direction === 'fromBottom' || direction === 'fromTop';
+  const pull = burst ? BURST_PULL : PULL;
 
   // 时长 → 刚度：弹簧周期与 1/sqrt(k) 成正比
   const speed = BASE_DURATION / options.duration;
-  const k = BASE_K * speed * speed;
+  const k = (burst ? BURST_K : BASE_K) * speed * speed;
   // 回弹强度 → 阻尼比：0 为临界阻尼（不过冲），100 为 0.45
-  const z = 1 - (options.bounce / 100) * 0.55;
+  const z = burst
+    ? Math.max(0.28, Math.min(1, BURST_Z + (TILT_REFERENCE_BOUNCE - options.bounce) / 100 * 0.6))
+    : 1 - (options.bounce / 100) * 0.55;
   const maxFrames = Math.min(360, Math.ceil(options.duration * 2.5 * ENTRANCE_FPS / 1000));
   // 倾斜：triton 原版是 3~6 度、阻尼 0.45；回弹越强倾斜越大、晃得越久
   const tiltGain = Math.min(1.5, options.bounce / TILT_REFERENCE_BOUNCE);
+  const tiltMin = burst ? BURST_TILT_MIN : TILT_MIN;
+  const tiltMax = burst ? BURST_TILT_MAX : TILT_MAX;
   const rotZ = Math.max(0.3, Math.min(1, z - 0.23));
   const scaleZ = Math.max(0.4, Math.min(1, z - 0.06));
+  const scaleFrom = burst ? BURST_SCALE_FROM : SCALE_FROM;
+  const lead = burst ? BURST_LEAD : LEAD;
 
   let totalMs = 0;
   const planned = groups.map((members, i) => {
     const card = members[0];
     const cx = card.x + card.width / 2;
     const cy = card.y + card.height / 2;
-    const offX = (origin[0] - cx) * PULL;
-    const offY = (origin[1] - cy) * PULL;
+    const offX = (origin[0] - cx) * pull;
+    const offY = (origin[1] - cy) * pull;
     const softness = 0.92 + jitter(i, 2) * 0.16;
     // 倾斜方向跟着横向偏移走；正对抛出点的卡片左右交替，看起来像一张张发出来的牌
-    const lateral = vertical ? offX : offY;
+    const lateral = burst || vertical ? offX : offY;
     const side = Math.abs(lateral) > 4 ? Math.sign(lateral) : (i % 2 ? 1 : -1);
-    const tilt = side * (TILT_MIN + (TILT_MAX - TILT_MIN) * jitter(i, 1)) * tiltGain;
+    const tilt = side * (tiltMin + (tiltMax - tiltMin) * jitter(i, 1)) * tiltGain;
     // 主轴按 triton 的 y 通道，副轴更硬、阻尼更大，所以卡片走一条微弯的弧线
-    const main = { v: LEAD, k: k * softness, z, eps: 0.15 };
-    const cross = { v: LEAD, k: k * 1.45 * softness, z: Math.min(1, z + 0.08), eps: 0.15 };
+    const main = { v: lead, k: k * softness, z, eps: 0.15 };
+    const cross = { v: lead, k: k * 1.45 * softness, z: Math.min(1, z + 0.08), eps: 0.15 };
     const [dx, dy, rot, scaleOffset] = simulateSprings([
-      { from: offX, ...(vertical ? cross : main) },
-      { from: offY, ...(vertical ? main : cross) },
-      { from: tilt, v: 0, k: ROT_K * speed * speed, z: rotZ, eps: 0.03 },
-      { from: SCALE_FROM - 1, v: 0.3, k: k * 1.2, z: scaleZ, eps: 0.0008 },
+      { from: offX, ...(burst || !vertical ? cross : main) },
+      { from: offY, ...(burst || vertical ? main : cross) },
+      { from: tilt, v: 0, k: (burst ? BURST_ROT_K : ROT_K) * speed * speed, z: rotZ, eps: 0.03 },
+      { from: scaleFrom - 1, v: 0.3, k: k * 1.2, z: scaleZ, eps: 0.0008 },
     ], maxFrames);
-    const delay = Math.round(i * options.stagger);
+    // 散开时离中心近的先出手，形成一圈向外扩散的涟漪；其余方向按顺序错峰
+    const delay = burst
+      ? Math.round(Math.hypot(offX, offY) * BURST_DELAY_PER_PX * (options.stagger / ENTRANCE_DEFAULTS.stagger))
+      : Math.round(i * options.stagger);
     totalMs = Math.max(totalMs, delay + Math.round((dx.length - 1) * 1000 / ENTRANCE_FPS));
     return { ids: members.map(m => m.id), delay, cx, cy, dx, dy, rot, scale: scaleOffset.map(s => 1 + s) };
   });
