@@ -7,6 +7,7 @@ import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import { convertColor } from '../utils';
 import { timerReloadArg } from '../PresetTimerModel';
 import { generateHoneyGuiViewEntrance } from './ViewEntranceGenerator';
+import { generateHoneyGuiPressFeedback } from './PressFeedbackGenerator';
 
 // Event type to GUI_EVENT mapping (for view switch events)
 // Note: Key events (onKeyShortPress, onKeyLongPress) should use gui_obj_add_event_cb, not gui_view_switch_on_event
@@ -46,6 +47,12 @@ export class ViewGenerator implements ComponentCodeGenerator {
     const opacity = opacityValue !== undefined ? Number(opacityValue) : 255;
 
     let code = '';
+
+    // Press feedback: wrapped inside the entrance callbacks, so install its helpers first
+    const press = generateHoneyGuiPressFeedback(component, context.componentMap, indentStr);
+    if (press) {
+      code += press.helpers;
+    }
 
     // Page entrance animation: static tables + timer callback go before switch_in
     const entrance = generateHoneyGuiViewEntrance(component, context.componentMap, indentStr);
@@ -158,6 +165,10 @@ export class ViewGenerator implements ComponentCodeGenerator {
     }
 
     // After the user callback, so visibility changes made there are respected
+    if (press) {
+      code += press.setup;
+    }
+    // Entrance wraps the press callbacks, so it must be installed last
     if (entrance) {
       code += entrance.setup;
     }

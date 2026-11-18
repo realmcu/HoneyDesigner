@@ -9,6 +9,7 @@ import type { EventConfig, Action, EventType, ActionType } from './eventTypes';
 import { logger } from '../utils/Logger';
 import { convertAttributeValue } from '../shared/componentPropertyTypes';
 import { SharedStyleLibrary, findSharedStyle, mergeSharedStyle, resolveSharedStyle, sharedStyleBucket } from '../shared/sharedStyles';
+import { PRESS_CONTAINER_TYPES } from '../shared/pressFeedback';
 
 /**
  * 组件注册表 - 集中管理所有支持的组件类型
@@ -848,6 +849,8 @@ export class HmlParser {
       'residentMemory', 'animateStep',
       // hg_view 页面入场动画
       'entranceAnim', 'entranceDuration', 'entranceStagger', 'entranceBounce', 'entranceFade',
+      // 组件级按下反馈
+      'pressEffect',
       // 双态按钮属性
       'toggleMode', 'imageOn', 'imageOff', 'initialState', 'onCallback', 'offCallback',
       // hg_glass 特有属性
@@ -888,6 +891,11 @@ export class HmlParser {
 
       // 跳过组件类型属性（如 hg_button, hg_view 等），这些是冗余数据
       if (ComponentRegistry.isValidComponent(key)) {
+        return;
+      }
+
+      // 按下反馈只挂在控件上：容器整块缩放没有意义，旧工程写在 hg_view 上的按属性直接丢弃
+      if (key === 'pressEffect' && PRESS_CONTAINER_TYPES.includes(tagName)) {
         return;
       }
 

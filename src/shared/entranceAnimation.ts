@@ -2,11 +2,10 @@
  * 页面入场动画（hg_view 的 entranceAnim）
  *
  * 进入页面时，页面上的卡片从屏幕一侧依次「甩」进来，带着一点倾斜和缩放，落位时回弹。
- * 做法与 triton 手表 UI（web/motion.js 的 deal 档）一致：每张卡片的 x / y / 旋转 / 缩放
- * 各是一根阻尼弹簧，生成代码时就把弹簧积分成 60 fps 的表，运行时只查表插值。
- * 这样 HoneyGUI、LVGL 与设计器预览用的是同一份曲线。
+ * 每张卡片的 x / y / 旋转 / 缩放各是一根阻尼弹簧，生成代码时就把弹簧积分成 60 fps 的表，
+ * 运行时只查表插值。这样 HoneyGUI、LVGL 与设计器预览用的是同一份曲线。
  *
- * 和 triton 的差别：
+ * 几点取舍：
  * - 抛出点放在所选方向那一侧的屏幕外，主轴、副轴随方向互换。
  * - 「卡片」由组件自动分组：完全落在另一个兄弟组件范围内的组件（卡片上的文字、图标）
  *   跟随那个组件一起运动，不会各飞各的。列表的每一项各算一张卡片。
@@ -27,7 +26,7 @@ export const ENTRANCE_FIXED_SHIFT = 3;
 export const ENTRANCE_ROT_UNIT = 10;
 /** 缩放表存 (scale - 1) × 4096 */
 export const ENTRANCE_SCALE_UNIT = 4096;
-/** 淡入占用的帧数（与 triton 一致：前 5 帧从 0 到 1） */
+/** 淡入占用的帧数（前 5 帧从 0 到 1） */
 export const ENTRANCE_FADE_FRAMES = 5;
 
 export interface EntranceOptions {
@@ -89,20 +88,20 @@ const STEPS = 8;
 const ORIGIN_OUTSIDE = 0.3;
 /** 卡片起点 = 落位点 + (抛出点 - 落位点) × PULL */
 const PULL = 0.62;
-/** 起始速度（triton 的 lead），让卡片一出手就有速度，不是从静止起步 */
+/** 起始速度，让卡片一出手就有速度，不是从静止起步 */
 const LEAD = 0.45;
 /** 出手时的倾斜角范围（度），按卡片抖动取值 */
 const TILT_MIN = 3;
 const TILT_MAX = 6;
-/** 旋转弹簧刚度（triton 的 rotK） */
+/** 旋转弹簧刚度 */
 const ROT_K = 170;
 /** 出手时的缩放 */
 const SCALE_FROM = 0.9;
-/** 默认回弹强度对应 triton 原版的倾斜幅度 */
+/** 默认回弹强度对应的倾斜幅度 */
 const TILT_REFERENCE_BOUNCE = 60;
 
 /*
- * fromCenter：triton 的 burst 档（应用宫格）——卡片从页面正中一小堆里散开，离中心越近越早出手。
+ * fromCenter：卡片从页面正中一小堆里散开，离中心越近越早出手（应用宫格那种）。
  * 起点不是正中心，而是落在中心与自身之间 PULL 的位置，压成一小堆叠在一起，再向四周弹出去。
  */
 const BURST_PULL = 0.82;
@@ -126,7 +125,7 @@ interface Channel {
 
 /**
  * 半隐式欧拉，480 Hz 积分、60 Hz 采样；所有通道都停稳后结束，最后一帧强制归零。
- * 与 triton 的 simulate() 相同，只是最大帧数由调用方给（时长可调）。
+ * 逐帧积分弹簧，最大帧数由调用方给（时长可调）。
  */
 export function simulateSprings(channels: Channel[], maxFrames: number): number[][] {
   const live = channels.map(c => {
@@ -233,7 +232,7 @@ export function sortedListItems<T extends EntranceSource>(list: T, lookup: (id: 
 
 /**
  * 找出页面里参与入场的组件（相对页面坐标）。
- * 列表按 rules.expandList 拆成列表项，只保留落在列表可视区内的项（看不见的项不动画，与 triton 一致）；
+ * 列表按 rules.expandList 拆成列表项，只保留落在列表可视区内的项（看不见的项不动画）；
  * LIST_CARD 样式例外，超出的项会叠在底部显示，全部参与。
  */
 export function collectEntrancePieces<T extends EntranceSource>(
@@ -391,7 +390,7 @@ export function planEntrance(
     ? Math.max(0.28, Math.min(1, BURST_Z + (TILT_REFERENCE_BOUNCE - options.bounce) / 100 * 0.6))
     : 1 - (options.bounce / 100) * 0.55;
   const maxFrames = Math.min(360, Math.ceil(options.duration * 2.5 * ENTRANCE_FPS / 1000));
-  // 倾斜：triton 原版是 3~6 度、阻尼 0.45；回弹越强倾斜越大、晃得越久
+  // 倾斜：3~6 度、阻尼 0.45；回弹越强倾斜越大、晃得越久
   const tiltGain = Math.min(1.5, options.bounce / TILT_REFERENCE_BOUNCE);
   const tiltMin = burst ? BURST_TILT_MIN : TILT_MIN;
   const tiltMax = burst ? BURST_TILT_MAX : TILT_MAX;
@@ -412,7 +411,7 @@ export function planEntrance(
     const lateral = burst || vertical ? offX : offY;
     const side = Math.abs(lateral) > 4 ? Math.sign(lateral) : (i % 2 ? 1 : -1);
     const tilt = side * (tiltMin + (tiltMax - tiltMin) * jitter(i, 1)) * tiltGain;
-    // 主轴按 triton 的 y 通道，副轴更硬、阻尼更大，所以卡片走一条微弯的弧线
+    // 主轴软、副轴更硬且阻尼更大，所以卡片走一条微弯的弧线
     const main = { v: lead, k: k * softness, z, eps: 0.15 };
     const cross = { v: lead, k: k * 1.45 * softness, z: Math.min(1, z + 0.08), eps: 0.15 };
     const [dx, dy, rot, scaleOffset] = simulateSprings([

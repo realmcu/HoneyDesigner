@@ -177,6 +177,13 @@ export const calculateComponentStyle = (
     transformOriginValue = 'top left';
   }
 
+  // 窗口毛玻璃：固件端由 gui_win_enable_blur() 做背景模糊，画布用 CSS 背景模糊近似
+  // blurDegree 0-255 映射成像素（默认 225 ≈ 14px）
+  const blurDegree = Math.max(0, Math.min(255, Number(component.data?.blurDegree ?? 225)));
+  const backdropFilter = component.type === 'hg_window' && component.data?.enableBlur && blurDegree > 0
+    ? `blur(${Math.round(blurDegree / 16)}px) saturate(140%)`
+    : undefined;
+
   return {
     position: 'absolute',
     left: component.position.x,
@@ -192,9 +199,11 @@ export const calculateComponentStyle = (
     outlineOffset: '-1px',
     borderRadius: borderRadiusValue,
     overflow: overflowValue,
-    background: component.type === 'hg_window' 
+    background: component.type === 'hg_window'
       ? (component.style?.showBackground ? (component.style?.backgroundColor || '#808080') : 'transparent')
       : (component.style?.backgroundColor || 'transparent'),
+    backdropFilter,
+    WebkitBackdropFilter: backdropFilter,
     color: component.style?.color || 'inherit',
     fontSize: component.style?.fontSize ? `${component.style.fontSize}px` : undefined,
     zIndex: draggingZIndex,

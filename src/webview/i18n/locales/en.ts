@@ -769,7 +769,13 @@ const en = {
   'Entrance Bounce Tooltip': '0 settles without overshoot; higher values overshoot and spring back more.',
   'Fade In': 'Fade In',
   'Preview Entrance': 'Preview Entrance',
+  'Preview Press': 'Preview Press',
   'Entrance Animation Hint': 'Plays every time this view is entered. Direct children move as groups; anything fully inside a larger element (e.g. text on a card) moves with it.',
+  'Press Feedback': 'Press Feedback',
+  'Press Effect': 'Press Effect',
+  'Pop out and fade (app grid)': 'Pop out and fade (app grid)',
+  'Sink slightly (cards)': 'Sink slightly (cards)',
+  'Press Feedback Tooltip': 'What this component does while it is held down, restored on release. Enabled per component (image, shape, label…); containers are not affected, and children inside the component move with it.',
 
   // HgWindowProperties
   'Blur Effect': 'Blur Effect',

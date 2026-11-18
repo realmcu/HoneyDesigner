@@ -13,6 +13,7 @@ import { LvglEventGeneratorFactory } from '../events';
 import { LvglResourceManager } from '../LvglResourceManager';
 import { LvglAnimationGenerator } from '../LvglAnimationGenerator';
 import { generateLvglEntranceHelpers, generateLvglEntranceRegistration } from '../LvglEntranceGenerator';
+import { generateLvglPressFeedbackHelpers, generateLvglPressFeedbackRegistration } from '../LvglPressFeedbackGenerator';
 
 /** Information about a root view and its descendant components */
 interface ViewGroup {
@@ -115,6 +116,11 @@ export class LvglSourceFileGenerator {
     // Page entrance animation tables / callbacks (reference the handles above)
     for (const group of viewGroups) {
       code += generateLvglEntranceHelpers(group.view, ctx.componentMap);
+    }
+
+    // Press feedback style transitions
+    for (const group of viewGroups) {
+      code += generateLvglPressFeedbackHelpers(group.view, ctx.componentMap);
     }
 
     // Generate a create function for each root view
@@ -260,6 +266,7 @@ export class LvglSourceFileGenerator {
     }
 
     code += generateLvglEntranceRegistration(group.view, ctx.componentMap);
+    code += generateLvglPressFeedbackRegistration(group.view, ctx.componentMap);
 
     code += `}\n`;
     return code;

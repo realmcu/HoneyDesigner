@@ -769,7 +769,13 @@ const zhCN = {
   'Entrance Bounce Tooltip': '0 为无回弹直接到位，数值越大过冲回弹越明显。',
   'Fade In': '淡入',
   'Preview Entrance': '预览入场动画',
+  'Preview Press': '预览按下效果',
   'Entrance Animation Hint': '每次进入该页面时播放。按直接子组件分组移动，完全落在较大元素内的组件（如卡片上的文字）会随该元素一起移动。',
+  'Press Feedback': '按下反馈',
+  'Press Effect': '按下效果',
+  'Pop out and fade (app grid)': '放大淡出（app 宫格）',
+  'Sink slightly (cards)': '轻微按下（卡片）',
+  'Press Feedback Tooltip': '手指按住这个组件时的反馈，抬起后还原。按组件单独开关（图片、几何图形、标签……），容器不受影响；组件里的子控件跟随它一起动。',
 
   // HgWindowProperties
   'Blur Effect': '模糊效果',

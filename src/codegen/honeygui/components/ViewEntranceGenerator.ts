@@ -79,7 +79,7 @@ function objectsFor(component: Component, group: number, pivot: [number, number]
 }
 
 /** HoneyGUI 下无法单独移动的子组件 */
-function isUnsupportedChild(child: Component): boolean {
+export function isUnsupportedChild(child: Component): boolean {
   return child.type === 'hg_3d' || child.type === 'hg_list_item' || (child.type === 'hg_arc' && !!child.data?.arcGroup);
 }
 

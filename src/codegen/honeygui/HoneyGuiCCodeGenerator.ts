@@ -22,6 +22,7 @@ import { LabelGenerator } from './components/LabelGenerator';
 import { ArcGenerator } from './components/ArcGenerator';
 import { ProgressGenerator } from './components/ProgressGenerator';
 import { computeHoneyGuiViewEntrance } from './components/ViewEntranceGenerator';
+import { computeHoneyGuiPressFeedback } from './components/PressFeedbackGenerator';
 import { isIndeterminateProgressMode, progressConfig } from '../../shared/progressConfig';
 import { CallbackFileGenerator, UserFileGenerator, ProtectedAreaMerger } from './files';
 import { timerReloadArg } from './PresetTimerModel';
@@ -179,15 +180,20 @@ export class HoneyGuiCCodeGenerator implements ICodeGenerator {
     if (hasWindow || componentTypes.includes('hg_progress')) {
       code += `#include "gui_win.h"\n`;
     }
-    // Page entrance animation times itself with gui_ms_get()
+    // Entrance and press feedback time themselves with gui_ms_get()
     const hasEntrance = this.components.some(c => c.type === 'hg_view' && computeHoneyGuiViewEntrance(c, this.componentMap) !== null);
+    const hasPressFeedback = this.components.some(c => c.type === 'hg_view' && computeHoneyGuiPressFeedback(c, this.componentMap) !== null);
     const hasIndeterminateProgress = this.components.some(c => c.type === 'hg_progress' && isIndeterminateProgressMode(progressConfig(c.data, c.style).mode));
-    if (hasEntrance && !hasIndeterminateProgress) {
+    if ((hasEntrance || hasPressFeedback) && !hasIndeterminateProgress) {
       code += `#include "gui_api_os.h"\n`;
     }
-    if (hasEntrance) {
-      // Entrance tilts and scales each card through its matrix and requests redraws
+    if (hasEntrance || hasPressFeedback) {
+      // Both tilt and scale each card through its matrix and request redraws
       code += `#include "gui_fb.h"\n#include "gui_matrix.h"\n`;
+    }
+    if (hasPressFeedback) {
+      // 图形控件把透明度存在自己的字段里，按下反馈要按类型写回
+      code += `#include "gui_rect.h"\n#include "gui_circle.h"\n#include "gui_img.h"\n`;
     }
     if (componentTypes.includes('hg_progress')) {
       code += `#include "gui_rect.h"\n#include <stdint.h>\n`;
