@@ -32,6 +32,9 @@ import { AiPanel } from '../ai/AiPanel';
 /** AI 面板开关记在浏览器里，下次打开工程沿用 */
 const AI_PANEL_STORAGE_KEY = 'honeygui.web.ai.panelOpen';
 
+/** AI 助手暂时下线：当前功能还太局限，先不放入口；改回 true 即恢复 */
+const AI_PANEL_ENABLED = false;
+
 interface WorkbenchProps {
     project: StoredProject;
     onClose(): void;
@@ -64,7 +67,7 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
     const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
     const [syncState, setSyncState] = useState<SyncState>('idle');
     const [attempt, setAttempt] = useState(0);
-    const [aiOpen, setAiOpen] = useState(() => globalThis.localStorage?.getItem(AI_PANEL_STORAGE_KEY) === '1');
+    const [aiOpen, setAiOpen] = useState(() => AI_PANEL_ENABLED && globalThis.localStorage?.getItem(AI_PANEL_STORAGE_KEY) === '1');
     const currentFilePath = useDesignerStore(state => state.currentFilePath);
     const openedRef = useRef<{ opened?: OpenedDesigner; sync?: ProjectSync; watcher?: DirectoryWatcher; root?: string }>({});
 
@@ -366,21 +369,23 @@ export function Workbench({ project, onClose }: WorkbenchProps) {
                     {t('Delete HML File')}
                 </button>
                 <button className="web-button" onClick={showCode} disabled={phase.kind !== 'ready'}>{t('Generated Code')}</button>
-                <button
-                    className={`web-button${aiOpen ? ' web-button-active' : ''}`}
-                    onClick={() => toggleAi(!aiOpen)}
-                    disabled={phase.kind !== 'ready'}
-                    aria-pressed={aiOpen}
-                >
-                    <Sparkles size={13} /> {t('AI Assistant')}
-                </button>
+                {AI_PANEL_ENABLED && (
+                    <button
+                        className={`web-button${aiOpen ? ' web-button-active' : ''}`}
+                        onClick={() => toggleAi(!aiOpen)}
+                        disabled={phase.kind !== 'ready'}
+                        aria-pressed={aiOpen}
+                    >
+                        <Sparkles size={13} /> {t('AI Assistant')}
+                    </button>
+                )}
                 <button className="web-button primary" onClick={exportZip} disabled={phase.kind !== 'ready'}>{t('Export ZIP')}</button>
             </div>
             <div className="web-designer-host">
                 {phase.kind === 'ready' && (
                     <div className="web-workspace">
                         <div className="web-workspace-designer"><App key={project.id} /></div>
-                        {aiOpen && (
+                        {AI_PANEL_ENABLED && aiOpen && (
                             <AiPanel
                                 key={project.id}
                                 designer={phase.opened.designer}
