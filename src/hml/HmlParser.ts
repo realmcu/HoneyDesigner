@@ -228,29 +228,43 @@ export class HmlParser {
   /**
    * preserveOrder 元素转成普通对象（与旧的非 preserveOrder 结构一致）。
    * 纯文本元素（如 <title>abc</title>）返回字符串，带属性/子元素的返回对象。
+   *
+   * 文本节点必须攒齐后再判定：`<project>\n  <name>x</name>\n</project>` 的第一个
+   * 子节点是缩进文本，遇文本即 return 会把其后的子元素整体丢掉（meta 的 project /
+   * author 用子元素写法时整块内容会在保存后消失）。
    */
   private _orderedElementToObject(item: any, tagName: string): any {
     const attributes = this._normalizeAttributes(item[':@'] || {});
     const children = item[tagName];
     const result: Record<string, any> = { ...attributes };
+    let textContent = '';
+    let hasElementChild = false;
 
     if (Array.isArray(children)) {
       for (const child of children) {
         if (child && typeof child._text === 'string') {
-          if (Object.keys(result).length === 0) {
-            return child._text;
-          }
-          result._text = child._text;
+          textContent += child._text;
           continue;
         }
         const childTag = this._orderedTagName(child);
         if (!childTag || childTag === '#comment') {
           continue;
         }
+        hasElementChild = true;
         const value = this._orderedElementToObject(child, childTag);
         if (!(childTag in result)) {
           result[childTag] = value;
         }
+      }
+    }
+
+    if (!hasElementChild) {
+      if (Object.keys(result).length === 0) {
+        return textContent;
+      }
+      // 缩进/换行不算内容，不能变成 _text 属性写回（serializer 会当成真实属性）
+      if (textContent.trim() !== '') {
+        result._text = textContent;
       }
     }
     return result;
