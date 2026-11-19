@@ -31,6 +31,8 @@ export const BaseProperties: React.FC<BasePropertiesProps> = ({
   disableParent = false,
   children,
 }) => {
+  const sharedTag = typeof component.data?.sharedTag === 'string' ? component.data.sharedTag : '';
+
   const handlePositionChange = (field: 'x' | 'y' | 'width' | 'height', value: number) => {
     // 对于 3D 组件，XY 必须是整数
     let finalValue = value;
@@ -229,6 +231,28 @@ export const BaseProperties: React.FC<BasePropertiesProps> = ({
               </div>
             )}
           </div>
+        </div>
+
+        {/* 共享元素：两个页面里填同一个名字，切换页面时飞过去 */}
+        <div className="property-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ minWidth: '42px', flexShrink: 0, marginBottom: 0 }}>{t('Shared Element')}</label>
+          <input
+            type="text"
+            value={sharedTag}
+            placeholder={t('Same tag in both pages')}
+            onChange={(e) => onUpdate({ data: { ...component.data, sharedTag: e.target.value } })}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: '4px 8px',
+              backgroundColor: 'var(--vscode-input-background)',
+              color: 'var(--vscode-input-foreground)',
+              border: '1px solid var(--vscode-input-border)',
+              borderRadius: '2px',
+              fontSize: '13px',
+              boxSizing: 'border-box',
+            }}
+          />
         </div>
 
         {/* Parent selection */}

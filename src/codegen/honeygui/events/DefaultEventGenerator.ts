@@ -5,6 +5,7 @@ import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, EVENT_TYPE_TO_CALLBACK_SUFFIX, generateMessageCallbackImpl, getMessageCallbackName } from './EventCodeGenerator';
 import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
 import { cLiteral } from '../../cLiteral';
+import { honeyGuiSwitchViewLine } from '../files/ViewTransitionGenerator';
 
 export class DefaultEventGenerator implements EventCodeGenerator {
 
@@ -181,9 +182,7 @@ ${callbackBody}}`);
       // Switch view
       const targetComponent = componentMap.get(action.target);
       const targetName = targetComponent?.name || action.target;
-      const switchOutStyle = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-      const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
-      code += `${indent}gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
+      code += honeyGuiSwitchViewLine(targetName, action.switchOutStyle, action.switchInStyle, indent);
     } else if (action.type === 'sendMessage' && action.message) {
       // Send message
       code += `${indent}gui_msg_publish(${cLiteral(action.message)}, NULL, 0);\n`;

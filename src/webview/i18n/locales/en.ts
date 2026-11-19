@@ -1150,6 +1150,14 @@ const en = {
   'Anim: Zoom From Top Left': 'Zoom From Top Left',
   'Anim: Zoom From Top Right': 'Zoom From Top Right',
   'Anim: Center Zoom Fade': 'Center Zoom Fade',
+  'Transition: Depth Zoom': 'Depth Zoom',
+  'Transition: Bottom Sheet': 'Bottom Sheet',
+  'Transition: Circle Reveal': 'Circle Reveal',
+  'Shared Element': 'Shared Element',
+  'Same tag in both pages': 'same tag in both pages',
+  'Shared elements in both pages fly across: give them the same tag here.': 'Shared elements in both pages fly across: give them the same tag here.',
+  'Preview Transition': 'Preview Transition',
+  'Custom transitions also move the current page, so the exit style is ignored. Swipe gestures fall back to the closest engine style.': 'Custom transitions also move the current page, so the exit style is ignored. Swipe gestures fall back to the closest engine style.',
 
   // Enter animation directional options
   'In: Slide Left': 'From Left',

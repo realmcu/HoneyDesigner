@@ -1363,7 +1363,21 @@ Transition animations used with `switchView` actions.
 | `SWITCH_IN_ANIMATION_BOUNCE_FROM_RIGHT` | Bounce from right |
 | `SWITCH_IN_ANIMATION_ZOOM_FROM_TOP_LEFT` | Zoom from top-left |
 | `SWITCH_IN_ANIMATION_ZOOM_FROM_TOP_RIGHT` | Zoom from top-right |
-| `SWITCH_IN_ANIMATION_CENTER_ZOOM_FADE` | Center zoom + fade |
+| `SWITCH_IN_ANIMATION_CENTER_ZOOM_FADE` | Not supported by the engine; treated as `SWITCH_IN_DEPTH_ZOOM` (same for `SWITCH_IN_CENTER_ZOOM_FADE`) |
+
+**Designer transitions** (the old and the new page animate together; `switchOutStyle` is ignored when one is selected):
+
+| Value | Effect | Duration |
+|-------|--------|----------|
+| `SWITCH_IN_DEPTH_ZOOM` | Depth zoom: the old page shrinks to 0.92 and dims, the new page settles from 1.08 and fades in (open a detail page) | 320 ms |
+| `SWITCH_IN_SHEET_UP` | Bottom sheet: the new page springs up from the bottom with a slight overshoot, the old page shrinks to 0.94 and dims (settings panel, pop-up menu) | 380 ms |
+| `SWITCH_IN_CIRCLE_REVEAL` | Circle reveal: a circle in the new page's background colour grows from the touch point to fill the screen, then the new content fades in (open an app) | 420 ms |
+
+- HoneyGUI: direct switches (click, key, message, timer...) generate `hg_view_transition_switch("target", HG_VIEW_TRANSITION_*)`; the implementation lives in `generated/auto_generated_bindings.c` and is only generated when used.
+- Swipe gestures (`swipe*` events) are dragged by the engine and fall back to the closest engine style: depth zoom → `SWITCH_IN_ANIMATION_ZOOM`, bottom sheet → `SWITCH_IN_FROM_BOTTOM_USE_TRANSLATION`, circle reveal → `SWITCH_IN_ANIMATION_FADE` (old page `SWITCH_INIT_STATE`).
+- LVGL: depth zoom and circle reveal → `LV_SCREEN_LOAD_ANIM_FADE_IN`, bottom sheet → `LV_SCREEN_LOAD_ANIM_OVER_TOP`.
+- Quick preview (running the HML directly) does not know these values and shows a plain switch; the compiled simulation is authoritative.
+- **Shared elements**: give one widget in each page the same `sharedTag` attribute. On a switch the old copy is hidden and the new one flies from the old widget's rect and size to its own resting place (on top of the page's own scale/offset, landing at ~80% of the animation, fully opaque throughout). Only the three designer transitions above support this; if a tag appears more than once per page, the extras are ignored.
 
 ---
 

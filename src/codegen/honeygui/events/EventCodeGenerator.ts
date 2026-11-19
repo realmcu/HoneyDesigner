@@ -5,6 +5,7 @@ import { Component } from '../../../hml/types';
 import { EventConfig } from '../../../hml/eventTypes';
 import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
 import { cLiteral } from '../../cLiteral';
+import { honeyGuiSwitchViewLine } from '../files/ViewTransitionGenerator';
 
 export interface EventCodeGenerator {
   /**
@@ -213,9 +214,7 @@ export function generateMessageCallbackImpl(component: Component, componentMap: 
         } else if (action.type === 'switchView' && action.target) {
           const targetComponent = componentMap.get(action.target);
           const targetName = targetComponent?.name || action.target;
-          const switchOutStyle = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-          const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
-          body += `    gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
+          body += honeyGuiSwitchViewLine(targetName, action.switchOutStyle, action.switchInStyle, '    ');
         } else if (action.type === 'sendMessage' && action.message) {
           body += `    gui_msg_publish(${cLiteral(action.message)}, data, len);\n`;
         } else if (action.type === 'controlTimer' && action.timerTargets && action.timerTargets.length > 0) {
@@ -322,9 +321,7 @@ export function generateKeyEventCallbackImpl(component: Component, componentMap:
           } else if (action.type === 'switchView' && action.target) {
             const targetComponent = componentMap.get(action.target);
             const targetName = targetComponent?.name || action.target;
-            const switchOutStyle = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-            const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
-            callbackBody += `        gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
+            callbackBody += honeyGuiSwitchViewLine(targetName, action.switchOutStyle, action.switchInStyle, '        ');
           } else if (action.type === 'sendMessage' && action.message) {
             callbackBody += `        gui_msg_publish(${cLiteral(action.message)}, NULL, 0);\n`;
           } else if (action.type === 'controlTimer' && action.timerTargets && action.timerTargets.length > 0) {

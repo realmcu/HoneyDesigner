@@ -5,6 +5,7 @@ import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, generateMessageCallbackImpl, generateControlTimerCallbackImpl, generateKeyEventCallbackImpl, getMessageCallbackName, generateEventCallbackName } from './EventCodeGenerator';
 import { presetTimerStateNames, timerReloadArg } from '../PresetTimerModel';
 import { cLiteral } from '../../cLiteral';
+import { honeyGuiSwitchOnEventStyles } from '../files/ViewTransitionGenerator';
 
 export class ViewEventGenerator implements EventCodeGenerator {
 
@@ -28,9 +29,9 @@ export class ViewEventGenerator implements EventCodeGenerator {
         if (action.type === 'switchView' && action.target) {
           const targetComponent = componentMap.get(action.target);
           const targetName = targetComponent?.name || action.target;
-          const switchOutStyle = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-          const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
-          code += `${indentStr}gui_view_switch_on_event(view, "${targetName}", ${switchOutStyle}, ${switchInStyle}, ${guiEvent});\n`;
+          // 手势切换由引擎跟手拖动，自定义转场降级为最接近的引擎样式
+          const styles = honeyGuiSwitchOnEventStyles(action.switchOutStyle, action.switchInStyle);
+          code += `${indentStr}gui_view_switch_on_event(view, "${targetName}", ${styles.out}, ${styles.in}, ${guiEvent});\n`;
         }
       });
     });

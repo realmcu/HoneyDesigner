@@ -8,6 +8,8 @@ import { NumberInput } from '../NumberInput';
 import { t } from '../../i18n';
 import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES } from '../../../hml/eventTypes';
 import { useDesignerStore } from '../../store';
+import { normalizeSwitchInStyle } from '../../../shared/viewTransition';
+import { ViewTransitionHint } from './ViewTransitionHint';
 
 interface IconAction {
   target?: string;
@@ -300,7 +302,7 @@ export const HgMenuCellularProperties: React.FC<PropertyPanelProps> = ({ compone
                                 {t('Enter Animation')}
                               </label>
                               <select
-                                value={action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION'}
+                                value={normalizeSwitchInStyle(action.switchInStyle) || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION'}
                                 onChange={(e) => handleActionChange(index, 'switchInStyle', e.target.value)}
                                 style={selectStyle}
                               >
@@ -308,6 +310,7 @@ export const HgMenuCellularProperties: React.FC<PropertyPanelProps> = ({ compone
                                   <option key={s.value} value={s.value}>{t(s.labelKey as any)}</option>
                                 ))}
                               </select>
+                              <ViewTransitionHint sourceId={component.id} target={action.target} switchOutStyle={action.switchOutStyle} switchInStyle={action.switchInStyle} />
                             </div>
                           </>
                         )}

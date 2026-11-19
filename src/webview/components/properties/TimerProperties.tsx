@@ -4,6 +4,8 @@ import { t } from '../../i18n';
 import { TimerConfig, TimerAction, AnimationSegment } from '../../../hml/types';
 import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES } from '../../../hml/eventTypes';
 import { useDesignerStore } from '../../store';
+import { normalizeSwitchInStyle } from '../../../shared/viewTransition';
+import { ViewTransitionHint } from './ViewTransitionHint';
 import { NumberInput } from '../NumberInput';
 import { ChevronDown, ChevronRight, Trash2, Download, Check, Circle } from 'lucide-react';
 
@@ -961,6 +963,7 @@ const TimerPresetMode: React.FC<{
                   <TimerActionEditor
                     action={action}
                     componentType={componentType}
+                    componentId={componentId ?? ''}
                     onUpdate={(updates) => handleUpdateAction(segmentIndex, actionIndex, updates)}
                     onDelete={() => handleDeleteAction(segmentIndex, actionIndex)}
                     availableViews={getAvailableViews()}
@@ -1020,7 +1023,8 @@ const TimerActionEditor: React.FC<{
   availableViews: Array<{ id: string; name: string; file: string }>;
   availableTimers: TimerConfig[];
   currentTimerId: string;
-}> = ({ action, componentType, onUpdate, onDelete, availableViews, availableTimers, currentTimerId }) => {
+  componentId: string;
+}> = ({ action, componentType, onUpdate, onDelete, availableViews, availableTimers, currentTimerId, componentId }) => {
   const components = useDesignerStore((state) => state.components);
   const [proportionalScale, setProportionalScale] = useState(true);
   
@@ -1392,7 +1396,7 @@ const TimerActionEditor: React.FC<{
           <div>
             <label style={{ fontSize: '10px', display: 'block', marginBottom: '2px' }}>{t('Enter Animation')}</label>
             <select
-              value={action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION'}
+              value={normalizeSwitchInStyle(action.switchInStyle) || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION'}
               onChange={(e) => onUpdate({ switchInStyle: e.target.value })}
               style={{
                 width: '100%',
@@ -1408,6 +1412,7 @@ const TimerActionEditor: React.FC<{
                 <option key={s.value} value={s.value}>{t(s.labelKey as any)}</option>
               ))}
             </select>
+            <ViewTransitionHint sourceId={componentId} target={action.target} switchOutStyle={action.switchOutStyle} switchInStyle={action.switchInStyle} />
           </div>
         </div>
       )}

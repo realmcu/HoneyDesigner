@@ -1148,6 +1148,14 @@ const zhCN = {
   'Anim: Zoom From Top Left': '从左上角缩放',
   'Anim: Zoom From Top Right': '从右上角缩放',
   'Anim: Center Zoom Fade': '中心缩放淡入',
+  'Transition: Depth Zoom': '纵深缩放',
+  'Transition: Bottom Sheet': '底部弹层',
+  'Transition: Circle Reveal': '圆形揭示',
+  'Shared Element': '共享元素',
+  'Same tag in both pages': '两个页面填同一个名字',
+  'Shared elements in both pages fly across: give them the same tag here.': '两个页面里的共享元素会飞过去：在这里给它们填同一个名字。',
+  'Preview Transition': '预览转场',
+  'Custom transitions also move the current page, so the exit style is ignored. Swipe gestures fall back to the closest engine style.': '自定义转场会同时带动当前页面，退出样式不再生效；滑动手势触发时降级为最接近的引擎样式。',
 
   // 进入动画方向性选项（从某个方向进入）
   'In: Slide Left': '从左平移',

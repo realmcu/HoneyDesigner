@@ -8,6 +8,7 @@ import { convertColor } from '../utils';
 import { timerReloadArg } from '../PresetTimerModel';
 import { generateHoneyGuiViewEntrance } from './ViewEntranceGenerator';
 import { generateHoneyGuiPressFeedback } from './PressFeedbackGenerator';
+import { honeyGuiSwitchOnEventStyles } from '../files/ViewTransitionGenerator';
 
 // Event type to GUI_EVENT mapping (for view switch events)
 // Note: Key events (onKeyShortPress, onKeyLongPress) should use gui_obj_add_event_cb, not gui_view_switch_on_event
@@ -106,7 +107,9 @@ export class ViewGenerator implements ComponentCodeGenerator {
     const switchViewEvents = this.extractSwitchViewEvents(component, context);
     if (switchViewEvents.length > 0) {
       switchViewEvents.forEach(({ guiEvent, targetName, switchOutStyle, switchInStyle }) => {
-        code += `${indentStr}    gui_view_switch_on_event(view, "${targetName}", ${switchOutStyle}, ${switchInStyle}, ${guiEvent});\n`;
+        // 手势切换由引擎跟手拖动，自定义转场降级为最接近的引擎样式
+        const styles = honeyGuiSwitchOnEventStyles(switchOutStyle, switchInStyle);
+        code += `${indentStr}    gui_view_switch_on_event(view, "${targetName}", ${styles.out}, ${styles.in}, ${guiEvent});\n`;
       });
     } else if (!switchInFunc) {
       // Add GUI_UNUSED when no view switch events or switch_in callback

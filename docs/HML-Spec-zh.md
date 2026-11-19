@@ -1303,7 +1303,21 @@ HML 使用**事件 → 动作**模型。事件声明在任意组件的 `<events>
 | `SWITCH_IN_ANIMATION_BOUNCE_FROM_RIGHT` | 从右弹入 |
 | `SWITCH_IN_ANIMATION_ZOOM_FROM_TOP_LEFT` | 从左上角缩放进入 |
 | `SWITCH_IN_ANIMATION_ZOOM_FROM_TOP_RIGHT` | 从右上角缩放进入 |
-| `SWITCH_IN_ANIMATION_CENTER_ZOOM_FADE` | 居中缩放 + 淡入 |
+| `SWITCH_IN_ANIMATION_CENTER_ZOOM_FADE` | 引擎不支持，按 `SWITCH_IN_DEPTH_ZOOM` 处理（`SWITCH_IN_CENTER_ZOOM_FADE` 同） |
+
+**设计器自定义转场**（旧页、新页一起编排；选了之后 `switchOutStyle` 不再生效）：
+
+| 值 | 效果 | 时长 |
+|----|------|------|
+| `SWITCH_IN_DEPTH_ZOOM` | 纵深缩放：旧页缩到 0.92 并变暗，新页从 1.08 缩回原样并淡入（进入详情页） | 320 ms |
+| `SWITCH_IN_SHEET_UP` | 底部弹层：新页从底部弹起、略带回弹，旧页缩到 0.94 并变暗（设置面板、弹出菜单） | 380 ms |
+| `SWITCH_IN_CIRCLE_REVEAL` | 圆形揭示：从点击位置扩出新页底色的圆铺满屏幕，再淡入新页内容（打开应用） | 420 ms |
+
+- HoneyGUI：点击、按键、消息、定时器等直接切换生成 `hg_view_transition_switch("目标页", HG_VIEW_TRANSITION_*)`，实现放在 `generated/auto_generated_bindings.c`，只在用到时生成。
+- 滑动手势（`swipe*` 事件）由引擎跟手拖动，降级为最接近的引擎样式：纵深缩放 → `SWITCH_IN_ANIMATION_ZOOM`，底部弹层 → `SWITCH_IN_FROM_BOTTOM_USE_TRANSLATION`，圆形揭示 → `SWITCH_IN_ANIMATION_FADE`（旧页 `SWITCH_INIT_STATE`）。
+- LVGL：纵深缩放、圆形揭示 → `LV_SCREEN_LOAD_ANIM_FADE_IN`，底部弹层 → `LV_SCREEN_LOAD_ANIM_OVER_TOP`。
+- 快速预览（HML 直接运行）不认识这些值，按普通切换显示；以编译后的仿真为准。
+- **共享元素**：在两个页面里各放一个控件，把属性 `sharedTag` 填成同一个名字，切换时旧页那个先藏起来，新页那个从旧页控件的位置、大小飞到自己该在的位置（飞行叠在页面自身的缩放、位移之上，约在动画 80% 处落位，全程保持不透明）。只对上面三种自定义转场生效；同一个名字在两个页面里各出现一次，多出来的会被忽略。
 
 ---
 

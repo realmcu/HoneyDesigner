@@ -11,6 +11,7 @@ import type { I18nCatalog } from '../project-i18n/types';
 import { resolveLocalizedText } from '../project-i18n/catalog';
 import { scanOpenTags, parseTagAttributes } from '../hml/tagScan';
 import { findSharedStyle, resolveSharedStyle, type SharedStyleLibrary } from '../shared/sharedStyles';
+import { isCustomViewTransition } from '../shared/viewTransition';
 import {
     PREVIEW_COMPONENTS,
     PREVIEW_FUNCTION_ATTRIBUTES,
@@ -253,6 +254,9 @@ export class PreviewGapCollector {
             } else if (tag.name === 'action') {
                 if (attrs.get('type') === 'callFunction') {
                     this.addFunction(attrs.get('functionName'));
+                } else if (attrs.get('type') === 'switchView' && isCustomViewTransition(attrs.get('switchInStyle'))) {
+                    // 设计器自定义转场由生成的 C 代码播放，运行时只认引擎样式，会退回默认切换
+                    this.add('attribute', `action.switchInStyle=${attrs.get('switchInStyle')}`);
                 }
             } else if (tag.name.startsWith('hg_')) {
                 this.scanComponent(tag.name, attrs);

@@ -61,7 +61,13 @@
  *   Bounce (弹跳)         → 降级为 OVER
  *   Move Fade (移动淡入)  → 降级为 FADE_IN
  *   Center Zoom Fade      → 降级为 FADE_IN
+ *
+ * 【设计器自定义转场】预设同时编排旧页、新页，忽略 switchOut
+ *   纵深缩放 SWITCH_IN_DEPTH_ZOOM     → FADE_IN
+ *   底部弹层 SWITCH_IN_SHEET_UP       → OVER_TOP（新屏从下覆盖）
+ *   圆形揭示 SWITCH_IN_CIRCLE_REVEAL  → FADE_IN
  */
+import { readViewTransition, ViewTransitionPreset } from '../../shared/viewTransition';
 
 /** Default animation duration in ms */
 const DEFAULT_ANIM_DURATION = 300;
@@ -166,10 +172,22 @@ const IN_FALLBACK: Record<string, string> = {
   'SWITCH_IN_CENTER_ZOOM_FADE': 'LV_SCREEN_LOAD_ANIM_FADE_IN',
 };
 
+/** 设计器自定义转场：旧页的动作由预设决定，switchOut 不参与 */
+const IN_PRESET: Record<ViewTransitionPreset, string> = {
+  'SWITCH_IN_DEPTH_ZOOM': 'LV_SCREEN_LOAD_ANIM_FADE_IN',
+  'SWITCH_IN_SHEET_UP': 'LV_SCREEN_LOAD_ANIM_OVER_TOP',
+  'SWITCH_IN_CIRCLE_REVEAL': 'LV_SCREEN_LOAD_ANIM_FADE_IN',
+};
+
 /**
  * Resolve LVGL animation type from HML switchOut/switchIn pair.
  */
 export function resolveLvglScreenAnim(switchInStyle?: string, switchOutStyle?: string): string {
+  const preset = readViewTransition(switchInStyle);
+  if (preset) {
+    return IN_PRESET[preset];
+  }
+
   const outStill = !switchOutStyle || SWITCH_OUT_STILL.has(switchOutStyle);
   const inStill = !switchInStyle || SWITCH_IN_STILL.has(switchInStyle);
 

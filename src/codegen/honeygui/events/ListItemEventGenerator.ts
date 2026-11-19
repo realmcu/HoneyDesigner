@@ -5,6 +5,7 @@
 import { Component } from '../../../hml/types';
 import { EventCodeGenerator, EVENT_TYPE_TO_GUI_EVENT, generateMessageCallbackImpl, generateControlTimerCallbackImpl, generateEventCallbackName } from './EventCodeGenerator';
 import { cLiteral } from '../../cLiteral';
+import { honeyGuiSwitchViewLine } from '../files/ViewTransitionGenerator';
 
 export class ListItemEventGenerator implements EventCodeGenerator {
   generateEventBindings(component: Component, indent: number, componentMap: Map<string, Component>): string {
@@ -123,9 +124,7 @@ export class ListItemEventGenerator implements EventCodeGenerator {
         if (action.type === 'switchView' && action.target) {
           const targetComponent = componentMap.get(action.target);
           const targetName = targetComponent?.name || action.target;
-          const switchOutStyle = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-          const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
-          body += `    gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
+          body += honeyGuiSwitchViewLine(targetName, action.switchOutStyle, action.switchInStyle, '    ');
         }
       });
     });

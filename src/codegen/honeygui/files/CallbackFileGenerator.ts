@@ -16,6 +16,7 @@ import {
   presetTimerStateNames,
 } from '../PresetTimerModel';
 import { cLiteral } from '../../cLiteral';
+import { honeyGuiSwitchViewLine } from './ViewTransitionGenerator';
 
 /** Name of the generated file-local helper used for segment entry detection. */
 const BOUNDARY_HELPER_NAME = 'preset_anim_boundary_crossed';
@@ -1038,10 +1039,8 @@ static bool ${BOUNDARY_HELPER_NAME}(uint32_t at_ms, uint32_t prev_ms, uint32_t n
     } else if (action.type === 'switchView') {
       // Switch view action
       const targetName = action.target || 'unknown_view';
-      const switchOutStyle = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-      const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
       code += `    // Switch view: ${targetName}\n`;
-      code += `    gui_view_switch_direct(gui_view_get_current(), "${targetName}", ${switchOutStyle}, ${switchInStyle});\n`;
+      code += honeyGuiSwitchViewLine(targetName, action.switchOutStyle, action.switchInStyle, '    ');
       code += `\n`;
     } else if (action.type === 'switchTimer') {
       // Timer toggle action (new: supports multiple timer controls)

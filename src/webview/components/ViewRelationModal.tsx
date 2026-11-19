@@ -23,6 +23,7 @@ import { t } from '../i18n';
 import type { ViewInfo, ViewEdgeInfo, NavEditEdgeLocator, NavEditRequestBody, NavEditErrorCode, ViewKey } from '../types';
 import { asViewKey, makeViewKey } from '../../shared/navContract';
 import { SWITCH_OUT_STYLES, SWITCH_IN_STYLES, type EventType } from '../../hml/eventTypes';
+import { normalizeSwitchInStyle } from '../../shared/viewTransition';
 import './ViewRelationModal.css';
 
 interface ViewRelationModalProps {
@@ -150,7 +151,7 @@ const styleLabel = (
 /** 出/入动画组合标签，用于聚焦模式展开的 `触发控件·事件·动画` */
 const animationLabelOf = (e: ViewEdgeInfo): string => {
   const out = styleLabel(SWITCH_OUT_STYLES, e.switchOutStyle, SWITCH_OUT_DEFAULT);
-  const inn = styleLabel(SWITCH_IN_STYLES, e.switchInStyle, SWITCH_IN_DEFAULT);
+  const inn = styleLabel(SWITCH_IN_STYLES, normalizeSwitchInStyle(e.switchInStyle), SWITCH_IN_DEFAULT);
   return `${out} → ${inn}`;
 };
 

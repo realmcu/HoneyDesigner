@@ -9,6 +9,7 @@ import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
 import * as path from 'path';
 import * as fs from 'fs';
 import { cLiteral } from '../../cLiteral';
+import { honeyGuiSwitchViewLine } from '../files/ViewTransitionGenerator';
 
 export class ButtonGenerator implements ComponentCodeGenerator {
 
@@ -288,9 +289,7 @@ ${clickCallCode}${extraCode}}
       if (action.type === 'callFunction' && action.functionName) {
         code += `    ${action.functionName}(obj, e);\n`;
       } else if (action.type === 'switchView' && action.target) {
-        const switchOutStyle = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-        const switchInStyle = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
-        code += `    gui_view_switch_direct(gui_view_get_current(), "${action.target}", ${switchOutStyle}, ${switchInStyle});\n`;
+        code += honeyGuiSwitchViewLine(action.target, action.switchOutStyle, action.switchInStyle, '    ');
       } else if (action.type === 'sendMessage' && action.message) {
         code += `    gui_msg_publish(${cLiteral(action.message)}, NULL, 0);\n`;
       }

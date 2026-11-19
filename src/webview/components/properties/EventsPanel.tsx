@@ -32,6 +32,8 @@ const SWIPE_MUTEX_PAIRS: Record<string, string> = {
   'onSwipeDownQuick': 'onSwipeDown',
 };
 import { t } from '../../i18n';
+import { normalizeSwitchInStyle } from '../../../shared/viewTransition';
+import { ViewTransitionHint } from './ViewTransitionHint';
 import { isTimerTargetBroken } from '../../utils/componentUtils';
 import { TimerProperties } from './TimerProperties';
 import './EventsPanel.css';
@@ -416,7 +418,7 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
               <div className="param-row">
                 <label>{t('Enter Animation')}</label>
                 <select
-                  value={action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION'}
+                  value={normalizeSwitchInStyle(action.switchInStyle) || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION'}
                   onChange={(e) => handleActionUpdate(eventIndex, actionIndex, { switchInStyle: e.target.value })}
                 >
                   {SWITCH_IN_STYLES.map(s => (
@@ -424,6 +426,7 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ component, onUpdate })
                   ))}
                 </select>
               </div>
+              <ViewTransitionHint sourceId={component.id} target={action.target} switchOutStyle={action.switchOutStyle} switchInStyle={action.switchInStyle} />
             </>
           )}
 

@@ -4,6 +4,7 @@
  */
 import { Component } from '../../../hml/types';
 import { ComponentCodeGenerator, GeneratorContext } from './ComponentGenerator';
+import { honeyGuiSwitchViewLine } from '../files/ViewTransitionGenerator';
 
 interface IconAction {
   target?: string;
@@ -103,14 +104,12 @@ export class MenuCellularGenerator implements ComponentCodeGenerator {
         return;
       }
       const cbName = this.getSwitchViewCallbackName(component.id, index);
-      const switchOut = action.switchOutStyle || 'SWITCH_OUT_TO_LEFT_USE_TRANSLATION';
-      const switchIn = action.switchInStyle || 'SWITCH_IN_FROM_RIGHT_USE_TRANSLATION';
 
       code += `void ${cbName}(void *obj, gui_event_t *e)\n`;
       code += `{\n`;
       code += `    GUI_UNUSED(obj);\n`;
       code += `    GUI_UNUSED(e);\n`;
-      code += `    gui_view_switch_direct(gui_view_get_current(), "${action.target}", ${switchOut}, ${switchIn});\n`;
+      code += honeyGuiSwitchViewLine(action.target, action.switchOutStyle, action.switchInStyle, '    ');
       code += `}\n\n`;
     });
 

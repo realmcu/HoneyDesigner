@@ -248,7 +248,11 @@ export const SWITCH_IN_STYLES = [
   { value: 'SWITCH_IN_ANIMATION_BOUNCE_FROM_RIGHT', labelKey: 'Anim: Bounce From Right' },
   { value: 'SWITCH_IN_ANIMATION_ZOOM_FROM_TOP_LEFT', labelKey: 'Anim: Zoom From Top Left' },
   { value: 'SWITCH_IN_ANIMATION_ZOOM_FROM_TOP_RIGHT', labelKey: 'Anim: Zoom From Top Right' },
-  { value: 'SWITCH_IN_CENTER_ZOOM_FADE', labelKey: 'Anim: Center Zoom Fade' },
+  // 设计器自定义转场（旧页、新页一起动，见 src/shared/viewTransition.ts）。
+  // 早期的 SWITCH_IN_CENTER_ZOOM_FADE 引擎并不认识，现在按纵深缩放处理，不再列出
+  { value: 'SWITCH_IN_DEPTH_ZOOM', labelKey: 'Transition: Depth Zoom' },
+  { value: 'SWITCH_IN_SHEET_UP', labelKey: 'Transition: Bottom Sheet' },
+  { value: 'SWITCH_IN_CIRCLE_REVEAL', labelKey: 'Transition: Circle Reveal' },
 ];
 
 // ============ 辅助函数 ============
