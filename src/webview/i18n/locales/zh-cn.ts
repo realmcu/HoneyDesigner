@@ -1292,13 +1292,18 @@ const zhCN = {
   'Stored in this browser': '保存在当前浏览器中',
   'A zipped project folder containing project.json': '包含 project.json 的工程文件夹压缩包',
   'Edit files on disk directly': '直接编辑磁盘上的文件',
-  'To let AI tools edit this project, create it in a local folder instead — files saved in the browser cannot be reached by external tools.':
-    '要让 AI 工具能直接修改这个工程，请改为建在本地文件夹里——保存在浏览器里的文件，外部工具读不到。',
-  'Create in a local folder': '改建在本地文件夹',
+  'Save Location': '保存位置',
+  'Local folder (recommended)': '本地文件夹（推荐）',
+  'This browser': '当前浏览器',
+  'AI tools can read and edit the project files directly. Next, choose where to save it; a "{0}" folder is created there.':
+    'AI 工具可以直接读取和修改工程文件。下一步选择保存位置，会在其中新建「{0}」文件夹。',
+  'Files kept in the browser cannot be reached by AI tools or other programs. You can move the project to a local folder later.':
+    '保存在浏览器里的文件，AI 工具和其他程序都读不到。之后也可以把工程移到本地文件夹。',
+  'Choose Location and Create': '选择位置并创建',
   'Move to a local folder': '移到本地文件夹',
   'This project has no files to move.': '这个工程没有可迁移的文件。',
-  'The selected folder already contains a project. Choose an empty folder or open it instead.':
-    '该文件夹里已经有工程。请选择空文件夹，或直接打开它。',
+  'A folder named "{0}" already exists in "{1}". Choose another location or rename the project.':
+    '「{1}」里已经有名为「{0}」的文件夹。请换一个保存位置，或修改工程名。',
   'Requires a Chromium-based browser (Chrome, Edge)': '需要 Chromium 内核浏览器（Chrome、Edge）',
 
   // 浏览器版启动页
@@ -1354,6 +1359,12 @@ const zhCN = {
   '{0} of {1} files': '{1} 个文件中的 {0} 个',
   '{0} has {1} files and is about {2}.': '{0} 共 {1} 个文件，约 {2}。',
   'It is downloaded into this browser. Simulation and flashing still require the VS Code extension.': '工程会下载到当前浏览器。仿真和烧录仍需使用 VS Code 扩展。',
+  'The repository must be public. You can download the project to a local folder or into this browser.': '仓库必须是公开的。工程可以下载到本地文件夹，也可以下载到当前浏览器。',
+  'Choose a save location and a "{0}" folder is created there, so AI tools can read and edit the project files directly. Files kept in the browser cannot be reached by AI tools or other programs.':
+    '选择保存位置后，会在其中新建「{0}」文件夹，AI 工具可以直接读取和修改工程文件；下载到浏览器里的文件，AI 工具和其他程序都读不到。',
+  'Choose Location and Download': '选择位置并下载',
+  'Download to Browser': '下载到浏览器',
+  'Download to a Local Folder': '下载到本地文件夹',
   'Design and code side by side': '设计与代码对应示例',
   'Button in code': '按钮对应代码',
   'Complete projects, ready to run': '开箱即用的完整工程',

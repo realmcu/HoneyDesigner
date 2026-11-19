@@ -368,6 +368,42 @@ async function readDirectoryInto(handle: FileSystemDirectoryHandle, target: stri
     }
 }
 
+/** 工程名 → 子目录名：只替换 Windows/macOS 文件名里不允许的字符，其余（含中文）保留 */
+export function projectFolderName(name: string): string {
+    const safe = name.trim().replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/[. ]+$/, '');
+    return safe || 'project';
+}
+
+/** 父目录下能否放这个工程子目录：不存在，或存在但为空 */
+export async function projectFolderAvailable(parent: FileSystemDirectoryHandle, folderName: string): Promise<boolean> {
+    try {
+        const existing = await parent.getDirectoryHandle(folderName);
+        const entries = (existing as unknown as { keys(): AsyncIterableIterator<string> }).keys();
+        return (await entries.next()).done === true;
+    } catch (error) {
+        if ((error as DOMException)?.name === 'NotFoundError') {
+            return true;
+        }
+        throw error;
+    }
+}
+
+/**
+ * 在用户选择的父目录下建工程子目录，与 VS Code 版新建工程一致：选的是「保存位置」，
+ * 工程放在其中以工程名命名的文件夹里，而不是把文件直接铺进所选目录。
+ *
+ * 同名子目录已存在且非空时返回 undefined，不往别人的文件里混写；已存在但为空时直接沿用。
+ */
+export async function createProjectDirectory(
+    parent: FileSystemDirectoryHandle,
+    folderName: string
+): Promise<FileSystemDirectoryHandle | undefined> {
+    if (!(await projectFolderAvailable(parent, folderName))) {
+        return undefined;
+    }
+    return parent.getDirectoryHandle(folderName, { create: true });
+}
+
 export async function directoryContainsProject(handle: FileSystemDirectoryHandle): Promise<boolean> {
     try {
         await handle.getFileHandle('project.json');

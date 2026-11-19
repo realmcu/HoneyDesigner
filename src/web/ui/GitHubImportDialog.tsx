@@ -32,7 +32,7 @@ import {
     rawFileUrl,
     resolveSource,
 } from '../host/githubImport';
-import type { StoredProject } from '../host/projectStore';
+import { StoredProject, pickProjectDirectory, projectFolderAvailable, projectFolderName } from '../host/projectStore';
 import { GITHUB_TEMPLATES } from '../host/exampleProjects';
 
 /**
@@ -76,7 +76,13 @@ export interface GitHubImportResult {
 
 interface GitHubImportDialogProps {
     onCancel(): void;
+    /** 保存到浏览器存储（新建或覆盖已有副本） */
     onImport(result: GitHubImportResult): Promise<void>;
+    /**
+     * 保存到用户下载前选好的保存位置（parent 下以工程名新建子目录）。
+     * 不提供（浏览器不支持目录读写）时只能下载到浏览器，不出现选位置的按钮。
+     */
+    onImportToFolder?(result: GitHubImportResult, parent: FileSystemDirectoryHandle): Promise<void>;
     /** 查找同一来源已导入的浏览器副本 */
     findExisting(sourceKey: string): Promise<StoredProject | undefined>;
     /** 直接打开已有副本，不下载 */
@@ -187,7 +193,7 @@ function SourceLink({ source, candidate }: { source: ResolvedSource; candidate: 
     );
 }
 
-export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExisting, initialUrl }: GitHubImportDialogProps) {
+export function GitHubImportDialog({ onCancel, onImport, onImportToFolder, findExisting, onOpenExisting, initialUrl }: GitHubImportDialogProps) {
     const [url, setUrl] = useState(initialUrl ?? '');
     const [step, setStep] = useState<Step>({ kind: 'url' });
     const [saving, setSaving] = useState(false);
@@ -219,11 +225,38 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
             });
             return;
         }
-        if (candidate.estimatedBytes > LARGE_PROJECT_BYTES) {
+        // 新导入且能用本地文件夹时总要停在确认页，让用户先选保存位置
+        if (candidate.estimatedBytes > LARGE_PROJECT_BYTES || (onImportToFolder && !replace)) {
             setStep({ kind: 'confirm', source, candidate, replace });
             return;
         }
         await startDownload(source, candidate, replace);
+    };
+
+    /**
+     * 先选保存位置再下载：目录选择器要求用户手势，下载完再弹会被浏览器拦下；
+     * 也能在下载前就发现同名文件夹，不白下一趟
+     */
+    const chooseFolderAndDownload = async (source: ResolvedSource, candidate: ProjectCandidate) => {
+        try {
+            const parent = await pickProjectDirectory();
+            if (!parent) {
+                return;
+            }
+            const folderName = projectFolderName(candidate.name);
+            if (!(await projectFolderAvailable(parent, folderName))) {
+                setStep({
+                    kind: 'confirm',
+                    source,
+                    candidate,
+                    error: t('A folder named "{0}" already exists in "{1}". Choose another location or rename the project.', folderName, parent.name),
+                });
+                return;
+            }
+            await startDownload(source, candidate, undefined, parent);
+        } catch (error) {
+            setStep({ kind: 'confirm', source, candidate, error: describeError(error) });
+        }
     };
 
     /** 选定工程后先查是否已导入过：有副本就让用户决定打开还是覆盖，不生成第二份 */
@@ -237,7 +270,13 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
         await downloadOrConfirm(source, candidate);
     };
 
-    const startDownload = async (source: ResolvedSource, candidate: ProjectCandidate, replace?: StoredProject) => {
+    /** parent 给出时下载完写进该保存位置，否则存进浏览器 */
+    const startDownload = async (
+        source: ResolvedSource,
+        candidate: ProjectCandidate,
+        replace?: StoredProject,
+        parent?: FileSystemDirectoryHandle
+    ) => {
         const token = new CancelToken();
         cancelTokenRef.current = token;
         const fetchImpl = boundFetch;
@@ -250,8 +289,10 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
         });
 
         try {
-            // 下载前查一次剩余配额；estimate 只是估计值，落库失败仍由调用方回滚
-            await assertStorageCapacity(candidate.estimatedBytes, () => navigator.storage.estimate());
+            // 存进浏览器时下载前查一次剩余配额；estimate 只是估计值，落库失败仍由调用方回滚
+            if (!parent) {
+                await assertStorageCapacity(candidate.estimatedBytes, () => navigator.storage.estimate());
+            }
 
             const project = await downloadProject(source, candidate, {
                 fetchImpl,
@@ -263,9 +304,7 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
                 ),
             });
 
-            // 下载完成后再问一次是否需要保存（落库由父组件做，失败时它负责回滚）
-            setSaving(true);
-            await onImport({
+            const result: GitHubImportResult = {
                 candidate,
                 source,
                 files: project.files,
@@ -274,7 +313,14 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
                 sourceKey: githubSourceKey(source.owner, source.repo, candidate.rootPath),
                 sourceRevision: contentVersion(source),
                 replace,
-            });
+            };
+            // 落库由父组件做，写浏览器失败时它负责回滚
+            setSaving(true);
+            if (parent) {
+                await onImportToFolder!(result, parent);
+            } else {
+                await onImport(result);
+            }
         } catch (error) {
             if (token.isCancelled) {
                 setStep({ kind: 'url', error: describeError(error) });
@@ -441,6 +487,16 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
                     >
                         {t('Download Again and Replace')}
                     </button>
+                    {/* 已有的浏览器副本 AI 读不到：允许另存一份到本地文件夹，不动浏览器副本 */}
+                    {onImportToFolder && (
+                        <button
+                            className="web-button"
+                            type="button"
+                            onClick={() => setStep({ kind: 'confirm', source, candidate })}
+                        >
+                            {t('Download to a Local Folder')}
+                        </button>
+                    )}
                     <button className="web-button" type="button" onClick={() => setStep({ kind: 'url' })}>{t('Back')}</button>
                 </div>
             </div>
@@ -449,6 +505,8 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
 
     if (step.kind === 'confirm') {
         const tooLarge = step.candidate.estimatedBytes > ABSOLUTE_MAX_BYTES;
+        // 覆盖已有副本只能写回浏览器，不给选位置
+        const canChooseFolder = Boolean(onImportToFolder) && !step.replace;
         return (
             <div className="web-card web-form web-modal" role="dialog" aria-label={t('Open from GitHub')}>
                 {header}
@@ -459,17 +517,29 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
                 <p className="hg-import-hint">
                     {step.replace
                         ? t('It replaces the existing copy "{0}" in this browser.', step.replace.name)
-                        : t('It is downloaded into this browser. Simulation and flashing still require the VS Code extension.')}
+                        : canChooseFolder
+                            ? t('Choose a save location and a "{0}" folder is created there, so AI tools can read and edit the project files directly. Files kept in the browser cannot be reached by AI tools or other programs.', projectFolderName(step.candidate.name))
+                            : t('It is downloaded into this browser. Simulation and flashing still require the VS Code extension.')}
                 </p>
                 {step.error && <p className="web-field-error">{step.error}</p>}
                 <div className="web-modal-actions">
+                    {canChooseFolder && (
+                        <button
+                            className="web-button primary"
+                            type="button"
+                            disabled={tooLarge}
+                            onClick={() => void chooseFolderAndDownload(step.source, step.candidate)}
+                        >
+                            {t('Choose Location and Download')}
+                        </button>
+                    )}
                     <button
-                        className="web-button primary"
+                        className={canChooseFolder ? 'web-button' : 'web-button primary'}
                         type="button"
                         disabled={tooLarge}
                         onClick={() => void startDownload(step.source, step.candidate, step.replace)}
                     >
-                        {step.replace ? t('Replace') : t('Import')}
+                        {step.replace ? t('Replace') : canChooseFolder ? t('Download to Browser') : t('Import')}
                     </button>
                     <button className="web-button" type="button" onClick={() => setStep({ kind: 'url' })}>{t('Back')}</button>
                 </div>
@@ -547,7 +617,9 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
                 />
             </label>
             <p className="hg-import-hint">
-                {t('The repository must be public. The project is downloaded into this browser and can be exported as a ZIP.')}
+                {onImportToFolder
+                    ? t('The repository must be public. You can download the project to a local folder or into this browser.')
+                    : t('The repository must be public. The project is downloaded into this browser and can be exported as a ZIP.')}
             </p>
             {step.kind === 'url' && step.error && <p className="web-field-error">{step.error}</p>}
             <div className="web-modal-actions">

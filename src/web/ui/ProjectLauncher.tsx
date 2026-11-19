@@ -22,6 +22,8 @@ import {
     createProjectId,
     pickProjectDirectory,
     directoryContainsProject,
+    createProjectDirectory,
+    projectFolderName,
     readProjectSummary,
     readBrowserFiles,
 } from '../host/projectStore';
@@ -43,10 +45,10 @@ interface ProjectLauncherProps {
     onOpen(project: StoredProject): void;
 }
 
-function NewProjectForm({ onCreate, onCancel, onOpenLocalFolder }: {
+function NewProjectForm({ onCreate, onCancel, onCreateInLocalFolder }: {
     onCreate(options: NewProjectOptions): Promise<void>;
     onCancel(): void;
-    onOpenLocalFolder(options: NewProjectOptions): void;
+    onCreateInLocalFolder(options: NewProjectOptions): Promise<void>;
 }) {
     const [name, setName] = useState('NewProject');
     const [appId, setAppId] = useState('com.example.NewProject');
@@ -64,6 +66,9 @@ function NewProjectForm({ onCreate, onCancel, onOpenLocalFolder }: {
     const finalResolution = resolution === 'custom' ? `${customWidth}X${customHeight}` : resolution;
     // File System Access API 仅在 Chromium 系浏览器可用；不可用时只能建在浏览器存储里
     const canUseLocalFolder = isDirectoryAccessSupported();
+    // 默认建在本地文件夹：只有磁盘上的文件，外部 AI 工具才能读写
+    const [saveLocation, setSaveLocation] = useState<'directory' | 'browser'>(canUseLocalFolder ? 'directory' : 'browser');
+    const inLocalFolder = canUseLocalFolder && saveLocation === 'directory';
 
     /** 当前表单值 → 新建选项；两个提交路径（浏览器存储 / 本地文件夹）共用 */
     const collectOptions = (): NewProjectOptions => ({
@@ -85,7 +90,9 @@ function NewProjectForm({ onCreate, onCancel, onOpenLocalFolder }: {
         }
         setBusy(true);
         try {
-            await onCreate(collectOptions());
+            // 目录选择器要求用户手势：这里同步调用到 showDirectoryPicker，中间不能先 await 别的
+            const options = collectOptions();
+            await (inLocalFolder ? onCreateInLocalFolder(options) : onCreate(options));
         } finally {
             setBusy(false);
         }
@@ -166,19 +173,26 @@ function NewProjectForm({ onCreate, onCancel, onOpenLocalFolder }: {
                 <span className="web-field-label">{t('ROMFS Base Address')}</span>
                 <input className="web-input" value={romfsBaseAddr} onChange={e => setRomfsBaseAddr(e.target.value)} placeholder={DEFAULT_ROMFS_BASE_ADDR} />
             </label>
+            {canUseLocalFolder && (
+                <label className="web-field">
+                    <span className="web-field-label">{t('Save Location')}</span>
+                    <select className="web-input" value={saveLocation} onChange={e => setSaveLocation(e.target.value as 'directory' | 'browser')}>
+                        <option value="directory">{t('Local folder (recommended)')}</option>
+                        <option value="browser">{t('This browser')}</option>
+                    </select>
+                    <span className="hg-import-hint">
+                        {inLocalFolder
+                            ? t('AI tools can read and edit the project files directly. Next, choose where to save it; a "{0}" folder is created there.', projectFolderName(name))
+                            : t('Files kept in the browser cannot be reached by AI tools or other programs. You can move the project to a local folder later.')}
+                    </span>
+                </label>
+            )}
             <div className="web-modal-actions">
-                <button type="submit" className="web-button primary" disabled={!nameValid || !appId.trim() || busy}>{t('Create')}</button>
+                <button type="submit" className="web-button primary" disabled={!nameValid || !appId.trim() || busy}>
+                    {inLocalFolder ? t('Choose Location and Create') : t('Create')}
+                </button>
                 <button type="button" className="web-button" onClick={onCancel}>{t('Cancel')}</button>
             </div>
-            {canUseLocalFolder && (
-                <div className="web-modal-hint">
-                    {t('To let AI tools edit this project, create it in a local folder instead — files saved in the browser cannot be reached by external tools.')}
-                    {' '}
-                    <button type="button" className="hg-link-import" onClick={() => onOpenLocalFolder(collectOptions())}>
-                        {t('Create in a local folder')}
-                    </button>
-                </div>
-            )}
         </form>
     );
 }
@@ -456,50 +470,77 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
         setImportingFromGitHub(false);
     };
 
-    /** 同一来源只认浏览器副本；本地文件夹工程不参与（它们不是从 GitHub 下载的） */
+/** GitHub 下载后写进用户事先选好的保存位置；失败向上抛，由弹框显示并允许重试 */
+    const importFromGitHubToFolder = async (result: GitHubImportResult, parent: FileSystemDirectoryHandle) => {
+        const source = { sourceUrl: result.sourceUrl, sourceKey: result.sourceKey, sourceRevision: result.sourceRevision };
+        await writeProjectToFolder(parent, result.name, result.files, source);
+        setImportingFromGitHub(false);
+    };
+
+    /**
+     * 同一来源只认浏览器副本：「重新下载并覆盖」只能替换浏览器存储；
+     * 存到本地文件夹的副本由用户自己选目录，不参与去重
+     */
     const findGitHubCopy = async (sourceKey: string) => {
         const list = await listProjects();
         return list.find(project => project.mode === 'browser' && project.sourceKey === sourceKey);
     };
 
     /**
-     * 在用户选定的本地文件夹里新建工程。
+     * 在保存位置 parent 下建以工程名命名的子目录，把工程文件写进去并打开。
      *
-     * 与 createProject 的区别只在落盘位置：文件直接写进真实目录，而不是 IndexedDB。
+     * 与 persistProject 的区别只在落盘位置：文件直接写进真实目录，而不是 IndexedDB。
      * 这是让外部 AI 工具能参与网页版工程的前提——浏览器存储里的文件在磁盘上不存在，
-     * 任何外部工具都读不到。
+     * 任何外部工具都读不到。同名文件夹已存在等错误向上抛，由调用方显示。
      */
+    const writeProjectToFolder = async (
+        parent: FileSystemDirectoryHandle,
+        name: string,
+        files: Map<string, Uint8Array>,
+        source?: Pick<StoredProject, 'sourceUrl' | 'sourceKey' | 'sourceRevision'>
+    ): Promise<StoredProject> => {
+        const handle = await createProjectFolderIn(parent, name);
+        await writeDirectoryFiles(handle, files);
+        const project: StoredProject = {
+            id: createProjectId(),
+            name,
+            mode: 'directory',
+            updatedAt: Date.now(),
+            handle,
+            ...source,
+        };
+        // 记录写失败时磁盘上的文件已经建好，可再从「打开本地文件夹」进入
+        await saveProjectRecord(project);
+        onOpen(project);
+        return project;
+    };
+
     const createProjectInLocalFolder = async (options: NewProjectOptions) => {
         setError(undefined);
         try {
-            const handle = await pickProjectDirectory();
-            if (!handle) {
+            // 目录选择器要求用户手势，所以第一个 await 必须就是 pickProjectDirectory
+            const parent = await pickProjectDirectory();
+            if (!parent) {
                 return;
             }
-            if (await directoryContainsProject(handle)) {
-                setError(t('The selected folder already contains a project. Choose an empty folder or open it instead.'));
-                return;
-            }
-            await writeDirectoryFiles(handle, scaffoldProject(options));
-            const project: StoredProject = {
-                id: createProjectId(),
-                name: options.name,
-                mode: 'directory',
-                updatedAt: Date.now(),
-                handle,
-            };
-            try {
-                await saveProjectRecord(project);
-            } catch (err) {
-                // 记录写失败不影响磁盘上的文件：工程已经建好，可再从「打开本地文件夹」进入
-                setError(err instanceof Error ? err.message : String(err));
-                return;
-            }
+            await writeProjectToFolder(parent, options.name, scaffoldProject(options));
             setCreating(false);
-            onOpen(project);
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
         }
+    };
+
+    /**
+     * 在所选保存位置下建工程子目录；同名文件夹已存在且非空时报错，
+     * 不把工程文件混进已有内容里
+     */
+    const createProjectFolderIn = async (parent: FileSystemDirectoryHandle, name: string) => {
+        const folderName = projectFolderName(name);
+        const handle = await createProjectDirectory(parent, folderName);
+        if (!handle) {
+            throw new Error(t('A folder named "{0}" already exists in "{1}". Choose another location or rename the project.', folderName, parent.name));
+        }
+        return handle;
     };
 
     /**
@@ -512,12 +553,8 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
     const moveToLocalFolder = async (project: StoredProject) => {
         setError(undefined);
         try {
-            const handle = await pickProjectDirectory();
-            if (!handle) {
-                return;
-            }
-            if (await directoryContainsProject(handle)) {
-                setError(t('The selected folder already contains a project. Choose an empty folder or open it instead.'));
+            const parent = await pickProjectDirectory();
+            if (!parent) {
                 return;
             }
             const files = await readBrowserFiles(project);
@@ -525,6 +562,7 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                 setError(t('This project has no files to move.'));
                 return;
             }
+            const handle = await createProjectFolderIn(parent, project.name);
             await writeDirectoryFiles(handle, files);
             const moved: StoredProject = {
                 id: createProjectId(),
@@ -765,13 +803,14 @@ export function ProjectLauncher({ onOpen }: ProjectLauncherProps) {
                     <NewProjectForm
                         onCreate={createProject}
                         onCancel={() => setCreating(false)}
-                        onOpenLocalFolder={options => void createProjectInLocalFolder(options)}
+                        onCreateInLocalFolder={createProjectInLocalFolder}
                     />
                 ) : importingFromGitHub ? (
                     <GitHubImportDialog
                         initialUrl={githubInitialUrl}
                         onCancel={() => setImportingFromGitHub(false)}
                         onImport={importFromGitHub}
+                        onImportToFolder={hasDirectoryAccess ? importFromGitHubToFolder : undefined}
                         findExisting={findGitHubCopy}
                         onOpenExisting={project => {
                             setImportingFromGitHub(false);

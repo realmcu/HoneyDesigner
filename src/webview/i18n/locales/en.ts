@@ -1292,13 +1292,18 @@ const en = {
   'Stored in this browser': 'Stored in this browser',
   'A zipped project folder containing project.json': 'A zipped project folder containing project.json',
   'Edit files on disk directly': 'Edit files on disk directly',
-  'To let AI tools edit this project, create it in a local folder instead — files saved in the browser cannot be reached by external tools.':
-    'To let AI tools edit this project, create it in a local folder instead — files saved in the browser cannot be reached by external tools.',
-  'Create in a local folder': 'Create in a local folder',
+  'Save Location': 'Save Location',
+  'Local folder (recommended)': 'Local folder (recommended)',
+  'This browser': 'This browser',
+  'AI tools can read and edit the project files directly. Next, choose where to save it; a "{0}" folder is created there.':
+    'AI tools can read and edit the project files directly. Next, choose where to save it; a "{0}" folder is created there.',
+  'Files kept in the browser cannot be reached by AI tools or other programs. You can move the project to a local folder later.':
+    'Files kept in the browser cannot be reached by AI tools or other programs. You can move the project to a local folder later.',
+  'Choose Location and Create': 'Choose Location and Create',
   'Move to a local folder': 'Move to a local folder',
   'This project has no files to move.': 'This project has no files to move.',
-  'The selected folder already contains a project. Choose an empty folder or open it instead.':
-    'The selected folder already contains a project. Choose an empty folder or open it instead.',
+  'A folder named "{0}" already exists in "{1}". Choose another location or rename the project.':
+    'A folder named "{0}" already exists in "{1}". Choose another location or rename the project.',
   'Requires a Chromium-based browser (Chrome, Edge)': 'Requires a Chromium-based browser (Chrome, Edge)',
 
   // Browser launcher
@@ -1354,6 +1359,12 @@ const en = {
   '{0} of {1} files': '{0} of {1} files',
   '{0} has {1} files and is about {2}.': '{0} has {1} files and is about {2}.',
   'It is downloaded into this browser. Simulation and flashing still require the VS Code extension.': 'It is downloaded into this browser. Simulation and flashing still require the VS Code extension.',
+  'The repository must be public. You can download the project to a local folder or into this browser.': 'The repository must be public. You can download the project to a local folder or into this browser.',
+  'Choose a save location and a "{0}" folder is created there, so AI tools can read and edit the project files directly. Files kept in the browser cannot be reached by AI tools or other programs.':
+    'Choose a save location and a "{0}" folder is created there, so AI tools can read and edit the project files directly. Files kept in the browser cannot be reached by AI tools or other programs.',
+  'Choose Location and Download': 'Choose Location and Download',
+  'Download to Browser': 'Download to Browser',
+  'Download to a Local Folder': 'Download to a Local Folder',
   'Design and code side by side': 'Design and code side by side',
   'Button in code': 'Corresponding button code',
   'Complete projects, ready to run': 'Complete projects, ready to run',
