@@ -25,7 +25,7 @@ import {
     assertStorageCapacity,
     contentVersion,
     discoverProjects,
-    downloadProject,
+    downloadProjectWithFallback,
     githubSourceKey,
     jsDelivrFileUrl,
     parseGitHubUrl,
@@ -253,7 +253,8 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
             // 下载前查一次剩余配额；estimate 只是估计值，落库失败仍由调用方回滚
             await assertStorageCapacity(candidate.estimatedBytes, () => navigator.storage.estimate());
 
-            const project = await downloadProject(source, candidate, {
+            // 快速通道的清单可能滞后于仓库最新提交，校验失败时这里会自动换 API 通道重下一次
+            const { project, source: usedSource } = await downloadProjectWithFallback(source, candidate, {
                 fetchImpl,
                 rateLimit: rateLimitRef.current,
                 signal: token.signal,
@@ -267,12 +268,12 @@ export function GitHubImportDialog({ onCancel, onImport, findExisting, onOpenExi
             setSaving(true);
             await onImport({
                 candidate,
-                source,
+                source: usedSource,
                 files: project.files,
                 name: project.name,
                 sourceUrl: url.trim(),
-                sourceKey: githubSourceKey(source.owner, source.repo, candidate.rootPath),
-                sourceRevision: contentVersion(source),
+                sourceKey: githubSourceKey(usedSource.owner, usedSource.repo, candidate.rootPath),
+                sourceRevision: contentVersion(usedSource),
                 replace,
             });
         } catch (error) {

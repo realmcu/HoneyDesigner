@@ -16,6 +16,7 @@ import {
     assertStorageCapacity,
     discoverProjects,
     downloadProject,
+    downloadProjectWithFallback,
     fetchTree,
     fetchTreeViaJsDelivr,
     finalizeProject,
@@ -181,6 +182,18 @@ describe('parseGitHubUrl', () => {
 
     it('/releases 之类的子页面按仓库根处理', () => {
         expect(parseGitHubUrl('https://github.com/owner/repo/releases').pathSegments).toEqual([]);
+    });
+
+    it('识别 /commit/ 提交详情页，ref 就是那个 commit', () => {
+        // 从提交历史点进某次提交时地址栏就是这种形状，直接粘贴应当固定到该 commit
+        const location = parseGitHubUrl(`https://github.com/owner/repo/commit/${SHA}`);
+        expect(location.pathSegments).toEqual([SHA]);
+        expect(location.isBlob).toBe(false);
+    });
+
+    it('识别 /commits/ 提交历史页，当作分支处理', () => {
+        expect(parseGitHubUrl('https://github.com/owner/repo/commits/feat/ui').pathSegments)
+            .toEqual(['feat', 'ui']);
     });
 });
 
@@ -381,19 +394,39 @@ describe('fetchTreeViaJsDelivr', () => {
 // ---------------------------------------------------------------------------
 
 describe('resolveSource 通道选择', () => {
-    it('默认走 jsDelivr，只发一次清单请求，不碰 api.github.com 与 github.com', async () => {
+    it('分支导入固定到最新 commit，并按 SHA 重取清单', async () => {
+        // jsDelivr 的清单缓存可能落后于仓库最新提交，按分支取会拿到错位的 hash；
+        // 钉到 commit 之后清单和正文都按 SHA 取，两者必然同版本
+        const pinned = 'b'.repeat(40);
         const { fetchImpl, calls } = makeFetch([
+            jsDelivrListing('HEAD', [{ name: '/project.json', size: 10, hash: 'stale' }]),
+            { match: /api\.github\.com\/repos\/o\/r\/commits\?per_page=1$/, response: { json: [{ sha: pinned }] } },
+            jsDelivrListing(pinned, [{ name: '/project.json', size: 10, hash: 'fresh' }]),
+        ]);
+        const source = await resolveSource('o', 'r', [], { fetchImpl, rateLimit: noop() });
+        expect(source.contentChannel).toBe('jsdelivr');
+        expect(source.sha).toBe(pinned);
+        expect(source.pinned).toBe(true);
+        // 清单换成按 SHA 取的那份：下载时校验的是它，不是旧缓存
+        expect(source.tree[0].hash).toBe('fresh');
+        expect(calls.some(c => c.url.includes('@HEAD'))).toBe(true);
+        expect(calls.some(c => c.url.includes(`@${pinned}`))).toBe(true);
+    });
+
+    it('钉不住 commit 时退回分支模式，仍按清单 sha256 兜底', async () => {
+        // 未认证配额按 IP 算，公司出口常常已耗尽；钉不住不是导入失败
+        const { fetchImpl } = makeFetch([
             jsDelivrListing('HEAD', [{ name: '/project.json', size: 10, hash: 'h1' }]),
+            {
+                match: /api\.github\.com/,
+                response: { status: 403, headers: { 'x-ratelimit-remaining': '0' }, json: {} },
+            },
         ]);
         const source = await resolveSource('o', 'r', [], { fetchImpl, rateLimit: noop() });
         expect(source.contentChannel).toBe('jsdelivr');
         expect(source.sha).toBe('');
-        expect(source.ref).toBe('');
         expect(source.pinned).toBe(false);
-        // 清单里的 sha256 保留下来，供下载时校验
         expect(source.tree[0].hash).toBe('h1');
-        expect(calls).toHaveLength(1);
-        expect(calls[0].url).toContain('@HEAD');
     });
 
     it('不以 options 作为 this 调用 fetchImpl（原生 fetch 会抛 Illegal invocation）', async () => {
@@ -1126,6 +1159,97 @@ describe('取消', () => {
             { fetchImpl, rateLimit: noop() }
         );
         expect(calls.every(c => c.url.includes('/gh/o/r@HEAD/proj/'))).toBe(true);
+    });
+});
+
+describe('downloadProjectWithFallback', () => {
+    const PINNED = 'c'.repeat(40);
+    const bodies: Record<string, string> = { 'proj/project.json': PROJECT_JSON, 'proj/ui/Main.hml': '<view/>' };
+
+    /** 快速通道正文一律返回旧版本（hash 对不上），API 通道正常 */
+    function staleFastChannel(): { fetchImpl: FetchLike; calls: Call[] } {
+        const calls: Call[] = [];
+        const fetchImpl: FetchLike = async (url, init) => {
+            calls.push({ url, signal: init.signal });
+            if (url.includes('cdn.jsdelivr.net')) {
+                return makeResponse({ body: '{"stale":true}' });
+            }
+            if (url.endsWith('/repos/o/r')) {
+                return makeResponse({ json: {} });
+            }
+            if (url.includes('/git/trees/')) {
+                return makeResponse({
+                    json: { truncated: false, tree: [blob('proj/project.json', 10), blob('proj/ui/Main.hml', 7)] },
+                });
+            }
+            if (url.includes('/commits')) {
+                return makeResponse({ json: [{ sha: PINNED }] });
+            }
+            if (url.includes('raw.githubusercontent.com')) {
+                const rel = decodeURIComponent(url.split(`/${PINNED}/`)[1] ?? '');
+                return makeResponse({ body: bodies[rel] ?? '' });
+            }
+            return makeResponse({ status: 500, body: `unmatched ${url}` });
+        };
+        return { fetchImpl, calls };
+    }
+
+    it('清单与正文错位时换 API 通道重下，并返回新的 source', async () => {
+        const entries: TreeEntry[] = [
+            { ...blob('proj/project.json', 10), hash: 'stale-hash' },
+            { ...blob('proj/ui/Main.hml', 7), hash: 'stale-hash' },
+        ];
+        const { fetchImpl, calls } = staleFastChannel();
+
+        const result = await downloadProjectWithFallback(
+            { ...source(entries), contentChannel: 'jsdelivr' as const },
+            { ...candidate, fileCount: 2 },
+            { fetchImpl, rateLimit: noop() }
+        );
+
+        expect([...result.project.files.keys()].sort()).toEqual(['project.json', 'ui/Main.hml']);
+        // 换了通道，正文和清单都由 GitHub 自己保证是同一个 commit
+        expect(result.source.contentChannel).toBe('raw');
+        expect(result.source.sha).toBe(PINNED);
+        expect(calls.some(c => c.url.includes('cdn.jsdelivr.net'))).toBe(true);
+        expect(calls.some(c => c.url.includes('raw.githubusercontent.com'))).toBe(true);
+    });
+
+    it('降级也走不通时，报原始的内容校验错误', async () => {
+        const entries: TreeEntry[] = [{ ...blob('proj/project.json', 10), hash: 'stale-hash' }];
+        const fetchImpl: FetchLike = async url => {
+            if (url.includes('cdn.jsdelivr.net')) {
+                return makeResponse({ body: '{}' });
+            }
+            // API 配额已耗尽（按分支解析 ref 就会撞上）
+            return makeResponse({
+                status: 403,
+                headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1800000000' },
+                json: {},
+            });
+        };
+
+        await expect(downloadProjectWithFallback(
+            { ...source(entries), sha: '', ref: 'main', contentChannel: 'jsdelivr' as const },
+            { ...candidate, fileCount: 1 },
+            { fetchImpl, rateLimit: noop() }
+        )).rejects.toMatchObject({ code: 'network', options: { contentMismatch: true } });
+    });
+
+    it('其它错误不触发降级重下', async () => {
+        const entries: TreeEntry[] = [{ ...blob('proj/project.json', 10), hash: 'whatever' }];
+        const calls: Call[] = [];
+        const fetchImpl: FetchLike = async (url, init) => {
+            calls.push({ url, signal: init.signal });
+            return makeResponse({ status: 404, body: 'nope' });
+        };
+
+        await expect(downloadProjectWithFallback(
+            { ...source(entries), contentChannel: 'jsdelivr' as const },
+            { ...candidate, fileCount: 1 },
+            { fetchImpl, rateLimit: noop() }
+        )).rejects.toMatchObject({ code: 'repo-not-found' });
+        expect(calls.some(c => c.url.includes('api.github.com'))).toBe(false);
     });
 });
 
