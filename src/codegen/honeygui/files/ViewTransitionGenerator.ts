@@ -29,6 +29,12 @@ import {
   readViewTransition,
 } from '../../../shared/viewTransition';
 import { collectSharedElementPairs, SharedElementCandidate } from '../../../shared/sharedElement';
+import { SPRING_OMEGA, TransitionCurve } from '../../../shared/viewTransition';
+
+/** C 里的曲线编号 */
+function curveId(curve: TransitionCurve): number {
+  return curve === 'spring' ? 2 : (curve === 'easeOutBack' ? 1 : 0);
+}
 
 /** 共享元素飞行占整段动画的比例：飞完再让页面收尾 */
 const HERO_END = 0.8;
@@ -110,6 +116,135 @@ export function generateViewTransitionHeader(): string {
   return code;
 }
 
+/** 新页的子控件逐个进场：每个孩子自己的时间片，不是整页一起动 */
+function generateStaggerFuncs(): string {
+  return `#define HG_VT_CHILD_MAX 8
+
+static bool hg_vt_is_hero_obj(gui_obj_t *obj);
+
+typedef struct
+{
+    gui_obj_t *obj;
+    void (*orig)(gui_obj_t *obj, T_OBJ_CB_TYPE cb_type);
+    uint8_t pre;
+    uint8_t destroy;
+    uint8_t index;
+} hg_vt_child_t;
+
+static hg_vt_child_t hg_vt_children[HG_VT_CHILD_MAX];
+static uint8_t hg_vt_child_count;
+
+static hg_vt_child_t *hg_vt_child_entry(gui_obj_t *obj)
+{
+    for (uint8_t i = 0; i < hg_vt_child_count; i++)
+    {
+        if (hg_vt_children[i].obj == obj)
+        {
+            return &hg_vt_children[i];
+        }
+    }
+    return NULL;
+}
+
+/* Each child rises and fades in on its own slice, back to front */
+static void hg_vt_child_cb(gui_obj_t *obj, T_OBJ_CB_TYPE cb_type)
+{
+    hg_vt_child_t *entry = hg_vt_child_entry(obj);
+    void (*orig)(gui_obj_t *obj, T_OBJ_CB_TYPE cb_type) = (entry != NULL) ? entry->orig : NULL;
+    if (cb_type == OBJ_DESTROY)
+    {
+        bool call = (entry != NULL) && (entry->destroy != 0U);
+        if (entry != NULL)
+        {
+            entry->obj = NULL;
+        }
+        if (call && orig != NULL)
+        {
+            orig(obj, cb_type);
+        }
+        return;
+    }
+    if (cb_type != OBJ_PRE_PROCESS || entry == NULL || hg_vt_t <= 0.0f || hg_vt_t >= 1.0f)
+    {
+        if (orig != NULL)
+        {
+            orig(obj, cb_type);
+        }
+        return;
+    }
+    const hg_vt_profile_t *p = hg_vt_profile;
+    float step = p->stag_step;
+    if (hg_vt_child_count > 1U)
+    {
+        /* Squeeze the steps so the last child still lands inside the animation */
+        float room = 1.0f - p->stag_start - p->stag_window;
+        float fit = (room > 0.0f) ? room / (float)(hg_vt_child_count - 1U) : 0.0f;
+        if (fit < step)
+        {
+            step = fit;
+        }
+    }
+    float start = p->stag_start + step * (float)entry->index;
+    float e = hg_vt_ease(hg_vt_window(hg_vt_t, start, start + p->stag_window), 0U);
+    matrix_translate(0.0f, -(1.0f - e) * p->stag_slide, obj->matrix);
+    if (orig != NULL)
+    {
+        orig(obj, cb_type);
+    }
+    obj->opacity_value = (uint8_t)((float)obj->opacity_value * e);
+}
+
+static void hg_vt_children_begin(gui_view_t *page)
+{
+    gui_node_list_t *node = NULL;
+    hg_vt_child_count = 0U;
+    if (hg_vt_profile == NULL || hg_vt_profile->stag_step <= 0.0f)
+    {
+        return;
+    }
+    gui_list_for_each(node, &GUI_BASE(page)->child_list)
+    {
+        if (hg_vt_child_count >= HG_VT_CHILD_MAX)
+        {
+            break;
+        }
+        gui_obj_t *obj = gui_list_entry(node, gui_obj_t, brother_list);
+        if (hg_vt_is_hero_obj(obj))
+        {
+            continue;
+        }
+        hg_vt_child_t *entry = &hg_vt_children[hg_vt_child_count];
+        entry->obj = obj;
+        entry->orig = obj->obj_cb;
+        entry->pre = (uint8_t)obj->has_pre_process_cb;
+        entry->destroy = (uint8_t)obj->has_destroy_cb;
+        entry->index = hg_vt_child_count;
+        obj->obj_cb = hg_vt_child_cb;
+        obj->has_pre_process_cb = true;
+        obj->has_destroy_cb = true;
+        hg_vt_child_count++;
+    }
+}
+
+static void hg_vt_children_release(void)
+{
+    for (uint8_t i = 0; i < hg_vt_child_count; i++)
+    {
+        gui_obj_t *obj = hg_vt_children[i].obj;
+        if (obj == NULL)
+        {
+            continue;
+        }
+        obj->obj_cb = hg_vt_children[i].orig;
+        obj->has_pre_process_cb = (hg_vt_children[i].pre != 0U);
+        obj->has_destroy_cb = (hg_vt_children[i].destroy != 0U);
+    }
+    hg_vt_child_count = 0U;
+}
+
+`;
+}
+
 /** 有共享元素时才生成的飞行代码 */
 function generateHeroFuncs(): string {
   return `/* Absolute position on screen: parents' offsets added up */
@@ -128,6 +263,12 @@ static void hg_vt_abs_pos(gui_obj_t *obj, int *x, int *y)
 static bool hg_vt_hero_active(void)
 {
     return hg_vt_hero != NULL;
+}
+
+/* The carried element drives itself, keep it out of the per-child stagger */
+static bool hg_vt_is_hero_obj(gui_obj_t *obj)
+{
+    return obj == hg_vt_hero;
 }
 
 static void hg_vt_hero_release(void)
@@ -175,7 +316,7 @@ static void hg_vt_hero_cb(gui_obj_t *obj, T_OBJ_CB_TYPE cb_type)
     }
     /* Move first, grow after: the element lands, then takes its new size */
     float e_pos = hg_vt_ease(hg_vt_window(hg_vt_t, 0.0f, 0.6f), 0U);
-    float e_scale = hg_vt_ease(hg_vt_window(hg_vt_t, 0.15f, HG_VT_HERO_END), 1U);
+    float e_scale = hg_vt_ease(hg_vt_window(hg_vt_t, 0.15f, HG_VT_HERO_END), hg_vt_profile->to_curve);
     float s = hg_vt_hero_scale + (1.0f - hg_vt_hero_scale) * e_scale;
     float bow = sinf(3.14159265f * e_pos);
     float dx = (float)hg_vt_hero_dx * (1.0f - e_pos) + (float)hg_vt_hero_arc_x * bow;
@@ -288,6 +429,12 @@ static bool hg_vt_hero_active(void)
     return false;
 }
 
+static bool hg_vt_is_hero_obj(gui_obj_t *obj)
+{
+    GUI_UNUSED(obj);
+    return false;
+}
+
 static void hg_vt_hero_release(void)
 {
 }
@@ -325,7 +472,8 @@ export function generateViewTransitionSource(sharedPairs: ViewTransitionSharedPa
 typedef struct
 {
     uint16_t duration;
-    uint8_t back;           /* 1 = ease-out-back (overshoot), 0 = ease-out */
+    uint8_t from_curve;     /* 0 = ease-out, 1 = ease-out-back, 2 = spring */
+    uint8_t to_curve;       /* only the new page bounces */
     float from_scale;       /* old page at the end */
     float from_opa;
     float to_scale;         /* new page at the start */
@@ -335,6 +483,10 @@ typedef struct
     float fade_end;
     float circle_start;     /* reveal circle window; circle_end <= circle_start: no circle */
     float circle_end;
+    float stag_start;       /* children come in one by one: first start, step, length, rise */
+    float stag_step;
+    float stag_window;
+    float stag_slide;
 } hg_vt_profile_t;
 
 static const hg_vt_profile_t hg_vt_profiles[${n}] =
@@ -343,14 +495,16 @@ static const hg_vt_profile_t hg_vt_profiles[${n}] =
   for (const preset of presets) {
     const p = VIEW_TRANSITION_PROFILES[preset];
     const circle = p.circle ?? [0, 0];
+    const stag = p.stagger ?? { start: 0, step: 0, window: 0, slide: 0 };
     code += `    /* ${viewTransitionMacro(preset)} */\n`;
-    code += `    { ${p.durationMs}, ${p.curve === 'easeOutBack' ? 1 : 0}, ${f(p.fromScale)}, ${f(p.fromOpacity)}, ${f(p.toScale)}, ${f(p.toOpacity)}, ${f(p.toOffsetY)}, ${f(p.toFade[0])}, ${f(p.toFade[1])}, ${f(circle[0])}, ${f(circle[1])} },\n`;
+    code += `    { ${p.durationMs}, ${curveId(p.curve)}, ${curveId(p.toCurve ?? p.curve)}, ${f(p.fromScale)}, ${f(p.fromOpacity)}, ${f(p.toScale)}, ${f(p.toOpacity)}, ${f(p.toOffsetY)}, ${f(p.toFade[0])}, ${f(p.toFade[1])}, ${f(circle[0])}, ${f(circle[1])}, ${f(stag.start)}, ${f(stag.step)}, ${f(stag.window)}, ${f(stag.slide)} },\n`;
   }
   code += `};
 
 #define HG_VT_MAX_FRAME_MS 33U
 #define HG_VT_HERO_END ${f(HERO_END)}
 #define HG_VT_HERO_DIM 0.35f
+#define HG_VT_SPRING_OMEGA ${SPRING_OMEGA.toFixed(4)}f
 `;
   if (hero) {
     code += `
@@ -394,6 +548,8 @@ static bool hg_vt_from_destroy;
 static bool hg_vt_to_pre;
 static bool hg_vt_to_destroy;
 static uint16_t hg_vt_from_step;
+static uint16_t hg_vt_frames;
+#define HG_VT_MAX_FRAMES 240U  /* safety net: never keep redrawing past this */
 static gui_circle_t *hg_vt_circle;
 static float hg_vt_radius;
 `;
@@ -411,7 +567,7 @@ static float hg_vt_hero_scale;
 `;
   }
   code += `
-static float hg_vt_ease(float p, uint8_t back)
+static float hg_vt_ease(float p, uint8_t curve)
 {
     if (p <= 0.0f)
     {
@@ -421,8 +577,14 @@ static float hg_vt_ease(float p, uint8_t back)
     {
         return 1.0f;
     }
-    float q = p - 1.0f;
-    if (back)
+    float q = 1.0f - p;
+    if (curve == 2U)
+    {
+        /* Light spring: one overshoot of about 8 %, back home at t = 1 */
+        return 1.0f - q * q * cosf(HG_VT_SPRING_OMEGA * p);
+    }
+    q = p - 1.0f;
+    if (curve == 1U)
     {
         const float c1 = ${f(EASE_OUT_BACK_OVERSHOOT)};
         return 1.0f + (c1 + 1.0f) * q * q * q + c1 * q * q;
@@ -478,6 +640,7 @@ static void hg_vt_set_opa(gui_view_t *view, float opa)
 }
 
 `;
+  code += generateStaggerFuncs();
   code += hero ? generateHeroFuncs() : generateHeroStubs();
   code += `
 static void hg_vt_release_from(void)
@@ -494,6 +657,7 @@ static void hg_vt_release_from(void)
 static void hg_vt_release_to(void)
 {
     gui_obj_t *obj = GUI_BASE(hg_vt_to);
+    hg_vt_children_release();
     hg_vt_hero_release();
     obj->obj_cb = hg_vt_to_orig;
     obj->has_pre_process_cb = hg_vt_to_pre;
@@ -503,6 +667,19 @@ static void hg_vt_release_to(void)
     {
         gui_obj_tree_free_async(GUI_BASE(hg_vt_circle));
         hg_vt_circle = NULL;
+    }
+}
+
+/* Last resort: if anything kept the transition alive, put everything back */
+static void hg_vt_force_release(void)
+{
+    if (hg_vt_to != NULL)
+    {
+        hg_vt_release_to();
+    }
+    if (hg_vt_from != NULL)
+    {
+        hg_vt_release_from();
     }
 }
 
@@ -529,7 +706,7 @@ static void hg_vt_from_cb(gui_obj_t *obj, T_OBJ_CB_TYPE cb_type)
     }
     gui_view_t *view = (gui_view_t *)obj;
     float t = hg_vt_advance();
-    float e = hg_vt_ease(t, hg_vt_profile->back);
+    float e = hg_vt_ease(t, hg_vt_profile->from_curve);
     // Hold the engine while animating; on the last frame let it finish in one step
     view->animate_step = (t >= 1.0f) ? (uint16_t)obj->h : 0U;
     hg_vt_transform(obj, 1.0f + (hg_vt_profile->from_scale - 1.0f) * e, 0.0f);
@@ -580,9 +757,20 @@ static void hg_vt_to_cb(gui_obj_t *obj, T_OBJ_CB_TYPE cb_type)
     }
     gui_view_t *view = (gui_view_t *)obj;
     const hg_vt_profile_t *p = hg_vt_profile;
+    hg_vt_frames++;
+    if (hg_vt_frames > HG_VT_MAX_FRAMES)
+    {
+        /* Never leave the screen redrawing forever */
+        hg_vt_force_release();
+        if (orig != NULL)
+        {
+            orig(obj, cb_type);
+        }
+        return;
+    }
     // The old page drives the clock; once it is gone the new page does
     float t = (hg_vt_from != NULL) ? hg_vt_t : hg_vt_advance();
-    float e = hg_vt_ease(t, p->back);
+    float e = hg_vt_ease(t, p->to_curve);
     float fade = hg_vt_ease(hg_vt_window(t, p->fade_start, p->fade_end), 0U);
     if (t < 1.0f)
     {
@@ -656,6 +844,7 @@ void hg_view_transition_switch(const char *target, uint8_t preset)
 
     hg_vt_profile = &hg_vt_profiles[preset - 1U];
     hg_vt_started = false;
+    hg_vt_frames = 0U;
     hg_vt_elapsed = 0U;
     hg_vt_t = 0.0f;
 
@@ -684,6 +873,7 @@ void hg_view_transition_switch(const char *target, uint8_t preset)
     {
         hg_vt_create_circle(to);
     }
+    hg_vt_children_begin(to);
     gui_fb_change();
 }
 

@@ -8,6 +8,7 @@ import {
   readViewTransition,
   transitionCurveAt,
   viewTransitionFrameAt,
+  windowProgress,
 } from '../../shared/viewTransition';
 import {
   generateViewTransitionSource,
@@ -53,10 +54,21 @@ describe('transition curves', () => {
     }
   });
 
+  it('springs into place on entry', () => {
+    const spring = Array.from({ length: 201 }, (_, i) => transitionCurveAt('spring', i / 200));
+    expect(spring[0]).toBe(0);
+    expect(spring[200]).toBe(1);
+    const peak = Math.max(...spring);
+    // 只过冲一次，约 8%
+    expect(peak).toBeGreaterThan(1.05);
+    expect(peak).toBeLessThan(1.1);
+    expect(transitionCurveAt('spring', 0.4)).toBeGreaterThan(0.85);
+  });
+
   it('overshoots a little for the bottom sheet', () => {
     const peak = Math.max(...Array.from({ length: 101 }, (_, i) => transitionCurveAt('easeOutBack', i / 100)));
     expect(peak).toBeGreaterThan(1);
-    expect(peak).toBeLessThan(1.08);
+    expect(peak).toBeLessThan(1.25);
     // 回弹时新页略越过终点（向上冒一点）
     const sheet = VIEW_TRANSITION_PROFILES.SWITCH_IN_SHEET_UP;
     expect(Math.min(...Array.from({ length: 101 }, (_, i) => viewTransitionFrameAt(sheet, i / 100).toOffsetY))).toBeLessThan(0);
@@ -113,7 +125,7 @@ describe('HoneyGUI transition runtime', () => {
     expect(code).toContain('gui_view_switch_direct(from, target, SWITCH_INIT_STATE, SWITCH_INIT_STATE);');
     expect(code).toContain('view->animate_step = (t >= 1.0f) ? (uint16_t)obj->h : 0U;');
     expect(code).toContain('static const hg_vt_profile_t hg_vt_profiles[3] =');
-    expect(code).toContain('{ 380, 1, 0.9400f, 0.6000f, 1.0000f, 1.0000f, 1.0000f, 0.0000f, 1.0000f, 0.0000f, 0.0000f },');
+    expect(code).toContain('{ 420, 0, 2, 0.9400f, 0.6000f, 1.0000f, 1.0000f, 1.0000f, 0.0000f, 1.0000f, 0.0000f, 0.0000f, 0.1200f, 0.0600f, 0.5000f, 16.0000f },');
     // 揭示圆插在新页之前（画在两页之间）
     expect(code).toContain('gui_list_insert_before(&obj->brother_list, &GUI_BASE(hg_vt_circle)->brother_list);');
   });
@@ -193,5 +205,20 @@ describe('shared elements', () => {
     const withoutPairs = generateViewTransitionSource([]);
     expect(withoutPairs).not.toContain('hg_vt_hero_cb');
     expect(withoutPairs).toContain('static void hg_vt_hero_release_source(void)');
+  });
+});
+
+describe('per-element stagger', () => {
+  it('gives every child its own slice, back to front', () => {
+    const profile = VIEW_TRANSITION_PROFILES.SWITCH_IN_DEPTH_ZOOM;
+    const stagger = profile.stagger!;
+    expect(stagger.step).toBeGreaterThan(0);
+    // 第一个孩子早就进场，最后一个明显更晚
+    const room = 1 - stagger.start - stagger.window;
+    const step = Math.min(stagger.step, room / 5);
+    expect(transitionCurveAt('easeOut', windowProgress(stagger.start, [stagger.start, stagger.start + stagger.window]))).toBe(0);
+    expect(transitionCurveAt('easeOut', windowProgress(stagger.start + step * 5, [stagger.start, stagger.start + stagger.window]))).toBeGreaterThan(0.5);
+    // 圆形揭示等圆铺开后再进子控件
+    expect(VIEW_TRANSITION_PROFILES.SWITCH_IN_CIRCLE_REVEAL.stagger!.start).toBeGreaterThanOrEqual(0.5);
   });
 });

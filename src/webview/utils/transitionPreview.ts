@@ -12,6 +12,7 @@ import {
   readViewTransition,
   transitionCurveAt,
   VIEW_TRANSITION_PROFILES,
+  ViewTransitionProfile,
   viewTransitionFrameAt,
   windowProgress,
 } from '../../shared/viewTransition';
@@ -279,7 +280,7 @@ function playSharedElement(
       translate: `0px ${(frame.toOffsetY * height).toFixed(2)}px`,
     });
     const ePos = transitionCurveAt('easeOut', windowProgress(t, [0, 0.6]));
-    const eScale = transitionCurveAt('easeOutBack', windowProgress(t, [0.15, HERO_END]));
+    const eScale = transitionCurveAt(profile.toCurve ?? profile.curve, windowProgress(t, [0.15, HERO_END]));
     const swing = Math.sin(Math.PI * ePos);
     const scale = scale0 + (1 - scale0) * eScale;
     heroKeys.push({
@@ -290,6 +291,46 @@ function playSharedElement(
   }
   layer.animate(pageKeys, { duration: profile.durationMs, easing: 'linear', fill: 'forwards' });
   return hero.animate(heroKeys, { duration: profile.durationMs, easing: 'linear', fill: 'forwards' });
+}
+
+/** 新页的每个子控件各占一个时间片：依次上浮淡入，不是整页一起动 */
+function playStagger(
+  profile: ViewTransitionProfile,
+  toClone: HTMLElement,
+  skipId: string | null,
+): void {
+  const stagger = profile.stagger;
+  if (!stagger || stagger.step <= 0) {
+    return;
+  }
+  const skipped = skipId ? findInClone(toClone, skipId) : null;
+  const children = (Array.from(toClone.children) as HTMLElement[])
+    .filter(el => el !== skipped && el.offsetWidth > 0);
+  const count = children.length;
+  if (count === 0) {
+    return;
+  }
+  let step = stagger.step;
+  if (count > 1) {
+    const room = 1 - stagger.start - stagger.window;
+    const fit = room > 0 ? room / (count - 1) : 0;
+    step = Math.min(step, fit);
+  }
+  const frames = Math.max(2, Math.round(profile.durationMs * FPS / 1000) + 1);
+  const timing: KeyframeAnimationOptions = { duration: profile.durationMs, easing: 'linear', fill: 'forwards' };
+  children.forEach((el, index) => {
+    const start = stagger.start + step * index;
+    const keys: Keyframe[] = [];
+    for (let i = 0; i < frames; i++) {
+      const t = i / (frames - 1);
+      const e = transitionCurveAt('easeOut', windowProgress(t, [start, start + stagger.window]));
+      keys.push({
+        opacity: e.toFixed(4),
+        transform: `translateY(${(-(1 - e) * stagger.slide).toFixed(2)}px)`,
+      });
+    }
+    el.animate(keys, timing);
+  });
 }
 
 function playCustomTransition(
@@ -328,6 +369,8 @@ function playCustomTransition(
   host.appendChild(overlay);
 
   const heroPair = findHeroPair(fromView, toView, components);
+  // 新页的子控件逐个进场，和 C 里 hg_vt_child_cb 同一套公式
+  playStagger(profile, toClone, heroPair ? heroPair.to.component.id : null);
   const frames = Math.max(2, Math.round(profile.durationMs * FPS / 1000) + 1);
   const radius = Math.hypot(width / 2, height / 2) + 1;
   const fromKeys: Keyframe[] = [];

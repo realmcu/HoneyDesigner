@@ -34,13 +34,19 @@ const PRESET_ALIASES: Record<string, ViewTransitionPreset> = {
 /** 所有会被当成预设的取值（含别名） */
 export const VIEW_TRANSITION_NAMES: readonly string[] = [...VIEW_TRANSITION_PRESETS, ...Object.keys(PRESET_ALIASES)];
 
-export type TransitionCurve = 'easeOut' | 'easeOutBack';
+export type TransitionCurve = 'easeOut' | 'easeOutBack' | 'spring';
+
+/** 轻弹簧：只过冲一次（峰值约 8%），到 t=1 时正好落回原位 */
+export const SPRING_OMEGA = 3.5;
 
 export interface ViewTransitionProfile {
   /** 生成的 C 代码里的编号（hg_view_transition_switch 的第二个参数） */
   id: number;
   durationMs: number;
+  /** 旧页的动作曲线，保持单调，别回弹 */
   curve: TransitionCurve;
+  /** 新页进场的曲线，不给就用 curve；弹簧只加在这里 */
+  toCurve?: TransitionCurve;
   /** 旧页最终的缩放与不透明度（0~1）；起点是原样 */
   fromScale: number;
   fromOpacity: number;
@@ -50,6 +56,11 @@ export interface ViewTransitionProfile {
   toOffsetY: number;
   /** 新页淡入所占的时间段（总时长的比例） */
   toFade: [number, number];
+  /**
+   * 新页里的子控件逐个进场（不是整页一起动）：起点、每个之间的间隔、单个的时长、
+   * 上滑距离（px）。不给就整页一起动
+   */
+  stagger?: { start: number; step: number; window: number; slide: number };
   /** 圆形揭示：圆从 0 扩到铺满所占的时间段；不揭示为 null */
   circle: [number, number] | null;
 }
@@ -57,26 +68,30 @@ export interface ViewTransitionProfile {
 export const VIEW_TRANSITION_PROFILES: Record<ViewTransitionPreset, ViewTransitionProfile> = {
   SWITCH_IN_DEPTH_ZOOM: {
     id: 1,
-    durationMs: 320,
+    durationMs: 380,
     curve: 'easeOut',
+    toCurve: 'spring',
     fromScale: 0.92,
     fromOpacity: 0.55,
     toScale: 1.08,
     toOpacity: 0,
     toOffsetY: 0,
     toFade: [0, 0.7],
+    stagger: { start: 0.1, step: 0.055, window: 0.5, slide: 12 },
     circle: null,
   },
   SWITCH_IN_SHEET_UP: {
     id: 2,
-    durationMs: 380,
-    curve: 'easeOutBack',
+    durationMs: 420,
+    curve: 'easeOut',
+    toCurve: 'spring',
     fromScale: 0.94,
     fromOpacity: 0.6,
     toScale: 1,
     toOpacity: 1,
     toOffsetY: 1,
     toFade: [0, 1],
+    stagger: { start: 0.12, step: 0.06, window: 0.5, slide: 16 },
     circle: null,
   },
   SWITCH_IN_CIRCLE_REVEAL: {
@@ -89,6 +104,7 @@ export const VIEW_TRANSITION_PROFILES: Record<ViewTransitionPreset, ViewTransiti
     toOpacity: 0,
     toOffsetY: 0,
     toFade: [0.55, 1],
+    stagger: { start: 0.5, step: 0.05, window: 0.45, slide: 12 },
     circle: [0, 0.75],
   },
 };
@@ -133,6 +149,11 @@ export function engineSwitchStyles(switchOutStyle: string, switchInStyle: string
 
 export function transitionCurveAt(curve: TransitionCurve, t: number): number {
   const p = Math.max(0, Math.min(1, t));
+  if (curve === 'spring') {
+    // 衰减余弦：0 出发、越过 1 约 8%、t=1 时归位；只用 cos，C 里一样好算
+    const q = 1 - p;
+    return 1 - q * q * Math.cos(SPRING_OMEGA * p);
+  }
   if (curve === 'easeOutBack') {
     const c1 = EASE_OUT_BACK_OVERSHOOT;
     const c3 = c1 + 1;
@@ -166,13 +187,14 @@ export interface ViewTransitionFrame {
 /** t 为 0~1 的时间进度时两页的样子；C 代码按同一套公式逐帧计算 */
 export function viewTransitionFrameAt(profile: ViewTransitionProfile, t: number): ViewTransitionFrame {
   const e = transitionCurveAt(profile.curve, t);
+  const eTo = transitionCurveAt(profile.toCurve ?? profile.curve, t);
   const fade = transitionCurveAt('easeOut', windowProgress(t, profile.toFade));
   return {
     fromScale: 1 + (profile.fromScale - 1) * e,
     fromOpacity: 1 + (profile.fromOpacity - 1) * e,
-    toScale: profile.toScale + (1 - profile.toScale) * e,
+    toScale: profile.toScale + (1 - profile.toScale) * eTo,
     toOpacity: profile.toOpacity + (1 - profile.toOpacity) * fade,
-    toOffsetY: profile.toOffsetY * (1 - e),
+    toOffsetY: profile.toOffsetY * (1 - eTo),
     circle: profile.circle ? transitionCurveAt('easeOut', windowProgress(t, profile.circle)) : 0,
   };
 }
