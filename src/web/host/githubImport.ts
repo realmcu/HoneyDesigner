@@ -82,6 +82,11 @@ export interface GitHubImportErrorOptions {
     paths?: string[];
     /** 附加上下文，例如实际体积 */
     detail?: string;
+    /**
+     * 正文与清单里的 sha256 不一致。这通常不是网络问题：jsDelivr 的清单与正文是两套缓存，
+     * 仓库刚推送过时清单可能还停在上一个 commit，重试同一条通道不会好转，只能换通道。
+     */
+    contentMismatch?: boolean;
     cause?: unknown;
 }
 
@@ -155,6 +160,8 @@ const GITEE_HOSTS = new Set(['gitee.com', 'www.gitee.com']);
  * - https://github.com/o/r/tree/main
  * - https://github.com/o/r/tree/feat/some-branch/ui        （分支名含 /）
  * - https://github.com/o/r/blob/main/ui/AppMain.hml        （文件链接）
+ * - https://github.com/o/r/commit/<sha>                    （提交详情页，钉到该 commit）
+ * - https://github.com/o/r/commits/main                    （提交历史页）
  *
  * 这里不判断哪一段是 ref —— 分支名允许包含 `/`，无法从字面区分，
  * 交给 resolveRef 用「最长候选优先 + 接口确认」处理。
@@ -203,6 +210,11 @@ export function parseGitHubUrl(input: string): GitHubLocation {
             pathSegments: rest.slice(1),
             isBlob: rest[0] === 'blob',
         };
+    }
+    // /commit/{sha} 是单次提交详情页，/commits/{ref} 是某条分支的提交历史页。
+    // 两者都直接给出 ref，按 /tree/ 一样处理：用户从仓库页复制来的链接多半是这个形状
+    if (rest.length >= 2 && (rest[0] === 'commit' || rest[0] === 'commits')) {
+        return { owner, repo, pathSegments: rest.slice(1), isBlob: false };
     }
 
     return { owner, repo, pathSegments: [], isBlob: false };
@@ -706,12 +718,64 @@ export interface ResolvedSource {
 }
 
 /**
+ * 把分支/HEAD 固定到 commit SHA，并按 SHA 重取清单。
+ *
+ * 为什么值得多花 1 次配额：`data.jsdelivr.com`（清单）与 `cdn.jsdelivr.net`（正文）是两套缓存，
+ * 仓库刚推送过时清单可能还停在**上一个 commit**，正文却已经是新的。正文下载后按清单里的
+ * sha256 校验，一个最近改过的文件都过不了，整个导入失败（实测 `realmcu/honeygui-template-smartwatch`
+ * 就是这样：`@master` 的清单滞后两天，`@<sha>` 的清单是新的）。按 SHA 取没有这个窗口。
+ *
+ * 拿不到 SHA（未认证配额用尽、接口失败）或按 SHA 取不到清单时返回 `sha: ''`，
+ * 退回原来的分支模式：清单和正文都按分支名取，成功后靠 sha256 兜底，失败由
+ * downloadProjectWithFallback 换通道重下。
+ */
+async function pinToLatestCommit(
+    owner: string,
+    repo: string,
+    resolved: ResolvedRef,
+    tree: TreeEntry[],
+    options: RequestOptions
+): Promise<{ sha: string; tree: TreeEntry[] }> {
+    if (resolved.sha) {
+        // 用户贴的就是 commit 地址，已经钉死了
+        return { sha: resolved.sha, tree };
+    }
+
+    let sha: string | undefined;
+    try {
+        // ref 为空表示地址里没写分支，commits 接口会返回默认分支的最新提交
+        const query = resolved.ref ? `?sha=${encodeURIComponent(resolved.ref)}&per_page=1` : '?per_page=1';
+        sha = firstCommitSha(await requestJson(options, `${GITHUB_API}/repos/${owner}/${repo}/commits${query}`));
+    } catch (error) {
+        if (error instanceof GitHubImportError && error.code === 'cancelled') {
+            throw error;
+        }
+        // 限流和网络失败只意味着「钉不住」，不是导入失败：退回分支模式即可
+        return { sha: '', tree };
+    }
+    if (!sha) {
+        return { sha: '', tree };
+    }
+
+    try {
+        return { sha, tree: await fetchTreeViaJsDelivr(owner, repo, sha, options) };
+    } catch (error) {
+        if (error instanceof GitHubImportError && error.code === 'cancelled') {
+            throw error;
+        }
+        // 只把正文钉到 SHA 而清单还是旧的，必然不一致；整体退回分支模式
+        return { sha: '', tree };
+    }
+}
+
+/**
  * 解析仓库并取文件清单，优先走不消耗 GitHub REST 配额的组合：
  *
  *   ref + 清单 → data.jsdelivr.com  （不吃配额，CORS 放行；清单带每个文件的 sha256）
  *   正文       → cdn.jsdelivr.net   （不吃配额）
  *
- * 分支导入不固定 commit：jsDelivr 没有免配额且放行 CORS 的接口能把分支解析成 SHA。
+ * 分支/HEAD 导入会额外用 1 次配额把 ref 钉到 commit（`pinToLatestCommit`），
+ * 之后清单和正文都按 SHA 取；钉不住时退回按分支名取，见该函数的注释。
  *
  * 注意不走 Atom：`github.com` 的动态页面不回 `Access-Control-Allow-Origin`，
  * 浏览器里必然被 CORS 挡住，之前每一步都要靠降级到 API 才能完成。
@@ -747,16 +811,17 @@ export async function resolveSource(
     if (!options.forceApi) {
         try {
             const { tree, ...resolved } = await resolveRefViaJsDelivr(owner, repo, segments, options);
+            const pinned = await pinToLatestCommit(owner, repo, resolved, tree, options);
             return {
                 owner,
                 repo,
-                sha: resolved.sha,
+                sha: pinned.sha,
                 ref: resolved.ref,
                 scopePath: resolved.rest.join('/'),
-                tree,
+                tree: pinned.tree,
                 candidates: [],
                 contentChannel: 'jsdelivr',
-                pinned: COMMIT_SHA.test(resolved.sha),
+                pinned: Boolean(pinned.sha),
             };
         } catch (error) {
             // 取消要原样向上抛，不能被当成「降级信号」
@@ -1113,6 +1178,7 @@ async function downloadFile(
         if (actual !== entry.hash) {
             throw new GitHubImportError('network', `Content check failed for ${entry.path}`, {
                 paths: [entry.path],
+                contentMismatch: true,
             });
         }
     }
@@ -1251,6 +1317,66 @@ export async function downloadProject(
     }, options.token);
 
     return finalizeProject(candidate, files);
+}
+
+/** 正文与清单 sha256 不一致：清单停在了别的 commit，不是网络损坏 */
+export function isContentMismatch(error: unknown): boolean {
+    return error instanceof GitHubImportError && error.options.contentMismatch === true;
+}
+
+/** 从解析结果还原 resolveSource 需要的路径段：ref 在前，工程范围在后 */
+function sourceSegments(source: ResolvedSource): string[] {
+    const ref = source.sha || source.ref;
+    return [...(ref ? [ref] : []), ...source.scopePath.split('/').filter(Boolean)];
+}
+
+/**
+ * 下载工程，快速通道的内容校验失败时改用 API 通道重下一次。
+ *
+ * 为什么不能就地重试：jsDelivr 的清单（`data.jsdelivr.com`）与正文（`cdn.jsdelivr.net`）
+ * 是两套缓存，仓库刚推送过时清单可能还是上一个 commit 的内容，正文 sha256 校验必然失败，
+ * 再请求一次拿到的还是同一份错位的数据。API 通道的 tree 和正文都按 commit SHA 取，
+ * 由 GitHub 自己保证是同一个版本。代价是重下整份工程、多耗 2 次配额。
+ *
+ * 返回实际使用的 source：换了通道后 commit SHA 会变（更准确），调用方要用它记 `sourceRevision`。
+ */
+export async function downloadProjectWithFallback(
+    source: ResolvedSource,
+    candidate: ProjectCandidate,
+    options: DownloadOptions
+): Promise<{ project: DownloadedProject; source: ResolvedSource }> {
+    let mismatch: unknown;
+    try {
+        return { project: await downloadProject(source, candidate, options), source };
+    } catch (error) {
+        // API 通道的正文没有清单 hash 可比，不会走到这里；其它错误原样上抛
+        if (!isContentMismatch(error) || source.contentChannel !== 'jsdelivr') {
+            throw error;
+        }
+        mismatch = error;
+    }
+
+    if (options.token?.isCancelled || options.signal?.aborted) {
+        throw abortError();
+    }
+
+    let apiSource: ResolvedSource;
+    try {
+        apiSource = await resolveSource(source.owner, source.repo, sourceSegments(source), {
+            fetchImpl: options.fetchImpl,
+            rateLimit: options.rateLimit,
+            signal: options.signal,
+            forceApi: true,
+        });
+    } catch (error) {
+        if (error instanceof GitHubImportError && error.code === 'cancelled') {
+            throw error;
+        }
+        // 降级也走不通（多半是配额）：报原始的内容校验错误，用户至少知道是哪个文件错了
+        throw mismatch;
+    }
+
+    return { project: await downloadProject(apiSource, candidate, options), source: apiSource };
 }
 
 /** 下载完成后的最后一道校验：配置可解析、主 HML 存在 */

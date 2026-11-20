@@ -25,7 +25,7 @@ import {
     assertStorageCapacity,
     contentVersion,
     discoverProjects,
-    downloadProject,
+    downloadProjectWithFallback,
     githubSourceKey,
     jsDelivrFileUrl,
     parseGitHubUrl,
@@ -294,7 +294,8 @@ export function GitHubImportDialog({ onCancel, onImport, onImportToFolder, findE
                 await assertStorageCapacity(candidate.estimatedBytes, () => navigator.storage.estimate());
             }
 
-            const project = await downloadProject(source, candidate, {
+            // 快速通道的清单可能滞后于仓库最新提交，校验失败时这里会自动换 API 通道重下一次
+            const { project, source: usedSource } = await downloadProjectWithFallback(source, candidate, {
                 fetchImpl,
                 rateLimit: rateLimitRef.current,
                 signal: token.signal,
@@ -306,12 +307,12 @@ export function GitHubImportDialog({ onCancel, onImport, onImportToFolder, findE
 
             const result: GitHubImportResult = {
                 candidate,
-                source,
+                source: usedSource,
                 files: project.files,
                 name: project.name,
                 sourceUrl: url.trim(),
-                sourceKey: githubSourceKey(source.owner, source.repo, candidate.rootPath),
-                sourceRevision: contentVersion(source),
+                sourceKey: githubSourceKey(usedSource.owner, usedSource.repo, candidate.rootPath),
+                sourceRevision: contentVersion(usedSource),
                 replace,
             };
             // 落库由父组件做，写浏览器失败时它负责回滚
