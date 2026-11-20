@@ -51,6 +51,7 @@ export class EntryFileGenerator {
         const content = `#include "gui_api.h"
 #include "gui_view.h"
 #include "gui_components_init.h"
+#include "gui_server.h"
 #include "gui_vfs.h"
 
 /* @protected start entry_includes */
@@ -59,6 +60,9 @@ export class EntryFileGenerator {
 
 static int app_init(void)
 {
+    // Keep the screen always active (0xFFFFFFFF = never enter sleep)
+    gui_set_keep_active_time(0xFFFFFFFF);
+
 #ifdef _HONEYGUI_SIMULATOR_
     // Simulator: Mount POSIX filesystem
     gui_vfs_mount_posix("/", "./assets");
