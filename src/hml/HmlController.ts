@@ -15,6 +15,8 @@ export class HmlController {
     private readonly serializer: HmlSerializer;
     private _currentDocument: HmlDocument | null = null;
     private _currentFilePath: string | null = null;
+    /** 最近一次解析所属的文件；只用来找工程的 styles.json（parseContent 不改 _currentFilePath） */
+    private _styleSourcePath: string | null = null;
     private _documentVersion: number = 0;
     private _saveTransactionId: number = 0;  // 保存事务ID，用于防止竞态
 
@@ -67,9 +69,10 @@ export class HmlController {
             logger.debug(`[HmlController] parseContent: 准备解析 HML 内容`);
 
             const resolvedPath = filePath || this._currentFilePath || undefined;
-            // 强调：保存路径也走这里。展开后的样式属性会被序列化写回 HML，
-            // 因此保存时不传 styleLibrary —— 见 saveDocument 的说明。
+            // 不传 styleLibrary 时解析器按 resolvedPath 所在工程读取 styles.json；
+            // 保存时序列化带同一份样式库，来自样式的值不会写回 HML
             const document = this.parser.parse(content, resolvedPath, { styleLibrary });
+            this._styleSourcePath = resolvedPath ?? null;
 
             // 更新当前文档状态
             this._currentDocument = document;
@@ -181,7 +184,13 @@ export class HmlController {
             throw new Error('没有可序列化的文档');
         }
         
-        return this.serializer.serialize(this._currentDocument);
+        const stylePath = this._currentFilePath || this._styleSourcePath;
+        // 带上当前工程的样式库：来自样式的属性（含宽高）不写回，写盘前比对磁盘内容时才对得上
+        return this.serializer.serialize(
+            this._currentDocument,
+            stylePath
+                ? loadSharedStyleLibrary(ProjectUtils.findProjectRoot(stylePath)).library
+                : undefined);
     }
 
     /**

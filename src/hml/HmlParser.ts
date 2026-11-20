@@ -8,7 +8,9 @@ import { Component, Meta, View, Document, ComponentPosition, RawHmlChild } from 
 import type { EventConfig, Action, EventType, ActionType } from './eventTypes';
 import { logger } from '../utils/Logger';
 import { convertAttributeValue } from '../shared/componentPropertyTypes';
-import { SharedStyleLibrary, findSharedStyle, mergeSharedStyle, resolveSharedStyle, sharedStyleBucket } from '../shared/sharedStyles';
+import { SharedStyleLibrary, findSharedStyle, mergeSharedStyleAttributes, resolveSharedStyle } from '../shared/sharedStyles';
+import { loadSharedStyleLibrary } from '../shared/sharedStylesFile';
+import { ProjectUtils } from '../utils/ProjectUtils';
 import { PRESS_CONTAINER_TYPES } from '../shared/pressFeedback';
 
 /**
@@ -113,12 +115,14 @@ export class HmlParser {
    * @param options 可选项：
    *   - idSeed：fallback id 种子，显式传入时优先生效（传空字符串可强制无种子）；
    *     缺省时从 hmlFilePath 的 basename 派生；两者都没有则维持无种子行为
-   *   - styleLibrary：工程共享样式（styles.json）。给出时把组件引用的样式属性
-   *     合并进 style / data，组件自身属性优先；不给出时保留 styleName 原样
+   *   - styleLibrary：工程共享样式（styles.json），把组件引用的样式属性合并进组件，
+   *     组件自身属性优先。不给出时按 hmlFilePath 所在工程读取：样式可以带宽高，
+   *     不展开就解析会让这些组件退回默认尺寸，任何「解析→改写→写回」的路径都会把尺寸写坏
    */
   parse(content: string, hmlFilePath?: string, options?: { idSeed?: string; styleLibrary?: SharedStyleLibrary }): Document {
     try {
-      this._styleLibrary = options?.styleLibrary;
+      this._styleLibrary = options?.styleLibrary
+        ?? (hmlFilePath ? loadSharedStyleLibrary(ProjectUtils.findProjectRoot(hmlFilePath)).library : undefined);
       // 保存当前 HML 路径
       this.currentHmlPath = hmlFilePath || '';
       this._rawSource = content;
@@ -542,6 +546,14 @@ export class HmlParser {
       return componentMap.get(componentId)!;
     }
 
+    // 共享样式：引用保留在组件上，样式属性先合并成标签属性（标签上已有的优先），
+    // 再走下面同一套归类与类型转换，与手写在标签上的值完全一致
+    const styleName = typeof attributes.styleName === 'string' ? attributes.styleName.trim() : '';
+    attributes = mergeSharedStyleAttributes(
+      attributes,
+      resolveSharedStyle(findSharedStyle(this._styleLibrary, styleName), tagName),
+    );
+
     // 解析位置和尺寸
     const position: ComponentPosition = {
       x: parseInt(attributes.x || '0'),
@@ -566,10 +578,6 @@ export class HmlParser {
     // 解析事件配置
     const eventConfigs = this._parseEventConfigsOrdered(children);
 
-    // 共享样式：引用保留在组件上，样式属性合并进 style / data（组件自身属性优先）
-    const styleName = typeof attributes.styleName === 'string' ? attributes.styleName.trim() : '';
-    const sharedStyle = resolveSharedStyle(findSharedStyle(this._styleLibrary, styleName), tagName);
-
     // 创建组件
     const component: Component = {
       id: componentId,
@@ -577,10 +585,8 @@ export class HmlParser {
       name: attributes.name || componentId,
       position,
       ...(styleName ? { styleName } : {}),
-      ...(sharedStyle
-        ? mergeSharedStyle({ style, data }, sharedStyle, property =>
-            sharedStyleBucket(property))
-        : { style, data }),
+      style,
+      data,
       events,
       eventConfigs,
       children: [],

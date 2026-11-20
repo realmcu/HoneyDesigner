@@ -3,18 +3,25 @@
  *
  * 样式不绑定组件类型，任何组件都能引用；组件只使用自己支持的属性（组件定义里声明过、
  * 且在样式白名单内的），其余忽略。组件定义是属性面板的来源，用它判断就和面板显示的一致
- * （发光/阴影只有 rect/circle 有）。
+ * （发光/阴影只有 rect/circle 有）。宽高不在组件定义里（属性面板单独编辑位置尺寸），这里补上。
  */
 import { componentDefinitions } from '../ComponentLibrary';
 import {
+  acceptsSharedSize,
   isShareableStyleProperty,
   resolveSharedStyle,
   SHARED_STYLE_FONT_PROPERTIES,
   SHARED_STYLE_PROPERTIES,
+  SHARED_STYLE_SIZE_PROPERTIES,
 } from '../../../shared/sharedStyles';
 import type { PropertyDefinition } from '../../types';
 
 const byType = new Map<string, PropertyDefinition[]>();
+
+const SIZE_DEFINITIONS: PropertyDefinition[] = [
+  { name: 'width', label: 'Width', type: 'number', group: 'general', defaultValue: 100, min: 1 },
+  { name: 'height', label: 'Height', type: 'number', group: 'general', defaultValue: 40, min: 1 },
+];
 
 /** 某种组件能从样式里接收的属性 */
 export function shareablePropertiesFor(componentType: string | undefined): PropertyDefinition[] {
@@ -34,6 +41,9 @@ export function shareablePropertiesFor(componentType: string | undefined): Prope
     seen.add(property.name);
     return true;
   });
+  if (definition && acceptsSharedSize(componentType)) {
+    result.unshift(...SIZE_DEFINITIONS);
+  }
   byType.set(componentType, result);
   return result;
 }
@@ -53,7 +63,7 @@ export function stylePropertyOptions(): StylePropertyOption[] {
   if (options) {
     return options;
   }
-  options = [...SHARED_STYLE_FONT_PROPERTIES, ...SHARED_STYLE_PROPERTIES].map((name) => {
+  options = [...SHARED_STYLE_SIZE_PROPERTIES, ...SHARED_STYLE_FONT_PROPERTIES, ...SHARED_STYLE_PROPERTIES].map((name) => {
     let definition: PropertyDefinition | undefined;
     const supportedBy: string[] = [];
     for (const component of componentDefinitions) {

@@ -4,15 +4,16 @@
  * 工程根目录下的 styles.json 保存「样式名 → 一组视觉属性」。组件的 styleName
  * 指向其中一条，解析时把这条的属性合并进组件自身样式。
  *
- * 只有纯视觉属性可以进入样式：位置尺寸、图片路径、文本、定时器、事件都不允许，
- * 否则改一条样式会连带挪动所有引用它的组件。合并规则是「样式打底，组件自身属性覆盖」，
+ * 视觉属性与宽高可以进入样式；位置（x/y）、图片路径、文本、定时器、事件不允许，
+ * 否则改一条样式会把所有引用它的组件挪到同一个地方。合并规则是「样式打底，组件自身属性覆盖」，
  * 所以单个组件仍可局部微调。
  *
  * 本文件是纯函数 + 无 vscode 依赖，桌面版（插件）与浏览器版共用：
- * - 插件：HmlController 解析后调用 applySharedStyles 展开，代码生成、快速预览、
- *   设计器看到的是同一份已解析属性。
+ * - 插件：HmlParser 解析时展开，代码生成、快速预览、设计器看到的是同一份已解析属性。
  * - 浏览器版：styles.json 随工程文件一起读入。
  */
+
+import { convertAttributeValue } from './componentPropertyTypes';
 
 /** 允许出现在共享样式里的属性（白名单） */
 export const SHARED_STYLE_PROPERTIES: readonly string[] = [
@@ -40,34 +41,89 @@ export const SHARED_STYLE_PROPERTIES: readonly string[] = [
  */
 export const SHARED_STYLE_FONT_PROPERTIES: readonly string[] = ['fontFile', 'fontSize', 'fontType', 'renderMode'];
 
-const ALLOWED = new Set([...SHARED_STYLE_PROPERTIES, ...SHARED_STYLE_FONT_PROPERTIES]);
+/**
+ * 尺寸：一组同样大小的卡片、按钮是最常见的复用场景。宽高落在 component.position，
+ * 位置（x/y）不允许进样式。
+ */
+export const SHARED_STYLE_SIZE_PROPERTIES: readonly string[] = ['width', 'height'];
 
 /**
- * 字体属性在 HML 解析后落在 component.data（见 HmlParser 的 dataProps），
- * 其余样式属性落在 component.style。合并样式时按同一规则分流，
- * 代码生成读到的位置才与手写属性一致。
+ * 尺寸由别的属性或父容器决定的组件不接收样式里的宽高：页面跟随屏幕、列表项由列表排布、
+ * 圆形和圆弧的宽高由半径算出。
  */
-const DATA_BUCKET = new Set(SHARED_STYLE_FONT_PROPERTIES);
+const SIZE_DERIVED_TYPES = new Set(['hg_view', 'hg_list_item', 'hg_circle', 'hg_arc']);
 
-export function sharedStyleBucket(property: string): 'style' | 'data' {
+export function acceptsSharedSize(componentType: string | undefined): boolean {
+  return !!componentType && !SIZE_DERIVED_TYPES.has(componentType);
+}
+
+const ALLOWED = new Set([...SHARED_STYLE_PROPERTIES, ...SHARED_STYLE_FONT_PROPERTIES, ...SHARED_STYLE_SIZE_PROPERTIES]);
+
+/**
+ * 解析后属性落在哪里，与 HmlParser 的归类一致：字体类与渐变色标在 component.data，
+ * 宽高在 component.position，其余在 component.style。
+ */
+const DATA_BUCKET = new Set([...SHARED_STYLE_FONT_PROPERTIES, 'gradientStops']);
+const POSITION_BUCKET = new Set(SHARED_STYLE_SIZE_PROPERTIES);
+
+export type SharedStyleBucket = 'style' | 'data' | 'position';
+
+export function sharedStyleBucket(property: string): SharedStyleBucket {
+  if (POSITION_BUCKET.has(property)) {
+    return 'position';
+  }
   return DATA_BUCKET.has(property) ? 'data' : 'style';
 }
 
+interface StyledComponentLike {
+  type?: string;
+  style?: Record<string, any>;
+  data?: Record<string, any>;
+  position?: { width?: number; height?: number };
+}
+
+/** 组件解析后该样式属性的值（styles 展开与「是否覆盖」判断共用） */
+export function readComponentStyleValue(component: StyledComponentLike, property: string): unknown {
+  const bucket = sharedStyleBucket(property);
+  if (bucket === 'position') {
+    return (component.position as Record<string, unknown> | undefined)?.[property];
+  }
+  return (bucket === 'data' ? component.data : component.style)?.[property];
+}
+
 /**
- * 组件解析后，该属性的值实际落在哪个对象上（styles 展开与「是否覆盖」判断共用）。
- * 这里只描述样式属性：字体类在 data，其余在 style。
+ * HML 属性解析后不全是字符串：数字、开关、渐变色标数组都已转换。
+ * 设计器套用样式时按同样规则转换，否则画布拿到 "18" 这样的字符串，圆角等直接失效。
+ * 规则与 HmlParser._categorizeAttributes 保持一致。
  */
-export function readComponentStyleValue(
-  component: { style?: Record<string, any>; data?: Record<string, any> },
-  property: string,
-): unknown {
-  const bucket = sharedStyleBucket(property) === 'data' ? component.data : component.style;
-  return bucket?.[property];
+const NUMERIC_STYLE_PROPERTIES = new Set([
+  'borderRadius', 'padding', 'margin', 'radius', 'startAngle', 'endAngle', 'strokeWidth', 'opacity',
+  'glowOpacity', 'glowBlur', 'shadowOpacity', 'shadowBlur', 'shadowSpread', 'shadowDistance',
+]);
+
+export function parseSharedStyleValue(componentType: string, property: string, raw: string): unknown {
+  if (POSITION_BUCKET.has(property)) {
+    const size = parseInt(raw, 10);
+    return Number.isNaN(size) ? undefined : size;
+  }
+  if (property === 'gradientStops') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  const value = convertAttributeValue(componentType, property, raw);
+  if (typeof value === 'string' && NUMERIC_STYLE_PROPERTIES.has(property)) {
+    const num = parseFloat(value);
+    return Number.isNaN(num) ? value : num;
+  }
+  return value;
 }
 
 /**
  * 组件上的该属性是否就是样式给的值（用于序列化时不把展开结果写回 HML）。
- * 比较字符串形式：解析后的 number / boolean 与样式里的字符串按文本一致即视为同一个值。
+ * 解析后的 number / boolean 与样式里的字符串按文本比较；数组等结构按 JSON 比较。
  */
 export function matchesStyleValue(style: SharedStyle | undefined, property: string, value: unknown): boolean {
   if (!style || value === undefined || value === null) {
@@ -76,6 +132,13 @@ export function matchesStyleValue(style: SharedStyle | undefined, property: stri
   const raw = style.props[property];
   if (raw === undefined) {
     return false;
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(JSON.parse(raw)) === JSON.stringify(value);
+    } catch {
+      return false;
+    }
   }
   return String(value) === raw.trim();
 }
@@ -180,52 +243,42 @@ const PRIMARY_COLOR_PROPERTY: Record<string, string> = {
 };
 
 /**
- * 样式落到某种组件上的实际属性（处理主色别名）。
+ * 样式落到某种组件上的实际属性：处理主色别名，去掉该组件不接收的宽高。
  * 解析展开、序列化比较、预览展开、设计器套用都要用它，否则同一条样式在几处的理解不一致。
  */
 export function resolveSharedStyle(style: SharedStyle | undefined, componentType: string): SharedStyle | undefined {
-  const target = PRIMARY_COLOR_PROPERTY[componentType];
-  if (!style || !target || style.props.color === undefined || style.props[target] !== undefined) {
+  if (!style) {
     return style;
   }
-  const { color, ...rest } = style.props;
-  return { ...style, props: { ...rest, [target]: color } };
+  let props = style.props;
+  const target = PRIMARY_COLOR_PROPERTY[componentType];
+  if (target && props.color !== undefined && props[target] === undefined) {
+    const { color, ...rest } = props;
+    props = { ...rest, [target]: color };
+  }
+  if (!acceptsSharedSize(componentType) && SHARED_STYLE_SIZE_PROPERTIES.some(property => property in props)) {
+    props = Object.fromEntries(Object.entries(props).filter(([property]) => !POSITION_BUCKET.has(property)));
+  }
+  return props === style.props ? style : { ...style, props };
 }
 
 /**
- * 把共享样式合并进一个组件的 style / data。
+ * 把共享样式合并进一个标签的属性（HML 解析前一步）。
  *
- * 规则：样式打底，组件自身已有属性覆盖样式（局部微调优先）。
- * 属性落在 style 还是 data 由调用方的 resolveBucket 决定——HML 解析后每类组件的
- * 两种存储位置不同（例如 fontSize 在 hg_label.data，borderRadius 在 style），
- * 因此这里不猜，交给调用方按现有归类规则判断。
+ * 规则：样式打底，标签上已有的属性覆盖样式（局部微调优先）。合并成属性再走解析器原有的
+ * 归类与类型转换，样式给的值与手写在标签上的值得到完全相同的类型和存放位置。
  *
- * @returns 新对象；未引用样式或样式不存在时返回原对象（便于调用方跳过写回）
+ * @returns 新对象；样式为空时返回原对象
  */
-export function mergeSharedStyle<T extends { style?: Record<string, any>; data?: Record<string, any> }>(
-  component: T,
-  style: SharedStyle | undefined,
-  resolveBucket: (property: string) => 'style' | 'data',
-): T {
+export function mergeSharedStyleAttributes<T extends Record<string, any>>(attributes: T, style: SharedStyle | undefined): T {
   if (!style || Object.keys(style.props).length === 0) {
-    return component;
+    return attributes;
   }
-
-  const styleOut = { ...(component.style ?? {}) };
-  const dataOut = { ...(component.data ?? {}) };
-  let merged = false;
-
+  const merged: Record<string, any> = { ...attributes };
   for (const [property, raw] of Object.entries(style.props)) {
-    const bucket = resolveBucket(property) === 'style' ? styleOut : dataOut;
-    if (bucket[property] !== undefined && bucket[property] !== '') {
-      continue; // 组件自身属性优先
+    if (merged[property] === undefined || merged[property] === '') {
+      merged[property] = raw;
     }
-    bucket[property] = raw;
-    merged = true;
   }
-
-  if (!merged) {
-    return component;
-  }
-  return { ...component, style: styleOut, data: dataOut } as T;
+  return merged as T;
 }

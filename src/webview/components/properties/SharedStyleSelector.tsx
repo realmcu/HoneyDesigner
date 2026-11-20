@@ -3,12 +3,15 @@
  *
  * 只做两件事：给组件选一条 styles.json 里的样式，以及把当前组件的样式属性保存成一条新样式。
  * 属性值本身仍由各属性面板编辑：解析时样式已经展开进组件，编辑结果就是覆盖值。
+ * 多选时套用样式会作用到所有选中的组件，一排同样的卡片选中后一次套上。
  */
 import React, { useState } from 'react';
 import { Palette, Plus } from 'lucide-react';
 import { useDesignerStore } from '../../store';
 import { t } from '../../i18n';
 import {
+  matchesStyleValue,
+  parseSharedStyleValue,
   readComponentStyleValue,
   resolveSharedStyle,
   sharedStyleBucket,
@@ -42,12 +45,75 @@ export function inheritedStyleProperties(
     return [];
   }
   return Object.keys(style.props).filter(
-    (property) => String(readComponentStyleValue(component, property) ?? '') === style.props[property],
+    (property) => matchesStyleValue(style, property, readComponentStyleValue(component, property)),
   );
 }
 
+/**
+ * 把组件的样式引用从当前样式换成 nextId（空串表示清空），返回要写入的改动。
+ *
+ * 清空时把仍等于旧样式值的属性一并去掉，否则组件会保留一份「看不见来源」的样式；
+ * 改过的属性属于组件自己的覆盖值，保留。宽高不去掉：组件总要有尺寸，保持当前大小。
+ *
+ * 选中样式就是把样式「套用」到组件：样式里的值按 HML 解析规则转换类型后直接写进组件，
+ * 覆盖原有的同名属性。只挂引用不改值的话，组件原有的属性会把样式顶掉，用户看不到变化。
+ */
+function styleSwitchUpdates(component: Component, styles: SharedStyle[], nextId: string): Partial<Component> {
+  const supported = new Set(shareablePropertiesFor(component.type).map((property) => property.name));
+  const previous = resolveSharedStyle(styles.find((item) => item.id === component.styleName), component.type);
+  const next = resolveSharedStyle(styles.find((item) => item.id === nextId), component.type);
+  const style: Record<string, unknown> = { ...(component.style ?? {}) };
+  const data: Record<string, unknown> = { ...(component.data ?? {}) };
+  const position = { ...component.position };
+  const bucketOf = (property: string): Record<string, unknown> =>
+    sharedStyleBucket(property) === 'data' ? data : style;
+
+  if (previous) {
+    for (const property of Object.keys(previous.props)) {
+      if (sharedStyleBucket(property) === 'position') {
+        continue;
+      }
+      const bucket = bucketOf(property);
+      if (matchesStyleValue(previous, property, bucket[property])) {
+        delete bucket[property];
+      }
+    }
+  }
+
+  if (next) {
+    for (const [property, raw] of Object.entries(next.props)) {
+      if (!supported.has(property)) {
+        continue;
+      }
+      const value = parseSharedStyleValue(component.type, property, raw);
+      if (value === undefined) {
+        continue;
+      }
+      if (sharedStyleBucket(property) === 'position') {
+        (position as Record<string, unknown>)[property] = value;
+      } else {
+        bucketOf(property)[property] = value;
+      }
+    }
+  }
+
+  return {
+    styleName: nextId || undefined,
+    style,
+    data: data as Component['data'],
+    position,
+  };
+}
+
 export const SharedStyleSelector: React.FC<SharedStyleSelectorProps> = ({ component, onUpdate }) => {
-  const { sharedStyles, saveSharedStyles, setSharedStylesManagerOpen } = useDesignerStore();
+  const {
+    sharedStyles,
+    saveSharedStyles,
+    setSharedStylesManagerOpen,
+    selectedComponents,
+    components,
+    updateComponent,
+  } = useDesignerStore();
   const [isSaving, setIsSaving] = useState(false);
   const [newName, setNewName] = useState('');
   const [error, setError] = useState('');
@@ -56,49 +122,33 @@ export const SharedStyleSelector: React.FC<SharedStyleSelectorProps> = ({ compon
   // 先按组件类型解析主色别名（矩形/圆形上 color 即 fillColor），再判断支持与否。
   const supported = new Set(shareablePropertiesFor(component.type).map((property) => property.name));
   const resolve = (style: SharedStyle | undefined) => resolveSharedStyle(style, component.type);
+  // 主色别名是一换一；本组件不接收的宽高在 resolve 时已去掉，同样算作忽略
   const ignoredCount = (style: SharedStyle) =>
-    Object.keys(resolve(style)!.props).filter((property) => !supported.has(property)).length;
+    Object.keys(style.props).length
+    - Object.keys(resolve(style)!.props).filter((property) => supported.has(property)).length;
   // 样式里一个本组件能用的属性都没有时，选了也不会有任何变化，不让选
   const isUsable = (style: SharedStyle) =>
     Object.keys(style.props).length === 0 || ignoredCount(style) < Object.keys(style.props).length;
+
+  // 多选时作用到所有选中的组件；当前组件不在多选里时只改它自己
+  const targets = selectedComponents.length > 1 && selectedComponents.includes(component.id)
+    ? components.filter((item) => selectedComponents.includes(item.id))
+    : [component];
 
   const current = sharedStyles.styles.find((item) => item.id === component.styleName);
   const inheritedCount = current ? inheritedStyleProperties(component, sharedStyles.styles).length : 0;
   const currentIgnored = current ? ignoredCount(current) : 0;
 
   const handleSelect = (value: string) => {
-    // 清空引用时把已展开的样式属性一并去掉，否则组件会保留一份「看不见来源」的样式。
-    // 只在属性值仍等于样式值时删除：改过的属性属于组件自己的覆盖值。
-    const previous = resolve(sharedStyles.styles.find((item) => item.id === component.styleName));
-    const style = { ...(component.style ?? {}) };
-    const data = { ...(component.data ?? {}) };
-    const updates: Partial<Component> = { styleName: value || undefined };
-
-    if (previous) {
-      for (const property of Object.keys(previous.props)) {
-        const bucket = property in data ? data : style;
-        if (String(bucket[property] ?? '') === previous.props[property]) {
-          delete bucket[property];
-        }
-      }
+    if (targets.length === 1) {
+      onUpdate(styleSwitchUpdates(component, sharedStyles.styles, value));
+      return;
     }
-
-    // 选中样式就是把样式「套用」到组件：样式里的值直接写进组件，覆盖标签上原有的同名属性。
-    // 解析时本来的规则是「组件属性优先」，若只挂引用不改值，组件上原有的 color 会把样式顶掉，
-    // 用户看不到任何变化。清空选择时不写，保持组件当前外观。
-    const next = resolve(sharedStyles.styles.find((item) => item.id === value));
-    if (next) {
-      for (const [property, propertyValue] of Object.entries(next.props)) {
-        if (!supported.has(property)) {
-          continue;
-        }
-        (sharedStyleBucket(property) === 'data' ? data : style)[property] = propertyValue;
-      }
-    }
-
-    updates.style = style;
-    updates.data = data as Component['data'];
-    onUpdate(updates);
+    targets.forEach((target, index) => {
+      updateComponent(target.id, styleSwitchUpdates(target, sharedStyles.styles, value), {
+        save: index === targets.length - 1,
+      });
+    });
   };
 
   // 字体类属性落在 data、其余在 style，切换组件类型后归属可能改变。归属不对时这些值会被
@@ -111,14 +161,19 @@ export const SharedStyleSelector: React.FC<SharedStyleSelectorProps> = ({ compon
     const nextStyle: Record<string, unknown> = { ...(component.style ?? {}) };
     const nextData: Record<string, unknown> = { ...(component.data ?? {}) };
     let moved = false;
-    for (const [property, value] of Object.entries(style.props)) {
-      const toData = sharedStyleBucket(property) === 'data';
+    for (const property of Object.keys(style.props)) {
+      const bucket = sharedStyleBucket(property);
+      if (bucket === 'position') {
+        continue;
+      }
+      const toData = bucket === 'data';
       const target = toData ? nextData : nextStyle;
       const source = toData ? nextStyle : nextData;
       if (target[property] !== undefined) {
         continue; // 已在新位置（或是组件自己的覆盖值）
       }
-      if (String(source[property] ?? '') !== value) {
+      const value = source[property];
+      if (!matchesStyleValue(style, property, value)) {
         continue; // 原位置不是样式给的值
       }
       delete source[property];
@@ -142,20 +197,27 @@ export const SharedStyleSelector: React.FC<SharedStyleSelectorProps> = ({ compon
       return;
     }
 
-    // 用组件当前的样式属性建立样式（只取本组件支持的）
+    // 用组件当前的样式属性和宽高建立样式（只取本组件支持的）
     const props: Record<string, string> = {};
     for (const property of supported) {
       const value = readComponentStyleValue(component, property);
       if (value !== undefined && value !== null && value !== '') {
-        props[property] = String(value);
+        props[property] = typeof value === 'object' ? JSON.stringify(value) : String(value);
       }
     }
 
-    saveSharedStyles(
-      { ...sharedStyles, styles: [...sharedStyles.styles, { id, name, props }] },
-      { immediate: true },
-    );
-    onUpdate({ styleName: id });
+    const library = { ...sharedStyles, styles: [...sharedStyles.styles, { id, name, props }] };
+    saveSharedStyles(library, { immediate: true });
+    if (targets.length === 1) {
+      onUpdate({ styleName: id });
+    } else {
+      // 多选时以当前组件为样板，其余选中的组件一起套上
+      targets.forEach((target, index) => {
+        updateComponent(target.id, styleSwitchUpdates(target, library.styles, id), {
+          save: index === targets.length - 1,
+        });
+      });
+    }
     setIsSaving(false);
     setNewName('');
     setError('');

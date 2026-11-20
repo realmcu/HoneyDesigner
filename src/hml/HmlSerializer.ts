@@ -3,6 +3,8 @@ import * as path from 'path';
 import { Document as HmlDocument, Component, RawHmlChild } from './types';
 import { HmlParser } from './HmlParser';
 import { SharedStyleLibrary, findSharedStyle, matchesStyleValue, resolveSharedStyle } from '../shared/sharedStyles';
+import { loadSharedStyleLibrary } from '../shared/sharedStylesFile';
+import { ProjectUtils } from '../utils/ProjectUtils';
 
 /**
  * HML序列化器类
@@ -30,7 +32,10 @@ export class HmlSerializer {
             // 先保存所有 Canvas 的 SVG 文件
             this._saveCanvasSvgFiles(document, filePath);
 
-            const content = this.serialize(document, styleLibrary);
+            // 不传样式库时按目标文件所在工程读取：否则来自样式的属性（含宽高）会被固化进 HML
+            const content = this.serialize(
+                document,
+                styleLibrary ?? loadSharedStyleLibrary(ProjectUtils.findProjectRoot(filePath)).library);
 
             // 1) 生成临时路径
             const dir = path.dirname(filePath);
@@ -269,18 +274,23 @@ export class HmlSerializer {
             attributesStr += ' styleName="' + this._escapeXmlValue(component.styleName) + '"';
         }
 
-        // 序列化位置属性（position.x/y/width/height）
-        if (component.position) {
-            attributesStr += ' x="' + component.position.x + '"';
-            attributesStr += ' y="' + component.position.y + '"';
-            attributesStr += ' width="' + component.position.width + '"';
-            attributesStr += ' height="' + component.position.height + '"';
-        }
-
-        // 序列化样式属性（style对象）
         // 来自共享样式且未被组件覆盖的属性不写回：解析时它们是从 styles.json 展开的，
         // 写回会让 HML 里固化一份副本，之后改样式对这些组件不再生效。
         const sharedStyle = resolveSharedStyle(findSharedStyle(this.styleLibrary, component.styleName), component.type);
+
+        // 序列化位置属性（position.x/y/width/height）；宽高可能来自样式
+        if (component.position) {
+            attributesStr += ' x="' + component.position.x + '"';
+            attributesStr += ' y="' + component.position.y + '"';
+            if (!matchesStyleValue(sharedStyle, 'width', component.position.width)) {
+                attributesStr += ' width="' + component.position.width + '"';
+            }
+            if (!matchesStyleValue(sharedStyle, 'height', component.position.height)) {
+                attributesStr += ' height="' + component.position.height + '"';
+            }
+        }
+
+        // 序列化样式属性（style对象）
         if (component.style) {
             Object.keys(component.style).forEach(propName => {
                 const value = component.style![propName];
